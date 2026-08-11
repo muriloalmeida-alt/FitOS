@@ -49,6 +49,7 @@ function mapStandingRow(row) {
 }
 
 function mapFixture(fx) {
+  const venue = fx.fixture.venue;
   return {
     id: fx.fixture.id,
     date: fx.fixture.date,
@@ -58,6 +59,7 @@ function mapFixture(fx) {
     away: fx.teams.away.id,
     gh: fx.goals.home,
     ga: fx.goals.away,
+    venue: venue && venue.name ? { name: venue.name, city: venue.city || null } : null,
   };
 }
 
@@ -104,6 +106,45 @@ function mapEvents(response) {
     .sort((a, b) => a.min - b.min);
 }
 
+// response = mesmo array de /fixtures/events usado por mapEvents,
+// filtrando as trocas em vez dos gols. Na API-Sports, eventos do
+// tipo "subst" guardam quem SAIU em "player" e quem ENTROU em
+// "assist" (reaproveitamento desse campo, particularidade da API).
+function mapSubstitutions(response) {
+  return (response || [])
+    .filter(ev => (ev.type || "").toLowerCase() === "subst")
+    .map(ev => ({
+      team: ev.team.id,
+      min: ev.time.elapsed + (ev.time.extra || 0),
+      out: ev.player && ev.player.name ? ev.player.name : "Desconhecido",
+      in: ev.assist && ev.assist.name ? ev.assist.name : "Desconhecido",
+    }))
+    .sort((a, b) => a.min - b.min);
+}
+
+// response = array de /fixtures/lineups (até 2 blocos, um por time).
+// Vira um objeto indexado por id do time pra ficar fácil de buscar
+// startXI/reservas/formação/técnico de cada lado no front-end.
+function mapLineups(response) {
+  const out = {};
+  (response || []).forEach(block => {
+    const teamId = block.team && block.team.id;
+    if (!teamId) return;
+    const mapPlayer = (p) => ({
+      name: p.player?.name || "Desconhecido",
+      number: p.player?.number ?? null,
+      pos: p.player?.pos || null,
+    });
+    out[teamId] = {
+      formation: block.formation || null,
+      coach: block.coach?.name || null,
+      startXI: (block.startXI || []).map(mapPlayer),
+      substitutes: (block.substitutes || []).map(mapPlayer),
+    };
+  });
+  return out;
+}
+
 // response = array retornado por /players/topscorers, /topassists,
 // /topyellowcards ou /topredcards — cada item já traz o bloco de
 // estatísticas da temporada inteira pro time em que o jogador atuou
@@ -146,4 +187,4 @@ function mapOdds(response) {
   return { bookmaker: preferred.name, home: pick("Home"), draw: pick("Draw"), away: pick("Away") };
 }
 
-module.exports = { mapTeam, mapStandingRow, mapFixture, mapStatistics, mapEvents, mapOdds, mapPlayerEntry, parseRoundNumber };
+module.exports = { mapTeam, mapStandingRow, mapFixture, mapStatistics, mapEvents, mapSubstitutions, mapLineups, mapOdds, mapPlayerEntry, parseRoundNumber };

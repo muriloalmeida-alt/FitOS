@@ -72,11 +72,11 @@ async function tryLoadLiveData(season = LIVE_SEASON) {
       if (!fx.round) return;
       maxRound = Math.max(maxRound, fx.round);
       allRounds[fx.round] = allRounds[fx.round] || [];
-      allRounds[fx.round].push({ home: fx.home, away: fx.away, fixtureId: fx.id, date: fx.date });
+      allRounds[fx.round].push({ home: fx.home, away: fx.away, fixtureId: fx.id, date: fx.date, venue: fx.venue });
       if (["FT", "AET", "PEN"].includes(fx.status)) {
         results[`${fx.round}_${fx.home}_${fx.away}`] = {
           home: fx.home, away: fx.away, gh: fx.gh, ga: fx.ga, round: fx.round,
-          fixtureId: fx.id, official: true,
+          fixtureId: fx.id, official: true, venue: fx.venue,
         };
       }
     });
@@ -92,15 +92,33 @@ async function tryLoadLiveData(season = LIVE_SEASON) {
   }
 }
 
-// Busca estatísticas + gols de UM jogo específico (lazy — só quando o
-// usuário efetivamente abre aquela rodada/partida na aba "Jogos").
+// Escalação (titulares + banco + formação + técnico) de UM jogo —
+// compartilhada entre o card de jogo encerrado (escalação que jogou)
+// e o de jogo futuro (escalação já publicada, quando existir). Lazy
+// e cacheada: só busca quando o card é expandido, e só uma vez.
+const fixtureLineupsCache = new Map();
+async function loadFixtureLineups(fixtureId) {
+  if (fixtureLineupsCache.has(fixtureId)) return fixtureLineupsCache.get(fixtureId);
+  const promise = safeFetchJSON(`/api/fixtures/${fixtureId}/lineups`).then(r => r.lineups || {}).catch(() => ({}));
+  fixtureLineupsCache.set(fixtureId, promise);
+  return promise;
+}
+
+// Busca estatísticas + gols + substituições + escalação de UM jogo já
+// encerrado — lazy, só quando o usuário expande aquele card em "Jogos".
 const fixtureDetailCache = new Map();
 async function loadFixtureDetails(fixtureId, homeId, awayId) {
   if (fixtureDetailCache.has(fixtureId)) return fixtureDetailCache.get(fixtureId);
   const promise = Promise.all([
     safeFetchJSON(`/api/fixtures/${fixtureId}/statistics?home=${homeId}&away=${awayId}`),
     safeFetchJSON(`/api/fixtures/${fixtureId}/events`),
-  ]).then(([statsRes, eventsRes]) => ({ stats: statsRes.stats, goals: eventsRes.goals }));
+    loadFixtureLineups(fixtureId),
+  ]).then(([statsRes, eventsRes, lineups]) => ({
+    stats: statsRes.stats,
+    goals: eventsRes.goals,
+    substitutions: eventsRes.substitutions,
+    lineups,
+  }));
   fixtureDetailCache.set(fixtureId, promise);
   return promise;
 }

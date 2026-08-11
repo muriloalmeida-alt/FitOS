@@ -86,8 +86,14 @@ function getRoundMatches(round) {
   return getRoundFixtures(round).map(fx => {
     const k = keyFor(round, fx.home, fx.away);
     if (MATCH_RESULTS[k]) return MATCH_RESULTS[k];
-    return { home: fx.home, away: fx.away, round, fixtureId: fx.fixtureId, date: fx.date, pending: true };
+    return { home: fx.home, away: fx.away, round, fixtureId: fx.fixtureId, date: fx.date, venue: fx.venue, pending: true };
   });
+}
+// Local do jogo: usa o venue vindo da API-Sports quando disponível;
+// senão cai no estádio-sede do time mandante (funciona em modo demo,
+// onde DEMO_TEAMS já tem o estádio real de cada clube).
+function venueFor(m) {
+  return m.venue || TEAM_MAP[m.home]?.venue || null;
 }
 function allDecidedMatches() { return Object.values(MATCH_RESULTS); }
 
@@ -518,51 +524,137 @@ function statBarRow(label, a, b, unit = "") {
     <div class="name">${label}</div>
   </div>`;
 }
-function matchDetailsHTML(m) {
+/* ---------- Escalação / substituições (compartilhado entre jogo
+   encerrado e jogo futuro) ---------- */
+function lineupPlayerLine(p) {
+  return `<div class="lineup-player"><span class="lp-num">${p.number ?? "-"}</span><span class="lp-name">${p.name}</span><span class="lp-pos">${p.pos || ""}</span></div>`;
+}
+function lineupSideHTML(team, lineup) {
+  if (!lineup || !lineup.startXI || !lineup.startXI.length) {
+    return `<div class="lineup-side"><div class="lineup-head">${crestEl(team, 20)}<b>${team.short}</b></div><div class="empty" style="padding:8px 0;">Escalação ainda não divulgada.</div></div>`;
+  }
+  return `
+    <div class="lineup-side">
+      <div class="lineup-head">${crestEl(team, 20)}<b>${team.short}</b>${lineup.formation ? `<span class="lineup-formation">${lineup.formation}</span>` : ""}</div>
+      ${lineup.coach ? `<div class="lineup-coach">Técnico: ${lineup.coach}</div>` : ""}
+      <div class="lineup-list">${lineup.startXI.map(lineupPlayerLine).join("")}</div>
+      ${lineup.substitutes && lineup.substitutes.length ? `<div class="lineup-subtitle">Banco</div><div class="lineup-list lineup-subs">${lineup.substitutes.map(lineupPlayerLine).join("")}</div>` : ""}
+    </div>`;
+}
+function lineupsBlockHTML(H, A, lineups) {
+  const homeLineup = lineups && lineups[H.id];
+  const awayLineup = lineups && lineups[A.id];
+  return `<div class="lineups-grid">${lineupSideHTML(H, homeLineup)}${lineupSideHTML(A, awayLineup)}</div>`;
+}
+function substitutionsHTML(subs) {
+  if (!subs || !subs.length) return "";
+  return `
+    <div class="detail-subtitle">Substituições</div>
+    <div class="subs-list">${subs.map(s => {
+      const team = TEAM_MAP[s.team];
+      return `<div class="sub-line"><b>${s.min}'</b> ${team ? team.short : ""} — <span class="sub-out">↓ ${s.out}</span> <span class="sub-in">↑ ${s.in}</span></div>`;
+    }).join("")}</div>`;
+}
+function venueLineHTML(m) {
+  const venue = venueFor(m);
+  if (!venue) return "";
+  return `<div class="venue-line">📍 ${venue.name}${venue.city ? " · " + venue.city : ""}</div>`;
+}
+function watchTvHTML() {
+  return `<div class="tv-line">📺 Confira a emissora responsável pela transmissão no guia de programação da sua TV/streaming.</div>`;
+}
+function demoSeedFor(m) { return keyFor(m.round, m.home, m.away); }
+function ensureDemoLineups(m) {
+  if (!m.lineups) m.lineups = buildDemoLineups(demoSeedFor(m), m.home, m.away);
+  return m.lineups;
+}
+
+/* ---------- Corpo expandido: jogo já encerrado ---------- */
+function decidedMatchDetailHTML(m, domId) {
+  const needsLazyLoad = LIVE_MODE && m.fixtureId && !m.stats;
+  if (needsLazyLoad) {
+    loadFixtureDetails(m.fixtureId, m.home, m.away).then(det => {
+      m.stats = det.stats; m.goals = det.goals; m.substitutions = det.substitutions; m.lineups = det.lineups;
+      const el = document.getElementById(domId); if (el) el.outerHTML = fullMatchCardHTML(m);
+    }).catch(() => {});
+    return `<div class="empty">Carregando detalhes da partida...</div>`;
+  }
+  if (!m.stats) return `<div class="empty">Estatísticas não disponíveis para este jogo.</div>`;
+  if (!LIVE_MODE) ensureDemoLineups(m);
+  if (!LIVE_MODE && !m.substitutions) m.substitutions = buildDemoSubstitutions(demoSeedFor(m), m.home, m.away, m.lineups);
+
+  const H = TEAM_MAP[m.home], A = TEAM_MAP[m.away];
   const goals = m.goals || [];
   const goalsHTML = goals.length ? `
     <div class="goals-list">${goals.map(g => `<div class="goal-line"><b>${g.min}'</b> ⚽ ${TEAM_MAP[g.team].short} · ${g.player || ("Camisa " + g.camisa)}</div>`).join("")}</div>`
     : `<div class="goals-list"><div class="goal-line">Sem gols na partida.</div></div>`;
   const s = m.stats;
-  return `${goalsHTML}
-    <div style="margin-top:14px;">
+  return `
+    <div class="detail-subtitle">Gols</div>
+    ${goalsHTML}
+    ${substitutionsHTML(m.substitutions)}
+    <div class="detail-subtitle">Escalações</div>
+    ${lineupsBlockHTML(H, A, m.lineups)}
+    <div class="detail-subtitle">Estatísticas gerais</div>
+    <div>
       ${statBarRow("Posse de bola", s.posse[0], s.posse[1], "%")}
       ${statBarRow("Finalizações", s.finalizacoes[0], s.finalizacoes[1])}
       ${statBarRow("Escanteios", s.escanteios[0], s.escanteios[1])}
       ${statBarRow("Cartões amarelos", s.amarelos[0], s.amarelos[1])}
-    </div>`;
+    </div>
+    ${watchLink(H, A, m.gh, m.ga)}`;
 }
+
+/* ---------- Corpo expandido: jogo futuro ---------- */
+function pendingMatchDetailHTML(m, domId) {
+  const H = TEAM_MAP[m.home], A = TEAM_MAP[m.away];
+  if (!LIVE_MODE) ensureDemoLineups(m);
+  const needsLazyLoad = LIVE_MODE && m.fixtureId && m.lineups === undefined;
+  if (needsLazyLoad) {
+    loadFixtureLineups(m.fixtureId).then(lineups => {
+      m.lineups = lineups; const el = document.getElementById(domId); if (el) el.outerHTML = fullMatchCardHTML(m);
+    }).catch(() => { m.lineups = {}; });
+  }
+  return `
+    ${oddsInnerHTML(m)}
+    <div class="detail-subtitle">Escalação provável</div>
+    ${m.lineups === undefined ? `<div class="empty">Carregando escalação...</div>` : lineupsBlockHTML(H, A, m.lineups)}
+    <div class="detail-subtitle">Onde e quando</div>
+    <div class="venue-line">🗓️ ${fmtFixtureDate(m.date, m.round)}</div>
+    ${venueLineHTML(m)}
+    ${watchTvHTML()}`;
+}
+
 function fullMatchCardHTML(m) {
   const H = TEAM_MAP[m.home], A = TEAM_MAP[m.away];
-  if (m.pending) {
-    return `
-    <div class="match-card">
-      <div class="match-teams">
-        <div class="match-team">${crestEl(H, 40)}<span class="tname">${H.name}</span></div>
-        <div class="match-score"><span class="dash">vs</span></div>
-        <div class="match-team">${crestEl(A, 40)}<span class="tname">${A.name}</span></div>
-      </div>
-      <div class="match-meta"><span class="pending-tag">${fmtFixtureDate(m.date, m.round)}</span></div>
-      <div style="margin-top:14px; padding-top:14px; border-top:1px solid var(--border);">${oddsInnerHTML(m)}</div>
-    </div>`;
-  }
   const domId = `match-${m.round}-${m.home}-${m.away}`;
-  const needsLazyLoad = LIVE_MODE && m.fixtureId && !m.stats;
-  const body = m.stats ? matchDetailsHTML(m) : needsLazyLoad ? `<div class="empty">Carregando estatísticas...</div>` : `<div class="empty">Estatísticas não disponíveis para este jogo.</div>`;
-  if (needsLazyLoad) {
-    loadFixtureDetails(m.fixtureId, m.home, m.away).then(det => { m.stats = det.stats; m.goals = det.goals; const el = document.getElementById(domId); if (el) el.outerHTML = fullMatchCardHTML(m); }).catch(() => {});
-  }
+  MATCH_REGISTRY[domId] = m;
+  const scoreHTML = m.pending ? `<span class="dash">vs</span>` : `${m.gh} <span class="dash">×</span> ${m.ga}`;
+  const metaHTML = m.pending
+    ? `<span class="pending-tag">${fmtFixtureDate(m.date, m.round)}</span>`
+    : `Rodada ${m.round} ${m.simulated ? "· simulado" : "· encerrado"}`;
+  // Só monta (e só dispara os fetches lazy de dentro de pending/decidedMatchDetailHTML)
+  // quando o card está de fato expandido — fechado, nem consulta a API nem gasta cota.
+  const detailHTML = !m.expanded ? "" : (m.pending ? pendingMatchDetailHTML(m, domId) : decidedMatchDetailHTML(m, domId));
   return `
     <div class="match-card" id="${domId}">
       <div class="match-teams">
         <div class="match-team">${crestEl(H, 40)}<span class="tname">${H.name}</span></div>
-        <div class="match-score">${m.gh} <span class="dash">×</span> ${m.ga}</div>
+        <div class="match-score">${scoreHTML}</div>
         <div class="match-team">${crestEl(A, 40)}<span class="tname">${A.name}</span></div>
       </div>
-      <div class="match-meta">Rodada ${m.round} ${m.simulated ? "· simulado" : "· encerrado"}</div>
-      ${body}
-      ${watchLink(H, A, m.gh, m.ga)}
+      <div class="match-meta">${metaHTML}</div>
+      <button class="match-toggle" onclick="toggleMatchExpand('${domId}')">${m.expanded ? "Ocultar detalhes ▴" : "Ver detalhes ▾"}</button>
+      <div class="match-detail" style="display:${m.expanded ? "block" : "none"};">${detailHTML}</div>
     </div>`;
+}
+const MATCH_REGISTRY = {};
+function toggleMatchExpand(domId) {
+  const m = MATCH_REGISTRY[domId];
+  if (!m) return;
+  m.expanded = !m.expanded;
+  const el = document.getElementById(domId);
+  if (el) el.outerHTML = fullMatchCardHTML(m);
 }
 function renderJogos() {
   document.getElementById("roundLabel").textContent = `Rodada ${state.jogosRound}`;

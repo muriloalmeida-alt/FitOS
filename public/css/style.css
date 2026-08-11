@@ -365,7 +365,46 @@ h1,h2,h3{ margin:0; }
 .match-score .dash{ color:var(--text-2); font-size:14px; font-weight:500; }
 .match-meta{ text-align:center; margin-top:8px; font-size:10.5px; color:var(--text-2); }
 .pending-tag{ display:inline-block; margin-top:4px; font-size:10px; padding:3px 9px; border-radius:100px; background:rgba(47,128,237,.1); color:var(--brd-info); }
-.goals-list{ margin-top:12px; padding-top:12px; border-top:1px solid var(--border); font-size:12px; }
+
+/* Botão "Ver detalhes" — card fechado por padrão, só carrega/mostra
+   escalação, gols, estatísticas etc. quando o usuário expande. */
+.match-toggle{
+  display:block; width:100%; margin-top:12px; padding:8px; border-radius:9px;
+  border:1px solid var(--border); background:var(--bg-app); color:var(--text-1);
+  font-family:inherit; font-size:11.5px; font-weight:700; cursor:pointer; text-align:center;
+}
+.match-toggle:hover{ background:var(--border); }
+.match-detail{ margin-top:14px; padding-top:14px; border-top:1px solid var(--border); }
+.detail-subtitle{ font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:var(--text-2); margin:14px 0 6px; }
+.detail-subtitle:first-child{ margin-top:0; }
+
+/* Escalações */
+.lineups-grid{ display:grid; grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); gap:16px; }
+@media (max-width:480px){ .lineups-grid{ grid-template-columns:minmax(0, 1fr); } }
+.lineup-side{ min-width:0; }
+.lineup-head{ display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+.lineup-head b{ font-size:12px; }
+.lineup-formation{ margin-left:auto; font-size:10px; color:var(--text-2); font-weight:600; }
+.lineup-coach{ font-size:10.5px; color:var(--text-2); margin-bottom:8px; }
+.lineup-subtitle{ font-size:9.5px; text-transform:uppercase; letter-spacing:.4px; color:var(--text-2); margin:10px 0 4px; }
+.lineup-list{ display:flex; flex-direction:column; gap:2px; }
+.lineup-player{ display:flex; align-items:center; gap:8px; font-size:11.5px; color:var(--text-1); padding:3px 0; }
+.lineup-player .lp-num{ flex-shrink:0; width:20px; height:20px; border-radius:50%; background:var(--bg-app); border:1px solid var(--border); display:flex; align-items:center; justify-content:center; font-size:9.5px; font-weight:700; color:var(--text-2); }
+.lineup-player .lp-name{ flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.lineup-player .lp-pos{ flex-shrink:0; font-size:9.5px; color:var(--text-2); }
+.lineup-subs .lineup-player{ opacity:.75; }
+
+/* Substituições */
+.subs-list{ font-size:11.5px; }
+.sub-line{ padding:4px 0; color:var(--text-1); }
+.sub-line b{ color:var(--text-0); display:inline-block; width:34px; }
+.sub-out{ color:var(--brd-red); }
+.sub-in{ color:var(--brd-positive); }
+
+/* Onde e quando (jogo futuro) */
+.venue-line, .tv-line{ font-size:11.5px; color:var(--text-1); padding:4px 0; }
+
+.goals-list{ margin-top:0; font-size:12px; }
 .goal-line{ display:flex; align-items:center; gap:8px; padding:4px 0; color:var(--text-1); }
 .goal-line b{ color:var(--text-0); width:34px; }
 .stat-bar-row{ margin-bottom:12px; }

@@ -18,7 +18,7 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const { apiSportsGet, getQuota } = require("./src/apiSports");
-const { mapTeam, mapStandingRow, mapFixture, mapStatistics, mapEvents, mapOdds, mapPlayerEntry } = require("./src/adapter");
+const { mapTeam, mapStandingRow, mapFixture, mapStatistics, mapEvents, mapSubstitutions, mapLineups, mapOdds, mapPlayerEntry } = require("./src/adapter");
 const cache = require("./src/cache");
 const oddsHistory = require("./src/oddsHistory");
 
@@ -33,6 +33,7 @@ const TTL = {
   standings: 15 * 60 * 1000,       // 15min
   fixtures: 15 * 60 * 1000,        // 15min
   fixtureDetail: 7 * 24 * 60 * 60 * 1000, // 7 dias — jogo encerrado não muda mais
+  lineups: 15 * 60 * 1000,          // 15min — escalação pode ser publicada/ajustada perto do jogo
   odds: 10 * 60 * 1000,             // 10min — odds pré-jogo mudam com frequência
   leagueSearch: 24 * 60 * 60 * 1000,
   playersLeaders: 6 * 60 * 60 * 1000, // 6h — rankings de jogadores não mudam durante o dia
@@ -194,10 +195,22 @@ const server = http.createServer(async (req, res) => {
     const eventsMatch = pathname.match(/^\/api\/fixtures\/(\d+)\/events$/);
     if (eventsMatch) {
       const fixtureId = eventsMatch[1];
+      // Gols e substituições vêm do mesmo endpoint (/fixtures/events)
+      // — só filtram tipos diferentes do mesmo payload, então uma
+      // chamada só já serve os dois.
       const data = await withCache(`fxevents:${fixtureId}`, TTL.fixtureDetail, () =>
         apiSportsGet("/fixtures/events", { fixture: fixtureId })
       );
-      return sendJSON(res, 200, { goals: mapEvents(data) });
+      return sendJSON(res, 200, { goals: mapEvents(data), substitutions: mapSubstitutions(data) });
+    }
+
+    const lineupsMatch = pathname.match(/^\/api\/fixtures\/(\d+)\/lineups$/);
+    if (lineupsMatch) {
+      const fixtureId = lineupsMatch[1];
+      const data = await withCache(`fxlineups:${fixtureId}`, TTL.lineups, () =>
+        apiSportsGet("/fixtures/lineups", { fixture: fixtureId })
+      );
+      return sendJSON(res, 200, { lineups: mapLineups(data) });
     }
 
     const oddsMatch = pathname.match(/^\/api\/fixtures\/(\d+)\/odds$/);
