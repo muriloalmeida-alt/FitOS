@@ -1147,27 +1147,110 @@ async function resolveTeamRoster(teamId) {
   if (!LIVE_MODE) return DEMO_PLAYERS.filter(p => p.teamId === teamId);
   return loadTeamRoster(teamId);
 }
-function playerRosterCardHTML(p) {
-  const avatar = p.photo ? `<img src="${p.photo}" alt="">` : initialsOf(p.name);
+// Lista (não mais grade de cards): nome + posição + partidas
+// jogadas/gols/assistências, uma linha por jogador — mesmo padrão visual
+// das outras tabelas do app (.table-std).
+function playerRosterRowHTML(p) {
+  const avatar = p.photo ? `<img src="${escAttr(p.photo)}" alt="">` : initialsOf(p.name);
   return `
-  <div class="roster-card clickable-player" onclick="goToPlayer(${p.id})">
-    <div class="roster-avatar">${avatar}</div>
-    <div class="rname">${p.name}</div>
-    <div class="rmeta">${translatePosition(p.position)}</div>
-  </div>`;
+  <tr class="clickable-player" onclick="goToPlayer(${p.id})">
+    <td><div class="team-cell"><div class="roster-avatar-sm">${avatar}</div><div><div class="rname">${p.name}</div><div class="rmeta">${translatePosition(p.position)}</div></div></div></td>
+    <td class="num">${p.games ?? "—"}</td>
+    <td class="num">${p.goals ?? 0}</td>
+    <td class="num">${p.assists ?? 0}</td>
+  </tr>`;
 }
+const ROSTER_POSITION_ORDER = { Goalkeeper: 0, Defender: 1, Midfielder: 2, Attacker: 3 };
 async function renderTeamRoster(teamId) {
   const box = document.getElementById("teamPageRoster");
   const hint = document.getElementById("teamPageRosterHint");
   if (!box) return;
-  box.innerHTML = `<div class="empty" style="grid-column:1/-1; padding:8px 0;">Carregando elenco...</div>`;
+  box.innerHTML = `<tr><td colspan="4" class="empty">Carregando elenco...</td></tr>`;
   const roster = await resolveTeamRoster(teamId);
   if (state.selectedTeamId !== teamId) return; // usuário já trocou de time enquanto carregava
-  box.innerHTML = roster.length
-    ? roster.map(playerRosterCardHTML).join("")
-    : `<div class="empty" style="grid-column:1/-1; padding:8px 0;">Elenco não disponível.</div>`;
-  if (hint) hint.textContent = `${roster.length} jogador${roster.length === 1 ? "" : "es"} · ${LIVE_MODE ? "dados ao vivo" : "dados de exemplo"}`;
+  const sorted = [...roster].sort((a, b) =>
+    (ROSTER_POSITION_ORDER[a.position] ?? 9) - (ROSTER_POSITION_ORDER[b.position] ?? 9) || a.name.localeCompare(b.name)
+  );
+  box.innerHTML = sorted.length
+    ? sorted.map(playerRosterRowHTML).join("")
+    : `<tr><td colspan="4" class="empty">Elenco não disponível.</td></tr>`;
+  if (hint) hint.textContent = `${sorted.length} jogador${sorted.length === 1 ? "" : "es"} · ${LIVE_MODE ? "dados ao vivo" : "dados de exemplo"}`;
 }
+/* ---------- Escalação titular do último jogo, estilo "jogo de botão" ----------
+   Reaproveita a mesma escalação já usada no card expandido de "Jogos"
+   (buildDemoLineups no modo exemplo / loadFixtureLineups no modo ao vivo,
+   ambos com cache próprio) — aqui só desenha o time da própria página
+   nas linhas do campinho (goleiro embaixo, ataque em cima). */
+function lastNameOf(name) {
+  const parts = String(name || "").trim().split(/\s+/);
+  return parts[parts.length - 1] || name || "?";
+}
+function buttonPieceHTML(p, team) {
+  const nameHTML = p.id
+    ? `<span class="btn-name clickable-player" onclick="goToPlayer(${p.id})">${lastNameOf(p.name)}</span>`
+    : `<span class="btn-name">${lastNameOf(p.name)}</span>`;
+  return `
+  <div class="button-piece" title="${escAttr(p.name)}">
+    <div class="button-disc" style="background:linear-gradient(160deg, ${team.c1 || "#0057B8"}, ${team.c2 || "#062B5C"});">${p.number ?? "-"}</div>
+    ${nameHTML}
+  </div>`;
+}
+const BUTTON_POS_ORDER = ["G", "D", "M", "F"];
+function formationPitchHTML(team, lineup) {
+  if (!lineup || !lineup.startXI || !lineup.startXI.length) {
+    return `<div class="empty" style="padding:8px 0;">Escalação não disponível para o último jogo.</div>`;
+  }
+  const byPos = BUTTON_POS_ORDER.map(code => lineup.startXI.filter(p => (p.pos || "").toUpperCase() === code));
+  const placed = new Set(byPos.flat());
+  const others = lineup.startXI.filter(p => !placed.has(p));
+  const rows = [byPos[0], byPos[1], others.length ? others : null, byPos[2], byPos[3]].filter(r => r && r.length);
+  return `
+    <div class="formation-meta">
+      ${lineup.formation ? `<span class="lineup-formation">${lineup.formation}</span>` : ""}
+      ${lineup.coach ? `<span class="formation-coach">Técnico: ${lineup.coach}</span>` : ""}
+    </div>
+    <div class="button-pitch">
+      ${rows.map(row => `<div class="button-row">${row.map(p => buttonPieceHTML(p, team)).join("")}</div>`).join("")}
+    </div>`;
+}
+async function renderTeamLastLineup(teamId, lastMatch) {
+  const box = document.getElementById("teamPageLastLineup");
+  const hint = document.getElementById("teamPageLineupHint");
+  if (!box) return;
+  const team = TEAM_MAP[teamId];
+
+  if (!lastMatch) {
+    box.innerHTML = `<div class="empty">Sem jogos decididos ainda.</div>`;
+    if (hint) hint.textContent = "";
+    return;
+  }
+  const opp = TEAM_MAP[lastMatch.home === teamId ? lastMatch.away : lastMatch.home];
+  if (hint) hint.textContent = opp ? `${team.short} ${lastMatch.gh}×${lastMatch.ga} ${opp.short} · rodada ${lastMatch.round}` : "";
+
+  if (!LIVE_MODE) {
+    ensureDemoLineups(lastMatch); // mesma escalação fictícia já usada no card do jogo em "Jogos"
+    box.innerHTML = formationPitchHTML(team, lastMatch.lineups[teamId]);
+    return;
+  }
+  if (lastMatch.lineups) {
+    box.innerHTML = formationPitchHTML(team, lastMatch.lineups[teamId]);
+    return;
+  }
+  if (!lastMatch.fixtureId) {
+    box.innerHTML = `<div class="empty">Escalação não disponível para este jogo.</div>`;
+    return;
+  }
+  box.innerHTML = `<div class="empty">Carregando escalação...</div>`;
+  try {
+    const lineups = await loadFixtureLineups(lastMatch.fixtureId); // já cacheado por fixtureId em liveData.js
+    lastMatch.lineups = lineups;
+    if (state.selectedTeamId !== teamId) return; // usuário já trocou de time enquanto carregava
+    box.innerHTML = formationPitchHTML(team, lineups[teamId]);
+  } catch {
+    box.innerHTML = `<div class="empty">Não foi possível carregar a escalação.</div>`;
+  }
+}
+
 function renderTeamPage() {
   const teamId = state.selectedTeamId;
   const team = TEAM_MAP[teamId];
@@ -1203,6 +1286,7 @@ function renderTeamPage() {
 
   renderTeamCompare(teamId, standings);
   renderTeamRoster(teamId);
+  renderTeamLastLineup(teamId, last[0]);
 }
 // "Comparar com outro time" — time A é sempre o time da página atual;
 // só o time B (adversário) é escolhido no seletor.

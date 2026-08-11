@@ -168,6 +168,7 @@ function mapPlayerEntry(item) {
     photo: normalizeLogoUrl(p.photo),
     teamId: s.team?.id ?? null,
     position: s.games?.position || null,
+    games: s.games?.appearences || 0,
     goals: s.goals?.total || 0,
     assists: s.goals?.assists || 0,
     yellow: s.cards?.yellow || 0,

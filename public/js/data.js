@@ -85,6 +85,7 @@ function buildDemoPlayers(teams) {
         photo: null,
         teamId: team.id,
         position,
+        games: 12 + Math.floor(rng() * 8), // 12-19 jogos, coerente com o ponto da temporada mostrado no modo de exemplo
         goals: isGK ? 0 : Math.round(rng() * (isAttacker ? 22 : 8)),
         assists: isGK ? 0 : Math.round(rng() * (isAttacker ? 10 : 12)),
         yellow: Math.round(rng() * 9) + 1,
