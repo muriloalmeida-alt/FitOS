@@ -1,28 +1,35 @@
-# FitOS
+# Brasileirão 2026 — Simulador
 
-FitOS é uma aplicação web para acompanhamento de treinos, nutrição e progresso físico.
+Simulador do Campeonato Brasileiro Série A 2026: tabela, jogos,
+estatísticas e simulação de rodadas, com dados ao vivo opcionais via
+[API-Sports](https://www.api-football.com/).
 
-## Stack
+## Estrutura
 
-- [Next.js](https://nextjs.org) (App Router)
-- [React](https://react.dev)
-- [TypeScript](https://www.typescriptlang.org/)
-- [Tailwind CSS](https://tailwindcss.com)
-
-## Desenvolvimento
-
-Instale as dependências e rode o servidor de desenvolvimento:
-
-```bash
-npm install
-npm run dev
+```
+public/                → front-end (servido pelo backend)
+server/                → backend Node (proxy + cache da API-Sports)
+  ├── .env.example     → modelo das variáveis de ambiente
+  └── server.js
+deploy/                → arquivos de deploy (systemd, nginx)
+Dockerfile / docker-compose.yml → deploy via Docker + Caddy (HTTPS automático)
+README-INSTALACAO.md   → guia completo de instalação/deploy
+README-API-SPORTS.md   → detalhes da integração com a API-Sports
 ```
 
-Abra [http://localhost:3000](http://localhost:3000) no navegador para ver o resultado.
+## Rodando local
 
-## Scripts
+Requisito único: **Node.js 18+**. Sem dependências externas — o backend
+usa apenas módulos nativos do Node.
 
-- `npm run dev` — inicia o servidor de desenvolvimento
-- `npm run build` — gera o build de produção
-- `npm run start` — inicia o servidor de produção
-- `npm run lint` — roda o linter
+```bash
+cd server
+cp .env.example .env
+# edite .env e cole sua API_SPORTS_KEY (opcional — sem ela, roda em modo de exemplo)
+node server.js
+```
+
+Abra `http://localhost:8787`.
+
+Veja `README-INSTALACAO.md` para o passo a passo completo de deploy
+(VPS + systemd + Nginx, Docker, ou PaaS).

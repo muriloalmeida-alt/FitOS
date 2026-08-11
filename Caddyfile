@@ -1,0 +1,16 @@
+# Caddy cuida do HTTPS automaticamente (Let's Encrypt) — sem passos
+# manuais de certbot. Só troque o domínio abaixo pelo seu.
+#
+# IMPORTANTE: aponte o DNS do domínio (registro A) para o IP do seu
+# servidor ANTES de subir o Caddy, senão a emissão do certificado falha.
+
+seudominio.com.br {
+  reverse_proxy brasileirao:8787
+}
+
+# Se quiser testar sem domínio próprio ainda (ex: só pelo IP do servidor),
+# comente o bloco acima e descomente este (fica em HTTP, sem certificado):
+#
+# :80 {
+#   reverse_proxy brasileirao:8787
+# }

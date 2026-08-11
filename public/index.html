@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BRDATA · Brasileirão 2026</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ================= SIDEBAR ================= -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+      <div class="crown">👑</div>
+      <div><b>BRDATA</b><span>Estatísticas · Odds · Simulações</span></div>
+    </div>
+
+    <div class="side-label">Competições</div>
+    <button class="side-link active" data-page="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 6.9H22l-6 4.6L18.4 21 12 16.3 5.6 21 8 13.5l-6-4.6h7.6z"/></svg>Brasileirão</button>
+    <button class="side-link disabled" title="Em breve"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/></svg>Série B</button>
+    <button class="side-link disabled" title="Em breve"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4.5L18.5 21 12 16.5 5.5 21 7.5 13.5 2 9h7z"/></svg>Copa do Brasil</button>
+    <button class="side-link disabled" title="Em breve"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg>Libertadores</button>
+    <button class="side-link disabled" title="Em breve"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/></svg>Sul-Americana</button>
+    <button class="side-link disabled" title="Em breve"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3"/></svg>Estaduais</button>
+
+    <div class="side-label">Ferramentas</div>
+    <button class="side-link" data-page="simulador"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 21V14M4 10V3M12 21v-8M12 9V3M20 21v-5M20 12V3M1 14h6M9 9h6M17 12h6"/></svg>Simulador<span class="badge-new">NOVO</span></button>
+    <button class="side-link" data-page="estatisticas" data-scroll="comparativoCard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18M7 15l4-5 3 3 5-7"/></svg>Comparador de Times</button>
+    <button class="side-link" data-page="probabilidades"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h4"/></svg>Calculadora de Probabilidades</button>
+    <button class="side-link" data-page="favoritos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>Alertas e Favoritos</button>
+
+    <div class="side-label">Meus times</div>
+    <div id="myTeamsList"></div>
+    <button class="side-link" id="btnAddTeam" style="opacity:.75;">+ Adicionar time</button>
+
+    <div style="flex:1;"></div>
+
+    <div class="side-support">
+      <b>Apoie o BRDATA</b>
+      <p>Tenha acesso a recursos exclusivos e ajude o projeto a crescer.</p>
+      <button class="btn btn-accent full" id="btnPremium">★ Seja Premium</button>
+    </div>
+
+    <div class="theme-switch">
+      <span>Modo escuro</span>
+      <button class="switch" id="themeSwitch"></button>
+    </div>
+  </aside>
+
+  <!-- ================= MAIN ================= -->
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-brand mobile-only">
+        <div class="crown">👑</div><b>BR<span>DATA</span></b>
+      </div>
+      <button class="hamburger" id="btnHamburger">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+      </button>
+      <nav class="top-tabs">
+        <button class="top-tab active" data-page="dashboard">Dashboard</button>
+        <button class="top-tab" data-page="jogos">Jogos</button>
+        <button class="top-tab" data-page="tabela">Tabela</button>
+        <button class="top-tab" data-page="estatisticas">Estatísticas</button>
+        <button class="top-tab" data-page="odds">Odds</button>
+        <button class="top-tab" data-page="noticias">Notícias</button>
+      </nav>
+      <div class="top-actions" style="position:relative;">
+        <div class="top-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input type="text" id="teamSearch" placeholder="Buscar time...">
+        </div>
+        <div class="search-results" id="searchResults"></div>
+        <button class="icon-btn" title="Notificações (em breve)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
+          <span class="dot"></span>
+        </button>
+        <div class="avatar"><div class="circ">M</div><span>Murilo</span></div>
+      </div>
+    </header>
+
+    <main class="content">
+
+      <!-- ================= DASHBOARD ================= -->
+      <section class="page active" id="page-dashboard">
+        <div class="page-head">
+          <div><h1>BRASILEIRÃO 2026</h1><div class="sub" id="dashSub">Série A</div></div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span class="mode-pill" id="modePill">—</span>
+            <div class="select-pill" id="roundPill">Rodada —</div>
+          </div>
+        </div>
+
+        <div class="lider-hero mobile-only">
+          <div class="crest-wrap" id="liderCrest"></div>
+          <div>
+            <div class="lbl">Líder</div>
+            <div class="team" id="liderTeamName">—</div>
+            <div class="pts"><span id="liderPts">—</span> <small>PTS</small></div>
+          </div>
+        </div>
+
+        <div class="grid grid-kpi" style="margin-bottom:16px;">
+          <div class="card kpi kpi-hero desktop-only"><div class="ico yellow">🏆</div><div><div class="lbl">Líder</div><div class="val" id="kpiLeader">—</div></div></div>
+          <div class="card kpi"><div class="ico blue">📈</div><div><div class="lbl">Média de gols</div><div class="val" id="kpiGoalsAvg">—</div></div></div>
+          <div class="card kpi"><div class="ico green">⚡</div><div><div class="lbl">Posse média</div><div class="val" id="kpiPossAvg">—</div></div></div>
+          <div class="card kpi"><div class="ico navy">⚽</div><div><div class="lbl">Total de gols</div><div class="val" id="kpiGoalsTotal">—</div></div></div>
+          <div class="card kpi"><div class="ico blue">🏠</div><div><div class="lbl">% mandantes</div><div class="val" id="kpiHomeWin">—</div></div></div>
+        </div>
+
+        <div class="dash-layout">
+        <div class="dash-main">
+        <div class="grid grid-2" style="margin-bottom:16px;">
+          <div class="card">
+            <div class="card-head"><h3>Tabela de classificação</h3></div>
+            <table class="table-std"><thead><tr><th>#</th><th></th><th>Time</th><th class="num">P</th><th class="num">J</th><th class="num">V</th><th class="num">E</th><th class="num">D</th><th class="num only-desktop">GP</th><th class="num only-desktop">GC</th><th class="num only-desktop">SG</th><th class="num mobile-only-col">PTS</th></tr></thead>
+            <tbody id="dashStandings"></tbody></table>
+            <div class="card-link" data-page="tabela" style="margin-top:12px;">Ver tabela completa →</div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>Chance de título</h3></div>
+            <div id="dashTitleChance"></div>
+            <div class="card-link" data-page="probabilidades" style="margin-top:12px;">Ver todas as probabilidades →</div>
+          </div>
+        </div>
+
+        <div class="grid grid-3" style="margin-bottom:16px;">
+          <div class="card">
+            <div class="card-head"><h3>Forma recente</h3>
+              <select class="compare-select" style="flex:none; width:auto;" id="formaTeamSelect"></select>
+            </div>
+            <div id="formaRecenteBody"></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>Desempenho ofensivo</h3>
+              <select class="compare-select" style="flex:none; width:auto;" id="radarTeamSelect"></select>
+            </div>
+            <div class="radar-wrap" id="radarChart"></div>
+          </div>
+          <div class="card" id="comparativoCard">
+            <div class="card-head"><h3>Comparativo entre times</h3></div>
+            <div class="compare-head">
+              <select class="compare-select" id="compareTeamA"></select>
+              <span class="compare-vs">×</span>
+              <select class="compare-select" id="compareTeamB"></select>
+            </div>
+            <div id="compareBody"></div>
+          </div>
+        </div>
+
+        <div class="grid grid-3">
+          <div class="card">
+            <div class="card-head"><h3>Odds — próximo jogo</h3></div>
+            <div id="dashOddsBlock"></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>Movimentação de odds</h3>
+              <div class="range-tabs" id="oddsRangeTabs">
+                <button class="range-tab" data-range="24h">24H</button>
+                <button class="range-tab active" data-range="7d">7D</button>
+                <button class="range-tab" data-range="30d">30D</button>
+              </div>
+            </div>
+            <div id="oddsChart"></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>Simulador — E se...</h3></div>
+            <div class="whatif-team">
+              <span>Time:</span>
+              <select class="compare-select" id="whatifTeamSelect"></select>
+            </div>
+            <div class="stepper">
+              <button id="whatifMinus">−</button><b id="whatifN">5</b><span>jogos</span><button id="whatifPlus">+</button>
+            </div>
+            <div id="whatifResults"></div>
+            <div class="card-link" data-page="simulador" style="margin-top:12px;">Acessar simulador completo →</div>
+          </div>
+        </div>
+        </div>
+
+        <div class="dash-rail">
+          <div class="card">
+            <div class="card-head"><h3>Próximos jogos</h3><span class="card-link" data-page="jogos">Ver todos</span></div>
+            <div id="dashNextFixtures"></div>
+          </div>
+          <div class="card desktop-only">
+            <div class="card-head"><h3>Últimas notícias</h3><span class="card-link" data-page="noticias">Ver todas</span></div>
+            <div id="dashNewsMini"></div>
+          </div>
+          <div class="promo-card desktop-only">
+            <b>👑 BRDATA PREMIUM</b>
+            <p>Mais recursos, análises exclusivas e sem anúncios.</p>
+            <button class="btn btn-accent full" id="btnPremiumRail">★ Assinar agora</button>
+          </div>
+        </div>
+        </div>
+      </section>
+
+      <!-- ================= JOGOS ================= -->
+      <section class="page" id="page-jogos">
+        <div class="page-head"><div><h1>Jogos</h1><div class="sub">Todas as rodadas, estatísticas e gols</div></div></div>
+        <div class="sort-bar">
+          <div class="sort-chip active" data-sub="rodadas">Rodadas</div>
+          <div class="sort-chip" data-sub="stats">Estatísticas consolidadas</div>
+        </div>
+        <div id="sub-rodadas">
+          <div class="round-switcher">
+            <button id="roundPrev">‹</button>
+            <div class="label"><b id="roundLabel">Rodada 1</b><span id="roundSubLabel"></span></div>
+            <button id="roundNext">›</button>
+          </div>
+          <div id="matchesList"></div>
+        </div>
+        <div id="sub-stats" style="display:none;">
+          <div class="grid grid-kpi" id="statTiles" style="margin-bottom:16px;"></div>
+          <div class="grid grid-2b">
+            <div class="card"><div class="card-head"><h3>Melhor ataque</h3></div><table class="table-std"><tbody id="leaderAtaque"></tbody></table></div>
+            <div class="card"><div class="card-head"><h3>Melhor defesa</h3></div><table class="table-std"><tbody id="leaderDefesa"></tbody></table></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= TABELA ================= -->
+      <section class="page" id="page-tabela">
+        <div class="page-head"><div><h1>Tabela de classificação</h1><div class="sub" id="tabelaHint"></div></div></div>
+        <div class="card">
+          <table class="table-std"><thead><tr><th>#</th><th></th><th>Time</th><th class="num">Pts</th><th class="num">J</th><th class="num">V</th><th class="num">E</th><th class="num">D</th><th class="num">SG</th><th class="num">GP</th><th class="num">%</th></tr></thead>
+          <tbody id="fullStandings"></tbody></table>
+        </div>
+      </section>
+
+      <!-- ================= ESTATÍSTICAS ================= -->
+      <section class="page" id="page-estatisticas">
+        <div class="page-head"><div><h1>Estatísticas</h1><div class="sub">Números consolidados da temporada</div></div></div>
+        <div class="grid grid-kpi" id="statTiles2" style="margin-bottom:16px;"></div>
+        <div class="grid grid-3" style="margin-bottom:16px;">
+          <div class="card"><div class="card-head"><h3>Melhor ataque</h3></div><table class="table-std"><tbody id="leaderAtaque2"></tbody></table></div>
+          <div class="card"><div class="card-head"><h3>Melhor defesa</h3></div><table class="table-std"><tbody id="leaderDefesa2"></tbody></table></div>
+          <div class="card"><div class="card-head"><h3>Mais cartões</h3></div><table class="table-std"><tbody id="leaderCartoes2"></tbody></table></div>
+        </div>
+        <div class="grid grid-2b">
+          <div class="card">
+            <div class="card-head"><h3>Comparador de times</h3></div>
+            <div class="compare-head">
+              <select class="compare-select" id="compareTeamA2"></select>
+              <span class="compare-vs">×</span>
+              <select class="compare-select" id="compareTeamB2"></select>
+            </div>
+            <div id="compareBody2"></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>Desempenho ofensivo</h3>
+              <select class="compare-select" style="flex:none; width:auto;" id="radarTeamSelect2"></select>
+            </div>
+            <div class="radar-wrap" id="radarChart2"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ================= ODDS ================= -->
+      <section class="page" id="page-odds">
+        <div class="page-head"><div><h1>Odds</h1><div class="sub">Jogos que ainda faltam, com odds e onde apostar</div></div></div>
+        <div id="oddsPageList"></div>
+      </section>
+
+      <!-- ================= SIMULADOR (completo) ================= -->
+      <section class="page" id="page-simulador">
+        <div class="page-head"><div><h1>Simulador</h1><div class="sub">Monte o final do Brasileirão, rodada a rodada</div></div></div>
+        <div class="round-switcher">
+          <button id="simRoundPrev">‹</button>
+          <div class="label"><b id="simRoundLabel">Rodada</b><span id="simRoundSubLabel"></span></div>
+          <button id="simRoundNext">›</button>
+        </div>
+        <div class="sim-toolbar">
+          <button class="btn btn-primary" id="btnSimRound">Simular esta rodada</button>
+          <button class="btn btn-secondary" id="btnSimSeason">Simular temporada inteira</button>
+        </div>
+        <div class="sim-toolbar"><button class="btn btn-secondary" id="btnResetSim">Limpar simulações</button></div>
+        <div id="simMatchesList"></div>
+      </section>
+
+      <!-- ================= PROBABILIDADES ================= -->
+      <section class="page" id="page-probabilidades">
+        <div class="page-head"><div><h1>Calculadora de probabilidades</h1><div class="sub">Simulação de Monte Carlo sobre os jogos restantes</div></div></div>
+        <div class="sort-bar">
+          <div class="sort-chip active" data-sort="campeao">Título</div>
+          <div class="sort-chip" data-sort="libertadores">Libertadores</div>
+          <div class="sort-chip" data-sort="sulamericana">Sul-Americana</div>
+          <div class="sort-chip" data-sort="rebaixamento">Rebaixamento</div>
+        </div>
+        <button class="btn btn-primary full" id="btnRecalc" style="margin-bottom:16px;">🔁 Recalcular simulação (1.500 cenários)</button>
+        <div id="probList"></div>
+      </section>
+
+      <!-- ================= FAVORITOS ================= -->
+      <section class="page" id="page-favoritos">
+        <div class="page-head"><div><h1>Alertas e favoritos</h1><div class="sub">Seus times acompanhados</div></div></div>
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-head"><h3>Notificações push</h3></div>
+          <p style="font-size:12.5px; color:var(--text-1); margin:0;">Em breve — por enquanto, seus times favoritos ficam salvos neste navegador e aparecem na barra lateral.</p>
+        </div>
+        <div class="card"><div class="card-head"><h3>Times favoritados</h3></div><div id="favoritesList"></div></div>
+      </section>
+
+      <!-- ================= NOTÍCIAS ================= -->
+      <section class="page" id="page-noticias">
+        <div class="page-head"><div><h1>Notícias</h1><div class="sub">Exemplo — conecte uma fonte de notícias real (RSS/API) para ativar</div></div></div>
+        <div class="card"><div id="newsList"></div></div>
+      </section>
+
+      <!-- ================= MAIS (menu mobile) ================= -->
+      <section class="page" id="page-mais">
+        <div class="page-head"><div><h1>Mais</h1><div class="sub">Ferramentas e configurações</div></div></div>
+        <div class="card kpi" style="margin-bottom:16px;">
+          <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--brd-blue),var(--brd-navy));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;">M</div>
+          <div><div style="font-weight:700; font-size:14px;">Murilo</div><div style="font-size:11.5px; color:var(--text-1);">Conta gratuita</div></div>
+        </div>
+        <div class="card" style="padding:6px; margin-bottom:16px;">
+          <button class="menu-link" data-page="estatisticas">📊 Comparador de Times</button>
+          <button class="menu-link" data-page="probabilidades">🧮 Calculadora de Probabilidades</button>
+          <button class="menu-link" data-page="simulador">🎛️ Simulador<span class="badge-new">NOVO</span></button>
+          <button class="menu-link" data-page="favoritos">🔔 Alertas e Favoritos</button>
+          <button class="menu-link" data-page="noticias">📰 Notícias</button>
+        </div>
+        <div class="side-support" style="background:linear-gradient(155deg, rgba(255,204,0,.14), rgba(255,204,0,.03)); border:1px solid rgba(255,204,0,.35); margin-bottom:16px;">
+          <b style="color:var(--text-0);">Apoie o BRDATA</b>
+          <p style="color:var(--text-1);">Tenha acesso a recursos exclusivos e ajude o projeto a crescer.</p>
+          <button class="btn btn-accent full" id="btnPremiumMobile">★ Seja Premium</button>
+        </div>
+        <div class="card" style="display:flex; align-items:center; justify-content:space-between;">
+          <span style="font-size:13px; font-weight:600;">Modo escuro</span>
+          <button class="switch" id="themeSwitchMobile"></button>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- ================= BOTTOM NAV (mobile) ================= -->
+  <nav class="bottom-nav">
+    <button class="bn-item active" data-page="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>Dashboard</button>
+    <button class="bn-item" data-page="jogos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg>Jogos</button>
+    <button class="bn-item" data-page="tabela"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16"/></svg>Tabela</button>
+    <button class="bn-item" data-page="odds"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h4"/></svg>Odds</button>
+    <button class="bn-item" data-page="mais"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>Mais</button>
+  </nav>
+
+</div>
+
+<script src="js/data.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/liveData.js"></script>
+<script src="js/affiliates.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

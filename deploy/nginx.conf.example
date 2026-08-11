@@ -1,0 +1,21 @@
+# Exemplo de reverse proxy Nginx -> app Node (porta 8787)
+# 1) Ajuste "seudominio.com.br"
+# 2) sudo cp nginx.conf.example /etc/nginx/sites-available/brasileirao
+# 3) sudo ln -s /etc/nginx/sites-available/brasileirao /etc/nginx/sites-enabled/
+# 4) sudo nginx -t && sudo systemctl reload nginx
+# 5) HTTPS grátis: sudo certbot --nginx -d seudominio.com.br
+#    (o certbot edita este arquivo automaticamente para adicionar o bloco 443/SSL)
+
+server {
+    listen 80;
+    server_name seudominio.com.br www.seudominio.com.br;
+
+    location / {
+        proxy_pass http://127.0.0.1:8787;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
