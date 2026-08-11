@@ -196,6 +196,18 @@ function fullRowHTML(row, pos) {
     <td class="num">${row.sg > 0 ? "+" + row.sg : row.sg}</td><td class="num">${row.gp}</td><td class="num">${aprov(row.pts, row.j)}%</td>
   </tr>`;
 }
+// Linha compacta pra tabela da barra lateral do Simulador (espaço estreito).
+function simTableRowHTML(row, pos) {
+  const team = TEAM_MAP[row.id];
+  const zone = zoneOfPosition(pos);
+  return `<tr data-zone="${zone}">
+    <td><span class="pos">${pos}</span></td>
+    <td>${crestEl(team, 20)}</td>
+    <td class="team-cell">${team.short}</td>
+    <td class="num">${row.pts}</td>
+    <td class="num only-desktop">${row.sg > 0 ? "+" + row.sg : row.sg}</td>
+  </tr>`;
+}
 
 /* ================= PÁGINA: DASHBOARD ================= */
 function renderDashboard() {
@@ -652,6 +664,18 @@ function renderSimulador() {
   }).join("");
   document.querySelectorAll(".btn-confirm").forEach(btn => btn.addEventListener("click", onConfirmSim));
   document.querySelectorAll(".btn-dice").forEach(btn => btn.addEventListener("click", onDiceSim));
+  renderSimStandings();
+}
+// Tabela na barra lateral do Simulador — chamada de dentro de
+// renderSimulador(), então atualiza sozinha a cada confirmação,
+// "Aleatório", "Simular rodada/temporada" ou "Limpar simulações"
+// (todos passam por refreshAll() -> setActivePage() -> renderSimulador()).
+function renderSimStandings() {
+  const el = document.getElementById("simStandings");
+  if (!el) return;
+  const standings = currentStandings();
+  el.innerHTML = standings.map((r, i) => simTableRowHTML(r, i + 1)).join("")
+    || `<tr><td colspan="5" class="empty">Sem jogos decididos ainda.</td></tr>`;
 }
 function onConfirmSim(e) {
   const card = e.target.closest(".sim-card");

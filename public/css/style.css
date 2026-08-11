@@ -362,9 +362,14 @@ h1,h2,h3{ margin:0; }
    largura total — evita a sensação de tela vazia com poucos jogos
    por rodada. Segue os mesmos breakpoints (1180/720) usados no resto
    do layout pra cair pra 2 e depois 1 coluna. */
-#simMatchesList{ display:grid; grid-template-columns:repeat(3, 1fr); gap:14px; align-items:start; }
-@media (max-width:1180px){ #simMatchesList{ grid-template-columns:repeat(2, 1fr); } }
+#simMatchesList{ display:grid; grid-template-columns:repeat(2, 1fr); gap:14px; align-items:start; }
 @media (max-width:720px){ #simMatchesList{ grid-template-columns:1fr; } }
+@media (min-width:1500px){ #simMatchesList{ grid-template-columns:repeat(3, 1fr); } }
+
+/* Tabela ao vivo na barra lateral do Simulador — fica grudada no
+   topo (abaixo da topbar) enquanto a lista de jogos rola, e some da
+   lateral pra empilhar embaixo assim que .dash-layout vira 1 coluna. */
+@media (min-width:1181px){ .sim-table-card{ position:sticky; top:calc(var(--topbar-h) + 16px); } }
 .sim-card{ background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-card); padding:16px; margin:0; }
 .sim-teams{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
 .sim-inputs{ display:flex; align-items:center; gap:10px; }

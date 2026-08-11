@@ -267,6 +267,8 @@
       <!-- ================= SIMULADOR (completo) ================= -->
       <section class="page" id="page-simulador">
         <div class="page-head"><div><h1>Simulador</h1><div class="sub">Monte o final do Brasileirão, rodada a rodada</div></div></div>
+        <div class="dash-layout">
+        <div class="dash-main">
         <div class="round-switcher">
           <button id="simRoundPrev">‹</button>
           <div class="label"><b id="simRoundLabel">Rodada</b><span id="simRoundSubLabel"></span></div>
@@ -278,6 +280,17 @@
         </div>
         <div class="sim-toolbar"><button class="btn btn-secondary" id="btnResetSim">Limpar simulações</button></div>
         <div id="simMatchesList"></div>
+        </div>
+
+        <div class="dash-rail">
+          <div class="card sim-table-card">
+            <div class="card-head"><h3>Tabela em tempo real</h3></div>
+            <table class="table-std"><thead><tr><th>#</th><th></th><th>Time</th><th class="num">P</th><th class="num only-desktop">SG</th></tr></thead>
+            <tbody id="simStandings"></tbody></table>
+            <div class="card-link" data-page="tabela" style="margin-top:12px;">Ver tabela completa →</div>
+          </div>
+        </div>
+        </div>
       </section>
 
       <!-- ================= PROBABILIDADES ================= -->
