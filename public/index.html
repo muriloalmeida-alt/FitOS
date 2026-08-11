@@ -265,18 +265,24 @@
         </div>
 
         <div id="esub-jogadores" style="display:none;">
-          <div class="sort-bar">
-            <div class="sort-chip active" data-psort="goals">⚽ Gols</div>
-            <div class="sort-chip" data-psort="assists">🎯 Assistências</div>
-            <div class="sort-chip" data-psort="cards">🟨 Cartões</div>
-            <div class="sort-chip" data-psort="rating">⭐ Nota</div>
-          </div>
-          <div class="card">
-            <div class="card-head"><h3>Estatísticas individuais</h3><span style="font-size:11px; color:var(--text-2); font-weight:600;" id="playersHint"></span></div>
-            <table class="table-std">
-              <thead><tr><th>#</th><th></th><th>Jogador</th><th class="only-desktop">Time</th><th class="num">Gols</th><th class="num">Assist.</th><th class="num">Cartões</th><th class="num">Nota</th></tr></thead>
-              <tbody id="playersTableBody"></tbody>
-            </table>
+          <div style="font-size:11px; color:var(--text-2); font-weight:600; margin-bottom:10px;" id="playersHint"></div>
+          <div class="grid grid-4" style="margin-bottom:16px;">
+            <div class="card">
+              <div class="card-head"><h3>Gols feitos</h3></div>
+              <table class="table-std"><tbody id="playersGoals"></tbody></table>
+            </div>
+            <div class="card">
+              <div class="card-head"><h3>Assistências</h3></div>
+              <table class="table-std"><tbody id="playersAssists"></tbody></table>
+            </div>
+            <div class="card">
+              <div class="card-head"><h3>Cartões</h3></div>
+              <table class="table-std"><tbody id="playersCards"></tbody></table>
+            </div>
+            <div class="card">
+              <div class="card-head"><h3>Nota</h3></div>
+              <table class="table-std"><tbody id="playersRating"></tbody></table>
+            </div>
           </div>
         </div>
       </section>

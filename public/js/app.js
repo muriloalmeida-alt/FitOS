@@ -19,7 +19,6 @@ const state = {
   simRound: 1,
   jogosSub: "rodadas",
   estatisticasSub: "times",
-  playersSort: "goals",
   probSort: "campeao",
   probResults: null,
   oddsRange: "7d",
@@ -631,8 +630,7 @@ function renderEstatisticasPage() {
 /* ---------- Jogadores (sub-aba de Estatísticas) ---------- */
 // Modo demo: elenco fictício de data.js, já pronto. Modo ao vivo:
 // busca uma vez só (lazy) os rankings da API-Sports e guarda em
-// memória — trocar de sub-aba ou de critério de ordenação depois
-// não gera novas chamadas.
+// memória — reabrir a sub-aba depois não gera novas chamadas.
 let playersListCache = null;
 async function ensurePlayersLoaded() {
   if (playersListCache) return playersListCache;
@@ -640,44 +638,43 @@ async function ensurePlayersLoaded() {
   return playersListCache;
 }
 function playerCardsValue(p) { return p.yellow + p.red * 2; }
-const PLAYER_SORT_KEYS = {
-  goals: p => p.goals,
-  assists: p => p.assists,
-  cards: playerCardsValue,
-  rating: p => (p.rating == null ? -1 : p.rating),
-};
-function sortPlayers(list, field) {
-  const key = PLAYER_SORT_KEYS[field] || PLAYER_SORT_KEYS.goals;
-  return [...list].sort((a, b) => key(b) - key(a));
-}
-function playerRowHTML(p, pos) {
+// Linha compacta pro card de cada categoria — mesmo visual das
+// listas "Melhor ataque/defesa" (crest + nome + valor em destaque).
+function playerLeaderRowHTML(p, valueLabel) {
   const team = TEAM_MAP[p.teamId];
-  const cards = p.red > 0
-    ? `${p.yellow} <span style="color:var(--brd-red); font-weight:700;">+${p.red}V</span>`
-    : `${p.yellow}`;
   return `<tr>
-    <td><span class="pos">${pos}</span></td>
-    <td>${team ? crestEl(team, 22) : ""}</td>
-    <td class="team-cell">${p.name}${team ? `<span style="color:var(--text-2); font-weight:500;"> · ${team.short}</span>` : ""}</td>
-    <td class="only-desktop">${team ? team.name : "-"}</td>
-    <td class="num">${p.goals}</td>
-    <td class="num">${p.assists}</td>
-    <td class="num">${cards}</td>
-    <td class="num">${p.rating != null ? p.rating.toFixed(1) : "-"}</td>
+    <td><div class="team-cell">${team ? crestEl(team, 22) : ""}<b>${p.name}</b>${team ? `<span style="color:var(--text-2); font-weight:500;"> · ${team.short}</span>` : ""}</div></td>
+    <td class="num" style="font-weight:700;">${valueLabel}</td>
   </tr>`;
 }
+function renderPlayerLeaderCard(elId, players, count = 5) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.innerHTML = players.length
+    ? players.slice(0, count).map(([p, label]) => playerLeaderRowHTML(p, label)).join("")
+    : `<tr><td class="empty">Sem dados.</td></tr>`;
+}
 async function renderJogadoresPage() {
-  const body = document.getElementById("playersTableBody");
   const hint = document.getElementById("playersHint");
-  if (!body) return;
-  body.innerHTML = `<tr><td colspan="8" class="empty">Carregando jogadores...</td></tr>`;
+  ["playersGoals", "playersAssists", "playersCards", "playersRating"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = `<tr><td class="empty">Carregando...</td></tr>`;
+  });
   const players = await ensurePlayersLoaded();
   if (state.estatisticasSub !== "jogadores") return; // usuário já trocou de sub-aba enquanto carregava
-  const sorted = sortPlayers(players, state.playersSort).slice(0, 20);
-  body.innerHTML = sorted.length
-    ? sorted.map((p, i) => playerRowHTML(p, i + 1)).join("")
-    : `<tr><td colspan="8" class="empty">Sem estatísticas de jogadores disponíveis.</td></tr>`;
-  if (hint) hint.textContent = LIVE_MODE ? "top 20 · dados ao vivo" : "top 20 · dados de exemplo";
+
+  const byGoals = [...players].sort((a, b) => b.goals - a.goals).map(p => [p, `${p.goals} gols`]);
+  const byAssists = [...players].sort((a, b) => b.assists - a.assists).map(p => [p, `${p.assists} assist.`]);
+  const byCards = [...players].sort((a, b) => playerCardsValue(b) - playerCardsValue(a))
+    .map(p => [p, p.red > 0 ? `${p.yellow} <span style="color:var(--brd-red);">+${p.red}V</span>` : `${p.yellow}`]);
+  const rated = players.filter(p => p.rating != null);
+  const byRating = rated.sort((a, b) => b.rating - a.rating).map(p => [p, p.rating.toFixed(1)]);
+
+  renderPlayerLeaderCard("playersGoals", byGoals);
+  renderPlayerLeaderCard("playersAssists", byAssists);
+  renderPlayerLeaderCard("playersCards", byCards);
+  renderPlayerLeaderCard("playersRating", byRating);
+  if (hint) hint.textContent = LIVE_MODE ? "top 5 de cada categoria · dados ao vivo" : "top 5 de cada categoria · dados de exemplo";
 }
 
 /* ================= PÁGINA: ODDS ================= */
@@ -954,12 +951,6 @@ function setupEventListeners() {
     document.getElementById("esub-times").style.display = state.estatisticasSub === "times" ? "block" : "none";
     document.getElementById("esub-jogadores").style.display = state.estatisticasSub === "jogadores" ? "block" : "none";
     if (state.estatisticasSub === "jogadores") renderJogadoresPage();
-  }));
-  // Jogadores: critério de ordenação (gols/assistências/cartões/nota)
-  document.querySelectorAll(".sort-chip[data-psort]").forEach(chip => chip.addEventListener("click", () => {
-    document.querySelectorAll(".sort-chip[data-psort]").forEach(c => c.classList.remove("active"));
-    chip.classList.add("active"); state.playersSort = chip.dataset.psort;
-    renderJogadoresPage();
   }));
 
   // Simulador
