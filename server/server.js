@@ -185,6 +185,41 @@ const server = http.createServer(async (req, res) => {
       return sendJSON(res, 200, { players: data });
     }
 
+    const teamPlayersMatch = pathname.match(/^\/api\/teams\/(\d+)\/players$/);
+    if (teamPlayersMatch) {
+      const teamId = teamPlayersMatch[1];
+      const season = searchParams.get("season");
+      if (!season) return sendJSON(res, 400, { error: "parâmetro season é obrigatório" });
+      const data = await withCache(`teamplayers:${teamId}:${season}`, TTL.teams, async () => {
+        // Elenco de 1 time só cabe em 1-2 páginas (~20-40 jogadores);
+        // busca as duas sempre, sem depender do "paging" da resposta
+        // (o cliente genérico já descarta esse campo). Página vazia
+        // não quebra a outra.
+        const fetchPage = (p) => apiSportsGet("/players", { team: teamId, season, page: p }).catch(() => []);
+        const [page1, page2] = await Promise.all([fetchPage(1), fetchPage(2)]);
+        const byId = new Map();
+        [...page1, ...page2].forEach(item => {
+          const p = mapPlayerEntry(item);
+          if (p) byId.set(p.id, p);
+        });
+        return Array.from(byId.values());
+      });
+      return sendJSON(res, 200, { players: data });
+    }
+
+    const playerMatch = pathname.match(/^\/api\/players\/(\d+)$/);
+    if (playerMatch) {
+      const playerId = playerMatch[1];
+      const season = searchParams.get("season");
+      if (!season) return sendJSON(res, 400, { error: "parâmetro season é obrigatório" });
+      const data = await withCache(`player:${playerId}:${season}`, TTL.teams, async () => {
+        const resp = await apiSportsGet("/players", { id: playerId, season });
+        const item = (resp || [])[0];
+        return item ? mapPlayerEntry(item) : null;
+      });
+      return sendJSON(res, 200, { player: data });
+    }
+
     const statsMatch = pathname.match(/^\/api\/fixtures\/(\d+)\/statistics$/);
     if (statsMatch) {
       const fixtureId = statsMatch[1];

@@ -342,6 +342,43 @@
         <div class="card"><div id="newsList"></div></div>
       </section>
 
+      <!-- ================= DETALHE DO TIME ================= -->
+      <section class="page" id="page-time">
+        <button class="back-link" onclick="goBackFromDetail()">← Voltar</button>
+        <div class="page-head" style="margin-top:8px;">
+          <div style="display:flex; align-items:center; gap:14px;">
+            <div id="teamPageCrest"></div>
+            <div><h1 id="teamPageName">Time</h1><div class="sub" id="teamPageSub"></div></div>
+          </div>
+        </div>
+        <div class="grid grid-kpi" id="teamPageKpis" style="margin-bottom:16px;"></div>
+        <div class="grid grid-3" style="margin-bottom:16px;">
+          <div class="card"><div class="card-head"><h3>Forma recente</h3></div><div id="teamPageForma"></div></div>
+          <div class="card"><div class="card-head"><h3>Desempenho ofensivo</h3></div><div class="radar-wrap" id="teamPageRadar"></div></div>
+          <div class="card"><div class="card-head"><h3>Próximos jogos</h3></div><div id="teamPageNextFixtures"></div></div>
+        </div>
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-head"><h3>Elenco</h3><span style="font-size:11px; color:var(--text-2); font-weight:600;" id="teamPageRosterHint"></span></div>
+          <div class="grid grid-4" id="teamPageRoster"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h3>Últimos jogos</h3></div>
+          <div id="teamPageLastMatches"></div>
+        </div>
+      </section>
+
+      <!-- ================= DETALHE DO JOGADOR ================= -->
+      <section class="page" id="page-jogador">
+        <button class="back-link" onclick="goBackFromDetail()">← Voltar</button>
+        <div class="page-head" style="margin-top:8px;">
+          <div style="display:flex; align-items:center; gap:14px;">
+            <div id="playerPageAvatar"></div>
+            <div><h1 id="playerPageName">Jogador</h1><div class="sub" id="playerPageSub"></div></div>
+          </div>
+        </div>
+        <div id="playerPageBody"></div>
+      </section>
+
       <!-- ================= MAIS (menu mobile) ================= -->
       <section class="page" id="page-mais">
         <div class="page-head"><div><h1>Mais</h1><div class="sub">Ferramentas e configurações</div></div></div>

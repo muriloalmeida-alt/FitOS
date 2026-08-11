@@ -25,6 +25,9 @@ const state = {
   whatifN: 5,
   whatifTeamId: null,
   favorites: [],
+  selectedTeamId: null,
+  selectedPlayerId: null,
+  pageBeforeDetail: "dashboard",
 };
 
 /* ---------- Boot ---------- */
@@ -182,8 +185,8 @@ function dashRowHTML(row, pos) {
   const zone = zoneOfPosition(pos);
   return `<tr data-zone="${zone}">
     <td><span class="pos">${pos}</span></td>
-    <td>${crestEl(team, 22)}</td>
-    <td class="team-cell">${team.name}</td>
+    <td class="clickable-team" onclick="goToTeam('${team.id}')">${crestEl(team, 22)}</td>
+    <td class="team-cell clickable-team" onclick="goToTeam('${team.id}')">${team.name}</td>
     <td class="num">${row.pts}</td><td class="num">${row.j}</td><td class="num">${row.v}</td>
     <td class="num">${row.e}</td><td class="num">${row.d}</td>
     <td class="num only-desktop">${row.gp}</td><td class="num only-desktop">${row.gc}</td>
@@ -197,8 +200,8 @@ function fullRowHTML(row, pos) {
   const zone = zoneOfPosition(pos);
   return `<tr data-zone="${zone}">
     <td><span class="pos">${pos}</span></td>
-    <td>${crestEl(team, 24)}</td>
-    <td><div class="team-cell">${team.name}<span class="fav-heart ${isFav ? "active" : ""}" data-team="${team.id}" title="Favoritar">${isFav ? "♥" : "♡"}</span></div></td>
+    <td class="clickable-team" onclick="goToTeam('${team.id}')">${crestEl(team, 24)}</td>
+    <td><div class="team-cell clickable-team" onclick="goToTeam('${team.id}')">${team.name}<span class="fav-heart ${isFav ? "active" : ""}" data-team="${team.id}" title="Favoritar">${isFav ? "♥" : "♡"}</span></div></td>
     <td class="num">${row.pts}</td><td class="num">${row.j}</td><td class="num">${row.v}</td><td class="num">${row.e}</td><td class="num">${row.d}</td>
     <td class="num">${row.sg > 0 ? "+" + row.sg : row.sg}</td><td class="num">${row.gp}</td><td class="num">${aprov(row.pts, row.j)}%</td>
   </tr>`;
@@ -209,8 +212,8 @@ function simTableRowHTML(row, pos) {
   const zone = zoneOfPosition(pos);
   return `<tr data-zone="${zone}">
     <td><span class="pos">${pos}</span></td>
-    <td>${crestEl(team, 20)}</td>
-    <td class="team-cell">${team.short}</td>
+    <td class="clickable-team" onclick="goToTeam('${team.id}')">${crestEl(team, 20)}</td>
+    <td class="team-cell clickable-team" onclick="goToTeam('${team.id}')">${team.short}</td>
     <td class="num">${row.pts}</td>
     <td class="num only-desktop">${row.sg > 0 ? "+" + row.sg : row.sg}</td>
   </tr>`;
@@ -279,6 +282,9 @@ function renderDashKpis(standings) {
     document.getElementById("liderCrest").innerHTML = crestEl(leaderTeam, 52);
     document.getElementById("liderTeamName").textContent = leaderTeam.name;
     document.getElementById("liderPts").textContent = standings[0].pts;
+    const heroCrest = document.getElementById("liderCrest"), heroName = document.getElementById("liderTeamName");
+    heroCrest.classList.add("clickable-team"); heroCrest.onclick = () => goToTeam(leaderTeam.id);
+    heroName.classList.add("clickable-team"); heroName.onclick = () => goToTeam(leaderTeam.id);
   }
 }
 
@@ -287,7 +293,7 @@ function renderDashTitleChance() {
   const ordered = TEAMS.map(t => ({ team: t, p: state.probResults[t.id] })).filter(x => x.p).sort((a, b) => b.p.campeao - a.p.campeao).slice(0, 5);
   document.getElementById("dashTitleChance").innerHTML = ordered.map(({ team, p }) => `
     <div class="prob-row">
-      <div class="top-line"><div class="team-cell">${crestEl(team, 20)}<span>${team.name}</span></div><b>${(p.campeao * 100).toFixed(1)}%</b></div>
+      <div class="top-line">${teamLinkHTML(team, 20)}<b>${(p.campeao * 100).toFixed(1)}%</b></div>
       <div class="prob-track"><div class="prob-fill" style="width:${Math.max(p.campeao * 100, 1)}%; background:var(--brd-yellow);"></div></div>
     </div>`).join("");
 }
@@ -312,7 +318,7 @@ function fixtureRowHTML(m) {
   return `
   <div class="rail-fixture">
     <div class="when">${fmtFixtureDate(m.date, m.round)}</div>
-    <div class="teams">${crestEl(H, 20)}<span>${H.short}</span><span class="vs">×</span><span>${A.short}</span>${crestEl(A, 20)}</div>
+    <div class="teams">${teamLinkHTML(H, 20, "short")}<span class="vs">×</span>${teamLinkHTML(A, 20, "short")}</div>
     <div class="odds3" id="${domId}"><span>—</span><span>—</span><span>—</span></div>
   </div>`;
 }
@@ -541,15 +547,21 @@ function statBarRow(label, a, b, unit = "") {
 /* ---------- Escalação / substituições (compartilhado entre jogo
    encerrado e jogo futuro) ---------- */
 function lineupPlayerLine(p) {
-  return `<div class="lineup-player"><span class="lp-num">${p.number ?? "-"}</span><span class="lp-name">${p.name}</span><span class="lp-pos">${p.pos || ""}</span></div>`;
+  // Só clicável quando tem id (modo ao vivo) — nomes de escalação do
+  // modo demo são fictícios, gerados só pra aquela partida, sem
+  // registro persistente pra abrir uma página de detalhe de verdade.
+  const nameHTML = p.id
+    ? `<span class="lp-name clickable-player" onclick="goToPlayer(${p.id})">${p.name}</span>`
+    : `<span class="lp-name">${p.name}</span>`;
+  return `<div class="lineup-player"><span class="lp-num">${p.number ?? "-"}</span>${nameHTML}<span class="lp-pos">${p.pos || ""}</span></div>`;
 }
 function lineupSideHTML(team, lineup) {
   if (!lineup || !lineup.startXI || !lineup.startXI.length) {
-    return `<div class="lineup-side"><div class="lineup-head">${crestEl(team, 20)}<b>${team.short}</b></div><div class="empty" style="padding:8px 0;">Escalação ainda não divulgada.</div></div>`;
+    return `<div class="lineup-side"><div class="lineup-head">${teamLinkHTML(team, 20, "short")}</div><div class="empty" style="padding:8px 0;">Escalação ainda não divulgada.</div></div>`;
   }
   return `
     <div class="lineup-side">
-      <div class="lineup-head">${crestEl(team, 20)}<b>${team.short}</b>${lineup.formation ? `<span class="lineup-formation">${lineup.formation}</span>` : ""}</div>
+      <div class="lineup-head">${teamLinkHTML(team, 20, "short")}${lineup.formation ? `<span class="lineup-formation">${lineup.formation}</span>` : ""}</div>
       ${lineup.coach ? `<div class="lineup-coach">Técnico: ${lineup.coach}</div>` : ""}
       <div class="lineup-list">${lineup.startXI.map(lineupPlayerLine).join("")}</div>
       ${lineup.substitutes && lineup.substitutes.length ? `<div class="lineup-subtitle">Banco</div><div class="lineup-list lineup-subs">${lineup.substitutes.map(lineupPlayerLine).join("")}</div>` : ""}
@@ -566,7 +578,9 @@ function substitutionsHTML(subs) {
     <div class="detail-subtitle">Substituições</div>
     <div class="subs-list">${subs.map(s => {
       const team = TEAM_MAP[s.team];
-      return `<div class="sub-line"><b>${s.min}'</b> ${team ? team.short : ""} — <span class="sub-out">↓ ${s.out}</span> <span class="sub-in">↑ ${s.in}</span></div>`;
+      const outHTML = s.outId ? `<span class="clickable-player" onclick="goToPlayer(${s.outId})">${s.out}</span>` : s.out;
+      const inHTML = s.inId ? `<span class="clickable-player" onclick="goToPlayer(${s.inId})">${s.in}</span>` : s.in;
+      return `<div class="sub-line"><b>${s.min}'</b> ${team ? team.short : ""} — <span class="sub-out">↓ ${outHTML}</span> <span class="sub-in">↑ ${inHTML}</span></div>`;
     }).join("")}</div>`;
 }
 function venueLineHTML(m) {
@@ -611,7 +625,11 @@ function decidedMatchDetailHTML(m, domId) {
   const H = TEAM_MAP[m.home], A = TEAM_MAP[m.away];
   const goals = m.goals || [];
   const goalsHTML = goals.length ? `
-    <div class="goals-list">${goals.map(g => `<div class="goal-line"><b>${g.min}'</b> ⚽ ${TEAM_MAP[g.team].short} · ${g.player || ("Camisa " + g.camisa)}</div>`).join("")}</div>`
+    <div class="goals-list">${goals.map(g => {
+      const scorer = g.player || ("Camisa " + g.camisa);
+      const scorerHTML = g.playerId ? `<span class="clickable-player" onclick="goToPlayer(${g.playerId})">${scorer}</span>` : scorer;
+      return `<div class="goal-line"><b>${g.min}'</b> ⚽ ${TEAM_MAP[g.team].short} · ${scorerHTML}</div>`;
+    }).join("")}</div>`
     : `<div class="goals-list"><div class="goal-line">Sem gols na partida.</div></div>`;
   const s = m.stats;
   return `
@@ -670,9 +688,9 @@ function fullMatchCardHTML(m) {
   return `
     <div class="match-card" id="${domId}">
       <div class="match-teams">
-        <div class="match-team">${crestEl(H, 40)}<span class="tname">${H.name}</span></div>
+        <div class="match-team clickable-team" onclick="goToTeam('${H.id}')">${crestEl(H, 40)}<span class="tname">${H.name}</span></div>
         <div class="match-score">${scoreHTML}</div>
-        <div class="match-team">${crestEl(A, 40)}<span class="tname">${A.name}</span></div>
+        <div class="match-team clickable-team" onclick="goToTeam('${A.id}')">${crestEl(A, 40)}<span class="tname">${A.name}</span></div>
       </div>
       <div class="match-meta">${metaHTML}</div>
       <button class="match-toggle" onclick="toggleMatchExpand('${domId}')">${m.expanded ? "Ocultar detalhes ▴" : "Ver detalhes ▾"}</button>
@@ -723,7 +741,7 @@ function renderEstatisticasConsolidadas(tilesId, ataqueId, defesaId, cartoesId) 
     <div class="card kpi"><div class="ico green">🥅</div><div><div class="lbl">Gols marcados</div><div class="val">${totalGols}</div></div></div>
     <div class="card kpi"><div class="ico yellow">📊</div><div><div class="lbl">Média de gols</div><div class="val">${mediaGols}</div></div></div>
     <div class="card kpi"><div class="ico navy">🟨</div><div><div class="lbl">Cartões</div><div class="val">${totalCartoes}</div></div></div>`;
-  const leaderRow = (id, value) => { const t = TEAM_MAP[id]; return `<tr><td><div class="team-cell">${crestEl(t, 22)}${t.name}</div></td><td class="num" style="font-weight:700;">${value}</td></tr>`; };
+  const leaderRow = (id, value) => { const t = TEAM_MAP[id]; return `<tr><td>${teamLinkHTML(t, 22)}</td><td class="num" style="font-weight:700;">${value}</td></tr>`; };
   const byAtaque = Object.entries(agg).filter(([,v]) => v.j > 0).sort((a, b) => b[1].gp - a[1].gp).slice(0, 5);
   const byDefesa = Object.entries(agg).filter(([,v]) => v.j > 0).sort((a, b) => a[1].gc - b[1].gc).slice(0, 5);
   document.getElementById(ataqueId).innerHTML = byAtaque.length ? byAtaque.map(([id, v]) => leaderRow(id, `${v.gp} gols`)).join("") : `<tr><td class="empty">Sem dados.</td></tr>`;
@@ -766,7 +784,7 @@ function playerCardsValue(p) { return p.yellow + p.red * 2; }
 function playerLeaderRowHTML(p, valueLabel) {
   const team = TEAM_MAP[p.teamId];
   return `<tr>
-    <td><div class="team-cell">${team ? crestEl(team, 22) : ""}<b>${p.name}</b>${team ? `<span style="color:var(--text-2); font-weight:500;"> · ${team.short}</span>` : ""}</div></td>
+    <td><div class="team-cell">${team ? crestEl(team, 22) : ""}<b class="clickable-player" onclick="goToPlayer(${p.id})">${p.name}</b>${team ? `<span class="clickable-team" onclick="goToTeam('${team.id}')" style="color:var(--text-2); font-weight:500;"> · ${team.short}</span>` : ""}</div></td>
     <td class="num" style="font-weight:700;">${valueLabel}</td>
   </tr>`;
 }
@@ -813,13 +831,13 @@ function renderSimulador() {
     return `
     <div class="sim-card" data-key="${k}" data-home="${fx.home}" data-away="${fx.away}">
       <div class="sim-teams">
-        <div class="match-team" style="flex-direction:row; gap:8px;">${crestEl(H, 30)}<span class="tname">${H.short}</span></div>
+        <div class="match-team clickable-team" onclick="goToTeam('${H.id}')" style="flex-direction:row; gap:8px;">${crestEl(H, 30)}<span class="tname">${H.short}</span></div>
         <div class="sim-inputs">
           <input class="score-input inp-h" type="number" min="0" max="15" value="${existing ? existing.gh : ""}" placeholder="-" ${locked ? "disabled" : ""}>
           <span class="dash">×</span>
           <input class="score-input inp-a" type="number" min="0" max="15" value="${existing ? existing.ga : ""}" placeholder="-" ${locked ? "disabled" : ""}>
         </div>
-        <div class="match-team" style="flex-direction:row-reverse; gap:8px;">${crestEl(A, 30)}<span class="tname">${A.short}</span></div>
+        <div class="match-team clickable-team" onclick="goToTeam('${A.id}')" style="flex-direction:row-reverse; gap:8px;">${crestEl(A, 30)}<span class="tname">${A.short}</span></div>
       </div>
       <div class="match-actions">
         ${locked ? `<div class="pending-tag" style="margin:0 auto;">Resultado real confirmado</div>` : `<button class="btn-sm btn-dice">🎲 Aleatório</button><button class="btn-sm primary btn-confirm">${existing ? "✔ Atualizar" : "Confirmar"}</button>`}
@@ -897,7 +915,7 @@ function renderProbList() {
   const ordered = TEAMS.map(t => ({ team: t, p: state.probResults[t.id] })).filter(x => x.p).sort((a, b) => b.p[sortKey] - a.p[sortKey]);
   container.innerHTML = ordered.map(({ team, p }) => `
     <div class="card" style="margin-bottom:12px;">
-      <div class="card-head"><div class="team-cell">${crestEl(team, 26)}<span style="font-weight:700;">${team.name}</span></div><span style="font-size:10.5px; color:var(--text-2);">pos. média ${p.posMedia.toFixed(1)}</span></div>
+      <div class="card-head"><div class="team-cell clickable-team" onclick="goToTeam('${team.id}')">${crestEl(team, 26)}<span style="font-weight:700;">${team.name}</span></div><span style="font-size:10.5px; color:var(--text-2);">pos. média ${p.posMedia.toFixed(1)}</span></div>
       <div class="tubes">
         <div class="tube campeao"><span class="pct">${(p.campeao * 100).toFixed(0)}%</span><div class="liquid" style="height:${Math.max(p.campeao * 100, 2)}%"></div></div>
         <div class="tube libertadores"><span class="pct">${(p.libertadores * 100).toFixed(0)}%</span><div class="liquid" style="height:${Math.max(p.libertadores * 100, 2)}%"></div></div>
@@ -923,16 +941,16 @@ function toggleFavorite(teamId) {
   if (state.page === "tabela") renderTabela();
   if (state.page === "favoritos") renderFavoritosPage();
 }
-function onToggleFavoriteClick(e) { toggleFavorite(e.currentTarget.dataset.team); }
+function onToggleFavoriteClick(e) { e.stopPropagation(); toggleFavorite(e.currentTarget.dataset.team); }
 
 function renderMyTeamsSidebar() {
   const box = document.getElementById("myTeamsList");
   if (!state.favorites.length) { box.innerHTML = `<div style="font-size:11.5px; color:#8FA3C7; padding:4px 10px 8px;">Nenhum time favoritado ainda.</div>`; return; }
   box.innerHTML = state.favorites.map(id => {
     const t = TEAM_MAP[id]; if (!t) return "";
-    return `<div class="side-link" style="cursor:default;">${crestEl(t, 18)}<span style="margin-left:2px;">${t.name}</span><span class="heart" data-team="${id}" title="Remover">✕</span></div>`;
+    return `<div class="side-link clickable-team" onclick="goToTeam('${id}')">${crestEl(t, 18)}<span style="margin-left:2px;">${t.name}</span><span class="heart" data-team="${id}" title="Remover">✕</span></div>`;
   }).join("");
-  box.querySelectorAll(".heart").forEach(h => h.addEventListener("click", () => toggleFavorite(h.dataset.team)));
+  box.querySelectorAll(".heart").forEach(h => h.addEventListener("click", (e) => { e.stopPropagation(); toggleFavorite(h.dataset.team); }));
 }
 function renderFavoritosPage() {
   const box = document.getElementById("favoritesList");
@@ -943,7 +961,7 @@ function renderFavoritosPage() {
     const row = standings[idx];
     const t = TEAM_MAP[id];
     return `<div class="fixture-row">
-      <div class="fixture-teams">${crestEl(t, 26)}<span>${t.name}</span></div>
+      <div class="fixture-teams clickable-team" onclick="goToTeam('${id}')">${crestEl(t, 26)}<span>${t.name}</span></div>
       <div style="font-size:12px; color:var(--text-1);">${row ? `${idx + 1}º · ${row.pts} pts` : "—"}</div>
     </div>`;
   }).join("");
@@ -982,6 +1000,159 @@ async function renderNews() {
     : `<div class="empty" style="padding:12px 0;">Não foi possível carregar notícias agora. Tente novamente mais tarde.</div>`;
 }
 
+/* ================= NAVEGAÇÃO PRA DETALHE (time/jogador) ================= */
+const POSITION_LABELS = { Goalkeeper: "Goleiro", Defender: "Zagueiro", Midfielder: "Meio-campo", Attacker: "Atacante" };
+function translatePosition(pos) { return POSITION_LABELS[pos] || pos || ""; }
+function initialsOf(name) { return (name || "?").split(" ").filter(Boolean).map(w => w[0]).slice(0, 2).join("").toUpperCase(); }
+// Crest + nome do time, clicável — abre a página de detalhe do time.
+// nameKey escolhe "name" (nome completo) ou "short" (sigla).
+function teamLinkHTML(team, size, nameKey = "name") {
+  if (!team) return "";
+  return `<span class="clickable-team team-link" onclick="goToTeam('${team.id}')">${crestEl(team, size)}<span class="tname">${team[nameKey]}</span></span>`;
+}
+
+function goToTeam(teamId) {
+  if (state.page !== "time" && state.page !== "jogador") state.pageBeforeDetail = state.page;
+  state.selectedTeamId = teamId;
+  setActivePage("time");
+}
+function goToPlayer(playerId) {
+  if (state.page !== "time" && state.page !== "jogador") state.pageBeforeDetail = state.page;
+  state.selectedPlayerId = playerId;
+  setActivePage("jogador");
+}
+function goBackFromDetail() {
+  setActivePage(state.pageBeforeDetail || "dashboard");
+}
+
+/* ================= PÁGINA: DETALHE DO TIME ================= */
+function teamLastMatchRowHTML(m, teamId) {
+  const isHome = m.home === teamId;
+  const opp = TEAM_MAP[isHome ? m.away : m.home];
+  const gf = isHome ? m.gh : m.ga, ga = isHome ? m.ga : m.gh;
+  const cls = gf > ga ? "v" : gf === ga ? "e" : "d";
+  const letter = gf > ga ? "V" : gf === ga ? "E" : "D";
+  return `
+  <div class="rail-fixture">
+    <div class="when">Rodada ${m.round} · ${isHome ? "em casa" : "fora"}${m.simulated ? " · simulado" : ""}</div>
+    <div class="teams">
+      <div class="form-dot ${cls}" style="flex-shrink:0;">${letter}</div>
+      ${opp ? teamLinkHTML(opp, 20) : ""}
+      <span class="vs">${gf} × ${ga}</span>
+    </div>
+  </div>`;
+}
+// Elenco (modo demo: DEMO_PLAYERS já pronto. Modo ao vivo: busca
+// lazy — não fica pré-carregado, só quando a página do time abre).
+let teamRosterCacheDemo = null; // não precisa de cache específico, DEMO_PLAYERS já é síncrono
+async function resolveTeamRoster(teamId) {
+  if (!LIVE_MODE) return DEMO_PLAYERS.filter(p => p.teamId === teamId);
+  return loadTeamRoster(teamId);
+}
+function playerRosterCardHTML(p) {
+  const avatar = p.photo ? `<img src="${p.photo}" alt="">` : initialsOf(p.name);
+  return `
+  <div class="roster-card clickable-player" onclick="goToPlayer(${p.id})">
+    <div class="roster-avatar">${avatar}</div>
+    <div class="rname">${p.name}</div>
+    <div class="rmeta">${translatePosition(p.position)}</div>
+  </div>`;
+}
+async function renderTeamRoster(teamId) {
+  const box = document.getElementById("teamPageRoster");
+  const hint = document.getElementById("teamPageRosterHint");
+  if (!box) return;
+  box.innerHTML = `<div class="empty" style="grid-column:1/-1; padding:8px 0;">Carregando elenco...</div>`;
+  const roster = await resolveTeamRoster(teamId);
+  if (state.selectedTeamId !== teamId) return; // usuário já trocou de time enquanto carregava
+  box.innerHTML = roster.length
+    ? roster.map(playerRosterCardHTML).join("")
+    : `<div class="empty" style="grid-column:1/-1; padding:8px 0;">Elenco não disponível.</div>`;
+  if (hint) hint.textContent = `${roster.length} jogador${roster.length === 1 ? "" : "es"} · ${LIVE_MODE ? "dados ao vivo" : "dados de exemplo"}`;
+}
+function renderTeamPage() {
+  const teamId = state.selectedTeamId;
+  const team = TEAM_MAP[teamId];
+  if (!team) { goBackFromDetail(); return; }
+
+  document.getElementById("teamPageCrest").innerHTML = crestEl(team, 56);
+  document.getElementById("teamPageName").textContent = team.name;
+  document.getElementById("teamPageSub").textContent = [team.uf, team.venue?.name, team.venue?.city].filter(Boolean).join(" · ")
+    || (LIVE_MODE ? "Série A · dados ao vivo" : "Série A · dados de exemplo");
+
+  const standings = currentStandings();
+  const pos = standings.findIndex(r => r.id === teamId) + 1;
+  const row = standings.find(r => r.id === teamId);
+  document.getElementById("teamPageKpis").innerHTML = row ? `
+    <div class="card kpi"><div class="ico yellow">🏆</div><div><div class="lbl">Posição</div><div class="val">${pos}º</div></div></div>
+    <div class="card kpi"><div class="ico blue">⭐</div><div><div class="lbl">Pontos</div><div class="val">${row.pts}</div></div></div>
+    <div class="card kpi"><div class="ico green">⚽</div><div><div class="lbl">Gols marcados</div><div class="val">${row.gp}</div></div></div>
+    <div class="card kpi"><div class="ico navy">🥅</div><div><div class="lbl">Gols sofridos</div><div class="val">${row.gc}</div></div></div>
+    <div class="card kpi"><div class="ico blue">📊</div><div><div class="lbl">Saldo</div><div class="val">${row.sg > 0 ? "+" + row.sg : row.sg}</div></div></div>
+  ` : `<div class="card empty" style="grid-column:1/-1;">Sem jogos decididos ainda.</div>`;
+
+  renderFormaInto("teamPageForma", teamId);
+  renderRadarInto("teamPageRadar", teamId);
+
+  const upcoming = [];
+  for (let r = 1; r <= TOTAL_ROUNDS && upcoming.length < 4; r++) {
+    getRoundMatches(r).filter(m => m.pending && (m.home === teamId || m.away === teamId)).forEach(m => { if (upcoming.length < 4) upcoming.push(m); });
+  }
+  document.getElementById("teamPageNextFixtures").innerHTML = upcoming.length ? upcoming.map(fixtureRowHTML).join("") : `<div class="empty">Sem jogos futuros cadastrados.</div>`;
+
+  const last = allDecidedMatches().filter(m => m.home === teamId || m.away === teamId).sort((a, b) => b.round - a.round).slice(0, 6);
+  document.getElementById("teamPageLastMatches").innerHTML = last.length ? last.map(m => teamLastMatchRowHTML(m, teamId)).join("") : `<div class="empty">Sem jogos decididos ainda.</div>`;
+
+  renderTeamRoster(teamId);
+}
+
+/* ================= PÁGINA: DETALHE DO JOGADOR ================= */
+async function resolvePlayer(playerId) {
+  if (!LIVE_MODE) return DEMO_PLAYERS.find(p => p.id === playerId) || null;
+  const fromLeaders = (playersListCache || []).find(p => p.id === playerId);
+  if (fromLeaders) return fromLeaders;
+  for (const roster of teamRosterCache.values()) {
+    const found = (await roster).find(p => p.id === playerId);
+    if (found) return found;
+  }
+  return loadPlayerById(playerId);
+}
+async function renderPlayerPage() {
+  const playerId = state.selectedPlayerId;
+  document.getElementById("playerPageAvatar").innerHTML = `<div class="player-avatar-lg">${initialsOf("")}</div>`;
+  document.getElementById("playerPageName").textContent = "Carregando...";
+  document.getElementById("playerPageSub").textContent = "";
+  document.getElementById("playerPageBody").innerHTML = "";
+
+  const player = await resolvePlayer(playerId);
+  if (state.selectedPlayerId !== playerId) return; // usuário já trocou de jogador enquanto carregava
+
+  if (!player) {
+    document.getElementById("playerPageAvatar").innerHTML = `<div class="player-avatar-lg">?</div>`;
+    document.getElementById("playerPageName").textContent = "Jogador não encontrado";
+    document.getElementById("playerPageBody").innerHTML = `<div class="card empty">Não temos estatísticas detalhadas desse jogador ainda.</div>`;
+    return;
+  }
+
+  const team = TEAM_MAP[player.teamId];
+  document.getElementById("playerPageAvatar").innerHTML = `<div class="player-avatar-lg">${player.photo ? `<img src="${player.photo}" alt="">` : initialsOf(player.name)}</div>`;
+  document.getElementById("playerPageName").textContent = player.name;
+  document.getElementById("playerPageSub").innerHTML = [
+    team ? teamLinkHTML(team, 18) : "",
+    translatePosition(player.position),
+  ].filter(Boolean).join(" · ");
+
+  document.getElementById("playerPageBody").innerHTML = `
+    <div class="grid grid-kpi" style="margin-bottom:16px;">
+      <div class="card kpi"><div class="ico green">⚽</div><div><div class="lbl">Gols</div><div class="val">${player.goals}</div></div></div>
+      <div class="card kpi"><div class="ico blue">🎯</div><div><div class="lbl">Assistências</div><div class="val">${player.assists}</div></div></div>
+      <div class="card kpi"><div class="ico yellow">🟨</div><div><div class="lbl">Cartões amarelos</div><div class="val">${player.yellow}</div></div></div>
+      <div class="card kpi"><div class="ico navy">🟥</div><div><div class="lbl">Cartões vermelhos</div><div class="val">${player.red || 0}</div></div></div>
+      <div class="card kpi"><div class="ico blue">⭐</div><div><div class="lbl">Nota média</div><div class="val">${player.rating != null ? player.rating.toFixed(1) : "-"}</div></div></div>
+    </div>
+    ${team ? `<div class="card-link" onclick="goToTeam('${team.id}')" style="display:inline-block;">Ver página de ${team.name} →</div>` : ""}`;
+}
+
 /* ================= SELECTS (comparador / radar / forma / e-se) ================= */
 function populateSelect(sel, defaultId) {
   const sorted = [...TEAMS].sort((a, b) => a.name.localeCompare(b.name));
@@ -1003,7 +1174,7 @@ function populateAllSelects() {
 }
 
 /* ================= NAVEGAÇÃO ================= */
-const PAGES = ["dashboard", "jogos", "tabela", "estatisticas", "simulador", "favoritos", "noticias", "mais"];
+const PAGES = ["dashboard", "jogos", "tabela", "estatisticas", "simulador", "favoritos", "noticias", "time", "jogador", "mais"];
 function setActivePage(name, opts = {}) {
   state.page = name;
   PAGES.forEach(p => document.getElementById(`page-${p}`)?.classList.toggle("active", p === name));
@@ -1019,6 +1190,8 @@ function setActivePage(name, opts = {}) {
   if (name === "simulador") renderSimulador();
   if (name === "favoritos") renderFavoritosPage();
   if (name === "noticias") renderNews();
+  if (name === "time") renderTeamPage();
+  if (name === "jogador") renderPlayerPage();
 
   if (opts.scrollTo) setTimeout(() => document.getElementById(opts.scrollTo)?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
 }
@@ -1142,7 +1315,7 @@ function setupEventListeners() {
     searchResults.classList.add("open");
     searchResults.querySelectorAll(".sr-item[data-team]").forEach(item => item.addEventListener("click", () => {
       searchInput.value = ""; searchResults.classList.remove("open");
-      setActivePage("tabela");
+      goToTeam(item.dataset.team);
     }));
   });
   document.addEventListener("click", e => { if (!e.target.closest(".top-search") && !e.target.closest(".search-results")) searchResults.classList.remove("open"); });

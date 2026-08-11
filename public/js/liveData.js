@@ -189,3 +189,24 @@ async function loadNews() {
   newsCache = promise;
   return promise;
 }
+
+// Elenco completo de UM time — lazy, só quando a página de detalhe
+// do time é aberta em modo ao vivo. Cacheado por time.
+const teamRosterCache = new Map();
+async function loadTeamRoster(teamId, season = LIVE_SEASON) {
+  if (teamRosterCache.has(teamId)) return teamRosterCache.get(teamId);
+  const promise = safeFetchJSON(`/api/teams/${teamId}/players?season=${season}`).then(r => r.players || []).catch(() => []);
+  teamRosterCache.set(teamId, promise);
+  return promise;
+}
+
+// Busca 1 jogador específico por id — fallback pra quando a página
+// de detalhe do jogador abre pra alguém que não está nem nos líderes
+// (Estatísticas > Jogadores) nem no elenco já carregado de algum time.
+const singlePlayerCache = new Map();
+async function loadPlayerById(playerId, season = LIVE_SEASON) {
+  if (singlePlayerCache.has(playerId)) return singlePlayerCache.get(playerId);
+  const promise = safeFetchJSON(`/api/players/${playerId}?season=${season}`).then(r => r.player || null).catch(() => null);
+  singlePlayerCache.set(playerId, promise);
+  return promise;
+}

@@ -250,11 +250,30 @@ h1,h2,h3{ margin:0; }
 .fav-heart{ cursor:pointer; color:var(--text-2); flex-shrink:0; }
 .fav-heart.active{ color:var(--brd-red); }
 
+/* Time/jogador clicáveis (abrem a página de detalhe) */
+.clickable-team, .clickable-player{ cursor:pointer; }
+.team-link{ display:inline-flex; align-items:center; gap:6px; }
+.clickable-team:hover .tname, .clickable-team:hover, .clickable-player:hover{ text-decoration:underline; }
+
+/* Página de detalhe (Time / Jogador) */
+.back-link{ display:inline-flex; align-items:center; gap:4px; background:none; border:none; color:var(--brd-blue); font-weight:700; font-size:12.5px; cursor:pointer; padding:0; font-family:inherit; }
+.back-link:hover{ text-decoration:underline; }
+.player-avatar-lg{ width:64px; height:64px; border-radius:50%; background:linear-gradient(135deg, var(--brd-blue), var(--brd-navy)); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:800; font-size:20px; overflow:hidden; flex-shrink:0; }
+.player-avatar-lg img{ width:100%; height:100%; object-fit:cover; }
+
+/* Elenco (grid de jogadores clicáveis na página do time) */
+.roster-card{ display:flex; flex-direction:column; align-items:center; text-align:center; gap:6px; padding:12px 8px; border-radius:var(--radius-md); cursor:pointer; }
+.roster-card:hover{ background:var(--bg-app); }
+.roster-avatar{ width:44px; height:44px; border-radius:50%; background:linear-gradient(135deg, var(--brd-blue), var(--brd-navy)); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:800; font-size:13px; overflow:hidden; }
+.roster-avatar img{ width:100%; height:100%; object-fit:cover; }
+.roster-card .rname{ font-size:11.5px; font-weight:700; color:var(--text-0); line-height:1.25; }
+.roster-card .rmeta{ font-size:9.5px; color:var(--text-2); }
+
 /* Barras de probabilidade */
 .prob-row{ margin-bottom:12px; }
 .prob-row:last-child{ margin-bottom:0; }
 .prob-row .top-line{ display:flex; justify-content:space-between; align-items:center; margin-bottom:5px; }
-.prob-row .top-line .team-cell{ font-size:12.5px; }
+.prob-row .top-line .team-cell, .prob-row .top-line .team-link{ font-size:12.5px; font-weight:600; }
 .prob-row .top-line b{ font-size:12.5px; font-variant-numeric:tabular-nums; }
 .prob-track{ height:6px; border-radius:100px; background:var(--bg-app); overflow:hidden; }
 .prob-fill{ height:100%; border-radius:100px; transition:width .8s cubic-bezier(.22,.61,.36,1); }
@@ -391,7 +410,7 @@ h1,h2,h3{ margin:0; }
 @media (max-width:480px){ .lineups-grid{ grid-template-columns:minmax(0, 1fr); } }
 .lineup-side{ min-width:0; }
 .lineup-head{ display:flex; align-items:center; gap:8px; margin-bottom:6px; }
-.lineup-head b{ font-size:12px; }
+.lineup-head b, .lineup-head .tname{ font-size:12px; font-weight:700; }
 .lineup-formation{ margin-left:auto; font-size:10px; color:var(--text-2); font-weight:600; }
 .lineup-coach{ font-size:10.5px; color:var(--text-2); margin-bottom:8px; }
 .lineup-subtitle{ font-size:9.5px; text-transform:uppercase; letter-spacing:.4px; color:var(--text-2); margin:10px 0 4px; }

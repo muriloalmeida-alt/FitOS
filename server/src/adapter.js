@@ -25,11 +25,13 @@ function normalizeLogoUrl(url) {
 
 function mapTeam(item) {
   const t = item.team;
+  const v = item.venue;
   return {
     id: t.id,
     name: t.name,
     short: (t.code || t.name.replace(/[^A-Za-zÀ-ú]/g, "").slice(0, 3)).toUpperCase(),
     logo: normalizeLogoUrl(t.logo),
+    venue: v && v.name ? { name: v.name, city: v.city || null } : null,
   };
 }
 
@@ -100,6 +102,7 @@ function mapEvents(response) {
     .map(ev => ({
       team: ev.team.id,
       min: ev.time.elapsed + (ev.time.extra || 0),
+      playerId: ev.player && ev.player.id ? ev.player.id : null,
       player: ev.player && ev.player.name ? ev.player.name : "Desconhecido",
       detail: ev.detail, // "Normal Goal", "Own Goal", "Penalty"
     }))
@@ -116,7 +119,9 @@ function mapSubstitutions(response) {
     .map(ev => ({
       team: ev.team.id,
       min: ev.time.elapsed + (ev.time.extra || 0),
+      outId: ev.player && ev.player.id ? ev.player.id : null,
       out: ev.player && ev.player.name ? ev.player.name : "Desconhecido",
+      inId: ev.assist && ev.assist.id ? ev.assist.id : null,
       in: ev.assist && ev.assist.name ? ev.assist.name : "Desconhecido",
     }))
     .sort((a, b) => a.min - b.min);
@@ -131,6 +136,7 @@ function mapLineups(response) {
     const teamId = block.team && block.team.id;
     if (!teamId) return;
     const mapPlayer = (p) => ({
+      id: p.player?.id ?? null,
       name: p.player?.name || "Desconhecido",
       number: p.player?.number ?? null,
       pos: p.player?.pos || null,
