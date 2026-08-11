@@ -234,15 +234,29 @@ function renderDashboard() {
   renderDashNewsMini();
 }
 
-function renderDashNewsMini() {
+// "há Xmin/Xh/Xd" a partir de uma data (pubDate do RSS, formato RFC
+// 822 tipo "Tue, 11 Aug 2026 12:00:00 GMT" — new Date() já entende).
+function timeAgo(dateStr) {
+  const d = new Date(dateStr);
+  if (isNaN(d)) return "";
+  const mins = Math.floor((Date.now() - d.getTime()) / 60000);
+  if (mins < 1) return "agora";
+  if (mins < 60) return `há ${mins} min`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `há ${hours}h`;
+  return `há ${Math.floor(hours / 24)}d`;
+}
+async function renderDashNewsMini() {
   const box = document.getElementById("dashNewsMini");
   if (!box) return;
-  const items = [
-    { tag: "Mercado", title: "Exemplo de notícia — conecte uma fonte real.", time: "há 2h" },
-    { tag: "Análise", title: "Exemplo de análise — conteúdo de demonstração.", time: "há 4h" },
-    { tag: "Lesão", title: "Exemplo de boletim — troque por fonte confiável.", time: "há 6h" },
-  ];
-  box.innerHTML = items.map(n => `<div class="news-mini"><div class="thumb"></div><div><h4>${n.title}</h4><div class="meta">${n.tag} · ${n.time}</div></div></div>`).join("");
+  const items = (await loadNews()).slice(0, 3);
+  box.innerHTML = items.length
+    ? items.map(n => `
+      <a class="news-mini" href="${n.link}" target="_blank" rel="noopener">
+        <div class="thumb"></div>
+        <div><h4>${n.title}</h4><div class="meta">${n.source || "Notícia"} · ${timeAgo(n.pubDate)}</div></div>
+      </a>`).join("")
+    : `<div class="empty" style="padding:8px 0;">Não foi possível carregar notícias agora.</div>`;
 }
 
 function renderDashKpis(standings) {
@@ -952,15 +966,20 @@ function toggleTheme() {
   try { localStorage.setItem("brdata_theme", next); } catch {}
 }
 
-/* ================= NOTÍCIAS (placeholder) ================= */
-function renderNews() {
-  const items = [
-    { tag: "Mercado", tagClass: "tag-blue", title: "Exemplo de notícia de mercado — conecte uma fonte real (RSS/API) para substituir este texto.", time: "há 2h" },
-    { tag: "Análise", tagClass: "tag-green", title: "Exemplo de análise tática — este é um item de demonstração, não uma notícia real.", time: "há 4h" },
-    { tag: "Lesão", tagClass: "tag-red", title: "Exemplo de boletim médico — troque por conteúdo de uma fonte jornalística confiável.", time: "há 6h" },
-  ];
-  document.getElementById("newsList").innerHTML = items.map(n => `
-    <div class="news-item"><div class="news-thumb"></div><div><span class="tag ${n.tagClass}">${n.tag}</span><h4>${n.title}</h4><div class="meta">${n.time}</div></div></div>`).join("");
+/* ================= NOTÍCIAS ================= */
+// Feed RSS real (busca do Google Notícias por "Brasileirão"/"futebol
+// brasileiro", agregando vários veículos — ver server/src/newsSource.js).
+async function renderNews() {
+  const box = document.getElementById("newsList");
+  box.innerHTML = `<div class="empty" style="padding:12px 0;">Carregando notícias...</div>`;
+  const items = await loadNews();
+  box.innerHTML = items.length
+    ? items.map(n => `
+      <a class="news-item" href="${n.link}" target="_blank" rel="noopener">
+        <div class="news-thumb"></div>
+        <div><span class="tag tag-blue">${n.source || "Notícia"}</span><h4>${n.title}</h4><div class="meta">${timeAgo(n.pubDate)}</div></div>
+      </a>`).join("")
+    : `<div class="empty" style="padding:12px 0;">Não foi possível carregar notícias agora. Tente novamente mais tarde.</div>`;
 }
 
 /* ================= SELECTS (comparador / radar / forma / e-se) ================= */

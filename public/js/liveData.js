@@ -177,3 +177,15 @@ async function loadPlayersLeaders(season = LIVE_SEASON) {
     return [];
   }
 }
+
+// Notícias sobre futebol brasileiro — fonte independente da
+// API-Sports (ver server/src/newsSource.js), funciona igual em modo
+// demo ou ao vivo. Cacheada em memória: uma busca por sessão de
+// navegação (o backend já cacheia 20min do lado dele também).
+let newsCache = null;
+async function loadNews() {
+  if (newsCache) return newsCache;
+  const promise = safeFetchJSON("/api/news").then(r => r.items || []).catch(() => []);
+  newsCache = promise;
+  return promise;
+}

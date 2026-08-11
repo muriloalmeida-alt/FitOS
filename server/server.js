@@ -22,6 +22,7 @@ const { mapTeam, mapStandingRow, mapFixture, mapStatistics, mapEvents, mapSubsti
 const cache = require("./src/cache");
 const oddsHistory = require("./src/oddsHistory");
 const { fetchBroadcastStation } = require("./src/broadcastSource");
+const { fetchNews } = require("./src/newsSource");
 
 loadDotEnv();
 
@@ -39,6 +40,7 @@ const TTL = {
   leagueSearch: 24 * 60 * 60 * 1000,
   playersLeaders: 6 * 60 * 60 * 1000, // 6h — rankings de jogadores não mudam durante o dia
   broadcast: 6 * 60 * 60 * 1000,     // 6h — fonte comunitária (TheSportsDB), não muda de hora em hora
+  news: 20 * 60 * 1000,              // 20min — feed de notícias, atualiza mas não precisa ser em tempo real
 };
 
 function loadDotEnv() {
@@ -249,6 +251,22 @@ const server = http.createServer(async (req, res) => {
         } catch (err) {
           console.error("[broadcast] falha ao consultar TheSportsDB:", err.message);
           return { station: null };
+        }
+      });
+      return sendJSON(res, 200, data);
+    }
+
+    if (pathname === "/api/news") {
+      // Feed de notícias — fonte independente da API-Sports e da
+      // TheSportsDB, não depende de nenhuma chave. Best-effort: erro
+      // vira lista vazia, nunca quebra a página (o front mostra um
+      // aviso e o usuário pode tentar de novo depois).
+      const data = await withCache("news:brasileirao", TTL.news, async () => {
+        try {
+          return { items: await fetchNews(20) };
+        } catch (err) {
+          console.error("[news] falha ao buscar RSS:", err.message);
+          return { items: [] };
         }
       });
       return sendJSON(res, 200, data);
