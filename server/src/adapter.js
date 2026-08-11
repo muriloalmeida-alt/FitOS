@@ -7,13 +7,29 @@ function parseRoundNumber(roundStr = "") {
   return m ? parseInt(m[1], 10) : null;
 }
 
+// Garante um esquema (https:) na URL do logo. Algumas respostas da
+// API-Sports trazem o campo "logo" sem "https://" na frente (ex:
+// "media.api-sports.io/football/teams/118.png" ou
+// "//media.api-sports.io/..."), o que faz o navegador tratar o valor
+// como caminho relativo (ou, no caso "//", tentar resolver o host
+// certo mas ainda assim falhar em alguns ambientes) — resultado: o
+// brasão nunca carrega. Normalizamos aqui, uma vez só, na origem.
+function normalizeLogoUrl(url) {
+  if (!url) return null;
+  const trimmed = String(url).trim();
+  if (!trimmed) return null;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (trimmed.startsWith("//")) return `https:${trimmed}`;
+  return `https://${trimmed}`;
+}
+
 function mapTeam(item) {
   const t = item.team;
   return {
     id: t.id,
     name: t.name,
     short: (t.code || t.name.replace(/[^A-Za-zÀ-ú]/g, "").slice(0, 3)).toUpperCase(),
-    logo: t.logo || null,
+    logo: normalizeLogoUrl(t.logo),
   };
 }
 
