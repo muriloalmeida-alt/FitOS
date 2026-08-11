@@ -80,10 +80,9 @@ h1,h2,h3{ margin:0; }
   display:flex; flex-direction:column; padding:20px 14px; position:sticky; top:0; height:100vh;
   overflow-y:auto; z-index:50; transition:transform .3s ease;
 }
-.sidebar-brand{ display:flex; align-items:center; gap:10px; padding:6px 8px 22px; }
-.sidebar-brand .crown{ width:32px; height:32px; border-radius:9px; background:linear-gradient(135deg, var(--brd-yellow), #ffe27a); display:flex; align-items:center; justify-content:center; font-size:16px; }
-.sidebar-brand b{ font-size:16px; font-weight:800; letter-spacing:.3px; display:block; line-height:1.1; }
-.sidebar-brand span{ font-size:9px; color:#8FA3C7; letter-spacing:1px; text-transform:uppercase; }
+.sidebar-brand{ display:flex; flex-direction:column; align-items:flex-start; gap:6px; padding:6px 8px 22px; }
+.sidebar-brand .brand-logo{ height:34px; width:auto; }
+.brand-tagline{ font-size:9px; color:#8FA3C7; letter-spacing:1px; text-transform:uppercase; }
 
 .side-label{ font-size:10.5px; text-transform:uppercase; letter-spacing:.8px; color:#7E90B3; font-weight:600; margin:16px 10px 8px; }
 .side-link{
@@ -150,10 +149,8 @@ h1,h2,h3{ margin:0; }
 .avatar .circ{ width:32px; height:32px; border-radius:50%; background:linear-gradient(135deg, var(--brd-blue), var(--brd-navy)); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; }
 .avatar span{ font-size:13px; font-weight:600; }
 .mobile-only{ display:none; }
-.topbar-brand{ display:flex; align-items:center; gap:8px; margin-right:auto; }
-.topbar-brand .crown{ width:30px; height:30px; border-radius:8px; background:linear-gradient(135deg, var(--brd-yellow), #ffe27a); display:flex; align-items:center; justify-content:center; font-size:14px; }
-.topbar-brand b{ font-size:16px; font-weight:800; letter-spacing:.2px; }
-.topbar-brand b span{ color:var(--brd-yellow); }
+.topbar-brand{ align-items:center; gap:8px; margin-right:auto; }
+.topbar-brand .brand-logo{ height:28px; width:auto; }
 
 .search-results{
   position:absolute; top:56px; right:220px; width:260px; background:var(--bg-surface); border:1px solid var(--border);
