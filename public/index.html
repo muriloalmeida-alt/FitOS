@@ -91,17 +91,24 @@
           </div>
         </div>
 
+        <div class="card fav-club-card" style="margin-bottom:16px;">
+          <div class="card-head"><h3>⭐ Clube Favorito</h3></div>
+          <p class="fav-club-hint">Escolha 1 clube para deixá-lo em destaque na página inicial no lugar do líder do campeonato. Sem seleção, o destaque continua sendo o líder.</p>
+          <select class="compare-select fav-club-select" id="favoriteClubSelect"></select>
+        </div>
+
         <div class="lider-hero mobile-only">
           <div class="crest-wrap" id="liderCrest"></div>
           <div>
-            <div class="lbl">Líder</div>
+            <div class="lbl" id="liderLabel">Líder</div>
             <div class="team" id="liderTeamName">—</div>
+            <div class="lider-rank" id="liderRank"></div>
             <div class="pts"><span id="liderPts">—</span> <small>PTS</small></div>
           </div>
         </div>
 
         <div class="grid grid-kpi" style="margin-bottom:16px;">
-          <div class="card kpi kpi-hero desktop-only"><div class="ico yellow">🏆</div><div><div class="lbl">Líder</div><div class="val" id="kpiLeader">—</div></div></div>
+          <div class="card kpi kpi-hero desktop-only"><div class="ico yellow" id="kpiLeaderIcon">🏆</div><div><div class="lbl" id="kpiLeaderLabel">Líder</div><div class="val" id="kpiLeader">—</div></div></div>
           <div class="card kpi"><div class="ico blue">📈</div><div><div class="lbl">Média de gols</div><div class="val" id="kpiGoalsAvg">—</div></div></div>
           <div class="card kpi"><div class="ico green">⚡</div><div><div class="lbl">Posse média</div><div class="val" id="kpiPossAvg">—</div></div></div>
           <div class="card kpi"><div class="ico navy">⚽</div><div><div class="lbl">Total de gols</div><div class="val" id="kpiGoalsTotal">—</div></div></div>

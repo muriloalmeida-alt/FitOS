@@ -232,6 +232,11 @@ h1,h2,h3{ margin:0; }
 .kpi .val{ font-size:20px; font-weight:800; line-height:1.15; }
 .kpi .val small{ font-size:12px; font-weight:600; color:var(--text-1); }
 
+/* Clube Favorito (Dashboard) */
+.fav-club-hint{ font-size:11.5px; color:var(--text-2); margin:0 0 10px; line-height:1.5; max-width:640px; }
+.fav-club-select{ display:block; width:100%; max-width:340px; }
+.lider-rank{ font-size:11.5px; font-weight:600; color:rgba(255,255,255,.75); margin:-3px 0 6px; }
+
 /* Tabela */
 /* Tabelas com muitas colunas (ex: classificação completa) não
    encolhem abaixo do conteúdo mesmo com .card já do tamanho certo —

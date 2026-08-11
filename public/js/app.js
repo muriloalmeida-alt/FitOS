@@ -25,6 +25,7 @@ const state = {
   whatifN: 5,
   whatifTeamId: null,
   favorites: [],
+  favoriteClubId: null,
   selectedTeamId: null,
   selectedPlayerId: null,
   pageBeforeDetail: "dashboard",
@@ -35,6 +36,7 @@ function setActiveTeams(teams) { TEAMS = teams; setTeamMap(teams); }
 
 async function boot() {
   loadFavorites();
+  loadFavoriteClub();
   initTheme();
   setActiveTeams(DEMO_TEAMS);
   const live = await tryLoadLiveData();
@@ -140,21 +142,76 @@ function aprov(pts, j) { return j ? Math.round((pts / (j * 3)) * 100) : 0; }
 function escAttr(value) {
   return String(value).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
-function crestEl(team, size) {
-  if (team.logo) {
-    // Passa os dados do fallback via data-* (em vez de embutir HTML cru
-    // dentro do atributo onerror) — assim aspas dentro do HTML de
-    // crestFallback() não colidem com as aspas do próprio atributo, o
-    // que antes quebrava o fallback e deixava o ícone de imagem
-    // quebrada do navegador aparecer no lugar do brasão/iniciais.
-    return `<img class="crest" src="${escAttr(team.logo)}" alt="${escAttr(team.short || "")}" width="${size}" height="${size}"
-      style="width:${size}px;height:${size}px;background:#fff;border:1px solid var(--border);padding:2px;"
-      data-short="${escAttr(team.short || team.name || "?")}" data-c1="${escAttr(team.c1 || "#0057B8")}" data-c2="${escAttr(team.c2 || "#062B5C")}" data-size="${size}"
-      onerror="crestFallbackHandler(this)">`;
+// Brasões salvos localmente (public/img/teams/*.svg) — usados quando a
+// API-Sports está fora do ar/sem chave, ou como o próprio brasão do modo
+// de exemplo. Cobre 19 dos 20 clubes da Série A 2026 (falta Mirassol, que
+// cai pro fallback de iniciais coloridas mesmo). Fonte: pacote npm
+// "react-brasileirao-logos" (14 clubes) + repositório público
+// "hugomiura/escudos-times-brasil-svg" (5 clubes) — ver public/img/teams/README.md.
+const LOCAL_CREST_MAP = {
+  fla: ["flamengo"],
+  pal: ["palmeiras"],
+  bot: ["botafogo"],
+  for: ["fortaleza"],
+  int: ["internacional"],
+  sao: ["sao paulo"],
+  cor: ["corinthians"],
+  gre: ["gremio"],
+  cap: ["athletico paranaense", "atletico paranaense", "athletico pr", "atletico pr"],
+  cru: ["cruzeiro"],
+  cam: ["atletico mineiro", "atletico mg", "clube atletico mineiro"],
+  bah: ["bahia"],
+  vas: ["vasco da gama", "vasco"],
+  flu: ["fluminense"],
+  san: ["santos"],
+  bra: ["bragantino", "red bull bragantino", "rb bragantino"],
+  vit: ["vitoria"],
+  juv: ["juventude"],
+  cui: ["cuiaba"],
+};
+// Remove acentos e pontuação pra comparar nomes de forma tolerante (ex:
+// "Atlético-MG" e "Atletico Mineiro" viram "atletico mg"/"atletico mineiro").
+function normalizeTeamName(s) {
+  return String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+}
+function localCrestFor(team) {
+  if (!team) return null;
+  // Modo de exemplo: o id já é a sigla local (fla, pal, bot...).
+  if (team.id && LOCAL_CREST_MAP[team.id]) return `img/teams/${team.id}.svg`;
+  // Modo ao vivo: id é o id numérico da API-Sports — casa pelo nome.
+  const norm = normalizeTeamName(team.name);
+  for (const [localId, aliases] of Object.entries(LOCAL_CREST_MAP)) {
+    if (aliases.some(a => norm.includes(a))) return `img/teams/${localId}.svg`;
   }
-  return crestFallback(team, size);
+  return null;
+}
+function crestEl(team, size) {
+  const localSrc = localCrestFor(team);
+  const primarySrc = team.logo || localSrc;
+  if (!primarySrc) return crestFallback(team, size);
+  // Se a fonte principal for a API-Sports E existir um brasão local
+  // diferente, guarda o caminho local como plano B antes das iniciais.
+  const retrySrc = (team.logo && localSrc && localSrc !== team.logo) ? localSrc : "";
+  // Passa os dados do fallback via data-* (em vez de embutir HTML cru
+  // dentro do atributo onerror) — assim aspas dentro do HTML de
+  // crestFallback() não colidem com as aspas do próprio atributo, o
+  // que antes quebrava o fallback e deixava o ícone de imagem
+  // quebrada do navegador aparecer no lugar do brasão/iniciais.
+  return `<img class="crest" src="${escAttr(primarySrc)}" alt="${escAttr(team.short || "")}" width="${size}" height="${size}"
+    style="width:${size}px;height:${size}px;background:#fff;border:1px solid var(--border);padding:2px;"
+    data-short="${escAttr(team.short || team.name || "?")}" data-c1="${escAttr(team.c1 || "#0057B8")}" data-c2="${escAttr(team.c2 || "#062B5C")}" data-size="${size}"
+    data-retry="${escAttr(retrySrc)}"
+    onerror="crestFallbackHandler(this)">`;
 }
 function crestFallbackHandler(img) {
+  const retry = img.dataset.retry;
+  if (retry) {
+    // Já tentou a API-Sports e falhou — tenta o brasão salvo localmente
+    // antes de desistir e cair pras iniciais coloridas.
+    img.dataset.retry = "";
+    img.src = retry;
+    return;
+  }
   img.outerHTML = crestFallback(
     { short: img.dataset.short, c1: img.dataset.c1, c2: img.dataset.c2 },
     parseInt(img.dataset.size, 10) || 24
@@ -268,20 +325,36 @@ function renderDashKpis(standings) {
   const homeWins = matches.filter(m => m.gh > m.ga).length;
   const homeWinPct = matches.length ? Math.round((homeWins / matches.length) * 100) : 0;
 
-  document.getElementById("kpiLeader").innerHTML = standings[0] ? `${TEAM_MAP[standings[0].id].short} <small>${standings[0].pts} pts</small>` : "—";
   document.getElementById("kpiGoalsAvg").textContent = mediaGols;
   document.getElementById("kpiPossAvg").textContent = posseAvg ? posseAvg + "%" : "—";
   document.getElementById("kpiGoalsTotal").textContent = totalGols;
   document.getElementById("kpiHomeWin").textContent = homeWinPct + "%";
 
-  if (standings[0]) {
-    const leaderTeam = TEAM_MAP[standings[0].id];
-    document.getElementById("liderCrest").innerHTML = crestEl(leaderTeam, 52);
-    document.getElementById("liderTeamName").textContent = leaderTeam.name;
-    document.getElementById("liderPts").textContent = standings[0].pts;
+  // Destaque do Dashboard: o clube favorito (se escolhido em "Clube
+  // Favorito", no máximo 1) substitui o líder do campeonato. Sem
+  // seleção, o destaque continua sendo o líder normalmente.
+  const favTeam = state.favoriteClubId ? TEAM_MAP[state.favoriteClubId] : null;
+  const favIdx = favTeam ? standings.findIndex(r => r.id === favTeam.id) : -1;
+  const isFavoriteActive = favTeam && favIdx >= 0;
+  const highlightRow = isFavoriteActive ? standings[favIdx] : standings[0];
+  const highlightRank = isFavoriteActive ? favIdx + 1 : 1;
+  const highlightTeam = highlightRow ? TEAM_MAP[highlightRow.id] : null;
+  const highlightLabel = isFavoriteActive ? "Seu clube" : "Líder";
+  const highlightIcon = isFavoriteActive ? "⭐" : "🏆";
+
+  document.getElementById("kpiLeaderLabel").textContent = highlightLabel;
+  document.getElementById("kpiLeaderIcon").textContent = highlightIcon;
+  document.getElementById("kpiLeader").innerHTML = highlightRow ? `${highlightTeam.short} <small>${highlightRow.pts} pts</small>` : "—";
+
+  if (highlightRow) {
+    document.getElementById("liderCrest").innerHTML = crestEl(highlightTeam, 52);
+    document.getElementById("liderTeamName").textContent = highlightTeam.name;
+    document.getElementById("liderLabel").textContent = highlightLabel;
+    document.getElementById("liderPts").textContent = highlightRow.pts;
+    document.getElementById("liderRank").textContent = isFavoriteActive ? `${highlightRank}º colocado` : "";
     const heroCrest = document.getElementById("liderCrest"), heroName = document.getElementById("liderTeamName");
-    heroCrest.classList.add("clickable-team"); heroCrest.onclick = () => goToTeam(leaderTeam.id);
-    heroName.classList.add("clickable-team"); heroName.onclick = () => goToTeam(leaderTeam.id);
+    heroCrest.classList.add("clickable-team"); heroCrest.onclick = () => goToTeam(highlightTeam.id);
+    heroName.classList.add("clickable-team"); heroName.onclick = () => goToTeam(highlightTeam.id);
   }
 }
 
@@ -964,6 +1037,34 @@ function renderFavoritosPage() {
   }).join("");
 }
 
+/* ================= CLUBE FAVORITO (destaque da página inicial) =========
+   Diferente de FAVORITOS acima (lista de vários times, pra acompanhar na
+   barra lateral) — aqui é NO MÁXIMO 1 clube, que substitui o líder do
+   campeonato no destaque do Dashboard. Sem seleção, volta a mostrar o
+   líder normalmente. */
+function loadFavoriteClub() {
+  try { state.favoriteClubId = localStorage.getItem("brdata_favorite_club") || null; } catch { state.favoriteClubId = null; }
+}
+function saveFavoriteClub() {
+  try {
+    if (state.favoriteClubId) localStorage.setItem("brdata_favorite_club", state.favoriteClubId);
+    else localStorage.removeItem("brdata_favorite_club");
+  } catch {}
+}
+function populateFavoriteClubSelect() {
+  const sel = document.getElementById("favoriteClubSelect");
+  if (!sel) return;
+  const sorted = [...TEAMS].sort((a, b) => a.name.localeCompare(b.name));
+  sel.innerHTML = `<option value="">— Nenhum (exibir líder do campeonato) —</option>` +
+    sorted.map(t => `<option value="${t.id}">${t.name}</option>`).join("");
+  sel.value = state.favoriteClubId && TEAM_MAP[state.favoriteClubId] ? state.favoriteClubId : "";
+}
+function onFavoriteClubChange(e) {
+  state.favoriteClubId = e.target.value || null;
+  saveFavoriteClub();
+  renderDashboard();
+}
+
 /* ================= TEMA CLARO/ESCURO ================= */
 function initTheme() {
   let theme = "light";
@@ -1175,6 +1276,7 @@ function populateAllSelects() {
   populateSelect(document.getElementById("compareTeamA2"), leader);
   populateSelect(document.getElementById("compareTeamB2"), second);
   populateSelect(document.getElementById("whatifTeamSelect"), state.whatifTeamId || leader);
+  populateFavoriteClubSelect();
 }
 
 /* ================= NAVEGAÇÃO ================= */
@@ -1301,6 +1403,7 @@ function setupEventListeners() {
   });
 
   document.getElementById("whatifTeamSelect").addEventListener("change", e => { state.whatifTeamId = e.target.value; renderWhatIf(); });
+  document.getElementById("favoriteClubSelect").addEventListener("change", onFavoriteClubChange);
   document.getElementById("whatifMinus").addEventListener("click", () => { state.whatifN = Math.max(1, state.whatifN - 1); renderWhatIf(); });
   document.getElementById("whatifPlus").addEventListener("click", () => { state.whatifN = Math.min(19, state.whatifN + 1); renderWhatIf(); });
 
