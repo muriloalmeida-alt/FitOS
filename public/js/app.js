@@ -228,9 +228,6 @@ function renderDashboard() {
   document.getElementById("dashStandings").innerHTML = standings.slice(0, 6).map((r, i) => dashRowHTML(r, i + 1)).join("") || `<tr><td colspan="7" class="empty">Sem jogos decididos ainda.</td></tr>`;
   renderDashTitleChance();
   renderDashNextFixtures();
-  renderFormaInto("formaRecenteBody", state.formaTeamId || standings[0]?.id);
-  renderRadarInto("radarChart", state.radarTeamId || standings[0]?.id);
-  renderCompareInto("compareBody", state.compareA || standings[0]?.id, state.compareB || standings[1]?.id);
   renderDashOdds();
   renderOddsChart();
   renderWhatIf();
@@ -1103,7 +1100,19 @@ function renderTeamPage() {
   const last = allDecidedMatches().filter(m => m.home === teamId || m.away === teamId).sort((a, b) => b.round - a.round).slice(0, 6);
   document.getElementById("teamPageLastMatches").innerHTML = last.length ? last.map(m => teamLastMatchRowHTML(m, teamId)).join("") : `<div class="empty">Sem jogos decididos ainda.</div>`;
 
+  renderTeamCompare(teamId, standings);
   renderTeamRoster(teamId);
+}
+// "Comparar com outro time" — time A é sempre o time da página atual;
+// só o time B (adversário) é escolhido no seletor.
+function renderTeamCompare(teamId, standings) {
+  const sel = document.getElementById("teamPageCompareSelect");
+  const others = [...TEAMS].filter(t => t.id !== teamId).sort((a, b) => a.name.localeCompare(b.name));
+  sel.innerHTML = others.map(t => `<option value="${t.id}">${t.name}</option>`).join("");
+  const defaultOpponent = standings.find(r => r.id !== teamId)?.id || others[0]?.id;
+  sel.value = state.teamCompareOpponent && others.some(t => t.id === state.teamCompareOpponent) ? state.teamCompareOpponent : defaultOpponent;
+  state.teamCompareOpponent = sel.value;
+  renderCompareInto("teamPageCompareBody", teamId, sel.value);
 }
 
 /* ================= PÁGINA: DETALHE DO JOGADOR ================= */
@@ -1162,15 +1171,10 @@ function populateSelect(sel, defaultId) {
 function populateAllSelects() {
   const standings = currentStandings();
   const leader = standings[0]?.id, second = standings[1]?.id;
-  populateSelect(document.getElementById("formaTeamSelect"), leader);
-  populateSelect(document.getElementById("radarTeamSelect"), leader);
   populateSelect(document.getElementById("radarTeamSelect2"), leader);
-  populateSelect(document.getElementById("compareTeamA"), leader);
-  populateSelect(document.getElementById("compareTeamB"), second);
   populateSelect(document.getElementById("compareTeamA2"), leader);
   populateSelect(document.getElementById("compareTeamB2"), second);
   populateSelect(document.getElementById("whatifTeamSelect"), state.whatifTeamId || leader);
-  state.compareA = leader; state.compareB = second; state.formaTeamId = leader; state.radarTeamId = leader;
 }
 
 /* ================= NAVEGAÇÃO ================= */
@@ -1285,14 +1289,16 @@ function setupEventListeners() {
     chip.classList.add("active"); state.probSort = chip.dataset.sort; renderProbList();
   }));
 
-  // Dashboard: seletores
-  document.getElementById("formaTeamSelect").addEventListener("change", e => { state.formaTeamId = e.target.value; renderFormaInto("formaRecenteBody", state.formaTeamId); });
-  document.getElementById("radarTeamSelect").addEventListener("change", e => renderRadarInto("radarChart", e.target.value));
+  // Estatísticas: seletores
   document.getElementById("radarTeamSelect2").addEventListener("change", e => renderRadarInto("radarChart2", e.target.value));
-  document.getElementById("compareTeamA").addEventListener("change", e => { state.compareA = e.target.value; renderCompareInto("compareBody", state.compareA, state.compareB); });
-  document.getElementById("compareTeamB").addEventListener("change", e => { state.compareB = e.target.value; renderCompareInto("compareBody", state.compareA, state.compareB); });
   document.getElementById("compareTeamA2").addEventListener("change", () => renderCompareInto("compareBody2", document.getElementById("compareTeamA2").value, document.getElementById("compareTeamB2").value));
   document.getElementById("compareTeamB2").addEventListener("change", () => renderCompareInto("compareBody2", document.getElementById("compareTeamA2").value, document.getElementById("compareTeamB2").value));
+
+  // Página de time: comparador (time A fixo = o time da página)
+  document.getElementById("teamPageCompareSelect").addEventListener("change", e => {
+    state.teamCompareOpponent = e.target.value;
+    renderCompareInto("teamPageCompareBody", state.selectedTeamId, e.target.value);
+  });
 
   document.getElementById("whatifTeamSelect").addEventListener("change", e => { state.whatifTeamId = e.target.value; renderWhatIf(); });
   document.getElementById("whatifMinus").addEventListener("click", () => { state.whatifN = Math.max(1, state.whatifN - 1); renderWhatIf(); });

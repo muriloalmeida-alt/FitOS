@@ -124,30 +124,6 @@
           </div>
         </div>
 
-        <div class="grid grid-3" style="margin-bottom:16px;">
-          <div class="card">
-            <div class="card-head"><h3>Forma recente</h3>
-              <select class="compare-select" style="flex:none; width:auto;" id="formaTeamSelect"></select>
-            </div>
-            <div id="formaRecenteBody"></div>
-          </div>
-          <div class="card">
-            <div class="card-head"><h3>Desempenho ofensivo</h3>
-              <select class="compare-select" style="flex:none; width:auto;" id="radarTeamSelect"></select>
-            </div>
-            <div class="radar-wrap" id="radarChart"></div>
-          </div>
-          <div class="card" id="comparativoCard">
-            <div class="card-head"><h3>Comparativo entre times</h3></div>
-            <div class="compare-head">
-              <select class="compare-select" id="compareTeamA"></select>
-              <span class="compare-vs">×</span>
-              <select class="compare-select" id="compareTeamB"></select>
-            </div>
-            <div id="compareBody"></div>
-          </div>
-        </div>
-
         <div class="grid grid-3">
           <div class="card">
             <div class="card-head"><h3>Odds — próximo jogo</h3></div>
@@ -256,7 +232,7 @@
           <div class="card"><div class="card-head"><h3>Mais cartões</h3></div><div class="table-scroll"><table class="table-std"><tbody id="leaderCartoes2"></tbody></table></div></div>
         </div>
         <div class="grid grid-2b">
-          <div class="card">
+          <div class="card" id="comparativoCard">
             <div class="card-head"><h3>Comparador de times</h3></div>
             <div class="compare-head">
               <select class="compare-select" id="compareTeamA2"></select>
@@ -356,6 +332,13 @@
           <div class="card"><div class="card-head"><h3>Forma recente</h3></div><div id="teamPageForma"></div></div>
           <div class="card"><div class="card-head"><h3>Desempenho ofensivo</h3></div><div class="radar-wrap" id="teamPageRadar"></div></div>
           <div class="card"><div class="card-head"><h3>Próximos jogos</h3></div><div id="teamPageNextFixtures"></div></div>
+        </div>
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-head">
+            <h3>Comparar com outro time</h3>
+            <select class="compare-select" style="flex:none; width:auto;" id="teamPageCompareSelect"></select>
+          </div>
+          <div id="teamPageCompareBody"></div>
         </div>
         <div class="card" style="margin-bottom:16px;">
           <div class="card-head"><h3>Elenco</h3><span style="font-size:11px; color:var(--text-2); font-weight:600;" id="teamPageRosterHint"></span></div>

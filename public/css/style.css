@@ -193,6 +193,16 @@ h1,h2,h3{ margin:0; }
 .grid-main-side{ grid-template-columns:minmax(0, 2.2fr) minmax(0, 1fr); align-items:start; }
 .dash-layout{ display:grid; grid-template-columns:minmax(0, 1fr) 330px; gap:16px; align-items:start; min-width:0; }
 .dash-main, .dash-rail{ min-width:0; }
+/* Cards do Dashboard com mesma altura x largura dentro de cada linha
+   (.grid-3 aqui usa 3 colunas iguais — nas outras páginas .grid-3
+   continua com a 1ª coluna mais larga, isso é só pro Dashboard). */
+#page-dashboard .grid-2, #page-dashboard .grid-3{ align-items:stretch; }
+#page-dashboard .grid-2 > .card, #page-dashboard .grid-3 > .card{ display:flex; flex-direction:column; }
+/* 3 colunas iguais só na largura em que .grid-3 já está com 3
+   colunas por padrão (>1180px) — abaixo disso, deixa o colapso
+   responsivo normal do .grid-3 (2 col -> 1 col) funcionar sozinho,
+   senão trava 3 colunas espremidas até no mobile. */
+@media (min-width:1181px){ #page-dashboard .grid-3{ grid-template-columns:repeat(3, minmax(0, 1fr)); } }
 .dash-rail .card{ margin-bottom:16px; }
 .card{ min-width:0; }
 .promo-card{
