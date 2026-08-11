@@ -18,7 +18,7 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const { apiSportsGet, getQuota } = require("./src/apiSports");
-const { mapTeam, mapStandingRow, mapFixture, mapStatistics, mapEvents, mapOdds } = require("./src/adapter");
+const { mapTeam, mapStandingRow, mapFixture, mapStatistics, mapEvents, mapOdds, mapPlayerEntry } = require("./src/adapter");
 const cache = require("./src/cache");
 const oddsHistory = require("./src/oddsHistory");
 
@@ -35,6 +35,7 @@ const TTL = {
   fixtureDetail: 7 * 24 * 60 * 60 * 1000, // 7 dias — jogo encerrado não muda mais
   odds: 10 * 60 * 1000,             // 10min — odds pré-jogo mudam com frequência
   leagueSearch: 24 * 60 * 60 * 1000,
+  playersLeaders: 6 * 60 * 60 * 1000, // 6h — rankings de jogadores não mudam durante o dia
 };
 
 function loadDotEnv() {
@@ -151,6 +152,32 @@ const server = http.createServer(async (req, res) => {
         apiSportsGet("/fixtures", { league: LEAGUE_ID, season })
       );
       return sendJSON(res, 200, { fixtures: data.map(mapFixture) });
+    }
+
+    if (pathname === "/api/players/leaders") {
+      const season = searchParams.get("season");
+      if (!season) return sendJSON(res, 400, { error: "parâmetro season é obrigatório" });
+      const data = await withCache(`players:${LEAGUE_ID}:${season}`, TTL.playersLeaders, async () => {
+        // 4 chamadas baratas (1 página cada, ~20 jogadores) em vez de
+        // paginar /players inteiro (custaria dezenas de requisições
+        // pra cobrir o elenco completo da liga). Cada item já vem com
+        // o bloco de estatísticas completo da temporada, então dá pra
+        // montar uma lista única com gols+assistências+cartões+nota
+        // mesmo sem uma chamada dedicada de "nota por jogo".
+        const [scorers, assists, yellows, reds] = await Promise.all([
+          apiSportsGet("/players/topscorers", { league: LEAGUE_ID, season }),
+          apiSportsGet("/players/topassists", { league: LEAGUE_ID, season }),
+          apiSportsGet("/players/topyellowcards", { league: LEAGUE_ID, season }),
+          apiSportsGet("/players/topredcards", { league: LEAGUE_ID, season }),
+        ]);
+        const byId = new Map();
+        [...scorers, ...assists, ...yellows, ...reds].forEach(item => {
+          const p = mapPlayerEntry(item);
+          if (p) byId.set(p.id, p);
+        });
+        return Array.from(byId.values());
+      });
+      return sendJSON(res, 200, { players: data });
     }
 
     const statsMatch = pathname.match(/^\/api\/fixtures\/(\d+)\/statistics$/);

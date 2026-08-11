@@ -104,6 +104,31 @@ function mapEvents(response) {
     .sort((a, b) => a.min - b.min);
 }
 
+// response = array retornado por /players/topscorers, /topassists,
+// /topyellowcards ou /topredcards — cada item já traz o bloco de
+// estatísticas da temporada inteira pro time em que o jogador atuou
+// (não só a métrica do endpoint específico), então dá pra montar um
+// registro completo (gols, assistências, cartões, nota) a partir de
+// qualquer um dos 4 endpoints.
+function mapPlayerEntry(item) {
+  const p = item.player;
+  const s = (item.statistics || [])[0];
+  if (!p || !s) return null;
+  const rating = s.games?.rating != null ? parseFloat(s.games.rating) : null;
+  return {
+    id: p.id,
+    name: p.name,
+    photo: normalizeLogoUrl(p.photo),
+    teamId: s.team?.id ?? null,
+    position: s.games?.position || null,
+    goals: s.goals?.total || 0,
+    assists: s.goals?.assists || 0,
+    yellow: s.cards?.yellow || 0,
+    red: s.cards?.red || 0,
+    rating: Number.isFinite(rating) ? rating : null,
+  };
+}
+
 // response = array (por casa de apostas) retornado por /odds?fixture=
 // Pega o mercado "Match Winner" (1X2) da primeira casa disponível
 // (preferindo bet365, por ser a referência mais comum de mercado).
@@ -121,4 +146,4 @@ function mapOdds(response) {
   return { bookmaker: preferred.name, home: pick("Home"), draw: pick("Draw"), away: pick("Away") };
 }
 
-module.exports = { mapTeam, mapStandingRow, mapFixture, mapStatistics, mapEvents, mapOdds, parseRoundNumber };
+module.exports = { mapTeam, mapStandingRow, mapFixture, mapStatistics, mapEvents, mapOdds, mapPlayerEntry, parseRoundNumber };

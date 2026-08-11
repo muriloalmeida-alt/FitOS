@@ -18,6 +18,8 @@ const state = {
   jogosRound: 1,
   simRound: 1,
   jogosSub: "rodadas",
+  estatisticasSub: "times",
+  playersSort: "goals",
   probSort: "campeao",
   probResults: null,
   oddsRange: "7d",
@@ -623,6 +625,59 @@ function renderEstatisticasPage() {
   renderEstatisticasConsolidadas("statTiles2", "leaderAtaque2", "leaderDefesa2", "leaderCartoes2");
   renderCompareInto("compareBody2", document.getElementById("compareTeamA2").value, document.getElementById("compareTeamB2").value);
   renderRadarInto("radarChart2", document.getElementById("radarTeamSelect2").value);
+  if (state.estatisticasSub === "jogadores") renderJogadoresPage();
+}
+
+/* ---------- Jogadores (sub-aba de Estatísticas) ---------- */
+// Modo demo: elenco fictício de data.js, já pronto. Modo ao vivo:
+// busca uma vez só (lazy) os rankings da API-Sports e guarda em
+// memória — trocar de sub-aba ou de critério de ordenação depois
+// não gera novas chamadas.
+let playersListCache = null;
+async function ensurePlayersLoaded() {
+  if (playersListCache) return playersListCache;
+  playersListCache = LIVE_MODE ? await loadPlayersLeaders() : DEMO_PLAYERS;
+  return playersListCache;
+}
+function playerCardsValue(p) { return p.yellow + p.red * 2; }
+const PLAYER_SORT_KEYS = {
+  goals: p => p.goals,
+  assists: p => p.assists,
+  cards: playerCardsValue,
+  rating: p => (p.rating == null ? -1 : p.rating),
+};
+function sortPlayers(list, field) {
+  const key = PLAYER_SORT_KEYS[field] || PLAYER_SORT_KEYS.goals;
+  return [...list].sort((a, b) => key(b) - key(a));
+}
+function playerRowHTML(p, pos) {
+  const team = TEAM_MAP[p.teamId];
+  const cards = p.red > 0
+    ? `${p.yellow} <span style="color:var(--brd-red); font-weight:700;">+${p.red}V</span>`
+    : `${p.yellow}`;
+  return `<tr>
+    <td><span class="pos">${pos}</span></td>
+    <td>${team ? crestEl(team, 22) : ""}</td>
+    <td class="team-cell">${p.name}${team ? `<span style="color:var(--text-2); font-weight:500;"> · ${team.short}</span>` : ""}</td>
+    <td class="only-desktop">${team ? team.name : "-"}</td>
+    <td class="num">${p.goals}</td>
+    <td class="num">${p.assists}</td>
+    <td class="num">${cards}</td>
+    <td class="num">${p.rating != null ? p.rating.toFixed(1) : "-"}</td>
+  </tr>`;
+}
+async function renderJogadoresPage() {
+  const body = document.getElementById("playersTableBody");
+  const hint = document.getElementById("playersHint");
+  if (!body) return;
+  body.innerHTML = `<tr><td colspan="8" class="empty">Carregando jogadores...</td></tr>`;
+  const players = await ensurePlayersLoaded();
+  if (state.estatisticasSub !== "jogadores") return; // usuário já trocou de sub-aba enquanto carregava
+  const sorted = sortPlayers(players, state.playersSort).slice(0, 20);
+  body.innerHTML = sorted.length
+    ? sorted.map((p, i) => playerRowHTML(p, i + 1)).join("")
+    : `<tr><td colspan="8" class="empty">Sem estatísticas de jogadores disponíveis.</td></tr>`;
+  if (hint) hint.textContent = LIVE_MODE ? "top 20 · dados ao vivo" : "top 20 · dados de exemplo";
 }
 
 /* ================= PÁGINA: ODDS ================= */
@@ -891,6 +946,21 @@ function setupEventListeners() {
   }));
   document.getElementById("roundPrev").addEventListener("click", () => { state.jogosRound = Math.max(1, state.jogosRound - 1); renderJogos(); });
   document.getElementById("roundNext").addEventListener("click", () => { state.jogosRound = Math.min(TOTAL_ROUNDS, state.jogosRound + 1); renderJogos(); });
+
+  // Estatísticas: sub-abas Times / Jogadores
+  document.querySelectorAll(".sort-chip[data-esub]").forEach(chip => chip.addEventListener("click", () => {
+    document.querySelectorAll(".sort-chip[data-esub]").forEach(c => c.classList.remove("active"));
+    chip.classList.add("active"); state.estatisticasSub = chip.dataset.esub;
+    document.getElementById("esub-times").style.display = state.estatisticasSub === "times" ? "block" : "none";
+    document.getElementById("esub-jogadores").style.display = state.estatisticasSub === "jogadores" ? "block" : "none";
+    if (state.estatisticasSub === "jogadores") renderJogadoresPage();
+  }));
+  // Jogadores: critério de ordenação (gols/assistências/cartões/nota)
+  document.querySelectorAll(".sort-chip[data-psort]").forEach(chip => chip.addEventListener("click", () => {
+    document.querySelectorAll(".sort-chip[data-psort]").forEach(c => c.classList.remove("active"));
+    chip.classList.add("active"); state.playersSort = chip.dataset.psort;
+    renderJogadoresPage();
+  }));
 
   // Simulador
   document.getElementById("btnSimRound").addEventListener("click", () => {

@@ -126,3 +126,20 @@ async function loadOddsHistory(fixtureId, range) {
     return [];
   }
 }
+
+// Ranking de jogadores (gols, assistências, cartões, nota) — lazy,
+// só busca quando o usuário abre a sub-aba "Jogadores" em
+// Estatísticas (ver app.js). Cacheado em memória: a lista não muda
+// dentro de uma mesma sessão de navegação.
+let playersLeadersCache = null;
+async function loadPlayersLeaders(season = LIVE_SEASON) {
+  if (playersLeadersCache) return playersLeadersCache;
+  try {
+    const data = await safeFetchJSON(`/api/players/leaders?season=${season}`);
+    playersLeadersCache = data.players || [];
+    return playersLeadersCache;
+  } catch (err) {
+    console.warn("[liveData] Não foi possível carregar estatísticas de jogadores:", err.message);
+    return [];
+  }
+}

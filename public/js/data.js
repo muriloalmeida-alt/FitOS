@@ -56,6 +56,45 @@ const DEMO_TEAMS = [
   { id: "cui", name: "Cuiabá",                short: "CUI", uf: "MT", c1: "#1E3A8A", c2: "#FFC93C", atk: 1.08, def: 1.32 },
 ];
 
+/* Jogadores de exemplo (fictícios) — 4 por time, usados na sub-aba
+   "Jogadores" de Estatísticas quando não há integração ao vivo com a
+   API-Sports. Nomes são combinações aleatórias (com seed fixo, pra
+   ficarem estáveis entre recarregamentos) de nomes comuns — NÃO
+   representam atletas reais, só como a força de ataque/defesa dos
+   times em DEMO_TEAMS acima. */
+const DEMO_FIRST_NAMES = ["Gabriel", "Lucas", "Matheus", "Rafael", "Bruno", "Diego", "Thiago", "Felipe", "Vitor", "Gustavo", "Rodrigo", "Leonardo", "Danilo", "Wesley", "Everton", "Kaique", "Yuri", "Igor", "Renan", "Caio"];
+const DEMO_LAST_NAMES = ["Souza", "Silva", "Oliveira", "Santos", "Pereira", "Costa", "Almeida", "Ribeiro", "Carvalho", "Gomes", "Martins", "Araújo", "Barbosa", "Rocha", "Dias", "Nascimento", "Moreira", "Cardoso", "Teixeira", "Lopes"];
+const DEMO_POSITIONS = ["Attacker", "Midfielder", "Defender", "Goalkeeper"];
+
+function buildDemoPlayers(teams) {
+  const rng = mulberry32(20260101); // seed fixo -> mesmo elenco fictício a cada carregamento
+  const players = [];
+  let idSeq = 1;
+  teams.forEach(team => {
+    for (let i = 0; i < 4; i++) {
+      const first = DEMO_FIRST_NAMES[Math.floor(rng() * DEMO_FIRST_NAMES.length)];
+      const last = DEMO_LAST_NAMES[Math.floor(rng() * DEMO_LAST_NAMES.length)];
+      const position = DEMO_POSITIONS[i % DEMO_POSITIONS.length];
+      const isGK = position === "Goalkeeper";
+      const isAttacker = position === "Attacker";
+      players.push({
+        id: idSeq++,
+        name: `${first} ${last}`,
+        photo: null,
+        teamId: team.id,
+        position,
+        goals: isGK ? 0 : Math.round(rng() * (isAttacker ? 22 : 8)),
+        assists: isGK ? 0 : Math.round(rng() * (isAttacker ? 10 : 12)),
+        yellow: Math.round(rng() * 9) + 1,
+        red: rng() < 0.12 ? 1 : 0,
+        rating: +(6.2 + rng() * 2.3).toFixed(2),
+      });
+    }
+  });
+  return players;
+}
+const DEMO_PLAYERS = buildDemoPlayers(DEMO_TEAMS);
+
 /* Gera calendário de turno + returno (método do círculo) já "achatado"
    num objeto { 1: [...jogos], 2: [...], ..., 38: [...] }.
    Usado apenas no modo demo — no modo ao vivo o calendário real vem
