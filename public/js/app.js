@@ -677,17 +677,6 @@ async function renderJogadoresPage() {
   if (hint) hint.textContent = LIVE_MODE ? "top 5 de cada categoria · dados ao vivo" : "top 5 de cada categoria · dados de exemplo";
 }
 
-/* ================= PÁGINA: ODDS ================= */
-function renderOddsPage() {
-  const fixtures = [];
-  for (let r = firstUndecidedRound(); r <= TOTAL_ROUNDS && fixtures.length < 8; r++) {
-    getRoundMatches(r).filter(m => m.pending).forEach(m => { if (fixtures.length < 8) fixtures.push(m); });
-  }
-  document.getElementById("oddsPageList").innerHTML = fixtures.length
-    ? fixtures.map(m => `<div class="card" style="margin-bottom:14px;">${oddsInnerHTML(m)}</div>`).join("")
-    : `<div class="card empty">Sem jogos futuros cadastrados.</div>`;
-}
-
 /* ================= PÁGINA: SIMULADOR ================= */
 function renderSimulador() {
   document.getElementById("simRoundLabel").textContent = `Rodada ${state.simRound}`;
@@ -886,31 +875,45 @@ function populateAllSelects() {
 }
 
 /* ================= NAVEGAÇÃO ================= */
-const PAGES = ["dashboard", "jogos", "tabela", "estatisticas", "odds", "simulador", "probabilidades", "favoritos", "noticias", "mais"];
+const PAGES = ["dashboard", "jogos", "tabela", "estatisticas", "simulador", "favoritos", "noticias", "mais"];
 function setActivePage(name, opts = {}) {
   state.page = name;
   PAGES.forEach(p => document.getElementById(`page-${p}`)?.classList.toggle("active", p === name));
   document.querySelectorAll(".top-tab").forEach(t => t.classList.toggle("active", t.dataset.page === name));
-  document.querySelectorAll(".side-link[data-page]").forEach(t => t.classList.toggle("active", t.dataset.page === name));
-  document.querySelectorAll(".bn-item").forEach(t => t.classList.toggle("active", t.dataset.page === name || (name !== "dashboard" && name !== "jogos" && name !== "tabela" && name !== "odds" && t.dataset.page === "mais")));
+  document.querySelectorAll(".side-link[data-page]").forEach(t => t.classList.toggle("active", t.dataset.page === name && !t.dataset.jsub));
+  document.querySelectorAll(".bn-item").forEach(t => t.classList.toggle("active", t.dataset.page === name || (name !== "dashboard" && name !== "jogos" && name !== "tabela" && name !== "estatisticas" && t.dataset.page === "mais")));
   document.getElementById("sidebar").classList.remove("open");
 
   if (name === "dashboard") renderDashboard();
   if (name === "jogos") renderJogos();
   if (name === "tabela") renderTabela();
   if (name === "estatisticas") renderEstatisticasPage();
-  if (name === "odds") renderOddsPage();
   if (name === "simulador") renderSimulador();
-  if (name === "probabilidades") { if (!state.probResults) runProbabilities(); else renderProbList(); }
   if (name === "favoritos") renderFavoritosPage();
   if (name === "noticias") renderNews();
 
   if (opts.scrollTo) setTimeout(() => document.getElementById(opts.scrollTo)?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
 }
 
+// Troca a sub-aba de Jogos (Rodadas / Estatísticas consolidadas /
+// Probabilidades). Extraída à parte pra poder ser chamada tanto pelo
+// clique direto no chip quanto por atalhos de fora da página (sidebar,
+// card do dashboard, menu "Mais") via [data-jsub] — ver setupEventListeners.
+function setJogosSub(sub) {
+  state.jogosSub = sub;
+  document.querySelectorAll('.sort-chip[data-sub]').forEach(c => c.classList.toggle("active", c.dataset.sub === sub));
+  document.getElementById("sub-rodadas").style.display = sub === "rodadas" ? "block" : "none";
+  document.getElementById("sub-stats").style.display = sub === "stats" ? "block" : "none";
+  document.getElementById("sub-probabilidades").style.display = sub === "probabilidades" ? "block" : "none";
+  if (sub === "probabilidades") { if (!state.probResults) runProbabilities(); else renderProbList(); }
+}
+
 function setupEventListeners() {
   document.querySelectorAll("[data-page]").forEach(el => {
-    el.addEventListener("click", () => setActivePage(el.dataset.page, { scrollTo: el.dataset.scroll }));
+    el.addEventListener("click", () => {
+      setActivePage(el.dataset.page, { scrollTo: el.dataset.scroll });
+      if (el.dataset.jsub) setJogosSub(el.dataset.jsub);
+    });
   });
 
   document.getElementById("btnHamburger").addEventListener("click", () => document.getElementById("sidebar").classList.toggle("open"));
@@ -935,12 +938,7 @@ function setupEventListeners() {
   });
 
   // Jogos: sub-abas + navegação de rodada
-  document.querySelectorAll(".sort-chip[data-sub]").forEach(chip => chip.addEventListener("click", () => {
-    document.querySelectorAll(".sort-chip[data-sub]").forEach(c => c.classList.remove("active"));
-    chip.classList.add("active"); state.jogosSub = chip.dataset.sub;
-    document.getElementById("sub-rodadas").style.display = state.jogosSub === "rodadas" ? "block" : "none";
-    document.getElementById("sub-stats").style.display = state.jogosSub === "stats" ? "block" : "none";
-  }));
+  document.querySelectorAll(".sort-chip[data-sub]").forEach(chip => chip.addEventListener("click", () => setJogosSub(chip.dataset.sub)));
   document.getElementById("roundPrev").addEventListener("click", () => { state.jogosRound = Math.max(1, state.jogosRound - 1); renderJogos(); });
   document.getElementById("roundNext").addEventListener("click", () => { state.jogosRound = Math.min(TOTAL_ROUNDS, state.jogosRound + 1); renderJogos(); });
 

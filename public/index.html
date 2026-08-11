@@ -28,7 +28,7 @@
     <div class="side-label">Ferramentas</div>
     <button class="side-link" data-page="simulador"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 21V14M4 10V3M12 21v-8M12 9V3M20 21v-5M20 12V3M1 14h6M9 9h6M17 12h6"/></svg>Simulador<span class="badge-new">NOVO</span></button>
     <button class="side-link" data-page="estatisticas" data-scroll="comparativoCard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18M7 15l4-5 3 3 5-7"/></svg>Comparador de Times</button>
-    <button class="side-link" data-page="probabilidades"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h4"/></svg>Calculadora de Probabilidades</button>
+    <button class="side-link" data-page="jogos" data-jsub="probabilidades"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h4"/></svg>Calculadora de Probabilidades</button>
     <button class="side-link" data-page="favoritos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>Alertas e Favoritos</button>
 
     <div class="side-label">Meus times</div>
@@ -63,7 +63,6 @@
         <button class="top-tab" data-page="jogos">Jogos</button>
         <button class="top-tab" data-page="tabela">Tabela</button>
         <button class="top-tab" data-page="estatisticas">Estatísticas</button>
-        <button class="top-tab" data-page="odds">Odds</button>
         <button class="top-tab" data-page="noticias">Notícias</button>
       </nav>
       <div class="top-actions" style="position:relative;">
@@ -114,14 +113,14 @@
         <div class="grid grid-2" style="margin-bottom:16px;">
           <div class="card">
             <div class="card-head"><h3>Tabela de classificação</h3></div>
-            <table class="table-std"><thead><tr><th>#</th><th></th><th>Time</th><th class="num">P</th><th class="num">J</th><th class="num">V</th><th class="num">E</th><th class="num">D</th><th class="num only-desktop">GP</th><th class="num only-desktop">GC</th><th class="num only-desktop">SG</th><th class="num mobile-only-col">PTS</th></tr></thead>
-            <tbody id="dashStandings"></tbody></table>
+            <div class="table-scroll"><table class="table-std"><thead><tr><th>#</th><th></th><th>Time</th><th class="num">P</th><th class="num">J</th><th class="num">V</th><th class="num">E</th><th class="num">D</th><th class="num only-desktop">GP</th><th class="num only-desktop">GC</th><th class="num only-desktop">SG</th><th class="num mobile-only-col">PTS</th></tr></thead>
+            <tbody id="dashStandings"></tbody></table></div>
             <div class="card-link" data-page="tabela" style="margin-top:12px;">Ver tabela completa →</div>
           </div>
           <div class="card">
             <div class="card-head"><h3>Chance de título</h3></div>
             <div id="dashTitleChance"></div>
-            <div class="card-link" data-page="probabilidades" style="margin-top:12px;">Ver todas as probabilidades →</div>
+            <div class="card-link" data-page="jogos" data-jsub="probabilidades" style="margin-top:12px;">Ver todas as probabilidades →</div>
           </div>
         </div>
 
@@ -203,6 +202,7 @@
         <div class="sort-bar">
           <div class="sort-chip active" data-sub="rodadas">Rodadas</div>
           <div class="sort-chip" data-sub="stats">Estatísticas consolidadas</div>
+          <div class="sort-chip" data-sub="probabilidades">Probabilidades</div>
         </div>
         <div id="sub-rodadas">
           <div class="round-switcher">
@@ -215,9 +215,19 @@
         <div id="sub-stats" style="display:none;">
           <div class="grid grid-kpi" id="statTiles" style="margin-bottom:16px;"></div>
           <div class="grid grid-2b">
-            <div class="card"><div class="card-head"><h3>Melhor ataque</h3></div><table class="table-std"><tbody id="leaderAtaque"></tbody></table></div>
-            <div class="card"><div class="card-head"><h3>Melhor defesa</h3></div><table class="table-std"><tbody id="leaderDefesa"></tbody></table></div>
+            <div class="card"><div class="card-head"><h3>Melhor ataque</h3></div><div class="table-scroll"><table class="table-std"><tbody id="leaderAtaque"></tbody></table></div></div>
+            <div class="card"><div class="card-head"><h3>Melhor defesa</h3></div><div class="table-scroll"><table class="table-std"><tbody id="leaderDefesa"></tbody></table></div></div>
           </div>
+        </div>
+        <div id="sub-probabilidades" style="display:none;">
+          <div class="sort-bar">
+            <div class="sort-chip active" data-sort="campeao">Título</div>
+            <div class="sort-chip" data-sort="libertadores">Libertadores</div>
+            <div class="sort-chip" data-sort="sulamericana">Sul-Americana</div>
+            <div class="sort-chip" data-sort="rebaixamento">Rebaixamento</div>
+          </div>
+          <button class="btn btn-primary full" id="btnRecalc" style="margin-bottom:16px;">🔁 Recalcular simulação (1.500 cenários)</button>
+          <div id="probList"></div>
         </div>
       </section>
 
@@ -225,8 +235,8 @@
       <section class="page" id="page-tabela">
         <div class="page-head"><div><h1>Tabela de classificação</h1><div class="sub" id="tabelaHint"></div></div></div>
         <div class="card">
-          <table class="table-std"><thead><tr><th>#</th><th></th><th>Time</th><th class="num">Pts</th><th class="num">J</th><th class="num">V</th><th class="num">E</th><th class="num">D</th><th class="num">SG</th><th class="num">GP</th><th class="num">%</th></tr></thead>
-          <tbody id="fullStandings"></tbody></table>
+          <div class="table-scroll"><table class="table-std"><thead><tr><th>#</th><th></th><th>Time</th><th class="num">Pts</th><th class="num">J</th><th class="num">V</th><th class="num">E</th><th class="num">D</th><th class="num">SG</th><th class="num">GP</th><th class="num">%</th></tr></thead>
+          <tbody id="fullStandings"></tbody></table></div>
         </div>
       </section>
 
@@ -241,9 +251,9 @@
         <div id="esub-times">
         <div class="grid grid-kpi" id="statTiles2" style="margin-bottom:16px;"></div>
         <div class="grid grid-3" style="margin-bottom:16px;">
-          <div class="card"><div class="card-head"><h3>Melhor ataque</h3></div><table class="table-std"><tbody id="leaderAtaque2"></tbody></table></div>
-          <div class="card"><div class="card-head"><h3>Melhor defesa</h3></div><table class="table-std"><tbody id="leaderDefesa2"></tbody></table></div>
-          <div class="card"><div class="card-head"><h3>Mais cartões</h3></div><table class="table-std"><tbody id="leaderCartoes2"></tbody></table></div>
+          <div class="card"><div class="card-head"><h3>Melhor ataque</h3></div><div class="table-scroll"><table class="table-std"><tbody id="leaderAtaque2"></tbody></table></div></div>
+          <div class="card"><div class="card-head"><h3>Melhor defesa</h3></div><div class="table-scroll"><table class="table-std"><tbody id="leaderDefesa2"></tbody></table></div></div>
+          <div class="card"><div class="card-head"><h3>Mais cartões</h3></div><div class="table-scroll"><table class="table-std"><tbody id="leaderCartoes2"></tbody></table></div></div>
         </div>
         <div class="grid grid-2b">
           <div class="card">
@@ -269,28 +279,22 @@
           <div class="grid grid-4" style="margin-bottom:16px;">
             <div class="card">
               <div class="card-head"><h3>Gols feitos</h3></div>
-              <table class="table-std"><tbody id="playersGoals"></tbody></table>
+              <div class="table-scroll"><table class="table-std"><tbody id="playersGoals"></tbody></table></div>
             </div>
             <div class="card">
               <div class="card-head"><h3>Assistências</h3></div>
-              <table class="table-std"><tbody id="playersAssists"></tbody></table>
+              <div class="table-scroll"><table class="table-std"><tbody id="playersAssists"></tbody></table></div>
             </div>
             <div class="card">
               <div class="card-head"><h3>Cartões</h3></div>
-              <table class="table-std"><tbody id="playersCards"></tbody></table>
+              <div class="table-scroll"><table class="table-std"><tbody id="playersCards"></tbody></table></div>
             </div>
             <div class="card">
               <div class="card-head"><h3>Nota</h3></div>
-              <table class="table-std"><tbody id="playersRating"></tbody></table>
+              <div class="table-scroll"><table class="table-std"><tbody id="playersRating"></tbody></table></div>
             </div>
           </div>
         </div>
-      </section>
-
-      <!-- ================= ODDS ================= -->
-      <section class="page" id="page-odds">
-        <div class="page-head"><div><h1>Odds</h1><div class="sub">Jogos que ainda faltam, com odds e onde apostar</div></div></div>
-        <div id="oddsPageList"></div>
       </section>
 
       <!-- ================= SIMULADOR (completo) ================= -->
@@ -314,25 +318,12 @@
         <div class="dash-rail">
           <div class="card sim-table-card">
             <div class="card-head"><h3>Tabela em tempo real</h3></div>
-            <table class="table-std"><thead><tr><th>#</th><th></th><th>Time</th><th class="num">P</th><th class="num only-desktop">SG</th></tr></thead>
-            <tbody id="simStandings"></tbody></table>
+            <div class="table-scroll"><table class="table-std"><thead><tr><th>#</th><th></th><th>Time</th><th class="num">P</th><th class="num only-desktop">SG</th></tr></thead>
+            <tbody id="simStandings"></tbody></table></div>
             <div class="card-link" data-page="tabela" style="margin-top:12px;">Ver tabela completa →</div>
           </div>
         </div>
         </div>
-      </section>
-
-      <!-- ================= PROBABILIDADES ================= -->
-      <section class="page" id="page-probabilidades">
-        <div class="page-head"><div><h1>Calculadora de probabilidades</h1><div class="sub">Simulação de Monte Carlo sobre os jogos restantes</div></div></div>
-        <div class="sort-bar">
-          <div class="sort-chip active" data-sort="campeao">Título</div>
-          <div class="sort-chip" data-sort="libertadores">Libertadores</div>
-          <div class="sort-chip" data-sort="sulamericana">Sul-Americana</div>
-          <div class="sort-chip" data-sort="rebaixamento">Rebaixamento</div>
-        </div>
-        <button class="btn btn-primary full" id="btnRecalc" style="margin-bottom:16px;">🔁 Recalcular simulação (1.500 cenários)</button>
-        <div id="probList"></div>
       </section>
 
       <!-- ================= FAVORITOS ================= -->
@@ -360,7 +351,7 @@
         </div>
         <div class="card" style="padding:6px; margin-bottom:16px;">
           <button class="menu-link" data-page="estatisticas">📊 Comparador de Times</button>
-          <button class="menu-link" data-page="probabilidades">🧮 Calculadora de Probabilidades</button>
+          <button class="menu-link" data-page="jogos" data-jsub="probabilidades">🧮 Calculadora de Probabilidades</button>
           <button class="menu-link" data-page="simulador">🎛️ Simulador<span class="badge-new">NOVO</span></button>
           <button class="menu-link" data-page="favoritos">🔔 Alertas e Favoritos</button>
           <button class="menu-link" data-page="noticias">📰 Notícias</button>
@@ -384,7 +375,7 @@
     <button class="bn-item active" data-page="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>Dashboard</button>
     <button class="bn-item" data-page="jogos"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M3 10h18M8 2v4M16 2v4"/></svg>Jogos</button>
     <button class="bn-item" data-page="tabela"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16"/></svg>Tabela</button>
-    <button class="bn-item" data-page="odds"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h4"/></svg>Odds</button>
+    <button class="bn-item" data-page="estatisticas"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18M7 15l4-5 3 3 5-7"/></svg>Estatísticas</button>
     <button class="bn-item" data-page="mais"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>Mais</button>
   </nav>
 

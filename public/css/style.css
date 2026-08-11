@@ -59,6 +59,10 @@ body{
   margin:0; font-family:var(--font); font-size:var(--fs-body); font-weight:var(--fw-body);
   color:var(--text-0); background-color:var(--bg-app);
   transition:background .25s ease, color .25s ease;
+  /* Rede de segurança: nada deveria estourar a largura da página —
+     os pontos que geravam scroll horizontal foram corrigidos na
+     origem (grid, tabelas, SVG), isso aqui é só um fallback. */
+  overflow-x:hidden;
 }
 a{ color:inherit; text-decoration:none; }
 button{ font-family:inherit; }
@@ -174,23 +178,31 @@ h1,h2,h3{ margin:0; }
 }
 
 /* ================= GRID / CARDS ================= */
-.grid{ display:grid; gap:16px; }
-.grid-kpi{ grid-template-columns:repeat(5, 1fr); }
-.grid-3{ grid-template-columns:1.3fr 1fr 1fr; align-items:start; }
-.grid-4{ grid-template-columns:repeat(4, 1fr); align-items:start; }
-.grid-2{ grid-template-columns:1fr 1fr; align-items:start; }
-.grid-2b{ grid-template-columns:1fr 1fr; align-items:start; }
-.grid-main-side{ grid-template-columns:2.2fr 1fr; align-items:start; }
-.dash-layout{ display:grid; grid-template-columns:1fr 330px; gap:16px; align-items:start; }
+/* minmax(0, Nfr) em vez de Nfr "pelado": por padrão uma trilha de
+   grid não encolhe abaixo do min-content do que tem dentro (tabela
+   larga, SVG com width fixo etc.) — isso empurrava a página inteira
+   e gerava scroll horizontal. minmax(0, ...) remove esse piso e
+   devolve o controle de encolher pro conteúdo (que já tem seu
+   próprio overflow-x:auto quando precisa, ver .table-std abaixo). */
+.grid{ display:grid; gap:16px; min-width:0; }
+.grid-kpi{ grid-template-columns:repeat(5, minmax(0, 1fr)); }
+.grid-3{ grid-template-columns:minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr); align-items:start; }
+.grid-4{ grid-template-columns:repeat(4, minmax(0, 1fr)); align-items:start; }
+.grid-2{ grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); align-items:start; }
+.grid-2b{ grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); align-items:start; }
+.grid-main-side{ grid-template-columns:minmax(0, 2.2fr) minmax(0, 1fr); align-items:start; }
+.dash-layout{ display:grid; grid-template-columns:minmax(0, 1fr) 330px; gap:16px; align-items:start; min-width:0; }
+.dash-main, .dash-rail{ min-width:0; }
 .dash-rail .card{ margin-bottom:16px; }
+.card{ min-width:0; }
 .promo-card{
   background:linear-gradient(155deg, var(--brd-blue), var(--brd-navy)); border:none; color:#fff;
   padding:20px; border-radius:var(--radius-lg);
 }
 .promo-card b{ display:flex; align-items:center; gap:8px; font-size:14px; }
 .promo-card p{ font-size:12px; color:rgba(255,255,255,.8); line-height:1.5; margin:8px 0 14px; }
-@media (max-width:1180px){ .grid-kpi{ grid-template-columns:repeat(3,1fr);} .grid-3, .grid-2{ grid-template-columns:1fr 1fr;} .grid-4{ grid-template-columns:repeat(2, 1fr);} .grid-main-side{ grid-template-columns:1fr;} .dash-layout{ grid-template-columns:1fr;} }
-@media (max-width:720px){ .grid-kpi{ grid-template-columns:repeat(2,1fr);} .grid-3, .grid-2b, .grid-2, .grid-4{ grid-template-columns:1fr;} }
+@media (max-width:1180px){ .grid-kpi{ grid-template-columns:repeat(3, minmax(0, 1fr));} .grid-3, .grid-2{ grid-template-columns:minmax(0, 1fr) minmax(0, 1fr);} .grid-4{ grid-template-columns:repeat(2, minmax(0, 1fr));} .grid-main-side{ grid-template-columns:minmax(0, 1fr);} .dash-layout{ grid-template-columns:minmax(0, 1fr);} }
+@media (max-width:720px){ .grid-kpi{ grid-template-columns:repeat(2, minmax(0, 1fr));} .grid-3, .grid-2b, .grid-2, .grid-4{ grid-template-columns:minmax(0, 1fr);} }
 .mobile-only-col{ display:none; }
 @media (max-width:1024px){ .desktop-only{ display:none !important; } .mobile-only-col{ display:table-cell; } .only-desktop{ display:none; } }
 
@@ -214,6 +226,12 @@ h1,h2,h3{ margin:0; }
 .kpi .val small{ font-size:12px; font-weight:600; color:var(--text-1); }
 
 /* Tabela */
+/* Tabelas com muitas colunas (ex: classificação completa) não
+   encolhem abaixo do conteúdo mesmo com .card já do tamanho certo —
+   table-layout:auto respeita o min-content de cada célula. Em vez de
+   deixar isso estourar a página inteira, a tabela rola sozinha
+   dentro do card. */
+.table-scroll{ overflow-x:auto; max-width:100%; -webkit-overflow-scrolling:touch; }
 .table-std{ width:100%; border-collapse:collapse; font-size:12.5px; }
 .table-std th{ text-align:left; font-size:9.5px; text-transform:uppercase; letter-spacing:.4px; color:var(--text-2); padding:6px 8px; border-bottom:1px solid var(--border); }
 .table-std td{ padding:9px 8px; border-bottom:1px solid var(--border); }
@@ -259,11 +277,12 @@ h1,h2,h3{ margin:0; }
 .form-dot.d{ background:var(--brd-red); }
 
 /* Radar chart */
-.radar-wrap{ display:flex; justify-content:center; }
+.radar-wrap{ display:flex; justify-content:center; min-width:0; }
+.radar-wrap svg{ max-width:100%; height:auto; }
 
 /* Comparativo entre times */
 .compare-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:16px; }
-.compare-select{ flex:1; padding:8px 10px; border-radius:9px; border:1px solid var(--border); background:var(--bg-app); font-family:inherit; font-size:12px; font-weight:600; color:var(--text-0); }
+.compare-select{ flex:1; min-width:0; padding:8px 10px; border-radius:9px; border:1px solid var(--border); background:var(--bg-app); font-family:inherit; font-size:12px; font-weight:600; color:var(--text-0); }
 .compare-vs{ font-size:11px; font-weight:800; color:var(--text-2); }
 .compare-row{ margin-bottom:13px; }
 .compare-row:last-child{ margin-bottom:0; }
@@ -363,9 +382,9 @@ h1,h2,h3{ margin:0; }
    largura total — evita a sensação de tela vazia com poucos jogos
    por rodada. Segue os mesmos breakpoints (1180/720) usados no resto
    do layout pra cair pra 2 e depois 1 coluna. */
-#simMatchesList{ display:grid; grid-template-columns:repeat(2, 1fr); gap:14px; align-items:start; }
-@media (max-width:720px){ #simMatchesList{ grid-template-columns:1fr; } }
-@media (min-width:1500px){ #simMatchesList{ grid-template-columns:repeat(3, 1fr); } }
+#simMatchesList{ display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:14px; align-items:start; min-width:0; }
+@media (max-width:720px){ #simMatchesList{ grid-template-columns:minmax(0, 1fr); } }
+@media (min-width:1500px){ #simMatchesList{ grid-template-columns:repeat(3, minmax(0, 1fr)); } }
 
 /* Tabela ao vivo na barra lateral do Simulador — fica grudada no
    topo (abaixo da topbar) enquanto a lista de jogos rola, e some da
