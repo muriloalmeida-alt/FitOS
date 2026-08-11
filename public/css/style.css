@@ -357,7 +357,15 @@ h1,h2,h3{ margin:0; }
 .round-switcher .label b{ display:block; font-size:14px; }
 .round-switcher .label span{ font-size:10.5px; color:var(--text-2); }
 
-.match-card{ background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-card); padding:18px; margin-bottom:14px; }
+/* Grid de jogos (aba Jogos > Rodadas) — mesmo tratamento do
+   Simulador: 2 colunas por padrão, 3 em telas bem largas, 1 no
+   mobile. Cards com detalhes expandidos ficam mais altos que os
+   vizinhos fechados na mesma linha — normal em grid (não é masonry),
+   align-items:start evita que isso estique os outros cards. */
+#matchesList{ display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:14px; align-items:start; min-width:0; }
+@media (max-width:720px){ #matchesList{ grid-template-columns:minmax(0, 1fr); } }
+@media (min-width:1500px){ #matchesList{ grid-template-columns:repeat(3, minmax(0, 1fr)); } }
+.match-card{ background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-card); padding:18px; margin:0; }
 .match-teams{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
 .match-team{ flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; gap:8px; text-align:center; }
 .match-team .tname{ font-size:11.5px; font-weight:600; color:var(--text-1); max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
