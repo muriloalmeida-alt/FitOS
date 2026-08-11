@@ -125,13 +125,30 @@ function decidedCount() { return allDecidedMatches().length; }
 function aprov(pts, j) { return j ? Math.round((pts / (j * 3)) * 100) : 0; }
 
 /* ---------- UI helpers ---------- */
+// Escapa valores antes de embutir em atributos HTML (evita quebrar o
+// parsing quando nome/short do time contém aspas, "&", "<" etc.).
+function escAttr(value) {
+  return String(value).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
 function crestEl(team, size) {
   if (team.logo) {
-    return `<img class="crest" src="${team.logo}" alt="${team.short}" width="${size}" height="${size}"
+    // Passa os dados do fallback via data-* (em vez de embutir HTML cru
+    // dentro do atributo onerror) — assim aspas dentro do HTML de
+    // crestFallback() não colidem com as aspas do próprio atributo, o
+    // que antes quebrava o fallback e deixava o ícone de imagem
+    // quebrada do navegador aparecer no lugar do brasão/iniciais.
+    return `<img class="crest" src="${escAttr(team.logo)}" alt="${escAttr(team.short || "")}" width="${size}" height="${size}"
       style="width:${size}px;height:${size}px;background:#fff;border:1px solid var(--border);padding:2px;"
-      onerror="this.outerHTML='${crestFallback(team, size)}'">`;
+      data-short="${escAttr(team.short || team.name || "?")}" data-c1="${escAttr(team.c1 || "#0057B8")}" data-c2="${escAttr(team.c2 || "#062B5C")}" data-size="${size}"
+      onerror="crestFallbackHandler(this)">`;
   }
   return crestFallback(team, size);
+}
+function crestFallbackHandler(img) {
+  img.outerHTML = crestFallback(
+    { short: img.dataset.short, c1: img.dataset.c1, c2: img.dataset.c2 },
+    parseInt(img.dataset.size, 10) || 24
+  );
 }
 function crestFallback(team, size) {
   return `<div class="crest" style="width:${size}px;height:${size}px;font-size:${Math.round(size * 0.34)}px;background:linear-gradient(135deg, ${team.c1 || "#0057B8"}, ${team.c2 || "#062B5C"})">${(team.short || team.name || "?").slice(0, 3)}</div>`;
