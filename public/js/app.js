@@ -560,7 +560,18 @@ function venueLineHTML(m) {
   if (!venue) return "";
   return `<div class="venue-line">📍 ${venue.name}${venue.city ? " · " + venue.city : ""}</div>`;
 }
-function watchTvHTML() {
+// Emissora de TV: em modo ao vivo tenta a fonte comunitária
+// (TheSportsDB, via loadBroadcastInfo) — se achar, mostra com um
+// aviso de que é dado da comunidade, não confirmado oficialmente.
+// Sem achar (ou em modo demo, onde não existe "hoje" real pra
+// consultar), cai no texto genérico de sempre.
+function watchTvHTML(m) {
+  if (LIVE_MODE && m.broadcast) {
+    return `<div class="tv-line">📺 <b>${m.broadcast}</b><div class="tv-source">Fonte comunitária (TheSportsDB) — confirme antes de assistir.</div></div>`;
+  }
+  if (LIVE_MODE && m.broadcast === undefined) {
+    return `<div class="tv-line">📺 Buscando emissora...</div>`;
+  }
   return `<div class="tv-line">📺 Confira a emissora responsável pela transmissão no guia de programação da sua TV/streaming.</div>`;
 }
 function demoSeedFor(m) { return keyFor(m.round, m.home, m.away); }
@@ -615,6 +626,12 @@ function pendingMatchDetailHTML(m, domId) {
       m.lineups = lineups; const el = document.getElementById(domId); if (el) el.outerHTML = fullMatchCardHTML(m);
     }).catch(() => { m.lineups = {}; });
   }
+  const needsBroadcastLoad = LIVE_MODE && m.date && m.broadcast === undefined;
+  if (needsBroadcastLoad) {
+    loadBroadcastInfo(m.date, H.name, A.name).then(station => {
+      m.broadcast = station; const el = document.getElementById(domId); if (el) el.outerHTML = fullMatchCardHTML(m);
+    }).catch(() => { m.broadcast = null; });
+  }
   return `
     ${oddsInnerHTML(m)}
     <div class="detail-subtitle">Escalação provável</div>
@@ -622,7 +639,7 @@ function pendingMatchDetailHTML(m, domId) {
     <div class="detail-subtitle">Onde e quando</div>
     <div class="venue-line">🗓️ ${fmtFixtureDate(m.date, m.round)}</div>
     ${venueLineHTML(m)}
-    ${watchTvHTML()}`;
+    ${watchTvHTML(m)}`;
 }
 
 function fullMatchCardHTML(m) {

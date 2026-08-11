@@ -104,6 +104,22 @@ async function loadFixtureLineups(fixtureId) {
   return promise;
 }
 
+// Emissora de TV (best-effort, fonte comunitária TheSportsDB — ver
+// server/src/broadcastSource.js) de UM jogo futuro. Lazy, cacheada, e
+// tolerante a falha: erro ou "não achou" vira null, o front-end cai
+// no texto genérico nesse caso.
+const broadcastCache = new Map();
+async function loadBroadcastInfo(dateIso, homeName, awayName) {
+  const day = String(dateIso || "").slice(0, 10);
+  const key = `${day}:${homeName}:${awayName}`;
+  if (broadcastCache.has(key)) return broadcastCache.get(key);
+  const promise = safeFetchJSON(`/api/broadcast?date=${encodeURIComponent(day)}&home=${encodeURIComponent(homeName)}&away=${encodeURIComponent(awayName)}`)
+    .then(r => r.station || null)
+    .catch(() => null);
+  broadcastCache.set(key, promise);
+  return promise;
+}
+
 // Busca estatísticas + gols + substituições + escalação de UM jogo já
 // encerrado — lazy, só quando o usuário expande aquele card em "Jogos".
 const fixtureDetailCache = new Map();

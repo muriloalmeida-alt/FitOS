@@ -21,6 +21,7 @@ const { apiSportsGet, getQuota } = require("./src/apiSports");
 const { mapTeam, mapStandingRow, mapFixture, mapStatistics, mapEvents, mapSubstitutions, mapLineups, mapOdds, mapPlayerEntry } = require("./src/adapter");
 const cache = require("./src/cache");
 const oddsHistory = require("./src/oddsHistory");
+const { fetchBroadcastStation } = require("./src/broadcastSource");
 
 loadDotEnv();
 
@@ -37,6 +38,7 @@ const TTL = {
   odds: 10 * 60 * 1000,             // 10min — odds pré-jogo mudam com frequência
   leagueSearch: 24 * 60 * 60 * 1000,
   playersLeaders: 6 * 60 * 60 * 1000, // 6h — rankings de jogadores não mudam durante o dia
+  broadcast: 6 * 60 * 60 * 1000,     // 6h — fonte comunitária (TheSportsDB), não muda de hora em hora
 };
 
 function loadDotEnv() {
@@ -231,6 +233,25 @@ const server = http.createServer(async (req, res) => {
       const spanMs = { "24h": 24 * 60 * 60 * 1000, "7d": 7 * 24 * 60 * 60 * 1000, "30d": 30 * 24 * 60 * 60 * 1000 }[range] || 7 * 24 * 60 * 60 * 1000;
       const points = oddsHistory.getHistory(fixtureId, Date.now() - spanMs);
       return sendJSON(res, 200, { points });
+    }
+
+    if (pathname === "/api/broadcast") {
+      // Fonte independente da API-Sports (TheSportsDB, gratuita e
+      // comunitária) — não exige API_SPORTS_KEY. Best-effort: erro
+      // ou "não achou" vira station:null, nunca quebra a página.
+      const date = searchParams.get("date");
+      const home = searchParams.get("home");
+      const away = searchParams.get("away");
+      if (!date || !home || !away) return sendJSON(res, 400, { error: "date, home e away são obrigatórios" });
+      const data = await withCache(`broadcast:${date.slice(0, 10)}:${home}:${away}`, TTL.broadcast, async () => {
+        try {
+          return { station: await fetchBroadcastStation(date, home, away) };
+        } catch (err) {
+          console.error("[broadcast] falha ao consultar TheSportsDB:", err.message);
+          return { station: null };
+        }
+      });
+      return sendJSON(res, 200, data);
     }
 
     if (pathname.startsWith("/api/")) {
