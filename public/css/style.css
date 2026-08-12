@@ -234,7 +234,9 @@ h1,h2,h3{ margin:0; }
    showAdModal() em app.js. SIMULADO por enquanto: sem integração com
    rede de anúncios de verdade. Pra plugar uma rede real depois, troque
    o conteúdo de #adModalMedia por um player real (ex.: Google IMA SDK)
-   e ajuste showAdModal()/closeAdModal() pra respeitar as regras dela. */
+   e ajuste showAdModal()/closeAdModal() pra respeitar as regras dela.
+   Regras de negócio: só fecha quando a barra de progresso completa
+   (sem pular) e, no mobile, ocupa a tela inteira (formato "stories"). */
 .ad-modal-overlay{
   position:fixed; inset:0; background:rgba(3,13,30,.82); z-index:100;
   display:flex; align-items:center; justify-content:center; padding:16px;
@@ -242,7 +244,10 @@ h1,h2,h3{ margin:0; }
 .ad-modal-box{
   background:var(--bg-surface); border-radius:var(--radius-lg); box-shadow:var(--shadow-card);
   width:100%; max-width:420px; padding:18px; text-align:center;
+  display:flex; flex-direction:column; position:relative;
 }
+.ad-modal-progress-track{ height:3px; border-radius:100px; background:var(--border); overflow:hidden; margin-bottom:12px; flex-shrink:0; }
+.ad-modal-progress-fill{ height:100%; width:0%; background:var(--brd-blue); transition:width .2s linear; }
 .ad-modal-label{ font-size:11px; font-weight:800; letter-spacing:.6px; text-transform:uppercase; color:var(--text-2); margin-bottom:12px; }
 .ad-modal-media{
   aspect-ratio:16/9; border-radius:12px; margin-bottom:14px;
@@ -265,6 +270,36 @@ h1,h2,h3{ margin:0; }
 .ad-modal-close:disabled{ opacity:.55; cursor:not-allowed; }
 .ad-modal-upsell{ font-size:11.5px; color:var(--text-2); margin:12px 0 0; }
 .ad-modal-upsell-link{ color:var(--brd-blue); font-weight:700; cursor:pointer; }
+.ad-modal-footer.locked .ad-modal-upsell-link{ opacity:.5; pointer-events:none; cursor:default; }
+
+/* Mobile: vídeo ocupa a tela inteira, formato "stories" (barra de
+   progresso e ações sobrepostas ao vídeo, não em cards separados). */
+@media (max-width:1024px){
+  .ad-modal-overlay{ padding:0; background:#000; }
+  .ad-modal-box{
+    max-width:none; width:100%; height:100dvh; height:100vh;
+    border-radius:0; padding:0; box-shadow:none; background:#000;
+  }
+  .ad-modal-progress-track{
+    position:absolute; top:calc(10px + env(safe-area-inset-top, 0px)); left:12px; right:12px; z-index:2;
+    margin:0; background:rgba(255,255,255,.3);
+  }
+  .ad-modal-progress-fill{ background:#fff; }
+  .ad-modal-label{
+    position:absolute; top:calc(22px + env(safe-area-inset-top, 0px)); left:16px; z-index:2;
+    margin:0; color:rgba(255,255,255,.85);
+  }
+  .ad-modal-media{ flex:1; aspect-ratio:auto; border-radius:0; margin-bottom:0; height:100%; }
+  .ad-modal-footer{
+    position:absolute; left:0; right:0; bottom:0; z-index:2;
+    padding:20px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+    background:linear-gradient(to top, rgba(0,0,0,.8), transparent);
+  }
+  .ad-modal-close{ background:rgba(255,255,255,.15); border-color:rgba(255,255,255,.35); color:#fff; }
+  .ad-modal-close:disabled{ opacity:.75; }
+  .ad-modal-upsell{ color:rgba(255,255,255,.85); }
+  .ad-modal-upsell-link{ color:#fff; text-decoration:underline; }
+}
 @media (max-width:1180px){ .grid-kpi{ grid-template-columns:repeat(3, minmax(0, 1fr));} .grid-3, .grid-2{ grid-template-columns:minmax(0, 1fr) minmax(0, 1fr);} .grid-4{ grid-template-columns:repeat(2, minmax(0, 1fr));} .grid-main-side{ grid-template-columns:minmax(0, 1fr);} .dash-layout{ grid-template-columns:minmax(0, 1fr);} }
 @media (max-width:720px){ .grid-kpi{ grid-template-columns:repeat(2, minmax(0, 1fr));} .grid-3, .grid-2b, .grid-2, .grid-4{ grid-template-columns:minmax(0, 1fr);} }
 .mobile-only-col{ display:none; }

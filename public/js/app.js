@@ -67,26 +67,41 @@ function lockedFeatureHTML(title, desc) {
 
 /* ================= Modal de anúncio em vídeo (Freemium) =================
    SIMULADO por enquanto — sem integração com rede de anúncios de
-   verdade (ver comentário em cima de #adModal no index.html pra saber
-   onde plugar isso depois). Só roda pro plano Freemium, reaparecendo a
-   cada AD_INTERVAL_MS de app aberto. Não soma tempo com a aba em
-   segundo plano (document.hidden) — só pula aquele ciclo e tenta de
-   novo no próximo, então nunca acumula vários anúncios de uma vez pra
-   descarregar quando o usuário volta. */
-const AD_INTERVAL_MS = 5 * 60 * 1000; // 5 minutos
-const AD_SKIP_AFTER_S = 5; // segundos até o botão de fechar liberar (padrão de anúncio pulável)
+   verdade (ver comentário em cima de .ad-modal-overlay no style.css
+   pra saber onde plugar isso depois). Só roda pro plano Freemium.
+
+   Regras:
+   - 1º anúncio aparece AD_FIRST_DELAY_MS depois do login; os
+     seguintes, a cada AD_INTERVAL_MS.
+   - Não soma tempo com a aba em segundo plano (document.hidden) — só
+     pula aquele ciclo e tenta de novo no próximo, então nunca acumula
+     vários anúncios de uma vez pra descarregar quando o usuário volta.
+   - Só fecha depois que o "vídeo" (barra de progresso simulando
+     AD_DURATION_S) termina — sem opção de pular, nem pelo link de
+     upgrade (que também fica inerte até lá). */
+const AD_FIRST_DELAY_MS = 60 * 1000; // 1 minuto depois do login
+const AD_INTERVAL_MS = 5 * 60 * 1000; // depois do 1º, a cada 5 minutos
+const AD_DURATION_S = 15; // duração do "vídeo" simulado
+let adFirstTimeoutId = null;
 let adTimerId = null;
-let adSkipIntervalId = null;
+let adProgressIntervalId = null;
+let adModalUnlocked = false; // true só quando a barra de progresso completa
 
 function startAdTimer() {
   stopAdTimer();
-  adTimerId = setInterval(() => {
-    if (document.hidden) return; // app em segundo plano, tenta de novo no próximo ciclo
-    if (!currentUser || currentUser.plan !== "freemium") { stopAdTimer(); return; }
-    showAdModal();
-  }, AD_INTERVAL_MS);
+  adFirstTimeoutId = setTimeout(() => {
+    adFirstTimeoutId = null;
+    tryShowAd();
+    adTimerId = setInterval(tryShowAd, AD_INTERVAL_MS);
+  }, AD_FIRST_DELAY_MS);
+}
+function tryShowAd() {
+  if (document.hidden) return; // app em segundo plano, tenta de novo no próximo ciclo
+  if (!currentUser || currentUser.plan !== "freemium") { stopAdTimer(); return; }
+  showAdModal();
 }
 function stopAdTimer() {
+  if (adFirstTimeoutId) { clearTimeout(adFirstTimeoutId); adFirstTimeoutId = null; }
   if (adTimerId) { clearInterval(adTimerId); adTimerId = null; }
 }
 
@@ -95,27 +110,33 @@ function showAdModal() {
   if (!modal || modal.style.display === "flex") return; // já tem um aberto, não empilha
   modal.style.display = "flex";
   const closeBtn = document.getElementById("adModalClose");
+  const footer = document.getElementById("adModalFooter");
+  const fill = document.getElementById("adModalProgressFill");
+  adModalUnlocked = false;
   closeBtn.disabled = true;
-  let remaining = AD_SKIP_AFTER_S;
-  closeBtn.innerHTML = `Fechar em <span id="adModalSkipCount">${remaining}</span>s`;
-  clearInterval(adSkipIntervalId);
-  adSkipIntervalId = setInterval(() => {
-    remaining--;
-    if (remaining <= 0) {
-      clearInterval(adSkipIntervalId);
+  closeBtn.textContent = "Aguarde o fim do vídeo...";
+  footer.classList.add("locked");
+  if (fill) fill.style.width = "0%";
+  let elapsedMs = 0;
+  clearInterval(adProgressIntervalId);
+  adProgressIntervalId = setInterval(() => {
+    elapsedMs += 200;
+    const pct = Math.min(100, (elapsedMs / (AD_DURATION_S * 1000)) * 100);
+    if (fill) fill.style.width = pct + "%";
+    if (elapsedMs >= AD_DURATION_S * 1000) {
+      clearInterval(adProgressIntervalId);
+      adModalUnlocked = true;
       closeBtn.disabled = false;
       closeBtn.textContent = "Fechar anúncio ✕";
-    } else {
-      const c = document.getElementById("adModalSkipCount");
-      if (c) c.textContent = remaining;
+      footer.classList.remove("locked");
     }
-  }, 1000);
+  }, 200);
 }
 
 function closeAdModal() {
   const modal = document.getElementById("adModal");
   if (modal) modal.style.display = "none";
-  clearInterval(adSkipIntervalId);
+  clearInterval(adProgressIntervalId);
 }
 
 /* ================= Gate de desktop (foco 100% PWA/mobile) =================
@@ -2297,12 +2318,13 @@ function setupEventListeners() {
   });
 
   // ---- Modal de anúncio (Freemium) ----
+  // Os dois só agem depois que o "vídeo" termina (adModalUnlocked) —
+  // nem o link de assinar Premium pula o anúncio antes da hora.
   document.getElementById("adModalClose").addEventListener("click", () => {
-    if (!document.getElementById("adModalClose").disabled) closeAdModal();
+    if (adModalUnlocked) closeAdModal();
   });
   document.getElementById("adModalUpsellLink").addEventListener("click", () => {
-    closeAdModal();
-    setActivePage("apoie");
+    if (adModalUnlocked) { closeAdModal(); setActivePage("apoie"); }
   });
 
   document.getElementById("btnAddTeam").addEventListener("click", () => {

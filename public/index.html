@@ -552,13 +552,16 @@
      rede de anúncios de verdade depois. -->
 <div id="adModal" class="ad-modal-overlay" style="display:none;">
   <div class="ad-modal-box">
+    <div class="ad-modal-progress-track"><div class="ad-modal-progress-fill" id="adModalProgressFill"></div></div>
     <div class="ad-modal-label">Publicidade</div>
     <div class="ad-modal-media">
       <div class="ad-modal-media-icon">▶</div>
       <div class="ad-modal-media-text">Anúncio em vídeo (simulado)</div>
     </div>
-    <button class="ad-modal-close" id="adModalClose" disabled>Fechar em <span id="adModalSkipCount">5</span>s</button>
-    <p class="ad-modal-upsell">Cansado dos anúncios? <span class="ad-modal-upsell-link" id="adModalUpsellLink">Assine o Premium</span> e navegue sem interrupções.</p>
+    <div class="ad-modal-footer" id="adModalFooter">
+      <button class="ad-modal-close" id="adModalClose" disabled>Aguarde o fim do vídeo...</button>
+      <p class="ad-modal-upsell">Cansado dos anúncios? <span class="ad-modal-upsell-link" id="adModalUpsellLink">Assine o Premium</span> e navegue sem interrupções.</p>
+    </div>
   </div>
 </div>
 
