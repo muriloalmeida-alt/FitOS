@@ -183,6 +183,10 @@ h1,h2,h3{ margin:0; }
    próprio overflow-x:auto quando precisa, ver .table-std abaixo). */
 .grid{ display:grid; gap:16px; min-width:0; }
 .grid-kpi{ grid-template-columns:repeat(5, minmax(0, 1fr)); }
+/* Página do Time: 4 KPIs (Posição/Pontos/Gols marcados/Gols sofridos,
+   sem o "Saldo" que existia antes) — coluna fixa em vez de herdar as
+   5/3 colunas do .grid-kpi do Dashboard, senão sobra um espaço vazio. */
+#teamPageKpis{ grid-template-columns:repeat(4, minmax(0, 1fr)); }
 .grid-3{ grid-template-columns:minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr); align-items:start; }
 .grid-4{ grid-template-columns:repeat(4, minmax(0, 1fr)); align-items:start; }
 .grid-2{ grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); align-items:start; }

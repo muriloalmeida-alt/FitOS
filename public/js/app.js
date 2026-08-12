@@ -1403,7 +1403,6 @@ function renderTeamPage() {
     <div class="card kpi"><div class="ico blue">⭐</div><div><div class="lbl">Pontos</div><div class="val">${row.pts}</div></div></div>
     <div class="card kpi"><div class="ico green">⚽</div><div><div class="lbl">Gols marcados</div><div class="val">${row.gp}</div></div></div>
     <div class="card kpi"><div class="ico navy">🥅</div><div><div class="lbl">Gols sofridos</div><div class="val">${row.gc}</div></div></div>
-    <div class="card kpi"><div class="ico blue">📊</div><div><div class="lbl">Saldo</div><div class="val">${row.sg > 0 ? "+" + row.sg : row.sg}</div></div></div>
   ` : `<div class="card empty" style="grid-column:1/-1;">Sem jogos decididos ainda.</div>`;
 
   renderFormaInto("teamPageForma", teamId);
