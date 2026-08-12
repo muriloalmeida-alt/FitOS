@@ -169,6 +169,15 @@ h1,h2,h3{ margin:0; }
 .page-head{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-bottom:18px; }
 .page-head h1{ font-size:var(--fs-h1); font-weight:var(--fw-h1); }
 .page-head .sub{ font-size:12.5px; color:var(--text-1); margin-top:2px; }
+/* Emblema "Brasileirão 2026" (Dashboard) — brasão estilizado (cores da
+   bandeira, já usadas no resto do app) + o wordmark no lugar do texto
+   solto que existia antes. O <h1> continua herdando o tamanho/peso de
+   .page-head h1 acima (inclusive o ajuste mobile), só ganha cor/tracking. */
+.brasileirao-brand{ display:flex; align-items:center; gap:10px; }
+.brasileirao-emblem{ width:30px; height:auto; flex-shrink:0; }
+.brasileirao-word{ letter-spacing:.3px; white-space:nowrap; }
+.brasileirao-word span{ color:var(--brd-blue); }
+@media (max-width:1024px){ .brasileirao-emblem{ width:22px; } }
 .select-pill{
   display:flex; align-items:center; gap:8px; padding:9px 14px; border-radius:100px;
   background:var(--bg-surface); border:1px solid var(--border); font-size:12.5px; font-weight:600; cursor:pointer;
