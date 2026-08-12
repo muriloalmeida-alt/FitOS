@@ -28,6 +28,7 @@ const state = {
   favoriteClubId: null,
   selectedTeamId: null,
   selectedPlayerId: null,
+  rosterExpanded: false,
   pageBeforeDetail: "dashboard",
 };
 
@@ -292,6 +293,7 @@ function renderDashboard() {
   const standings = currentStandings();
   document.getElementById("roundPill").textContent = `Rodada ${Math.min(firstUndecidedRound(), TOTAL_ROUNDS)}/${TOTAL_ROUNDS}`;
 
+  renderFavoriteClubCard();
   renderDashKpis(standings);
   renderDashStandings(standings);
   renderDashTitleChance();
@@ -1170,16 +1172,8 @@ function saveFavoriteClub() {
     else localStorage.removeItem("brdata_favorite_club");
   } catch {}
 }
-function populateFavoriteClubSelect() {
-  const sel = document.getElementById("favoriteClubSelect");
-  if (!sel) return;
-  const sorted = [...TEAMS].sort((a, b) => a.name.localeCompare(b.name));
-  sel.innerHTML = `<option value="">— Nenhum (exibir líder do campeonato) —</option>` +
-    sorted.map(t => `<option value="${t.id}">${t.name}</option>`).join("");
-  sel.value = state.favoriteClubId && TEAM_MAP[state.favoriteClubId] ? state.favoriteClubId : "";
-}
-function onFavoriteClubChange(e) {
-  state.favoriteClubId = e.target.value || null;
+function applyFavoriteClub(newId) {
+  state.favoriteClubId = newId || null;
   saveFavoriteClub();
   // O simulador "E se..." do Dashboard passa a sugerir o clube
   // favorito por padrão (o usuário ainda pode trocar manualmente no
@@ -1191,6 +1185,50 @@ function onFavoriteClubChange(e) {
     if (whatifSel) whatifSel.value = defaultWhatif;
   }
   renderDashboard();
+}
+function onFavoriteClubChange(e) { applyFavoriteClub(e.target.value); }
+function clearFavoriteClub() { applyFavoriteClub(null); }
+
+// Card "Clube Favorito" do Dashboard — dois estados:
+// 1) Sem favorito: card neutro com o seletor de time.
+// 2) Com favorito: o seletor some, e o card inteiro vira as cores do
+//    clube (ex: Flamengo = vermelho/preto), com um botão pra trocar.
+function renderFavoriteClubCard() {
+  const box = document.getElementById("favClubCard");
+  if (!box) return;
+  const favTeam = activeFavoriteTeam();
+
+  if (!favTeam) {
+    box.style.cssText = "margin-bottom:16px;";
+    box.innerHTML = `
+      <div class="card-head"><h3>⭐ Clube Favorito</h3></div>
+      <p class="fav-club-hint">Escolha 1 clube para deixá-lo em destaque na página inicial no lugar do líder do campeonato. Sem seleção, o destaque continua sendo o líder.</p>
+      <select class="compare-select fav-club-select" id="favoriteClubSelect"></select>`;
+    const sel = document.getElementById("favoriteClubSelect");
+    const sorted = [...TEAMS].sort((a, b) => a.name.localeCompare(b.name));
+    sel.innerHTML = `<option value="">— Nenhum (exibir líder do campeonato) —</option>` +
+      sorted.map(t => `<option value="${t.id}">${t.name}</option>`).join("");
+    sel.value = "";
+    sel.addEventListener("change", onFavoriteClubChange);
+    return;
+  }
+
+  // Camada escura semi-transparente sobre o gradiente do clube — sem
+  // isso, times com uma cor clara (ex: Botafogo preto/BRANCO) deixavam
+  // o texto/botão brancos ilegíveis do lado claro do degradê.
+  box.style.cssText = `margin-bottom:16px; border:none; color:#fff;
+    background:linear-gradient(135deg, rgba(0,0,0,.4), rgba(0,0,0,.12)), linear-gradient(135deg, ${favTeam.c1 || "#0057B8"}, ${favTeam.c2 || "#062B5C"});`;
+  box.innerHTML = `
+    <div class="fav-club-active">
+      <div class="fav-club-active-info">
+        ${crestEl(favTeam, 46)}
+        <div>
+          <div class="fav-club-active-lbl">⭐ Clube Favorito</div>
+          <div class="fav-club-active-name">${favTeam.name}</div>
+        </div>
+      </div>
+      <button class="fav-club-remove" onclick="clearFavoriteClub()">Trocar time</button>
+    </div>`;
 }
 
 /* ================= TEMA CLARO/ESCURO ================= */
@@ -1295,20 +1333,43 @@ function playerRosterRowHTML(p) {
   </tr>`;
 }
 const ROSTER_POSITION_ORDER = { Goalkeeper: 0, Defender: 1, Midfielder: 2, Attacker: 3 };
+const ROSTER_PREVIEW_COUNT = 8;
+let currentRosterSorted = []; // elenco (já ordenado) do time aberto no momento — evita re-buscar ao expandir/recolher
 async function renderTeamRoster(teamId) {
   const box = document.getElementById("teamPageRoster");
-  const hint = document.getElementById("teamPageRosterHint");
   if (!box) return;
   box.innerHTML = `<tr><td colspan="4" class="empty">Carregando elenco...</td></tr>`;
+  state.rosterExpanded = false;
   const roster = await resolveTeamRoster(teamId);
   if (state.selectedTeamId !== teamId) return; // usuário já trocou de time enquanto carregava
-  const sorted = [...roster].sort((a, b) =>
+  currentRosterSorted = [...roster].sort((a, b) =>
     (ROSTER_POSITION_ORDER[a.position] ?? 9) - (ROSTER_POSITION_ORDER[b.position] ?? 9) || a.name.localeCompare(b.name)
   );
-  box.innerHTML = sorted.length
-    ? sorted.map(playerRosterRowHTML).join("")
+  renderRosterRows();
+}
+// Só redesenha a lista (linhas + botão) a partir do elenco já
+// carregado — usado tanto no primeiro render quanto ao expandir/recolher.
+function renderRosterRows() {
+  const box = document.getElementById("teamPageRoster");
+  const hint = document.getElementById("teamPageRosterHint");
+  const toggleBox = document.getElementById("teamPageRosterToggle");
+  if (!box) return;
+  const sorted = currentRosterSorted;
+  const showAll = state.rosterExpanded || sorted.length <= ROSTER_PREVIEW_COUNT;
+  const visible = showAll ? sorted : sorted.slice(0, ROSTER_PREVIEW_COUNT);
+  box.innerHTML = visible.length
+    ? visible.map(playerRosterRowHTML).join("")
     : `<tr><td colspan="4" class="empty">Elenco não disponível.</td></tr>`;
   if (hint) hint.textContent = `${sorted.length} jogador${sorted.length === 1 ? "" : "es"} · ${LIVE_MODE ? "dados ao vivo" : "dados de exemplo"}`;
+  if (toggleBox) {
+    toggleBox.innerHTML = sorted.length > ROSTER_PREVIEW_COUNT
+      ? `<button class="btn-sm roster-toggle-btn" onclick="toggleRosterExpand()">${showAll ? "Mostrar menos ▴" : `Ver todos os ${sorted.length} jogadores ▾`}</button>`
+      : "";
+  }
+}
+function toggleRosterExpand() {
+  state.rosterExpanded = !state.rosterExpanded;
+  renderRosterRows();
 }
 /* ---------- Escalação titular do último jogo, estilo "jogo de botão" ----------
    Reaproveita a mesma escalação já usada no card expandido de "Jogos"
@@ -1490,7 +1551,6 @@ function populateAllSelects() {
   populateSelect(document.getElementById("compareTeamA2"), leader);
   populateSelect(document.getElementById("compareTeamB2"), second);
   populateSelect(document.getElementById("whatifTeamSelect"), state.whatifTeamId || leader);
-  populateFavoriteClubSelect();
 }
 
 /* ================= NAVEGAÇÃO ================= */
@@ -1617,7 +1677,8 @@ function setupEventListeners() {
   });
 
   document.getElementById("whatifTeamSelect").addEventListener("change", e => { state.whatifTeamId = e.target.value; renderWhatIf(); });
-  document.getElementById("favoriteClubSelect").addEventListener("change", onFavoriteClubChange);
+  // favoriteClubSelect é recriado a cada render do card (ver
+  // renderFavoriteClubCard) — o listener é anexado lá, não aqui.
   document.getElementById("whatifMinus").addEventListener("click", () => { state.whatifN = Math.max(1, state.whatifN - 1); renderWhatIf(); });
   document.getElementById("whatifPlus").addEventListener("click", () => { state.whatifN = Math.min(19, state.whatifN + 1); renderWhatIf(); });
 

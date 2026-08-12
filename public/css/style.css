@@ -239,6 +239,27 @@ h1,h2,h3{ margin:0; }
 /* Clube Favorito (Dashboard) */
 .fav-club-hint{ font-size:11.5px; color:var(--text-2); margin:0 0 10px; line-height:1.5; max-width:640px; }
 .fav-club-select{ display:block; width:100%; max-width:340px; }
+/* Estado "com favorito selecionado" — o card inteiro vira as cores do
+   clube (ver renderFavoriteClubCard em app.js), então o texto aqui é
+   sempre branco, independente do tema claro/escuro do resto do app. */
+.fav-club-active{ display:flex; align-items:center; justify-content:space-between; gap:14px; flex-wrap:wrap; }
+.fav-club-active-info{ display:flex; align-items:center; gap:12px; min-width:0; }
+.fav-club-active-lbl{ font-size:10px; text-transform:uppercase; letter-spacing:.5px; color:rgba(255,255,255,.8); font-weight:700; }
+.fav-club-active-name{ font-size:19px; font-weight:800; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.25); }
+/* Fundo escuro fixo (não translúcido) — precisa contrastar com o
+   texto branco em qualquer cor de clube, inclusive as claras (ex:
+   Botafogo tem branco como 2ª cor). */
+.fav-club-remove{
+  background:rgba(0,0,0,.32); border:1px solid rgba(255,255,255,.5); color:#fff;
+  padding:8px 14px; border-radius:9px; font-size:11.5px; font-weight:700; cursor:pointer;
+  white-space:nowrap; font-family:inherit; transition:background .15s ease;
+}
+.fav-club-remove:hover{ background:rgba(0,0,0,.48); }
+
+/* Elenco: botão "ver todos" (ver renderRosterRows em app.js) */
+.roster-toggle-wrap{ text-align:center; margin-top:12px; }
+.roster-toggle-btn{ display:inline-block; padding:8px 16px; font-size:11.5px; font-weight:700; border-radius:9px; border:1px solid var(--border); background:var(--bg-app); color:var(--brd-blue); cursor:pointer; font-family:inherit; }
+.roster-toggle-btn:hover{ background:var(--border); }
 .lider-rank{ font-size:11.5px; font-weight:600; color:rgba(255,255,255,.75); margin:-3px 0 6px; }
 
 /* Tabela */

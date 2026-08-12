@@ -91,11 +91,7 @@
           </div>
         </div>
 
-        <div class="card fav-club-card" style="margin-bottom:16px;">
-          <div class="card-head"><h3>⭐ Clube Favorito</h3></div>
-          <p class="fav-club-hint">Escolha 1 clube para deixá-lo em destaque na página inicial no lugar do líder do campeonato. Sem seleção, o destaque continua sendo o líder.</p>
-          <select class="compare-select fav-club-select" id="favoriteClubSelect"></select>
-        </div>
+        <div class="card fav-club-card" id="favClubCard" style="margin-bottom:16px;"></div>
 
         <div class="lider-hero mobile-only">
           <div class="crest-wrap" id="liderCrest"></div>
@@ -353,6 +349,7 @@
             <thead><tr><th>Jogador</th><th class="num">PJ</th><th class="num">Gols</th><th class="num">Assist.</th></tr></thead>
             <tbody id="teamPageRoster"></tbody>
           </table></div>
+          <div id="teamPageRosterToggle" class="roster-toggle-wrap"></div>
         </div>
         <div class="card" style="margin-bottom:16px;">
           <div class="card-head"><h3>⚽ Escalação titular — jogo de botão</h3><span style="font-size:11px; color:var(--text-2); font-weight:600;" id="teamPageLineupHint"></span></div>
