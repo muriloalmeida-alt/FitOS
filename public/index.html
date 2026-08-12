@@ -238,8 +238,11 @@
           </div>
           <div class="card">
             <div class="card-head"><h3>Chance de título</h3></div>
-            <div id="dashTitleChance"></div>
-            <div class="card-link" data-page="jogos" data-jsub="probabilidades" style="margin-top:12px;">Ver todas as probabilidades →</div>
+            <div id="dashTitleChanceLocked" style="display:none;"></div>
+            <div id="dashTitleChanceContent">
+              <div id="dashTitleChance"></div>
+              <div class="card-link" data-page="jogos" data-jsub="probabilidades" style="margin-top:12px;">Ver todas as probabilidades →</div>
+            </div>
           </div>
         </div>
 
@@ -289,6 +292,8 @@
           </div>
         </div>
         <div id="sub-probabilidades" style="display:none;">
+          <div id="probabilidadesLocked" style="display:none;"></div>
+          <div id="probabilidadesContent">
           <div class="sort-bar">
             <div class="sort-chip active" data-sort="campeao">Título</div>
             <div class="sort-chip" data-sort="libertadores">Libertadores</div>
@@ -297,6 +302,7 @@
           </div>
           <button class="btn btn-primary full" id="btnRecalc" style="margin-bottom:16px;">🔁 Recalcular simulação (1.500 cenários)</button>
           <div id="probList"></div>
+          </div>
         </div>
       </section>
 
@@ -327,12 +333,15 @@
         <div class="grid grid-2b">
           <div class="card" id="comparativoCard">
             <div class="card-head"><h3>Comparador de times</h3></div>
+            <div id="comparativoCardLocked" style="display:none;"></div>
+            <div id="comparativoCardContent">
             <div class="compare-head">
               <select class="compare-select" id="compareTeamA2"></select>
               <span class="compare-vs">×</span>
               <select class="compare-select" id="compareTeamB2"></select>
             </div>
             <div id="compareBody2"></div>
+            </div>
           </div>
           <div class="card">
             <div class="card-head"><h3>Desempenho ofensivo</h3>
@@ -369,7 +378,8 @@
       <!-- ================= SIMULADOR (completo) ================= -->
       <section class="page" id="page-simulador">
         <div class="page-head"><div><h1>Simulador</h1><div class="sub">Monte o final do Brasileirão, rodada a rodada</div></div></div>
-        <div class="dash-layout">
+        <div id="simuladorLocked" style="display:none;"></div>
+        <div class="dash-layout" id="simuladorContent">
         <div class="dash-main">
         <div class="round-switcher">
           <button id="simRoundPrev">‹</button>
@@ -438,10 +448,11 @@
           <div class="card"><div class="card-head"><h3>Próximos jogos</h3></div><div id="teamPageNextFixtures"></div></div>
         </div>
         <div class="card" style="margin-bottom:16px;">
-          <div class="card-head">
+          <div class="card-head" id="teamPageCompareHead">
             <h3>Comparar com outro time</h3>
             <select class="compare-select" style="flex:none; width:auto;" id="teamPageCompareSelect"></select>
           </div>
+          <div id="teamPageCompareLocked" style="display:none;"></div>
           <div id="teamPageCompareBody"></div>
         </div>
         <div class="grid grid-2" style="margin-bottom:16px;">

@@ -45,6 +45,26 @@ let currentUser = null;
 // (ver evaluateDesktopGate).
 let appBooted = false;
 
+/* ================= Regras de acesso por plano =================
+   Freemium e Lite: sem Comparador de times, Probabilidades ou
+   Simulador — essas 3 seções mostram um card de upsell no lugar (ver
+   lockedFeatureHTML) em vez do conteúdo real. Pro e Enterprise têm
+   as 3 liberadas. Bloqueio só de interface (o cálculo roda no
+   navegador com dados já públicos) — é um soft paywall, não segurança
+   de dado sensível. */
+function planAllowsAdvanced() {
+  const p = currentUser && currentUser.plan;
+  return p === "pro" || p === "enterprise";
+}
+function lockedFeatureHTML(title, desc) {
+  return `<div class="card locked-feature">
+    <div class="locked-feature-icon">🔒</div>
+    <h3>${title}</h3>
+    <p>${desc}</p>
+    <button class="btn btn-primary" onclick="setActivePage('apoie')">Ver planos Pro e Enterprise</button>
+  </div>`;
+}
+
 /* ================= Gate de desktop (foco 100% PWA/mobile) =================
    Telas maiores que DESKTOP_BREAKPOINT mostram uma página pra baixar/
    instalar o app em vez do login — tem prioridade sobre tudo, inclusive
@@ -552,6 +572,16 @@ function renderDashKpis(standings) {
 // entre os 5 primeiros, entra como 6º item só nessa lista (mesma
 // lógica de "presa no fim" da tabela de classificação).
 function renderDashTitleChance() {
+  const liberado = planAllowsAdvanced();
+  document.getElementById("dashTitleChanceContent").style.display = liberado ? "block" : "none";
+  document.getElementById("dashTitleChanceLocked").style.display = liberado ? "none" : "block";
+  if (!liberado) {
+    document.getElementById("dashTitleChanceLocked").innerHTML = lockedFeatureHTML(
+      "Probabilidades é exclusivo Pro/Enterprise",
+      "Veja as chances de título de cada time — desbloqueie fazendo upgrade do seu plano."
+    );
+    return;
+  }
   if (!state.probResults) { runProbabilitiesQuiet(); }
   const favId = state.favoriteClubId;
   const allRanked = TEAMS.map(t => ({ team: t, p: state.probResults[t.id] })).filter(x => x.p).sort((a, b) => b.p.campeao - a.p.campeao);
@@ -1098,7 +1128,17 @@ function renderTabela() {
 /* ================= PÁGINA: ESTATÍSTICAS ================= */
 function renderEstatisticasPage() {
   renderEstatisticasConsolidadas("statTiles2", "leaderAtaque2", "leaderDefesa2", "leaderCartoes2");
-  renderCompareInto("compareBody2", document.getElementById("compareTeamA2").value, document.getElementById("compareTeamB2").value);
+  const comparadorLiberado = planAllowsAdvanced();
+  document.getElementById("comparativoCardContent").style.display = comparadorLiberado ? "block" : "none";
+  document.getElementById("comparativoCardLocked").style.display = comparadorLiberado ? "none" : "block";
+  if (comparadorLiberado) {
+    renderCompareInto("compareBody2", document.getElementById("compareTeamA2").value, document.getElementById("compareTeamB2").value);
+  } else {
+    document.getElementById("comparativoCardLocked").innerHTML = lockedFeatureHTML(
+      "Comparador de times é exclusivo Pro/Enterprise",
+      "Compare o desempenho entre dois times lado a lado — desbloqueie fazendo upgrade do seu plano."
+    );
+  }
   renderRadarInto("radarChart2", document.getElementById("radarTeamSelect2").value);
   if (state.estatisticasSub === "jogadores") renderJogadoresPage();
 }
@@ -1155,6 +1195,16 @@ async function renderJogadoresPage() {
 
 /* ================= PÁGINA: SIMULADOR ================= */
 function renderSimulador() {
+  const liberado = planAllowsAdvanced();
+  document.getElementById("simuladorContent").style.display = liberado ? "grid" : "none";
+  document.getElementById("simuladorLocked").style.display = liberado ? "none" : "block";
+  if (!liberado) {
+    document.getElementById("simuladorLocked").innerHTML = lockedFeatureHTML(
+      "Simulador é exclusivo Pro/Enterprise",
+      "Monte o final do Brasileirão rodada a rodada e veja a tabela reagir em tempo real — desbloqueie fazendo upgrade do seu plano."
+    );
+    return;
+  }
   document.getElementById("simRoundLabel").textContent = `Rodada ${state.simRound}`;
   document.getElementById("simRoundSubLabel").textContent = LIVE_MODE ? "Projeção" : "Returno";
   const fixtures = getRoundFixtures(state.simRound);
@@ -2013,6 +2063,17 @@ function renderTeamPage() {
 // só o time B (adversário) é escolhido no seletor.
 function renderTeamCompare(teamId, standings) {
   const sel = document.getElementById("teamPageCompareSelect");
+  const liberado = planAllowsAdvanced();
+  sel.style.display = liberado ? "" : "none";
+  document.getElementById("teamPageCompareBody").style.display = liberado ? "block" : "none";
+  document.getElementById("teamPageCompareLocked").style.display = liberado ? "none" : "block";
+  if (!liberado) {
+    document.getElementById("teamPageCompareLocked").innerHTML = lockedFeatureHTML(
+      "Comparador de times é exclusivo Pro/Enterprise",
+      "Compare o desempenho entre dois times lado a lado — desbloqueie fazendo upgrade do seu plano."
+    );
+    return;
+  }
   const others = [...TEAMS].filter(t => t.id !== teamId).sort((a, b) => a.name.localeCompare(b.name));
   sel.innerHTML = others.map(t => `<option value="${t.id}">${t.name}</option>`).join("");
   const defaultOpponent = standings.find(r => r.id !== teamId)?.id || others[0]?.id;
@@ -2127,7 +2188,19 @@ function setJogosSub(sub) {
   document.getElementById("sub-rodadas").style.display = sub === "rodadas" ? "block" : "none";
   document.getElementById("sub-stats").style.display = sub === "stats" ? "block" : "none";
   document.getElementById("sub-probabilidades").style.display = sub === "probabilidades" ? "block" : "none";
-  if (sub === "probabilidades") { if (!state.probResults) runProbabilities(); else renderProbList(); }
+  if (sub === "probabilidades") {
+    const liberado = planAllowsAdvanced();
+    document.getElementById("probabilidadesContent").style.display = liberado ? "block" : "none";
+    document.getElementById("probabilidadesLocked").style.display = liberado ? "none" : "block";
+    if (liberado) {
+      if (!state.probResults) runProbabilities(); else renderProbList();
+    } else {
+      document.getElementById("probabilidadesLocked").innerHTML = lockedFeatureHTML(
+        "Probabilidades é exclusivo Pro/Enterprise",
+        "Veja as chances de título, Libertadores, Sul-Americana e rebaixamento de cada time — desbloqueie fazendo upgrade do seu plano."
+      );
+    }
+  }
 }
 
 function setupEventListeners() {
