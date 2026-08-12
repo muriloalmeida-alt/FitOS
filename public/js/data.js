@@ -58,6 +58,60 @@ const DEMO_TEAMS = [
   { id: "cui", name: "Cuiabá",                short: "CUI", uf: "MT", c1: "#1E3A8A", c2: "#FFC93C", atk: 1.08, def: 1.32, venue: { name: "Arena Pantanal", city: "Cuiabá" } },
 ];
 
+/* 20 clubes de exemplo da Premier League (Inglaterra) — nomes reais,
+   estádios reais (dado público estável). Força de ataque/defesa é
+   FICTÍCIA, só pra alimentar o motor de simulação em modo exemplo —
+   ver mesmo aviso em DEMO_TEAMS acima. Plano Pro/Enterprise (ver
+   server/src/competitions.js) — "em breve" até a API-Sports real
+   estar ativada; até lá, esse é o dado que aparece no modo exemplo. */
+const DEMO_TEAMS_PREMIER_LEAGUE = [
+  { id: "mci", name: "Manchester City",       short: "MCI", c1: "#6CABDD", c2: "#1C2C5B", atk: 1.82, def: 0.80, venue: { name: "Etihad Stadium", city: "Manchester" } },
+  { id: "ars", name: "Arsenal",               short: "ARS", c1: "#EF0107", c2: "#FFFFFF", atk: 1.78, def: 0.76, venue: { name: "Emirates Stadium", city: "Londres" } },
+  { id: "liv", name: "Liverpool",             short: "LIV", c1: "#C8102E", c2: "#F6EB61", atk: 1.80, def: 0.79, venue: { name: "Anfield", city: "Liverpool" } },
+  { id: "che", name: "Chelsea",               short: "CHE", c1: "#034694", c2: "#FFFFFF", atk: 1.60, def: 0.92, venue: { name: "Stamford Bridge", city: "Londres" } },
+  { id: "mun", name: "Manchester United",     short: "MUN", c1: "#DA291C", c2: "#FBE122", atk: 1.55, def: 0.95, venue: { name: "Old Trafford", city: "Manchester" } },
+  { id: "tot", name: "Tottenham Hotspur",     short: "TOT", c1: "#132257", c2: "#FFFFFF", atk: 1.58, def: 1.00, venue: { name: "Tottenham Hotspur Stadium", city: "Londres" } },
+  { id: "new", name: "Newcastle United",      short: "NEW", c1: "#241F20", c2: "#FFFFFF", atk: 1.52, def: 0.93, venue: { name: "St James' Park", city: "Newcastle" } },
+  { id: "avl", name: "Aston Villa",           short: "AVL", c1: "#670E36", c2: "#95BFE5", atk: 1.50, def: 0.97, venue: { name: "Villa Park", city: "Birmingham" } },
+  { id: "bha", name: "Brighton & Hove Albion",short: "BHA", c1: "#0057B8", c2: "#FFCD00", atk: 1.40, def: 1.03, venue: { name: "Amex Stadium", city: "Brighton" } },
+  { id: "whu", name: "West Ham United",       short: "WHU", c1: "#7A263A", c2: "#1BB1E7", atk: 1.35, def: 1.08, venue: { name: "London Stadium", city: "Londres" } },
+  { id: "cry", name: "Crystal Palace",        short: "CRY", c1: "#1B458F", c2: "#C4122E", atk: 1.32, def: 1.05, venue: { name: "Selhurst Park", city: "Londres" } },
+  { id: "ful", name: "Fulham",                short: "FUL", c1: "#000000", c2: "#FFFFFF", atk: 1.30, def: 1.10, venue: { name: "Craven Cottage", city: "Londres" } },
+  { id: "bre", name: "Brentford",             short: "BRE", c1: "#E30613", c2: "#FFFFFF", atk: 1.34, def: 1.12, venue: { name: "Gtech Community Stadium", city: "Londres" } },
+  { id: "wol", name: "Wolverhampton",         short: "WOL", c1: "#FDB913", c2: "#231F20", atk: 1.28, def: 1.15, venue: { name: "Molineux Stadium", city: "Wolverhampton" } },
+  { id: "eve", name: "Everton",               short: "EVE", c1: "#003399", c2: "#FFFFFF", atk: 1.18, def: 1.10, venue: { name: "Goodison Park", city: "Liverpool" } },
+  { id: "nfo", name: "Nottingham Forest",     short: "NFO", c1: "#DD0000", c2: "#FFFFFF", atk: 1.25, def: 1.06, venue: { name: "City Ground", city: "Nottingham" } },
+  { id: "bou", name: "Bournemouth",           short: "BOU", c1: "#DA291C", c2: "#000000", atk: 1.22, def: 1.14, venue: { name: "Vitality Stadium", city: "Bournemouth" } },
+  { id: "lei", name: "Leicester City",        short: "LEI", c1: "#003090", c2: "#FDBE11", atk: 1.10, def: 1.28, venue: { name: "King Power Stadium", city: "Leicester" } },
+  { id: "ips", name: "Ipswich Town",          short: "IPS", c1: "#0044A9", c2: "#FFFFFF", atk: 1.08, def: 1.30, venue: { name: "Portman Road", city: "Ipswich" } },
+  { id: "sou", name: "Southampton",           short: "SOU", c1: "#D71920", c2: "#FFFFFF", atk: 1.05, def: 1.33, venue: { name: "St Mary's Stadium", city: "Southampton" } },
+];
+
+/* 20 clubes de exemplo da La Liga (Espanha) — mesmo modelo/aviso
+   acima. */
+const DEMO_TEAMS_LA_LIGA = [
+  { id: "rma", name: "Real Madrid",       short: "RMA", c1: "#FFFFFF", c2: "#FEBE10", atk: 1.88, def: 0.74, venue: { name: "Santiago Bernabéu", city: "Madrid" } },
+  { id: "fcb", name: "Barcelona",         short: "FCB", c1: "#A50044", c2: "#004D98", atk: 1.86, def: 0.77, venue: { name: "Spotify Camp Nou", city: "Barcelona" } },
+  { id: "atm", name: "Atlético de Madrid",short: "ATM", c1: "#CB3524", c2: "#272E61", atk: 1.62, def: 0.85, venue: { name: "Cívitas Metropolitano", city: "Madrid" } },
+  { id: "ath", name: "Athletic Bilbao",   short: "ATH", c1: "#EE2523", c2: "#FFFFFF", atk: 1.50, def: 0.96, venue: { name: "San Mamés", city: "Bilbao" } },
+  { id: "rso", name: "Real Sociedad",     short: "RSO", c1: "#0067B1", c2: "#FFFFFF", atk: 1.42, def: 1.00, venue: { name: "Reale Arena", city: "San Sebastián" } },
+  { id: "bet", name: "Real Betis",        short: "BET", c1: "#00954C", c2: "#FFFFFF", atk: 1.40, def: 1.02, venue: { name: "Benito Villamarín", city: "Sevilha" } },
+  { id: "vil", name: "Villarreal",        short: "VIL", c1: "#FFE667", c2: "#005187", atk: 1.44, def: 1.05, venue: { name: "Estadio de la Cerámica", city: "Villarreal" } },
+  { id: "val", name: "Valencia",          short: "VAL", c1: "#FF8000", c2: "#000000", atk: 1.30, def: 1.10, venue: { name: "Mestalla", city: "Valência" } },
+  { id: "sev", name: "Sevilla",           short: "SEV", c1: "#D00027", c2: "#FFFFFF", atk: 1.28, def: 1.14, venue: { name: "Ramón Sánchez-Pizjuán", city: "Sevilha" } },
+  { id: "gir", name: "Girona",            short: "GIR", c1: "#CB1731", c2: "#FFFFFF", atk: 1.35, def: 1.08, venue: { name: "Montilivi", city: "Girona" } },
+  { id: "cel", name: "Celta de Vigo",     short: "CEL", c1: "#8AC3EE", c2: "#FFFFFF", atk: 1.26, def: 1.16, venue: { name: "Balaídos", city: "Vigo" } },
+  { id: "osa", name: "Osasuna",           short: "OSA", c1: "#D2122E", c2: "#001A4B", atk: 1.20, def: 1.12, venue: { name: "El Sadar", city: "Pamplona" } },
+  { id: "ray", name: "Rayo Vallecano",    short: "RAY", c1: "#E52620", c2: "#FFFFFF", atk: 1.18, def: 1.15, venue: { name: "Vallecas", city: "Madrid" } },
+  { id: "get", name: "Getafe",            short: "GET", c1: "#005CA9", c2: "#FFFFFF", atk: 1.05, def: 1.10, venue: { name: "Coliseum", city: "Getafe" } },
+  { id: "mal", name: "Mallorca",          short: "MAL", c1: "#C00000", c2: "#000000", atk: 1.12, def: 1.20, venue: { name: "Son Moix", city: "Palma" } },
+  { id: "alv", name: "Alavés",            short: "ALV", c1: "#0047AB", c2: "#FFFFFF", atk: 1.08, def: 1.22, venue: { name: "Mendizorrotza", city: "Vitoria-Gasteiz" } },
+  { id: "lpa", name: "Las Palmas",        short: "LPA", c1: "#FFE100", c2: "#0056A8", atk: 1.10, def: 1.26, venue: { name: "Estadio de Gran Canaria", city: "Las Palmas" } },
+  { id: "esp", name: "Espanyol",          short: "ESP", c1: "#0080C8", c2: "#FFFFFF", atk: 1.06, def: 1.28, venue: { name: "RCDE Stadium", city: "Barcelona" } },
+  { id: "leg", name: "Leganés",           short: "LEG", c1: "#00284D", c2: "#FFFFFF", atk: 1.02, def: 1.30, venue: { name: "Butarque", city: "Leganés" } },
+  { id: "vll", name: "Real Valladolid",   short: "VLL", c1: "#663399", c2: "#FFFFFF", atk: 1.00, def: 1.33, venue: { name: "José Zorrilla", city: "Valladolid" } },
+];
+
 /* Jogadores de exemplo (fictícios) — elenco de 24 por time (3
    goleiros, 8 zagueiros/laterais, 7 meias, 6 atacantes — composição
    parecida com um elenco de verdade), usados na sub-aba "Jogadores" de
@@ -106,6 +160,17 @@ function buildDemoPlayers(teams) {
   return players;
 }
 const DEMO_PLAYERS = buildDemoPlayers(DEMO_TEAMS);
+const DEMO_PLAYERS_PREMIER_LEAGUE = buildDemoPlayers(DEMO_TEAMS_PREMIER_LEAGUE);
+const DEMO_PLAYERS_LA_LIGA = buildDemoPlayers(DEMO_TEAMS_LA_LIGA);
+
+// Registro central dos dados de exemplo por campeonato — mesma chave
+// "id" usada em server/src/competitions.js, pra app.js poder trocar de
+// campeonato sem precisar saber o nome de cada array específico.
+const DEMO_DATA_BY_COMPETITION = {
+  brasileirao:    { teams: DEMO_TEAMS,               players: DEMO_PLAYERS },
+  premier_league: { teams: DEMO_TEAMS_PREMIER_LEAGUE, players: DEMO_PLAYERS_PREMIER_LEAGUE },
+  la_liga:        { teams: DEMO_TEAMS_LA_LIGA,        players: DEMO_PLAYERS_LA_LIGA },
+};
 
 /* Escalação e substituições fictícias — usadas no card de jogo
    expandido (aba Jogos) quando não há integração ao vivo. Geradas

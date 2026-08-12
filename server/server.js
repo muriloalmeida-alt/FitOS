@@ -632,7 +632,9 @@ const server = http.createServer(async (req, res) => {
       const rawLogin = String(body.email || "").trim();
       const password = String(body.password || "");
 
-      // Login padrão de homologação (admin/admin, plano Freemium) — só
+      // Login padrão de homologação (admin/admin, plano Enterprise —
+      // todas as permissões liberadas, pra testar qualquer recurso
+      // gated por plano sem precisar passar pelo checkout) — só
       // funciona em host que comece com "hml" (ver isHomologHost). É
       // conveniência pra equipe de teste, não passa pela validação de
       // e-mail normal e a conta é criada (1x) na hora que é usada pela
@@ -643,9 +645,15 @@ const server = http.createServer(async (req, res) => {
         if (!admin) {
           admin = await users.createUser({
             name: "Admin (homologação)", email: "admin@hml.local", phone: "00000000000",
-            password: "admin", plan: "freemium", planStatus: "active",
+            password: "admin", plan: "enterprise", planStatus: "active",
           });
-          console.log("[auth] usuário admin/admin de homologação criado (host:", req.headers.host, ")");
+          console.log("[auth] usuário admin/admin de homologação criado, plano Enterprise (host:", req.headers.host, ")");
+        } else if (admin.plan !== "enterprise" || admin.planStatus !== "active") {
+          // Conta já existia (criada antes desse usuário virar Enterprise
+          // por padrão, ou com um upgrade pendente travado) — corrige na
+          // hora, sem precisar apagar nada do Volume.
+          admin = users.updateUser(admin.id, { plan: "enterprise", planStatus: "active", pendingPlan: null });
+          console.log("[auth] usuário admin/admin de homologação corrigido pra plano Enterprise (host:", req.headers.host, ")");
         }
         const adminToken = sessions.createSession(admin.id);
         setSessionCookie(res, adminToken, isHttps(req));

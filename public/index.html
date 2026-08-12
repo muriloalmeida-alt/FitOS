@@ -114,7 +114,7 @@
     </div>
 
     <div class="side-label">Competições</div>
-    <button class="side-link active" data-page="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 6.9H22l-6 4.6L18.4 21 12 16.3 5.6 21 8 13.5l-6-4.6h7.6z"/></svg>Brasileirão</button>
+    <button class="side-link active" id="navBrasileirao"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 6.9H22l-6 4.6L18.4 21 12 16.3 5.6 21 8 13.5l-6-4.6h7.6z"/></svg>Brasileirão</button>
     <button class="side-link disabled" id="navPremierLeague" title="Em breve"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>Premier League<span class="badge-pro" style="display:none;">PRO</span></button>
     <button class="side-link disabled" id="navLaLiga" title="Em breve"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" y1="22" x2="4" y2="15"/></svg>La Liga<span class="badge-pro" style="display:none;">PRO</span></button>
     <button class="side-link disabled" title="Em breve"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/></svg>Série B</button>
@@ -198,8 +198,8 @@
         <div class="page-head">
           <div>
             <div class="brasileirao-brand">
-              <img class="brasileirao-emblem" src="img/cbf-logo.png" alt="CBF">
-              <h1 class="brasileirao-word">BRASILEIRÃO <span>2026</span></h1>
+              <span id="dashEmblemBox"><img class="brasileirao-emblem" src="img/cbf-logo.png" alt="CBF"></span>
+              <h1 class="brasileirao-word" id="dashTitleWord">BRASILEIRÃO <span>2026</span></h1>
             </div>
             <div class="sub" id="dashSub">Série A</div>
           </div>
@@ -347,7 +347,7 @@
           </div>
           <div class="card">
             <div class="card-head"><h3>Desempenho ofensivo</h3>
-              <select class="compare-select" style="flex:none; width:auto;" id="radarTeamSelect2"></select>
+              <select class="compare-select compare-select-fit" id="radarTeamSelect2"></select>
             </div>
             <div class="radar-wrap" id="radarChart2"></div>
           </div>
@@ -379,7 +379,7 @@
 
       <!-- ================= SIMULADOR (completo) ================= -->
       <section class="page" id="page-simulador">
-        <div class="page-head"><div><h1>Simulador</h1><div class="sub">Monte o final do Brasileirão, rodada a rodada</div></div></div>
+        <div class="page-head"><div><h1>Simulador</h1><div class="sub" id="simuladorSub">Monte o final do Brasileirão, rodada a rodada</div></div></div>
         <div id="simuladorLocked" style="display:none;"></div>
         <div class="dash-layout" id="simuladorContent">
         <div class="dash-main">
@@ -452,7 +452,7 @@
         <div class="card" style="margin-bottom:16px;">
           <div class="card-head" id="teamPageCompareHead">
             <h3>Comparar com outro time</h3>
-            <select class="compare-select" style="flex:none; width:auto;" id="teamPageCompareSelect"></select>
+            <select class="compare-select compare-select-fit" id="teamPageCompareSelect"></select>
           </div>
           <div id="teamPageCompareLocked" style="display:none;"></div>
           <div id="teamPageCompareBody"></div>
@@ -513,6 +513,12 @@
         <div class="card kpi" style="margin-bottom:16px;">
           <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--brd-blue),var(--brd-navy));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;" id="maisAvatarInitial">?</div>
           <div><div style="font-weight:700; font-size:14px;" id="maisAvatarName">…</div><div style="font-size:11.5px; color:var(--text-1);" id="maisAvatarPlan"></div></div>
+        </div>
+        <div style="font-size:10.5px; text-transform:uppercase; letter-spacing:.8px; color:var(--text-2); font-weight:600; margin:0 4px 8px;">Campeonato</div>
+        <div class="card" style="padding:6px; margin-bottom:16px;">
+          <button class="menu-link active" id="navBrasileiraoMobile">🇧🇷 Brasileirão</button>
+          <button class="menu-link disabled" id="navPremierLeagueMobile" title="Em breve">🏴 Premier League<span class="badge-pro" style="display:none;">PRO</span></button>
+          <button class="menu-link disabled" id="navLaLigaMobile" title="Em breve">🇪🇸 La Liga<span class="badge-pro" style="display:none;">PRO</span></button>
         </div>
         <div class="card" style="padding:6px; margin-bottom:16px;">
           <button class="menu-link" data-page="estatisticas">📊 Comparador de Times</button>

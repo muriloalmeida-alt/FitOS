@@ -44,7 +44,7 @@ function calibrateStrengths(standings) {
 const PALETTE = ["#20D08A", "#3E7BFF", "#FFC93C", "#FF4D5E", "#8A2432", "#1E90CE", "#DC2626", "#0B6E33"];
 function colorForId(id) { return PALETTE[id % PALETTE.length]; }
 
-async function tryLoadLiveData(season = LIVE_SEASON) {
+async function tryLoadLiveData(season = LIVE_SEASON, competitionId = "brasileirao") {
   try {
     const health = await safeFetchJSON("/api/health");
     if (!health.hasKey) {
@@ -54,12 +54,15 @@ async function tryLoadLiveData(season = LIVE_SEASON) {
     // A partir daqui, qualquer chamada nesse arquivo que use o default
     // `season = LIVE_SEASON` (elenco, jogador, ranking de jogadores)
     // já pega o valor configurado no backend, não o chute inicial.
-    if (health.season) { LIVE_SEASON = Number(health.season) || LIVE_SEASON; season = LIVE_SEASON; }
+    // Só vale pro Brasileirão — Premier League/La Liga usam a mesma
+    // temporada "atual" por enquanto, ver server/src/competitions.js.
+    if (health.season && competitionId === "brasileirao") { LIVE_SEASON = Number(health.season) || LIVE_SEASON; season = LIVE_SEASON; }
 
+    const comp = `&competition=${encodeURIComponent(competitionId)}`;
     const [teamsData, standingsData, fixturesData] = await Promise.all([
-      safeFetchJSON(`/api/teams?season=${season}`),
-      safeFetchJSON(`/api/standings?season=${season}`),
-      safeFetchJSON(`/api/fixtures?season=${season}`),
+      safeFetchJSON(`/api/teams?season=${season}${comp}`),
+      safeFetchJSON(`/api/standings?season=${season}${comp}`),
+      safeFetchJSON(`/api/fixtures?season=${season}${comp}`),
     ]);
 
     if (!teamsData.teams?.length || !fixturesData.fixtures?.length) {
@@ -176,10 +179,10 @@ async function loadOddsHistory(fixtureId, range) {
 // Estatísticas (ver app.js). Cacheado em memória: a lista não muda
 // dentro de uma mesma sessão de navegação.
 let playersLeadersCache = null;
-async function loadPlayersLeaders(season = LIVE_SEASON) {
+async function loadPlayersLeaders(season = LIVE_SEASON, competitionId = "brasileirao") {
   if (playersLeadersCache) return playersLeadersCache;
   try {
-    const data = await safeFetchJSON(`/api/players/leaders?season=${season}`);
+    const data = await safeFetchJSON(`/api/players/leaders?season=${season}&competition=${encodeURIComponent(competitionId)}`);
     playersLeadersCache = data.players || [];
     return playersLeadersCache;
   } catch (err) {

@@ -12,9 +12,14 @@ let ALL_ROUNDS = {};
 let MATCH_RESULTS = {};
 let TOTAL_ROUNDS = 38;
 let LIVE_MODE = false;
+// Elenco fictício ativo (modo demo) — troca junto com TEAMS a cada
+// switchCompetition(). Nome separado de DEMO_PLAYERS (que continua
+// sendo só o elenco do Brasileirão, em data.js) pra não confundir.
+let activeDemoPlayers = DEMO_PLAYERS;
 
 const state = {
   page: "dashboard",
+  competitionId: "brasileirao", // ver server/src/competitions.js e DEMO_DATA_BY_COMPETITION (data.js)
   jogosRound: 1,
   simRound: 1,
   jogosSub: "rodadas",
@@ -31,6 +36,28 @@ const state = {
   rosterExpanded: false,
   pageBeforeDetail: "dashboard",
 };
+
+// Dados de apresentação (marca/branding) de cada campeonato no
+// Dashboard — mesmas chaves de id do registro do backend (server/src/
+// competitions.js) e do DEMO_DATA_BY_COMPETITION (data.js). emblemImg
+// null usa a bandeirinha (flag) como emblema em vez de uma imagem.
+const COMPETITION_META = {
+  brasileirao:    { name: "Brasileirão", seasonLabel: "2026", emblemImg: "img/cbf-logo.png", flag: "🇧🇷", subtitle: "Série A" },
+  premier_league: { name: "Premier League", seasonLabel: "2025/26", emblemImg: null, flag: "🏴", subtitle: "Inglaterra" },
+  la_liga:        { name: "La Liga", seasonLabel: "2025/26", emblemImg: null, flag: "🇪🇸", subtitle: "Espanha" },
+};
+function applyCompetitionBranding(id) {
+  const meta = COMPETITION_META[id] || COMPETITION_META.brasileirao;
+  const emblemBox = document.getElementById("dashEmblemBox");
+  if (emblemBox) {
+    emblemBox.innerHTML = meta.emblemImg
+      ? `<img class="brasileirao-emblem" src="${meta.emblemImg}" alt="">`
+      : `<span class="brasileirao-emblem-flag">${meta.flag}</span>`;
+  }
+  const titleWord = document.getElementById("dashTitleWord");
+  if (titleWord) titleWord.innerHTML = `${meta.name.toUpperCase()} <span>${meta.seasonLabel}</span>`;
+  document.title = `BRDATA · ${meta.name} ${meta.seasonLabel}`;
+}
 
 /* ---------- Boot ---------- */
 function setActiveTeams(teams) { TEAMS = teams; setTeamMap(teams); }
@@ -62,21 +89,54 @@ function planAllowsAdvanced() {
 // "disabled" no HTML (nada real pra mostrar ainda em nenhum plano) —
 // isso aqui só ajusta o texto/badge pra deixar claro se é "em breve
 // mesmo pro seu plano" ou "em breve + precisa de upgrade".
+// Cache do último GET /api/competitions — consultado no clique de
+// Premier League/La Liga (ver onCompetitionNavClick) pra decidir na
+// hora "troca de campeonato" ou "manda pra Apoie o BR Data".
+let competitionsInfo = null;
+
 function applyCompetitionsSidebar(data) {
+  competitionsInfo = data;
   if (!data || !data.competitions) return;
-  const elIdByCompetition = { premier_league: "navPremierLeague", la_liga: "navLaLiga" };
+  // Cada competição tem 2 elementos — o da sidebar de desktop e o
+  // equivalente na página "Mais" do mobile (a sidebar inteira some
+  // em telas ≤1024px, ver style.css) — os dois atualizados juntos.
+  const elIdsByCompetition = {
+    premier_league: ["navPremierLeague", "navPremierLeagueMobile"],
+    la_liga: ["navLaLiga", "navLaLigaMobile"],
+  };
   data.competitions.forEach((c) => {
-    const el = document.getElementById(elIdByCompetition[c.id]);
-    if (!el) return;
-    const badge = el.querySelector(".badge-pro");
-    if (c.locked) {
-      el.title = `${c.flag} ${c.name} — disponível a partir do plano Pro`;
-      if (badge) badge.style.display = "inline-block";
-    } else {
-      el.title = `${c.flag} ${c.name} — em breve`;
-      if (badge) badge.style.display = "none";
-    }
+    (elIdsByCompetition[c.id] || []).forEach((elId) => {
+      const el = document.getElementById(elId);
+      if (!el) return;
+      const badge = el.querySelector(".badge-pro");
+      if (c.locked) {
+        // Fora do plano: continua com a cara de "em breve/bloqueado" já
+        // usada pelas outras competições ainda não implementadas — clicar
+        // manda pra Apoie o BR Data (ver onCompetitionNavClick).
+        el.classList.add("disabled");
+        el.title = `${c.flag} ${c.name} — disponível a partir do plano Pro`;
+        if (badge) badge.style.display = "inline-block";
+      } else {
+        // Plano libera: já dá pra trocar de campeonato de verdade (modo
+        // exemplo hoje; ao vivo automaticamente assim que a API-Sports
+        // real estiver configurada e habilitada pra essa liga).
+        el.classList.remove("disabled");
+        el.title = `${c.flag} ${c.name}`;
+        if (badge) badge.style.display = "none";
+      }
+      el.classList.toggle("active", c.id === state.competitionId);
+    });
   });
+  document.getElementById("navBrasileirao")?.classList.toggle("active", state.competitionId === "brasileirao");
+  document.getElementById("navBrasileiraoMobile")?.classList.toggle("active", state.competitionId === "brasileirao");
+}
+
+// Clique em Premier League/La Liga na barra lateral — troca de
+// campeonato se o plano libera, ou manda pra Apoie o BR Data se não.
+function onCompetitionNavClick(compId) {
+  const info = competitionsInfo?.competitions?.find((c) => c.id === compId);
+  if (info && info.locked) { setActivePage("apoie"); return; }
+  switchCompetition(compId);
 }
 
 function lockedFeatureHTML(title, desc) {
@@ -264,10 +324,35 @@ async function startApp(user) {
   setGateVisible(false);
   renderAvatar(user);
 
+  state.competitionId = "brasileirao";
   loadFavorites();
   loadFavoriteClub();
-  setActiveTeams(DEMO_TEAMS);
-  const live = await tryLoadLiveData();
+  await loadCompetitionData("brasileirao");
+
+  populateAllSelects();
+  renderMyTeamsSidebar();
+  setActivePage("dashboard");
+
+  if (user.plan === "freemium") startAdTimer(); else stopAdTimer();
+  loadCompetitionsInfo().then(applyCompetitionsSidebar);
+}
+
+// Busca (ou gera, em modo exemplo) os dados de UM campeonato — times,
+// calendário, resultados — e atualiza os globais TEAMS/ALL_ROUNDS/
+// MATCH_RESULTS/TOTAL_ROUNDS/LIVE_MODE de acordo. Tenta dado ao vivo
+// primeiro (via tryLoadLiveData, que já sabe cair fora sozinho se não
+// tiver API_SPORTS_KEY, ou se esse campeonato especificamente ainda
+// não estiver habilitado no backend — ver server/src/competitions.js)
+// e cai pro modo exemplo desse mesmo campeonato (DEMO_DATA_BY_COMPETITION,
+// em data.js) se o dado ao vivo não vier. Chamado tanto no boot quanto
+// a cada troca de campeonato (ver switchCompetition).
+async function loadCompetitionData(id) {
+  const meta = COMPETITION_META[id] || COMPETITION_META.brasileirao;
+  const demo = DEMO_DATA_BY_COMPETITION[id] || DEMO_DATA_BY_COMPETITION.brasileirao;
+  setActiveTeams(demo.teams);
+  activeDemoPlayers = demo.players;
+
+  const live = await tryLoadLiveData(LIVE_SEASON, id);
 
   if (live) {
     LIVE_MODE = true;
@@ -275,11 +360,11 @@ async function startApp(user) {
     ALL_ROUNDS = live.allRounds;
     MATCH_RESULTS = live.results;
     TOTAL_ROUNDS = live.totalRounds;
-    document.getElementById("dashSub").textContent = `Série A · Temporada ${live.season}`;
+    document.getElementById("dashSub").textContent = `${meta.subtitle} · Temporada ${live.season}`;
   } else {
     LIVE_MODE = false;
-    initDemoSeason();
-    document.getElementById("dashSub").textContent = "Série A · dados de exemplo";
+    initDemoSeason(demo.teams);
+    document.getElementById("dashSub").textContent = `${meta.subtitle} · dados de exemplo`;
   }
 
   const modePill = document.getElementById("modePill");
@@ -290,16 +375,36 @@ async function startApp(user) {
   state.jogosRound = Math.max(1, firstUndecidedRound() - 1) || 1;
   state.simRound = firstUndecidedRound();
 
-  populateAllSelects();
-  renderMyTeamsSidebar();
-  setActivePage("dashboard");
-
-  if (user.plan === "freemium") startAdTimer(); else stopAdTimer();
-  loadCompetitionsInfo().then(applyCompetitionsSidebar);
+  applyCompetitionBranding(id);
 }
 
-function initDemoSeason() {
-  ALL_ROUNDS = generateAllRounds(DEMO_TEAMS.map(t => t.id));
+// Troca o campeonato ativo (chamado pelos itens Brasileirão/Premier
+// League/La Liga da barra lateral — ver onCompetitionNavClick).
+// Favoritos e clube favorito são por campeonato (ver loadFavorites/
+// loadFavoriteClub) — time/jogador selecionados são zerados porque o
+// id de um time do Brasileirão não existe nos outros campeonatos (e
+// vice-versa).
+async function switchCompetition(id) {
+  if (id === state.competitionId) { setActivePage("dashboard"); return; }
+  state.competitionId = id;
+  state.selectedTeamId = null;
+  state.selectedPlayerId = null;
+  state.probResults = null;
+  playersListCache = null;
+  teamRosterCacheDemo = null;
+  playersLeadersCache = null; // ver liveData.js -- lista de líderes é por campeonato
+
+  await loadCompetitionData(id);
+  loadFavorites();
+  loadFavoriteClub();
+  populateAllSelects();
+  renderMyTeamsSidebar();
+  applyCompetitionsSidebar(competitionsInfo); // reaplica pra atualizar qual item fica "active"
+  setActivePage("dashboard");
+}
+
+function initDemoSeason(teams = DEMO_TEAMS) {
+  ALL_ROUNDS = generateAllRounds(teams.map(t => t.id));
   TOTAL_ROUNDS = Object.keys(ALL_ROUNDS).length;
   MATCH_RESULTS = {};
   const rng = mulberry32(2026);
@@ -454,7 +559,8 @@ function zoneColor(zone) {
   return { campeao: "var(--brd-yellow)", libertadores: "var(--brd-blue)", sulamericana: "var(--brd-info)", rebaixamento: "var(--brd-red)", meio: "var(--brd-gray-600)" }[zone];
 }
 function watchLink(homeTeam, awayTeam, gh, ga) {
-  const q = encodeURIComponent(`${homeTeam.name} ${gh}x${ga} ${awayTeam.name} Brasileirão gols melhores momentos`);
+  const compName = (COMPETITION_META[state.competitionId] || COMPETITION_META.brasileirao).name;
+  const q = encodeURIComponent(`${homeTeam.name} ${gh}x${ga} ${awayTeam.name} ${compName} gols melhores momentos`);
   return `<a class="watch-link" target="_blank" rel="noopener" href="https://www.youtube.com/results?search_query=${q}">
     <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 8l6 4-6 4V8z"/><rect x="2" y="4" width="20" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
     Assistir gols e melhores momentos</a>`;
@@ -1250,7 +1356,7 @@ function renderEstatisticasPage() {
 let playersListCache = null;
 async function ensurePlayersLoaded() {
   if (playersListCache) return playersListCache;
-  playersListCache = LIVE_MODE ? await loadPlayersLeaders() : DEMO_PLAYERS;
+  playersListCache = LIVE_MODE ? await loadPlayersLeaders(LIVE_SEASON, state.competitionId) : activeDemoPlayers;
   return playersListCache;
 }
 function playerCardsValue(p) { return p.yellow + p.red * 2; }
@@ -1295,6 +1401,8 @@ async function renderJogadoresPage() {
 
 /* ================= PÁGINA: SIMULADOR ================= */
 function renderSimulador() {
+  const compName = (COMPETITION_META[state.competitionId] || COMPETITION_META.brasileirao).name;
+  document.getElementById("simuladorSub").textContent = `Monte o final do ${compName}, rodada a rodada`;
   const liberado = planAllowsAdvanced();
   document.getElementById("simuladorContent").style.display = liberado ? "grid" : "none";
   document.getElementById("simuladorLocked").style.display = liberado ? "none" : "block";
@@ -1412,11 +1520,21 @@ function renderProbList() {
 }
 
 /* ================= FAVORITOS / MEUS TIMES ================= */
+// Favoritos são por campeonato (o id de um time do Brasileirão não
+// existe nos outros campeonatos, e vice-versa) — chave de storage leva
+// o sufixo da competição ativa. Pra quem já tinha favoritos salvos
+// antes dessa mudança (só existia Brasileirão), migra automaticamente
+// da chave antiga (sem sufixo) na primeira leitura desse campeonato.
+function favoritesStorageKey() { return `brdata_favorites_${state.competitionId}`; }
 function loadFavorites() {
-  try { state.favorites = JSON.parse(localStorage.getItem("brdata_favorites") || "[]"); } catch { state.favorites = []; }
+  try {
+    let raw = localStorage.getItem(favoritesStorageKey());
+    if (raw === null && state.competitionId === "brasileirao") raw = localStorage.getItem("brdata_favorites");
+    state.favorites = raw ? JSON.parse(raw) : [];
+  } catch { state.favorites = []; }
 }
 function saveFavorites() {
-  try { localStorage.setItem("brdata_favorites", JSON.stringify(state.favorites)); } catch {}
+  try { localStorage.setItem(favoritesStorageKey(), JSON.stringify(state.favorites)); } catch {}
 }
 function toggleFavorite(teamId) {
   const i = state.favorites.indexOf(teamId);
@@ -1457,13 +1575,20 @@ function renderFavoritosPage() {
    barra lateral) — aqui é NO MÁXIMO 1 clube, que substitui o líder do
    campeonato no destaque do Dashboard. Sem seleção, volta a mostrar o
    líder normalmente. */
+// Mesma lógica de escopo por competição (+ migração) dos favoritos
+// acima, pro clube favorito único do Dashboard.
+function favoriteClubStorageKey() { return `brdata_favorite_club_${state.competitionId}`; }
 function loadFavoriteClub() {
-  try { state.favoriteClubId = localStorage.getItem("brdata_favorite_club") || null; } catch { state.favoriteClubId = null; }
+  try {
+    let v = localStorage.getItem(favoriteClubStorageKey());
+    if (v === null && state.competitionId === "brasileirao") v = localStorage.getItem("brdata_favorite_club");
+    state.favoriteClubId = v || null;
+  } catch { state.favoriteClubId = null; }
 }
 function saveFavoriteClub() {
   try {
-    if (state.favoriteClubId) localStorage.setItem("brdata_favorite_club", state.favoriteClubId);
-    else localStorage.removeItem("brdata_favorite_club");
+    if (state.favoriteClubId) localStorage.setItem(favoriteClubStorageKey(), state.favoriteClubId);
+    else localStorage.removeItem(favoriteClubStorageKey());
   } catch {}
 }
 function applyFavoriteClub(newId) {
@@ -1990,7 +2115,7 @@ function teamLastMatchRowHTML(m, teamId) {
 // lazy — não fica pré-carregado, só quando a página do time abre).
 let teamRosterCacheDemo = null; // não precisa de cache específico, DEMO_PLAYERS já é síncrono
 async function resolveTeamRoster(teamId) {
-  if (!LIVE_MODE) return DEMO_PLAYERS.filter(p => p.teamId === teamId);
+  if (!LIVE_MODE) return activeDemoPlayers.filter(p => p.teamId === teamId);
   return loadTeamRoster(teamId);
 }
 // Lista (não mais grade de cards): nome + posição + partidas
@@ -2127,8 +2252,9 @@ function renderTeamPage() {
 
   document.getElementById("teamPageCrest").innerHTML = crestEl(team, 56);
   document.getElementById("teamPageName").textContent = team.name;
+  const compSubtitle = (COMPETITION_META[state.competitionId] || COMPETITION_META.brasileirao).subtitle;
   document.getElementById("teamPageSub").textContent = [team.uf, team.venue?.name, team.venue?.city].filter(Boolean).join(" · ")
-    || (LIVE_MODE ? "Série A · dados ao vivo" : "Série A · dados de exemplo");
+    || `${compSubtitle} · ${LIVE_MODE ? "dados ao vivo" : "dados de exemplo"}`;
 
   const standings = currentStandings();
   const pos = standings.findIndex(r => r.id === teamId) + 1;
@@ -2184,7 +2310,7 @@ function renderTeamCompare(teamId, standings) {
 
 /* ================= PÁGINA: DETALHE DO JOGADOR ================= */
 async function resolvePlayer(playerId) {
-  if (!LIVE_MODE) return DEMO_PLAYERS.find(p => p.id === playerId) || null;
+  if (!LIVE_MODE) return activeDemoPlayers.find(p => p.id === playerId) || null;
   const fromLeaders = (playersListCache || []).find(p => p.id === playerId);
   if (fromLeaders) return fromLeaders;
   for (const roster of teamRosterCache.values()) {
@@ -2350,6 +2476,14 @@ function setupEventListeners() {
   document.getElementById("adModalUpsellLink").addEventListener("click", () => {
     if (adModalUnlocked) { closeAdModal(); setActivePage("apoie"); }
   });
+
+  // ---- Seletor de campeonato (barra lateral no desktop, página "Mais" no mobile) ----
+  document.getElementById("navBrasileirao").addEventListener("click", () => switchCompetition("brasileirao"));
+  document.getElementById("navPremierLeague").addEventListener("click", () => onCompetitionNavClick("premier_league"));
+  document.getElementById("navLaLiga").addEventListener("click", () => onCompetitionNavClick("la_liga"));
+  document.getElementById("navBrasileiraoMobile").addEventListener("click", () => switchCompetition("brasileirao"));
+  document.getElementById("navPremierLeagueMobile").addEventListener("click", () => onCompetitionNavClick("premier_league"));
+  document.getElementById("navLaLigaMobile").addEventListener("click", () => onCompetitionNavClick("la_liga"));
 
   document.getElementById("btnAddTeam").addEventListener("click", () => {
     const existing = document.getElementById("quickAddSelect");

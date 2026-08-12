@@ -55,9 +55,12 @@ serviço roda o `node server.js`).
 
 Em qualquer host cujo nome comece com **`hml`** (ex.: `hml.seudominio.com`,
 `hml-brdata.up.railway.app`), o login aceita usuário `admin` e senha
-`admin` — a conta (plano **Freemium**, sempre ativo) é criada
-automaticamente na primeira vez que alguém usa esse login naquele
-ambiente.
+`admin` — a conta (plano **Enterprise**, sempre ativo, com todas as
+permissões liberadas — Comparador/Probabilidades/Simulador, os 3
+campeonatos etc.) é criada automaticamente na primeira vez que alguém
+usa esse login naquele ambiente. Se a conta já existia com outro plano
+(de antes dela virar Enterprise por padrão), o login já corrige
+sozinho na hora, sem precisar apagar nada do Volume.
 
 - **Nunca funciona em nenhum outro host** — a checagem é literal, no
   início do hostname da requisição (`isHomologHost()` em
