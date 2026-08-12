@@ -17,6 +17,18 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+
+// Precisa rodar ANTES de qualquer require de módulo nosso que leia
+// variável de ambiente no topo do arquivo (ex.: server/src/supportPlans.js,
+// que calcula os preços dos planos assim que é carregado) — módulo
+// Node só executa o corpo 1x, na primeira vez que é importado, então
+// se o .env fosse lido depois desses requires, esses módulos nunca
+// veriam as variáveis definidas nele (só as já exportadas pelo host,
+// tipo Railway). function loadDotEnv() é uma "function declaration",
+// por isso pode ser chamada aqui mesmo estando definida mais abaixo
+// no arquivo (hoisting).
+loadDotEnv();
+
 const { apiSportsGet, getQuota } = require("./src/apiSports");
 const { mapTeam, mapStandingRow, mapFixture, mapStatistics, mapEvents, mapSubstitutions, mapLineups, mapOdds, mapPlayerEntry } = require("./src/adapter");
 const cache = require("./src/cache");
@@ -27,10 +39,14 @@ const mercadoPago = require("./src/mercadoPago");
 const supportPlans = require("./src/supportPlans");
 const supportLeads = require("./src/supportLeads");
 
-loadDotEnv();
-
 const PORT = process.env.PORT || 8787;
 const LEAGUE_ID = process.env.LEAGUE_ID || "71"; // 71 = Brasileirão Série A na API-Sports (confirme no /api/leagues/search)
+// Temporada usada no modo ao vivo — configurável no Railway/host, sem
+// precisar editar código nem dar redeploy manual de código toda vez
+// que quiser trocar (ex.: plano free da API-Sports geralmente só cobre
+// temporadas passadas, não a corrente). O front-end nunca mais
+// hardcoda esse valor — ele pergunta pro backend via GET /api/health.
+const LIVE_SEASON = process.env.LIVE_SEASON || "2023";
 const PUBLIC_DIR = path.join(__dirname, "..", "public");
 
 // APP_MODE — controla o modo ao vivo/exemplo de fora, sem precisar
@@ -203,6 +219,7 @@ const server = http.createServer(async (req, res) => {
           ? "APP_MODE=live mas API_SPORTS_KEY não está configurada neste host."
           : null,
         leagueId: LEAGUE_ID,
+        season: LIVE_SEASON,
         quota: getQuota(),
       });
     }

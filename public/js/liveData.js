@@ -6,7 +6,13 @@
    app.js segue no modo de exemplo (DEMO_TEAMS + calendário gerado).
 =================================================================== */
 
-const LIVE_SEASON = 2023; // temporada travada em 2023 (dados reais da API-Sports)
+// Temporada do modo ao vivo — NÃO é mais fixada aqui no código. Vem do
+// backend (GET /api/health, campo "season", configurável via variável
+// de ambiente LIVE_SEASON no Railway/host — ver server/.env.example)
+// e é atualizada em tryLoadLiveData() antes de qualquer outra chamada
+// usar esse valor como default. O ano atual aqui é só um chute inicial
+// caso algo dispare uma chamada antes do health check responder.
+let LIVE_SEASON = new Date().getFullYear();
 
 async function safeFetchJSON(url) {
   const res = await fetch(url);
@@ -45,6 +51,10 @@ async function tryLoadLiveData(season = LIVE_SEASON) {
       console.info("[liveData] Sem API_SPORTS_KEY configurada no servidor — usando modo de exemplo.");
       return null;
     }
+    // A partir daqui, qualquer chamada nesse arquivo que use o default
+    // `season = LIVE_SEASON` (elenco, jogador, ranking de jogadores)
+    // já pega o valor configurado no backend, não o chute inicial.
+    if (health.season) { LIVE_SEASON = Number(health.season) || LIVE_SEASON; season = LIVE_SEASON; }
 
     const [teamsData, standingsData, fixturesData] = await Promise.all([
       safeFetchJSON(`/api/teams?season=${season}`),

@@ -50,11 +50,16 @@ não é afetado.
 
 ## 2. Os planos
 
-Editáveis em `server/src/supportPlans.js` (título, preço, descrição,
-lista de recursos). É a **única fonte de verdade do preço** — o
-front-end só exibe o que vem de `GET /api/support/plans`.
+Título, descrição e lista de recursos ficam em
+`server/src/supportPlans.js` — é a **única fonte de verdade do
+preço** (o front-end só exibe o que vem de `GET /api/support/plans`).
 
-| Plano | Preço | Descrição |
+O **preço** de cada plano dá pra ajustar sem editar código: defina
+`PLAN_LITE_PRICE`, `PLAN_PRO_PRICE` e/ou `PLAN_ENTERPRISE_PRICE` no
+Railway/host (ver `server/.env.example`) e reinicie o serviço. Sem
+essas variáveis, usa os valores padrão abaixo.
+
+| Plano | Preço (padrão) | Descrição |
 |---|---|---|
 | Lite | R$ 5,99 | Acesso aos campeonatos atuais |
 | Pro | R$ 14,99 | Acesso a todo o histórico de campeonatos |

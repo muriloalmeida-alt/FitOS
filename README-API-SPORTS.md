@@ -32,6 +32,13 @@ painel do seu host, ex.: Railway → Settings → Variables):
 O modo efetivo (e um aviso, se `APP_MODE=live` mas a chave estiver
 faltando) aparece em `GET /api/health`.
 
+A **temporada** usada no modo ao vivo também é variável de ambiente —
+**`LIVE_SEASON`** (padrão `2023`, já que planos free da API-Sports
+costumam cobrir só temporadas passadas, não a corrente). O front-end
+não fixa mais esse valor no código: ele pergunta pro backend via
+`GET /api/health` (campo `season`). Pra trocar de temporada, muda só
+essa variável no Railway/host e reinicia — sem editar nenhum arquivo.
+
 ---
 
 ## 1. Como rodar
