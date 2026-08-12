@@ -58,25 +58,34 @@ const DEMO_TEAMS = [
   { id: "cui", name: "Cuiabá",                short: "CUI", uf: "MT", c1: "#1E3A8A", c2: "#FFC93C", atk: 1.08, def: 1.32, venue: { name: "Arena Pantanal", city: "Cuiabá" } },
 ];
 
-/* Jogadores de exemplo (fictícios) — 4 por time, usados na sub-aba
-   "Jogadores" de Estatísticas quando não há integração ao vivo com a
-   API-Sports. Nomes são combinações aleatórias (com seed fixo, pra
-   ficarem estáveis entre recarregamentos) de nomes comuns — NÃO
-   representam atletas reais, só como a força de ataque/defesa dos
-   times em DEMO_TEAMS acima. */
+/* Jogadores de exemplo (fictícios) — elenco de 24 por time (3
+   goleiros, 8 zagueiros/laterais, 7 meias, 6 atacantes — composição
+   parecida com um elenco de verdade), usados na sub-aba "Jogadores" de
+   Estatísticas e no card Elenco da página do Time quando não há
+   integração ao vivo com a API-Sports. Nomes são combinações
+   aleatórias (com seed fixo, pra ficarem estáveis entre
+   recarregamentos) de nomes comuns — NÃO representam atletas reais,
+   só como a força de ataque/defesa dos times em DEMO_TEAMS acima. */
 const DEMO_FIRST_NAMES = ["Gabriel", "Lucas", "Matheus", "Rafael", "Bruno", "Diego", "Thiago", "Felipe", "Vitor", "Gustavo", "Rodrigo", "Leonardo", "Danilo", "Wesley", "Everton", "Kaique", "Yuri", "Igor", "Renan", "Caio"];
 const DEMO_LAST_NAMES = ["Souza", "Silva", "Oliveira", "Santos", "Pereira", "Costa", "Almeida", "Ribeiro", "Carvalho", "Gomes", "Martins", "Araújo", "Barbosa", "Rocha", "Dias", "Nascimento", "Moreira", "Cardoso", "Teixeira", "Lopes"];
-const DEMO_POSITIONS = ["Attacker", "Midfielder", "Defender", "Goalkeeper"];
+// Composição do elenco fictício: 3 goleiros, 8 defensores, 7 meias, 6
+// atacantes = 24 jogadores/time (o suficiente pra mostrar o botão
+// "ver todos" do card Elenco, que só aparece acima de 8 jogadores).
+const DEMO_SQUAD_COMPOSITION = [
+  ...Array(3).fill("Goalkeeper"),
+  ...Array(8).fill("Defender"),
+  ...Array(7).fill("Midfielder"),
+  ...Array(6).fill("Attacker"),
+];
 
 function buildDemoPlayers(teams) {
   const rng = mulberry32(20260101); // seed fixo -> mesmo elenco fictício a cada carregamento
   const players = [];
   let idSeq = 1;
   teams.forEach(team => {
-    for (let i = 0; i < 4; i++) {
+    DEMO_SQUAD_COMPOSITION.forEach(position => {
       const first = DEMO_FIRST_NAMES[Math.floor(rng() * DEMO_FIRST_NAMES.length)];
       const last = DEMO_LAST_NAMES[Math.floor(rng() * DEMO_LAST_NAMES.length)];
-      const position = DEMO_POSITIONS[i % DEMO_POSITIONS.length];
       const isGK = position === "Goalkeeper";
       const isAttacker = position === "Attacker";
       players.push({
@@ -92,7 +101,7 @@ function buildDemoPlayers(teams) {
         red: rng() < 0.12 ? 1 : 0,
         rating: +(6.2 + rng() * 2.3).toFixed(2),
       });
-    }
+    });
   });
   return players;
 }
