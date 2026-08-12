@@ -17,6 +17,7 @@ README-INSTALACAO.md   → guia completo de instalação/deploy
 README-API-SPORTS.md   → detalhes da integração com a API-Sports
 README-LOGIN.md        → cadastro/login obrigatório, planos e sessão (LEIA — tem um passo obrigatório no Railway)
 README-PAGAMENTOS.md   → pagamento por cartão/PIX via Mercado Pago
+README-DEPLOY-RAILWAY.md → os dois ambientes Railway (HML auto-deploy / PRD manual) e checklist de verificação
 ```
 
 > ⚠️ O site agora exige login pra qualquer acesso (cadastro + escolha
