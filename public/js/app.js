@@ -732,6 +732,40 @@ function dashOddsFixture() {
   }
   return nextFixtureWithId();
 }
+// Tira de afiliados + aviso legal — compartilhada entre o card de odds
+// do Dashboard (1 jogo) e o board de odds por rodada em Jogos (vários
+// jogos). Nunca duplicar essa lista/aviso em mais de um lugar.
+function affiliateComplianceHTML(extraNote = "") {
+  const affiliateStrip = AFFILIATE_OPERATORS.map(op => `
+    <a class="affiliate-chip ${op.url === "#" ? "disabled" : ""}" style="background:${op.color}" href="${op.url}" target="_blank" rel="sponsored noopener"
+       ${op.url === "#" ? 'onclick="return false;" title="Configure em js/affiliates.js"' : ""}>${op.name}</a>`).join("");
+  return `
+    <div class="affiliate-strip">${affiliateStrip}</div>
+    <div class="compliance-line">🔞 Publicidade${extraNote}. Proibido para menores de 18 anos. Jogue com responsabilidade — aposta não é investimento.
+      <a href="${RESPONSIBLE_GAMBLING_URL}" target="_blank" rel="noopener">Autoexclusão (gov.br)</a></div>`;
+}
+
+// Odds de 1 jogo — real (API-Sports, modo ao vivo) se já tiver
+// carregado; senão, em modo de exemplo, cai pra uma odd SIMULADA
+// (calculada a partir da mesma força de ataque/defesa que já alimenta
+// o simulador — não é número aleatório solto, ver simulatedOddsFor em
+// engine.js). Nunca fica sem nada pra mostrar, mas deixa claro quando
+// é simulação (ver affiliateComplianceHTML).
+function matchOdds(m) {
+  if (m.odds) return { odds: m.odds, simulated: false };
+  if (!LIVE_MODE) return { odds: simulatedOddsFor(m.home, m.away), simulated: true };
+  return { odds: null, simulated: false };
+}
+function oddsPillsHTML(odds, isLoading) {
+  if (odds) {
+    return `<div class="odds-pills3">
+      <div class="odds-pill3"><span>Casa</span><b>${odds.home.toFixed(2)}</b></div>
+      <div class="odds-pill3"><span>Empate</span><b>${odds.draw.toFixed(2)}</b></div>
+      <div class="odds-pill3"><span>Fora</span><b>${odds.away.toFixed(2)}</b></div>
+    </div>`;
+  }
+  return `<div class="empty" style="padding:10px 0;">${isLoading ? "Carregando odds..." : "Odds não disponíveis para este jogo/plano."}</div>`;
+}
 function oddsInnerHTML(m) {
   const H = TEAM_MAP[m.home], A = TEAM_MAP[m.away];
   const domId = `oddsinner-${m.round}-${m.home}-${m.away}`;
@@ -740,30 +774,76 @@ function oddsInnerHTML(m) {
     loadFixtureOdds(m.fixtureId).then(odds => { m.odds = odds; const el = document.getElementById(domId); if (el) el.outerHTML = oddsInnerHTML(m); })
       .catch(() => { m.odds = null; const el = document.getElementById(domId); if (el) el.outerHTML = oddsInnerHTML(m); });
   }
-  const pillsHTML = m.odds
-    ? `<div class="odds-pills3">
-        <div class="odds-pill3"><span>Casa</span><b>${m.odds.home?.toFixed(2) ?? "—"}</b></div>
-        <div class="odds-pill3"><span>Empate</span><b>${m.odds.draw?.toFixed(2) ?? "—"}</b></div>
-        <div class="odds-pill3"><span>Fora</span><b>${m.odds.away?.toFixed(2) ?? "—"}</b></div>
-      </div>`
-    : LIVE_MODE && m.fixtureId
-      ? `<div class="empty" style="padding:10px 0;">${m.odds === null ? "Odds não disponíveis para este jogo/plano." : "Carregando odds..."}</div>`
-      : `<div class="empty" style="padding:10px 0;">Ative a integração com a API-Sports para ver odds ao vivo.</div>`;
-  const affiliateStrip = AFFILIATE_OPERATORS.map(op => `
-    <a class="affiliate-chip ${op.url === "#" ? "disabled" : ""}" style="background:${op.color}" href="${op.url}" target="_blank" rel="sponsored noopener"
-       ${op.url === "#" ? 'onclick="return false;" title="Configure em js/affiliates.js"' : ""}>${op.name}</a>`).join("");
+  const { odds, simulated } = matchOdds(m);
   return `
     <div id="${domId}">
       <div class="odds-hero"><div class="match">${H.short} × ${A.short}</div><div class="meta">${fmtFixtureDate(m.date, m.round)}</div></div>
-      ${pillsHTML}
-      <div class="affiliate-strip">${affiliateStrip}</div>
-      <div class="compliance-line">🔞 Publicidade. Proibido para menores de 18 anos. Jogue com responsabilidade — aposta não é investimento.
-        <a href="${RESPONSIBLE_GAMBLING_URL}" target="_blank" rel="noopener">Autoexclusão (gov.br)</a></div>
+      ${oddsPillsHTML(odds, needsLazyLoad)}
+      ${affiliateComplianceHTML(simulated ? " (odds simuladas — sem integração com casas de apostas ainda)" : "")}
     </div>`;
 }
 function renderDashOdds() {
   const m = dashOddsFixture();
   document.getElementById("dashOddsBlock").innerHTML = m ? oddsInnerHTML(m) : `<div class="empty">Sem próximos jogos cadastrados.</div>`;
+}
+
+/* ---------- Board de odds da rodada (aba Jogos) ----------
+   O item de monetização em si: mostra odds + parceiros de TODOS os
+   jogos pendentes da rodada aberta, sem precisar expandir card por
+   card. Só aparece quando a rodada está em andamento ou prevista
+   (isRoundDecided false) — rodada já encerrada não tem valor de
+   monetização, então o card some. */
+function jogosOddsFixtures() {
+  return getRoundMatches(state.jogosRound).filter(m => m.pending);
+}
+function oddsBoardRowHTML(m) {
+  const H = TEAM_MAP[m.home], A = TEAM_MAP[m.away];
+  const needsLazyLoad = LIVE_MODE && m.fixtureId && m.odds === undefined;
+  const { odds } = matchOdds(m);
+  return `
+    <div class="odds-board-row">
+      <div class="odds-board-teams">${crestEl(H, 22)}<span>${H.short}</span><span class="vs">×</span>${crestEl(A, 22)}<span>${A.short}</span></div>
+      <div class="odds-pills3 odds-pills3-compact">
+        ${odds
+          ? `<div class="odds-pill3"><span>Casa</span><b>${odds.home.toFixed(2)}</b></div>
+             <div class="odds-pill3"><span>Empate</span><b>${odds.draw.toFixed(2)}</b></div>
+             <div class="odds-pill3"><span>Fora</span><b>${odds.away.toFixed(2)}</b></div>`
+          : `<span class="odds-board-loading">${needsLazyLoad ? "Carregando…" : "Sem odds"}</span>`}
+      </div>
+    </div>`;
+}
+function renderJogosOddsBoard() {
+  const card = document.getElementById("jogosOddsCard");
+  const box = document.getElementById("jogosOddsBoard");
+  const pill = document.getElementById("jogosOddsModePill");
+  if (!card || !box) return;
+
+  if (isRoundDecided(state.jogosRound)) { card.style.display = "none"; return; }
+  card.style.display = "";
+  if (pill) {
+    pill.textContent = LIVE_MODE ? "● Ao vivo" : "● Simulação";
+    pill.className = "mode-pill " + (LIVE_MODE ? "live" : "demo");
+  }
+
+  const fixtures = jogosOddsFixtures();
+  if (!fixtures.length) { box.innerHTML = `<div class="empty">Sem jogos pendentes nessa rodada.</div>`; return; }
+
+  // Dispara os fetches que ainda faltam (modo ao vivo) — cada resposta
+  // só re-renderiza esse board (e só se o usuário ainda estiver na
+  // aba Jogos), sem mexer no resto da página.
+  if (LIVE_MODE) {
+    fixtures.forEach(m => {
+      if (m.fixtureId && m.odds === undefined) {
+        loadFixtureOdds(m.fixtureId)
+          .then(odds => { m.odds = odds; if (state.page === "jogos") renderJogosOddsBoard(); })
+          .catch(() => { m.odds = null; if (state.page === "jogos") renderJogosOddsBoard(); });
+      }
+    });
+  }
+
+  box.innerHTML =
+    `<div class="odds-board-rows">${fixtures.map(oddsBoardRowHTML).join("")}</div>` +
+    affiliateComplianceHTML(!LIVE_MODE ? " (odds simuladas — sem integração com casas de apostas ainda)" : "");
 }
 
 /* ---------- Movimentação de odds ---------- */
@@ -1019,6 +1099,7 @@ function renderJogos() {
   document.getElementById("roundLabel").textContent = `Rodada ${state.jogosRound}`;
   document.getElementById("roundSubLabel").textContent = isRoundDecided(state.jogosRound) ? "encerrada" : (state.jogosRound === firstUndecidedRound() ? "em andamento" : "a definir");
   document.getElementById("matchesList").innerHTML = getRoundMatches(state.jogosRound).map(fullMatchCardHTML).join("");
+  renderJogosOddsBoard();
   renderEstatisticasConsolidadas("statTiles", "leaderAtaque", "leaderDefesa");
 }
 

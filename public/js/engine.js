@@ -66,6 +66,44 @@ function simulateMatch(homeId, awayId, rng) {
 
 function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
 
+// ---------- Odds simuladas (modo de exemplo) ----------
+// Deriva odds 1X2 plausíveis a partir da MESMA força de ataque/defesa
+// que já alimenta o simulador (não é número aleatório solto) — soma a
+// probabilidade de Poisson de cada placar possível, agrupada por
+// resultado, e converte em odds decimais com uma margem de casa
+// (overround) típica de mercado. Usado só quando não há odds reais da
+// API-Sports (modo de exemplo, ou jogo sem odds disponível no plano).
+function poissonPMF(k, lambda) {
+  let p = Math.exp(-lambda);
+  for (let i = 1; i <= k; i++) p *= lambda / i;
+  return p;
+}
+function matchOutcomeProbs(lambdaHome, lambdaAway, maxGoals = 10) {
+  let pHome = 0, pDraw = 0, pAway = 0;
+  for (let h = 0; h <= maxGoals; h++) {
+    for (let a = 0; a <= maxGoals; a++) {
+      const p = poissonPMF(h, lambdaHome) * poissonPMF(a, lambdaAway);
+      if (h > a) pHome += p; else if (h === a) pDraw += p; else pAway += p;
+    }
+  }
+  const total = pHome + pDraw + pAway || 1; // normaliza a fração ínfima perdida ao cortar em maxGoals
+  return { pHome: pHome / total, pDraw: pDraw / total, pAway: pAway / total };
+}
+const ODDS_HOME_ADV = 1.12; // mesmo fator de mando de campo usado em simulateMatch, pra ficar consistente
+const ODDS_MARGIN = 1.07;   // ~7% de margem da casa — plausível pra mercado 1X2, não é "justo" de propósito
+function simulatedOddsFor(homeId, awayId) {
+  const H = TEAM_MAP[homeId], A = TEAM_MAP[awayId];
+  if (!H || !A) return null;
+  const lambdaHome = (H.atk / A.def) * ODDS_HOME_ADV;
+  const lambdaAway = A.atk / H.def;
+  const { pHome, pDraw, pAway } = matchOutcomeProbs(lambdaHome, lambdaAway);
+  return {
+    home: clamp(1 / (pHome * ODDS_MARGIN), 1.01, 50),
+    draw: clamp(1 / (pDraw * ODDS_MARGIN), 1.01, 50),
+    away: clamp(1 / (pAway * ODDS_MARGIN), 1.01, 50),
+  };
+}
+
 // Calcula a tabela de classificação a partir de uma lista de jogos concluídos
 function computeStandings(matches) {
   const table = {};

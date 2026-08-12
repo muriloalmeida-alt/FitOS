@@ -305,6 +305,14 @@
             <div class="label"><b id="roundLabel">Rodada 1</b><span id="roundSubLabel"></span></div>
             <button id="roundNext">›</button>
           </div>
+
+          <!-- Odds + parceiros da rodada — some sozinho quando a
+               rodada já está encerrada (ver renderJogosOddsBoard). -->
+          <div class="card" id="jogosOddsCard" style="margin-bottom:16px;">
+            <div class="card-head"><h3>🎯 Odds &amp; Parceiros da rodada</h3><span class="mode-pill" id="jogosOddsModePill"></span></div>
+            <div id="jogosOddsBoard"></div>
+          </div>
+
           <div id="matchesList"></div>
         </div>
         <div id="sub-stats" style="display:none;">
