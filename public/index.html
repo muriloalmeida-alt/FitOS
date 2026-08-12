@@ -2,8 +2,22 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>BRDATA · Brasileirão 2026</title>
+
+<!-- PWA: instalável na tela inicial (Android/desktop via manifest,
+     iOS via as tags apple-* abaixo — o Safari não lê manifest.json
+     pra isso) e com ícone/cor de status bar consistentes. -->
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#062B5C">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BR Data">
+<link rel="apple-touch-icon" href="img/icons/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="img/icons/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="img/icons/favicon-16.png">
+
 <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
@@ -423,5 +437,17 @@
 <script src="js/liveData.js"></script>
 <script src="js/affiliates.js"></script>
 <script src="js/app.js"></script>
+<script>
+  // Registra o service worker (ver sw.js) — deixa o app instalável e
+  // funcionando parcialmente offline. Best-effort: navegador sem
+  // suporte (ou erro de registro) não afeta o resto do app.
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("sw.js").catch((err) => {
+        console.warn("[pwa] não foi possível registrar o service worker:", err.message);
+      });
+    });
+  }
+</script>
 </body>
 </html>

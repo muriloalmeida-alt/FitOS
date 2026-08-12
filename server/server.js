@@ -102,7 +102,13 @@ function serveStatic(req, res) {
       return;
     }
     const ext = path.extname(filePath);
-    res.writeHead(200, { "Content-Type": MIME[ext] || "application/octet-stream" });
+    const headers = { "Content-Type": MIME[ext] || "application/octet-stream" };
+    // O service worker precisa ser sempre revalidado — se o navegador
+    // (ou um proxy/CDN no meio do caminho) guardar sw.js em cache por
+    // um tempo, o app fica preso numa versão antiga do worker e nunca
+    // detecta atualização nenhuma.
+    if (filePath.endsWith("sw.js")) headers["Cache-Control"] = "no-cache";
+    res.writeHead(200, headers);
     res.end(data);
   });
 }
