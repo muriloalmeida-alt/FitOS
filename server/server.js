@@ -23,6 +23,9 @@ const cache = require("./src/cache");
 const oddsHistory = require("./src/oddsHistory");
 const { fetchBroadcastStation } = require("./src/broadcastSource");
 const { fetchNews } = require("./src/newsSource");
+const mercadoPago = require("./src/mercadoPago");
+const supportPlans = require("./src/supportPlans");
+const supportLeads = require("./src/supportLeads");
 
 loadDotEnv();
 
@@ -52,6 +55,19 @@ const APP_MODE = ["auto", "live", "demo"].includes(RAW_APP_MODE) ? RAW_APP_MODE 
 function liveModeEnabled() {
   if (APP_MODE === "demo") return false;
   return !!process.env.API_SPORTS_KEY;
+}
+
+// URL pública do site — usada pra montar os back_urls/notification_url
+// do Mercado Pago (precisam ser URLs absolutas). Por padrão, deriva do
+// próprio request (funciona bem atrás do proxy do Railway, que envia
+// x-forwarded-proto); defina PUBLIC_BASE_URL manualmente só se a
+// detecção automática não bater (ex.: domínio customizado atrás de
+// outro proxy/CDN).
+function publicBaseUrl(req) {
+  if (process.env.PUBLIC_BASE_URL) return process.env.PUBLIC_BASE_URL.replace(/\/$/, "");
+  const host = req.headers.host || `localhost:${PORT}`;
+  const proto = req.headers["x-forwarded-proto"] || (/^(localhost|127\.0\.0\.1)/.test(host) ? "http" : "https");
+  return `${proto}://${host}`;
 }
 
 const TTL = {
@@ -84,6 +100,38 @@ async function withCache(key, ttl, fetcher) {
   const value = await fetcher();
   cache.set(key, value, ttl);
   return value;
+}
+
+// Lê o corpo de um POST (JSON ou form-urlencoded, o Mercado Pago pode
+// mandar qualquer um dos dois no webhook dependendo da configuração).
+// Limite de 1MB — esses endpoints só recebem payloads pequenos.
+function readBody(req) {
+  return new Promise((resolve, reject) => {
+    let size = 0;
+    const chunks = [];
+    req.on("data", (chunk) => {
+      size += chunk.length;
+      if (size > 1024 * 1024) { reject(new Error("corpo da requisição grande demais")); req.destroy(); return; }
+      chunks.push(chunk);
+    });
+    req.on("end", () => {
+      const raw = Buffer.concat(chunks).toString("utf8");
+      if (!raw) return resolve({});
+      const contentType = req.headers["content-type"] || "";
+      try {
+        if (contentType.includes("application/json")) return resolve(JSON.parse(raw));
+        if (contentType.includes("application/x-www-form-urlencoded")) {
+          return resolve(Object.fromEntries(new URLSearchParams(raw)));
+        }
+        // sem content-type declarado (ou algo inesperado) — tenta JSON
+        // por ser o mais comum, cai pro corpo cru se não parsear.
+        return resolve(JSON.parse(raw));
+      } catch {
+        resolve({});
+      }
+    });
+    req.on("error", reject);
+  });
 }
 
 function sendJSON(res, status, obj) {
@@ -162,9 +210,10 @@ const server = http.createServer(async (req, res) => {
     // Bloqueia cedo qualquer rota que dependa da API-Sports quando o
     // modo ao vivo está desligado (sem chave, ou APP_MODE=demo forçando
     // exemplo mesmo com chave presente) — /api/health, /api/broadcast
-    // (TheSportsDB) e /api/news (RSS) não usam a API-Sports, então
-    // ficam de fora dessa checagem.
-    const LIVE_ONLY = pathname.startsWith("/api/") && pathname !== "/api/broadcast" && pathname !== "/api/news";
+    // (TheSportsDB), /api/news (RSS) e /api/support/* (Mercado Pago,
+    // independente da API-Sports e do modo ao vivo/exemplo) não usam a
+    // API-Sports, então ficam de fora dessa checagem.
+    const LIVE_ONLY = pathname.startsWith("/api/") && pathname !== "/api/broadcast" && pathname !== "/api/news" && !pathname.startsWith("/api/support/");
     if (LIVE_ONLY && !liveModeEnabled()) {
       const err = new Error(
         APP_MODE === "demo"
@@ -364,6 +413,106 @@ const server = http.createServer(async (req, res) => {
         }
       });
       return sendJSON(res, 200, data);
+    }
+
+    // ================= "Apoie o BR Data" (planos + Mercado Pago) =================
+    // Independente do modo ao vivo/exemplo da API-Sports — funciona
+    // igual nos dois. Preço sempre decidido aqui no backend
+    // (server/src/supportPlans.js), nunca confiar em valor vindo do
+    // front-end.
+
+    if (pathname === "/api/support/plans") {
+      return sendJSON(res, 200, { plans: supportPlans.listPlans() });
+    }
+
+    if (pathname === "/api/support/checkout" && req.method === "POST") {
+      const body = await readBody(req);
+      const name = String(body.name || "").trim();
+      const email = String(body.email || "").trim();
+      const phone = String(body.phone || "").trim();
+      const planId = String(body.plan || "").trim();
+
+      if (!name || name.length < 2) return sendJSON(res, 400, { error: "Informe seu nome." });
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return sendJSON(res, 400, { error: "E-mail inválido." });
+      if (phone.replace(/\D/g, "").length < 8) return sendJSON(res, 400, { error: "Telefone inválido." });
+      const plan = supportPlans.getPlan(planId);
+      if (!plan) return sendJSON(res, 400, { error: "Plano inválido." });
+
+      const ref = `sup_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
+      const base = publicBaseUrl(req);
+
+      supportLeads.create({
+        ref, name, email, phone,
+        planId: plan.id, planTitle: plan.title, price: plan.price,
+        status: "created", createdAt: Date.now(), updatedAt: Date.now(),
+      });
+
+      try {
+        const pref = await mercadoPago.createPreference({
+          plan, name, email, phone,
+          externalReference: ref,
+          backUrl: `${base}/apoie`,
+          notificationUrl: `${base}/api/support/webhook`,
+        });
+        supportLeads.updateStatus(ref, "pending", { preferenceId: pref.id });
+        return sendJSON(res, 200, { checkoutUrl: pref.init_point, ref });
+      } catch (err) {
+        supportLeads.updateStatus(ref, "checkout_error", { errorMessage: err.message });
+        // O detalhe técnico (token ausente, erro da API do Mercado
+        // Pago etc.) fica só no log do servidor — pro usuário final, uma
+        // mensagem genérica é mais apropriada que expor causa interna.
+        console.error("[support/checkout] falha ao criar preference:", err.message);
+        return sendJSON(res, 502, { error: "Não foi possível iniciar o pagamento agora. Tente novamente em instantes." });
+      }
+    }
+
+    // Notificação do Mercado Pago quando um pagamento muda de status.
+    // Aceita webhooks v2 (POST, corpo JSON: {type, data:{id}}) e o
+    // formato mais antigo (query string: ?topic=payment&id=...) — o
+    // Mercado Pago já usou os dois ao longo do tempo. Sempre responde
+    // 200 rápido (senão ele fica reenviando); erros só vão pro log.
+    if (pathname === "/api/support/webhook") {
+      try {
+        const body = req.method === "POST" ? await readBody(req) : {};
+        const type = searchParams.get("type") || searchParams.get("topic") || body.type || body.topic;
+        const paymentId = searchParams.get("data.id") || searchParams.get("id") || body?.data?.id || body?.id;
+
+        if (type === "payment" && paymentId) {
+          // A verdade sobre o status vem SEMPRE de uma chamada nossa
+          // pra API do Mercado Pago (autenticada com nosso access
+          // token) — nunca do conteúdo da notificação em si, que
+          // poderia ser forjado por qualquer um que descobrisse a URL.
+          const payment = await mercadoPago.getPayment(paymentId);
+          const ref = payment.external_reference;
+          if (ref) {
+            supportLeads.updateStatus(ref, payment.status, {
+              paymentId: String(payment.id),
+              paymentMethod: payment.payment_type_id || null,
+              amount: payment.transaction_amount || null,
+            });
+          }
+        }
+      } catch (err) {
+        console.error("[support/webhook] falha ao processar notificação:", err.message);
+      }
+      return sendJSON(res, 200, { received: true });
+    }
+
+    // GET /api/support/status?ref=... — a página de retorno usa isso
+    // pra confirmar o pagamento (o redirect de volta do Mercado Pago já
+    // vem com o status na URL, mas essa consulta pega o status mais
+    // recente direto do nosso registro, atualizado pelo webhook — útil
+    // pro caso do PIX, que às vezes confirma alguns segundos depois do
+    // redirect). Só devolve o essencial — nada de nome/telefone/e-mail
+    // nessa resposta pública.
+    if (pathname === "/api/support/status") {
+      const ref = searchParams.get("ref");
+      const rec = ref ? supportLeads.findByRef(ref) : null;
+      if (!rec) return sendJSON(res, 404, { error: "cadastro não encontrado" });
+      return sendJSON(res, 200, {
+        status: rec.status, planId: rec.planId, planTitle: rec.planTitle,
+        price: rec.price, updatedAt: rec.updatedAt,
+      });
     }
 
     if (pathname.startsWith("/api/")) {

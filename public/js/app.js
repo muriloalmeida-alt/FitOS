@@ -71,7 +71,8 @@ async function boot() {
   populateAllSelects();
   renderMyTeamsSidebar();
   setupEventListeners();
-  setActivePage("dashboard");
+  captureApoieReturnParams();
+  setActivePage(apoieReturnStatus ? "apoie" : "dashboard");
 }
 
 function initDemoSeason() {
@@ -1280,6 +1281,157 @@ async function renderNews() {
     : `<div class="empty" style="padding:12px 0;">Não foi possível carregar notícias agora. Tente novamente mais tarde.</div>`;
 }
 
+/* ================= APOIE O BR DATA (planos + checkout Mercado Pago) =================
+   Fluxo: carrega os planos do backend (preço é decidido lá, não aqui)
+   -> usuário escolhe um card -> preenche nome/telefone/e-mail -> POST
+   /api/support/checkout -> backend cria a preference no Mercado Pago e
+   devolve uma URL de checkout hospedada por eles (cartão + PIX) ->
+   redireciona o navegador pra lá. Depois do pagamento, o Mercado Pago
+   traz o usuário de volta com o status na própria URL (ver
+   captureApoieReturnParams, chamada 1x no boot). */
+let apoiePlansCache = null;
+let apoieSelectedPlan = null;
+let apoieReturnStatus = null; // { status, ref } | null — preenchido no boot() se voltou de um checkout
+
+function fmtBRL(v) {
+  return (typeof v === "number" ? v : 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+}
+
+async function loadSupportPlans() {
+  if (apoiePlansCache) return apoiePlansCache;
+  try {
+    const res = await fetch("/api/support/plans");
+    const data = await res.json();
+    apoiePlansCache = data.plans || [];
+  } catch {
+    apoiePlansCache = [];
+  }
+  return apoiePlansCache;
+}
+
+function planCardHTML(plan) {
+  const selected = apoieSelectedPlan === plan.id;
+  return `
+    <div class="plan-card${plan.highlight ? " highlight" : ""}${selected ? " selected" : ""}" data-plan="${plan.id}">
+      ${plan.highlight ? `<span class="plan-badge">Mais popular</span>` : ""}
+      <div class="plan-title">${plan.title}</div>
+      <div class="plan-tagline">${plan.tagline || ""}</div>
+      <div class="plan-price">${fmtBRL(plan.price)}<small> pagamento único</small></div>
+      <ul class="plan-features">${(plan.features || []).map(f => `<li>${f}</li>`).join("")}</ul>
+      <button type="button" class="btn ${selected ? "btn-accent" : "btn-secondary"} full plan-select-btn">${selected ? "✓ Selecionado" : `Escolher ${plan.title}`}</button>
+    </div>`;
+}
+
+function apoieSelectPlan(planId, plans) {
+  apoieSelectedPlan = planId;
+  document.querySelectorAll("#plansGrid .plan-card").forEach(card => {
+    const isSel = card.dataset.plan === planId;
+    card.classList.toggle("selected", isSel);
+    const btn = card.querySelector(".plan-select-btn");
+    const plan = plans.find(p => p.id === card.dataset.plan);
+    if (btn && plan) {
+      btn.textContent = isSel ? "✓ Selecionado" : `Escolher ${plan.title}`;
+      btn.className = `btn ${isSel ? "btn-accent" : "btn-secondary"} full plan-select-btn`;
+    }
+  });
+  const plan = plans.find(p => p.id === planId);
+  const label = document.getElementById("apoieSelectedPlanLabel");
+  if (label && plan) label.innerHTML = `Plano selecionado: <b>${plan.title}</b> — ${fmtBRL(plan.price)}`;
+  document.getElementById("apoieSubmit").disabled = false;
+}
+
+async function renderApoiePage() {
+  const grid = document.getElementById("plansGrid");
+  grid.innerHTML = `<div class="empty">Carregando planos...</div>`;
+  const plans = await loadSupportPlans();
+  grid.innerHTML = plans.length
+    ? plans.map(planCardHTML).join("")
+    : `<div class="empty">Não foi possível carregar os planos agora. Recarregue a página e tente de novo.</div>`;
+  grid.querySelectorAll(".plan-card").forEach(card => {
+    card.addEventListener("click", () => apoieSelectPlan(card.dataset.plan, plans));
+  });
+  document.getElementById("apoieSubmit").disabled = !apoieSelectedPlan;
+  renderApoieStatusBanner();
+}
+
+function apoieShowError(msg) {
+  const el = document.getElementById("apoieFormError");
+  if (!el) return;
+  el.style.display = msg ? "block" : "none";
+  el.textContent = msg || "";
+}
+
+async function submitApoieForm(e) {
+  e.preventDefault();
+  apoieShowError("");
+  const name = document.getElementById("apoieName").value.trim();
+  const phone = document.getElementById("apoiePhone").value.trim();
+  const email = document.getElementById("apoieEmail").value.trim();
+
+  if (!apoieSelectedPlan) return apoieShowError("Escolha um plano acima antes de continuar.");
+  if (name.length < 2) return apoieShowError("Informe seu nome completo.");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return apoieShowError("Informe um e-mail válido.");
+  if (phone.replace(/\D/g, "").length < 8) return apoieShowError("Informe um telefone válido, com DDD.");
+
+  const btn = document.getElementById("apoieSubmit");
+  const originalLabel = btn.textContent;
+  btn.disabled = true; btn.textContent = "Preparando pagamento...";
+  try {
+    const res = await fetch("/api/support/checkout", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, phone, email, plan: apoieSelectedPlan }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.checkoutUrl) throw new Error(data?.error || "Não foi possível iniciar o pagamento agora.");
+    window.location.href = data.checkoutUrl; // sai do site — vai pro checkout hospedado do Mercado Pago
+  } catch (err) {
+    apoieShowError(err.message || "Não foi possível iniciar o pagamento agora. Tente novamente.");
+    btn.disabled = false; btn.textContent = originalLabel;
+  }
+}
+
+// Lido 1x no boot(), a partir da URL de retorno do Mercado Pago
+// (?status=...&external_reference=... — anexados por eles no
+// back_url que configuramos). Limpa a URL logo em seguida pra não
+// reaparecer se o usuário der refresh ou voltar depois.
+function captureApoieReturnParams() {
+  const params = new URLSearchParams(location.search);
+  const status = params.get("collection_status") || params.get("status");
+  const ref = params.get("external_reference");
+  if (!status && !ref) return;
+  apoieReturnStatus = { status: status || "", ref: ref || "" };
+  history.replaceState(null, "", location.pathname);
+}
+
+const APOIE_STATUS_LABELS = {
+  approved: { cls: "success", icon: "✅", title: "Pagamento aprovado!", msg: "Obrigado por apoiar o BR Data 💛" },
+  pending: { cls: "pending", icon: "⏳", title: "Pagamento pendente", msg: "Assim que for confirmado — pode levar alguns minutos, principalmente no PIX — seu acesso é liberado." },
+  in_process: { cls: "pending", icon: "⏳", title: "Pagamento em análise", msg: "Estamos aguardando a confirmação. Não precisa fazer nada, já vamos atualizar aqui." },
+  rejected: { cls: "error", icon: "❌", title: "Pagamento não aprovado", msg: "Seu pagamento não foi aprovado. Você pode tentar de novo com outro cartão ou via PIX." },
+};
+
+// Confirma o status direto com o backend (mais confiável que o valor
+// que veio na URL — cobre o caso do PIX, que às vezes confirma alguns
+// segundos depois do redirect de volta pro site).
+async function renderApoieStatusBanner() {
+  const box = document.getElementById("apoieStatusBanner");
+  if (!box) return;
+  if (!apoieReturnStatus) { box.innerHTML = ""; return; }
+
+  let status = apoieReturnStatus.status;
+  if (apoieReturnStatus.ref) {
+    try {
+      const res = await fetch(`/api/support/status?ref=${encodeURIComponent(apoieReturnStatus.ref)}`);
+      const data = await res.json().catch(() => null);
+      if (data?.status) status = data.status;
+    } catch { /* mantém o status que veio na URL */ }
+  }
+
+  const info = APOIE_STATUS_LABELS[status] || { cls: "pending", icon: "ℹ️", title: "Pagamento em processamento", msg: "Vamos confirmar o status assim que possível." };
+  box.innerHTML = `<div class="apoie-status-banner ${info.cls}"><span class="icon">${info.icon}</span><div><b>${info.title}</b><p>${info.msg}</p></div></div>`;
+}
+
 /* ================= NAVEGAÇÃO PRA DETALHE (time/jogador) ================= */
 const POSITION_LABELS = { Goalkeeper: "Goleiro", Defender: "Zagueiro", Midfielder: "Meio-campo", Attacker: "Atacante" };
 function translatePosition(pos) { return POSITION_LABELS[pos] || pos || ""; }
@@ -1570,7 +1722,7 @@ function populateAllSelects() {
 }
 
 /* ================= NAVEGAÇÃO ================= */
-const PAGES = ["dashboard", "jogos", "tabela", "estatisticas", "simulador", "favoritos", "noticias", "time", "jogador", "mais"];
+const PAGES = ["dashboard", "jogos", "tabela", "estatisticas", "simulador", "favoritos", "noticias", "apoie", "time", "jogador", "mais"];
 function setActivePage(name, opts = {}) {
   state.page = name;
   PAGES.forEach(p => document.getElementById(`page-${p}`)?.classList.toggle("active", p === name));
@@ -1586,6 +1738,7 @@ function setActivePage(name, opts = {}) {
   if (name === "simulador") renderSimulador();
   if (name === "favoritos") renderFavoritosPage();
   if (name === "noticias") renderNews();
+  if (name === "apoie") renderApoiePage();
   if (name === "time") renderTeamPage();
   if (name === "jogador") renderPlayerPage();
 
@@ -1615,10 +1768,11 @@ function setupEventListeners() {
 
   document.getElementById("btnHamburger").addEventListener("click", () => document.getElementById("sidebar").classList.toggle("open"));
   document.getElementById("themeSwitch").addEventListener("click", toggleTheme);
-  document.getElementById("btnPremium").addEventListener("click", () => alert("Em breve! Conecte este botão ao seu checkout (Stripe, Mercado Pago etc.) quando o plano Premium estiver pronto."));
-  document.getElementById("btnPremiumMobile")?.addEventListener("click", () => alert("Em breve! Conecte este botão ao seu checkout (Stripe, Mercado Pago etc.) quando o plano Premium estiver pronto."));
-  document.getElementById("btnPremiumRail")?.addEventListener("click", () => alert("Em breve! Conecte este botão ao seu checkout (Stripe, Mercado Pago etc.) quando o plano Premium estiver pronto."));
+  // Os 3 botões "Seja Premium"/"Assinar agora" navegam pra página
+  // "Apoie o BR Data" (data-page="apoie" no HTML) — já cobertos pelo
+  // listener genérico de [data-page] logo acima, nada extra aqui.
   document.getElementById("themeSwitchMobile")?.addEventListener("click", () => { toggleTheme(); document.getElementById("themeSwitchMobile").classList.toggle("on", document.documentElement.getAttribute("data-theme") === "dark"); });
+  document.getElementById("apoieForm").addEventListener("submit", submitApoieForm);
 
   document.getElementById("btnAddTeam").addEventListener("click", () => {
     const existing = document.getElementById("quickAddSelect");

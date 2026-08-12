@@ -15,6 +15,7 @@ deploy/                → arquivos de deploy (systemd, nginx)
 Dockerfile / docker-compose.yml → deploy via Docker + Caddy (HTTPS automático)
 README-INSTALACAO.md   → guia completo de instalação/deploy
 README-API-SPORTS.md   → detalhes da integração com a API-Sports
+README-PAGAMENTOS.md   → área "Apoie o BR Data" (planos + Mercado Pago)
 ```
 
 ## Rodando local
