@@ -51,6 +51,27 @@ serviço roda o `node server.js`).
    atual só é substituído quando o pagamento do upgrade é confirmado —
    ninguém perde acesso no meio de uma troca.
 
+## Login padrão de homologação (admin/admin)
+
+Em qualquer host cujo nome comece com **`hml`** (ex.: `hml.seudominio.com`,
+`hml-brdata.up.railway.app`), o login aceita usuário `admin` e senha
+`admin` — a conta (plano **Freemium**, sempre ativo) é criada
+automaticamente na primeira vez que alguém usa esse login naquele
+ambiente.
+
+- **Nunca funciona em nenhum outro host** — a checagem é literal, no
+  início do hostname da requisição (`isHomologHost()` em
+  `server/server.js`). Só existe risco se o domínio de **produção**
+  também começar com "hml" — mantenha o domínio de produção sem esse
+  prefixo (ex.: use `hml` só no ambiente de homologação do Railway).
+- É uma credencial fixa e pública (está neste arquivo!) — só faz
+  sentido porque fica restrita a um ambiente de teste sem dado real de
+  cliente. Não reutilize esse padrão em produção.
+- No campo de login, o campo de "e-mail" aceita texto livre (não é mais
+  `type="email"` no HTML) exatamente pra permitir digitar "admin" sem
+  formato de e-mail — login normal (com e-mail de verdade) continua
+  funcionando igual, o backend não valida formato nessa rota.
+
 ## Segurança
 
 - Senha nunca é guardada em texto puro — hash com `scrypt` (módulo

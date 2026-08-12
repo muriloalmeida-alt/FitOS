@@ -91,6 +91,15 @@ function isHttps(req) {
   return String(req.headers["x-forwarded-proto"] || "").includes("https") || !!req.socket?.encrypted;
 }
 
+// Ambiente de homologação: qualquer host cujo nome comece com "hml"
+// (ex.: hml.seusite.com, hml-brdata.up.railway.app). Usado só pra
+// liberar o login padrão admin/admin (ver /api/auth/login) — nunca
+// bate em produção contanto que o domínio de produção não comece com
+// "hml".
+function isHomologHost(req) {
+  return String(req.headers.host || "").toLowerCase().startsWith("hml");
+}
+
 // ---- Login (cookie de sessão) ----
 const SESSION_COOKIE = "brdata_session";
 
@@ -557,8 +566,30 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === "/api/auth/login" && req.method === "POST") {
       const body = await readBody(req);
-      const email = users.normalizeEmail(body.email);
+      const rawLogin = String(body.email || "").trim();
       const password = String(body.password || "");
+
+      // Login padrão de homologação (admin/admin, plano Freemium) — só
+      // funciona em host que comece com "hml" (ver isHomologHost). É
+      // conveniência pra equipe de teste, não passa pela validação de
+      // e-mail normal e a conta é criada (1x) na hora que é usada pela
+      // 1ª vez. Nunca funciona em produção, contanto que o domínio de
+      // produção não comece com "hml".
+      if (isHomologHost(req) && rawLogin.toLowerCase() === "admin" && password === "admin") {
+        let admin = users.findByEmail("admin@hml.local");
+        if (!admin) {
+          admin = await users.createUser({
+            name: "Admin (homologação)", email: "admin@hml.local", phone: "00000000000",
+            password: "admin", plan: "freemium", planStatus: "active",
+          });
+          console.log("[auth] usuário admin/admin de homologação criado (host:", req.headers.host, ")");
+        }
+        const adminToken = sessions.createSession(admin.id);
+        setSessionCookie(res, adminToken, isHttps(req));
+        return sendJSON(res, 200, { user: users.publicUser(admin) });
+      }
+
+      const email = users.normalizeEmail(rawLogin);
       const user = users.findByEmail(email);
       // Roda o verifyPassword mesmo sem usuário achado (contra um hash
       // fixo, ver users.js) — mantém o tempo de resposta parecido pra
