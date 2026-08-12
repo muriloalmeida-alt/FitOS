@@ -17,6 +17,7 @@
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
+const crypto = require("crypto");
 
 // Precisa rodar ANTES de qualquer require de módulo nosso que leia
 // variável de ambiente no topo do arquivo (ex.: server/src/supportPlans.js,
@@ -49,6 +50,24 @@ const LEAGUE_ID = process.env.LEAGUE_ID || "71"; // 71 = Brasileirão Série A n
 // hardcoda esse valor — ele pergunta pro backend via GET /api/health.
 const LIVE_SEASON = process.env.LIVE_SEASON || "2023";
 const PUBLIC_DIR = path.join(__dirname, "..", "public");
+
+// Endpoint de admin (GET /api/admin/users) — consulta manual do que
+// está persistido no Volume (usuários/sessões), sem precisar de acesso
+// via terminal/CLI ao container. Fica completamente desativado (404 em
+// qualquer chamada, mesmo com senha certa) se ADMIN_SECRET não estiver
+// configurado neste host — nunca fica aberto por acidente. Configure
+// um valor forte e aleatório na env var do Railway (só no HML/PRD,
+// nunca comitado no código) e passe em ?secret=... ou no header
+// X-Admin-Secret.
+const ADMIN_SECRET = (process.env.ADMIN_SECRET || "").trim();
+function isValidAdminSecret(req, searchParams) {
+  if (!ADMIN_SECRET) return false;
+  const provided = String(req.headers["x-admin-secret"] || searchParams.get("secret") || "");
+  const expected = Buffer.from(ADMIN_SECRET);
+  const got = Buffer.from(provided);
+  if (expected.length !== got.length) return false; // timingSafeEqual exige mesmo tamanho
+  return crypto.timingSafeEqual(expected, got);
+}
 
 // APP_MODE — controla o modo ao vivo/exemplo de fora, sem precisar
 // mexer em código (útil pra configurar direto no Railway/painel do
@@ -278,6 +297,7 @@ const server = http.createServer(async (req, res) => {
     const AUTH_EXEMPT_PATHS = new Set([
       "/api/auth/signup", "/api/auth/login", "/api/auth/logout", "/api/auth/me",
       "/api/support/plans", "/api/support/webhook", "/api/support/status",
+      "/api/admin/users", // autenticação própria (ADMIN_SECRET), não usa cookie de sessão
     ]);
     if (pathname.startsWith("/api/") && !AUTH_EXEMPT_PATHS.has(pathname)) {
       const cookies = parseCookies(req);
@@ -304,7 +324,7 @@ const server = http.createServer(async (req, res) => {
     // vivo/exemplo) não usam a API-Sports, então ficam de fora dessa
     // checagem.
     const LIVE_ONLY = pathname.startsWith("/api/") && pathname !== "/api/broadcast" && pathname !== "/api/news"
-      && !pathname.startsWith("/api/support/") && !pathname.startsWith("/api/auth/");
+      && !pathname.startsWith("/api/support/") && !pathname.startsWith("/api/auth/") && !pathname.startsWith("/api/admin/");
     if (LIVE_ONLY && !liveModeEnabled()) {
       const err = new Error(
         APP_MODE === "demo"
@@ -697,6 +717,20 @@ const server = http.createServer(async (req, res) => {
       const user = ref ? users.findById(ref) : null;
       if (!user) return sendJSON(res, 404, { error: "cadastro não encontrado" });
       return sendJSON(res, 200, { status: user.planStatus, plan: user.plan });
+    }
+
+    // Consulta manual do conteúdo do Volume (usuários + contagem de
+    // sessões ativas) — ver comentário do ADMIN_SECRET lá em cima.
+    // Responde 404 (não 401/403) tanto sem ADMIN_SECRET configurado
+    // quanto com senha errada, de propósito: não dá pra distinguir de
+    // fora "rota não existe" de "senha errada".
+    if (pathname === "/api/admin/users") {
+      if (!isValidAdminSecret(req, searchParams)) return sendJSON(res, 404, { error: "endpoint não encontrado" });
+      return sendJSON(res, 200, {
+        totalUsers: users.listUsers().length,
+        activeSessions: sessions.countActive(),
+        users: users.listUsers(),
+      });
     }
 
     if (pathname.startsWith("/api/")) {

@@ -115,7 +115,21 @@ function publicUser(u) {
   return { id: u.id, name: u.name, email: u.email, plan: u.plan, planStatus: u.planStatus, pendingPlan: u.pendingPlan || null };
 }
 
+// Lista todos os usuários cadastrados (sem passwordHash) — só usado
+// pelo endpoint de admin protegido por ADMIN_SECRET (ver server.js),
+// pra dar uma forma de consultar o que está persistido no Volume sem
+// precisar de acesso via terminal/CLI ao container.
+function listUsers() {
+  return Array.from(store.values())
+    .map((u) => ({
+      id: u.id, name: u.name, email: u.email, phone: u.phone,
+      plan: u.plan, planStatus: u.planStatus, pendingPlan: u.pendingPlan || null,
+      createdAt: u.createdAt, updatedAt: u.updatedAt,
+    }))
+    .sort((a, b) => b.createdAt - a.createdAt);
+}
+
 module.exports = {
-  createUser, updateUser, findByEmail, findById, publicUser,
+  createUser, updateUser, findByEmail, findById, publicUser, listUsers,
   hashPassword, verifyPassword, normalizeEmail,
 };

@@ -53,4 +53,14 @@ function destroySession(token) {
   if (token && store.delete(token)) persist();
 }
 
-module.exports = { createSession, getSession, destroySession, SESSION_TTL_MS };
+// Quantas sessões ainda válidas (não expiradas) existem agora — só
+// usado pelo endpoint de admin protegido por ADMIN_SECRET (ver
+// server.js), como um número rápido de "quantos logins ativos".
+function countActive() {
+  const now = Date.now();
+  let n = 0;
+  for (const s of store.values()) if (s.expiresAt > now) n++;
+  return n;
+}
+
+module.exports = { createSession, getSession, destroySession, countActive, SESSION_TTL_MS };

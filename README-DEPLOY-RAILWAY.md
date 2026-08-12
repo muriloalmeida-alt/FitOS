@@ -28,6 +28,15 @@ Com HML e PRD já criados, confirme os itens abaixo — são a parte que **não*
 2. Quando estiver pronto, entre no ambiente **PRD** no painel do Railway
 3. `Cmd/Ctrl + K` → **"Deploy Latest Commit"** (ou o botão **Deploy** na tela do serviço)
 
+## Consultar o que está salvo no Volume (sem CLI)
+
+Pra ver os usuários cadastrados (e a contagem de sessões ativas) sem precisar abrir um terminal no Railway:
+
+1. Defina a env var `ADMIN_SECRET` em cada ambiente (HML e PRD podem ter valores diferentes) — um valor longo e aleatório, nunca reaproveitado de outro lugar.
+2. Acesse `https://SEU-DOMINIO/api/admin/users?secret=SUA_SENHA` no navegador.
+
+Sem `ADMIN_SECRET` configurado, esse endpoint fica sempre desativado (404). Ver `server/.env.example`.
+
 ## Verificação rápida (rodar de fora, sem precisar entrar no Railway)
 
 Depois de configurar, dá pra conferir que os dois ambientes estão respondendo certo:
