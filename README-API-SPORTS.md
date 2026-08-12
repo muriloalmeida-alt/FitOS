@@ -19,6 +19,19 @@ por qualquer motivo), o site cai automaticamente no **modo de
 exemplo** — os dados fictícios que você já viu na primeira versão.
 Nada quebra.
 
+Esse comportamento automático dá pra travar com a variável de
+ambiente **`APP_MODE`** (configurável no `.env` local ou direto no
+painel do seu host, ex.: Railway → Settings → Variables):
+
+| `APP_MODE` | Comportamento |
+|---|---|
+| `auto` (padrão, ou variável ausente) | Ao vivo se `API_SPORTS_KEY` estiver preenchida, exemplo se não estiver — igual sempre foi. |
+| `live` | Força modo ao vivo. Se a chave estiver faltando/errada, os endpoints retornam erro explícito (501) em vez de cair quieto pro modo exemplo — bom pra pegar erro de configuração na hora, sem ficar adivinhando. |
+| `demo` | Força modo exemplo mesmo com a chave configurada e válida. Não gasta nada da sua cota diária — útil pra ambiente de teste/preview. |
+
+O modo efetivo (e um aviso, se `APP_MODE=live` mas a chave estiver
+faltando) aparece em `GET /api/health`.
+
 ---
 
 ## 1. Como rodar
@@ -58,7 +71,7 @@ diferente de 71? Só trocar `LEAGUE_ID` no `.env` e reiniciar.
 
 | Rota | O que faz | Cache |
 |---|---|---|
-| `GET /api/health` | status: tem chave? qual liga? cota restante | — |
+| `GET /api/health` | status: tem chave? `APP_MODE` efetivo? qual liga? cota restante | — |
 | `GET /api/leagues/search?name=` | busca ligas por nome | 24h |
 | `GET /api/teams?season=2026` | elenco de times da temporada | 12h |
 | `GET /api/standings?season=2026` | tabela de classificação atual | 15min |
@@ -109,7 +122,10 @@ buscadas **sob demanda**, quando você abre aquela rodada na aba
 - **Site cai no modo de exemplo mesmo com chave configurada**: veja o
   console do servidor (`node server.js`) — ele loga o erro real da
   API-Sports (chave inválida, liga/temporada sem dados, cota
-  estourada, etc).
+  estourada, etc). Pra não ficar adivinhando, configure `APP_MODE=live`
+  temporariamente: com isso os endpoints passam a responder erro
+  explícito (em vez de cair quieto pro modo exemplo) e `/api/health`
+  mostra um `warning` se a chave nem estiver presente.
 - **`/api/fixtures` retorna vazio**: confira se `LEAGUE_ID` e a
   temporada (`season`) realmente têm dados nesse plano — nem todo
   plano free cobre todas as temporadas/ligas.

@@ -30,6 +30,31 @@ const PORT = process.env.PORT || 8787;
 const LEAGUE_ID = process.env.LEAGUE_ID || "71"; // 71 = Brasileirão Série A na API-Sports (confirme no /api/leagues/search)
 const PUBLIC_DIR = path.join(__dirname, "..", "public");
 
+// APP_MODE — controla o modo ao vivo/exemplo de fora, sem precisar
+// mexer em código (útil pra configurar direto no Railway/painel do
+// host). Valores aceitos:
+//   auto (padrão) — ao vivo se API_SPORTS_KEY estiver configurada,
+//                    exemplo se não estiver (comportamento de sempre).
+//   live           — força modo ao vivo. Se a chave não estiver
+//                    configurada, os endpoints falham com um erro
+//                    explícito em vez de cair silenciosamente pro
+//                    modo exemplo — bom pra pegar erro de configuração
+//                    (chave/variável faltando no host) na hora.
+//   demo           — força modo exemplo mesmo que a chave esteja
+//                    configurada. Útil pra não gastar cota da API
+//                    (plano free = 100 req/dia) em ambiente de teste,
+//                    ou pra mostrar o app sem depender da API.
+const APP_MODE = ["auto", "live", "demo"].includes((process.env.APP_MODE || "").toLowerCase())
+  ? process.env.APP_MODE.toLowerCase()
+  : "auto";
+
+// Se true, os endpoints que dependem da API-Sports devem responder.
+// Combina APP_MODE com a presença (ou não) da chave.
+function liveModeEnabled() {
+  if (APP_MODE === "demo") return false;
+  return !!process.env.API_SPORTS_KEY;
+}
+
 const TTL = {
   teams: 12 * 60 * 60 * 1000,      // 12h — elenco de times quase não muda
   standings: 15 * 60 * 1000,       // 15min
@@ -121,10 +146,34 @@ const server = http.createServer(async (req, res) => {
     if (pathname === "/api/health") {
       return sendJSON(res, 200, {
         ok: true,
-        hasKey: !!process.env.API_SPORTS_KEY,
+        hasKey: liveModeEnabled(),
+        mode: APP_MODE,
+        // Sinal explícito pra debug: pediram modo ao vivo (APP_MODE=live)
+        // mas a chave não está configurada no host — em vez de cair
+        // quieto pro modo exemplo, isso aparece aqui e nos endpoints
+        // que dependem da API-Sports (erro 501 em vez de resposta vazia).
+        warning: (APP_MODE === "live" && !process.env.API_SPORTS_KEY)
+          ? "APP_MODE=live mas API_SPORTS_KEY não está configurada neste host."
+          : null,
         leagueId: LEAGUE_ID,
         quota: getQuota(),
       });
+    }
+
+    // Bloqueia cedo qualquer rota que dependa da API-Sports quando o
+    // modo ao vivo está desligado (sem chave, ou APP_MODE=demo forçando
+    // exemplo mesmo com chave presente) — /api/health, /api/broadcast
+    // (TheSportsDB) e /api/news (RSS) não usam a API-Sports, então
+    // ficam de fora dessa checagem.
+    const LIVE_ONLY = pathname.startsWith("/api/") && pathname !== "/api/broadcast" && pathname !== "/api/news";
+    if (LIVE_ONLY && !liveModeEnabled()) {
+      const err = new Error(
+        APP_MODE === "demo"
+          ? "Modo Exemplo forçado (APP_MODE=demo) — dados reais desativados de propósito neste host."
+          : "API_SPORTS_KEY não configurada neste host (ou modo ao vivo desativado)."
+      );
+      err.code = "NO_API_KEY";
+      throw err;
     }
 
     if (pathname === "/api/leagues/search") {
