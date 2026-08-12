@@ -44,9 +44,8 @@ const PUBLIC_DIR = path.join(__dirname, "..", "public");
 //                    configurada. Útil pra não gastar cota da API
 //                    (plano free = 100 req/dia) em ambiente de teste,
 //                    ou pra mostrar o app sem depender da API.
-const APP_MODE = ["auto", "live", "demo"].includes((process.env.APP_MODE || "").toLowerCase())
-  ? process.env.APP_MODE.toLowerCase()
-  : "auto";
+const RAW_APP_MODE = (process.env.APP_MODE || "").trim().toLowerCase();
+const APP_MODE = ["auto", "live", "demo"].includes(RAW_APP_MODE) ? RAW_APP_MODE : "auto";
 
 // Se true, os endpoints que dependem da API-Sports devem responder.
 // Combina APP_MODE com a presença (ou não) da chave.
@@ -382,4 +381,9 @@ server.listen(PORT, () => {
   console.log(process.env.API_SPORTS_KEY
     ? `   Chave da API-Sports detectada — modo ao vivo disponível.`
     : `   Nenhuma API_SPORTS_KEY em .env — o site usará dados de exemplo.\n   Copie .env.example para .env e cole sua chave para ativar dados reais.`);
+  // Log explícito do que a variável de ambiente realmente chegou (ou
+  // não) no processo — se o valor configurado no host não bater com o
+  // que aparece aqui, o problema é no nome/escopo da variável no
+  // painel do host (Railway etc.), não no código.
+  console.log(`   APP_MODE recebido: ${JSON.stringify(process.env.APP_MODE ?? null)} → modo efetivo: "${APP_MODE}"`);
 });
