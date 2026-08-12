@@ -1,12 +1,12 @@
 /* ================= Camada de fornecedor de dados esportivos =================
-   Ponto único de troca de fornecedor. Hoje só existe "api-sports" (ver
-   ./apiSports.js), mas qualquer novo fornecedor (Sportmonks,
-   Football-Data.org etc.) entra AQUI, sem precisar tocar em
-   server.js, adapter.js nem no front-end: basta criar um arquivo
-   novo em providers/<nome>.js implementando a mesma interface — todo
-   método abaixo, já devolvendo dado no formato interno do app, não no
-   formato cru do fornecedor — e registrar esse arquivo no objeto
-   PROVIDERS logo abaixo.
+   Ponto único de troca de fornecedor. Hoje existem "api-sports" (ver
+   ./apiSports.js) e "sportmonks" (ver ./sportmonks.js), mas qualquer
+   fornecedor novo (Football-Data.org etc.) entra AQUI, sem precisar
+   tocar em server.js, adapter.js nem no front-end: basta criar um
+   arquivo novo em providers/<nome>.js implementando a mesma interface
+   — todo método abaixo, já devolvendo dado no formato interno do app,
+   não no formato cru do fornecedor — e registrar esse arquivo no
+   objeto PROVIDERS logo abaixo.
 
    CONTRATO que cada provider precisa implementar (todo método é
    async; erro é lançado — quem chama já sabe tratar, ver
@@ -40,6 +40,15 @@
           feita; um fornecedor sem esse conceito pode devolver
           { limit: null, remaining: null }
 
+   Cada provider também exporta (não são métodos, são valores/funções
+   síncronas lidas no boot e a cada request — ver liveModeEnabled() em
+   server.js):
+     requiresKey    -> boolean — precisa de credencial pra funcionar?
+     hasCredential  -> () => boolean — a credencial necessária (se
+                       houver) está configurada nesse host agora?
+                       Fornecedor sem chave nenhuma (ex.: scraping de
+                       página pública) sempre devolve true aqui.
+
    `leagueId`/`teamId`/`playerId`/`fixtureId` chegam já resolvidos pro
    sistema de ids DESSE fornecedor específico (ver
    server/src/competitions.js — providerLeagueIds — pra league; os
@@ -51,7 +60,7 @@
 
 const PROVIDERS = {
   "api-sports": require("./apiSports"),
-  // "sportmonks": require("./sportmonks"), // exemplo de como um 2º fornecedor entraria aqui
+  "sportmonks": require("./sportmonks"),
 };
 
 const ACTIVE_PROVIDER_NAME = (process.env.DATA_PROVIDER || "api-sports").trim().toLowerCase();

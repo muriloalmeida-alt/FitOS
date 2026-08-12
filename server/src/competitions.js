@@ -53,7 +53,10 @@ const ENABLED_COMPETITION_IDS = new Set(
 const COMPETITIONS = [
   {
     id: "brasileirao",
-    providerLeagueIds: { "api-sports": process.env.LEAGUE_ID || "71" },
+    providerLeagueIds: {
+      "api-sports": process.env.LEAGUE_ID || "71",
+      "sportmonks": "648", // conferido via busca pública — confirme no seu painel Sportmonks antes de ativar
+    },
     name: "Brasileirão Série A",
     country: "Brasil",
     flag: "🇧🇷",
@@ -62,7 +65,10 @@ const COMPETITIONS = [
   },
   {
     id: "premier_league",
-    providerLeagueIds: { "api-sports": "39" }, // Premier League (Inglaterra)
+    providerLeagueIds: {
+      "api-sports": "39",
+      "sportmonks": "8",
+    },
     name: "Premier League",
     country: "Inglaterra",
     flag: "🏴",
@@ -71,7 +77,10 @@ const COMPETITIONS = [
   },
   {
     id: "la_liga",
-    providerLeagueIds: { "api-sports": "140" }, // La Liga (Espanha)
+    providerLeagueIds: {
+      "api-sports": "140",
+      "sportmonks": "564",
+    },
     name: "La Liga",
     country: "Espanha",
     flag: "🇪🇸",
