@@ -15,7 +15,7 @@ Com HML e PRD já criados, confirme os itens abaixo — são a parte que **não*
 
 - [ ] **Domínio do HML começa com `hml`** (ex.: `hml-brdata.up.railway.app`, ou um domínio customizado tipo `hml.seusite.com`). Isso é o que ativa o [login padrão admin/admin em homologação](README-LOGIN.md#login-padrão-de-homologação-adminadmin) — sem esse prefixo, aquele login não funciona.
 - [ ] **Domínio do PRD NÃO começa com `hml`** — pelo mesmo motivo acima, ao contrário: garante que o login admin/admin nunca fica disponível em produção.
-- [ ] **Volume anexado nos DOIS ambientes** (Settings do serviço → Volumes → montar em `server/data`). Cada ambiente é uma instância separada — o Volume não é compartilhado nem copiado automaticamente ao criar o PRD a partir do HML. Sem isso, contas de login e cadastros de pagamento somem a cada deploy. Ver [README-LOGIN.md](README-LOGIN.md).
+- [x] **Volume anexado nos DOIS ambientes** (Settings do serviço → Volumes → mount path `/app/server/data`). Cada ambiente é uma instância separada — o Volume não é compartilhado nem copiado automaticamente ao criar o PRD a partir do HML. Sem isso, contas de login e cadastros de pagamento somem a cada deploy. Ver [README-LOGIN.md](README-LOGIN.md).
 - [ ] **Auto Deploy desligado no PRD** (Settings do serviço → Source → desconectar o branch / desativar Auto Deploy). No HML, deixe ligado normalmente.
 - [ ] **Variáveis de ambiente revisadas em cada um** — o fork copia as variáveis do HML pro PRD, mas vale conferir se algo deveria ser diferente entre os dois:
   - `APP_MODE`: HML pode ficar em `demo` (não gasta cota da API-Sports testando); PRD em `auto` ou `live`.
