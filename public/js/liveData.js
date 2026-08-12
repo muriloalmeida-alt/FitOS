@@ -6,7 +6,7 @@
    app.js segue no modo de exemplo (DEMO_TEAMS + calendário gerado).
 =================================================================== */
 
-const LIVE_SEASON = new Date().getFullYear(); // ajuste manual se quiser travar uma temporada específica
+const LIVE_SEASON = 2023; // temporada travada em 2023 (dados reais da API-Sports)
 
 async function safeFetchJSON(url) {
   const res = await fetch(url);
