@@ -94,6 +94,7 @@ h1,h2,h3{ margin:0; }
 .side-link.active{ background:var(--brd-blue); color:#fff; }
 .side-link.disabled{ opacity:.4; cursor:not-allowed; }
 .side-link .badge-new{ margin-left:auto; font-size:8.5px; font-weight:700; background:var(--brd-green); color:#fff; padding:2px 6px; border-radius:100px; letter-spacing:.3px; }
+.side-link .badge-pro{ margin-left:auto; font-size:8.5px; font-weight:700; background:var(--brd-yellow); color:#3b2c00; padding:2px 6px; border-radius:100px; letter-spacing:.3px; }
 .side-link .heart{ margin-left:auto; cursor:pointer; opacity:.8; }
 .side-link .heart:hover{ opacity:1; }
 

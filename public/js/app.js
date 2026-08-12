@@ -56,6 +56,29 @@ function planAllowsAdvanced() {
   const p = currentUser && currentUser.plan;
   return p === "pro" || p === "enterprise";
 }
+// Atualiza os itens de Premier League/La Liga na barra lateral com o
+// que o plano do usuário logado realmente libera (ver GET
+// /api/competitions, server/src/competitions.js). Os dois já nascem
+// "disabled" no HTML (nada real pra mostrar ainda em nenhum plano) —
+// isso aqui só ajusta o texto/badge pra deixar claro se é "em breve
+// mesmo pro seu plano" ou "em breve + precisa de upgrade".
+function applyCompetitionsSidebar(data) {
+  if (!data || !data.competitions) return;
+  const elIdByCompetition = { premier_league: "navPremierLeague", la_liga: "navLaLiga" };
+  data.competitions.forEach((c) => {
+    const el = document.getElementById(elIdByCompetition[c.id]);
+    if (!el) return;
+    const badge = el.querySelector(".badge-pro");
+    if (c.locked) {
+      el.title = `${c.flag} ${c.name} — disponível a partir do plano Pro`;
+      if (badge) badge.style.display = "inline-block";
+    } else {
+      el.title = `${c.flag} ${c.name} — em breve`;
+      if (badge) badge.style.display = "none";
+    }
+  });
+}
+
 function lockedFeatureHTML(title, desc) {
   return `<div class="card locked-feature">
     <div class="locked-feature-icon">🔒</div>
@@ -272,6 +295,7 @@ async function startApp(user) {
   setActivePage("dashboard");
 
   if (user.plan === "freemium") startAdTimer(); else stopAdTimer();
+  loadCompetitionsInfo().then(applyCompetitionsSidebar);
 }
 
 function initDemoSeason() {

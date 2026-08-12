@@ -205,6 +205,21 @@ async function loadNews(teamName = "") {
   return promise;
 }
 
+// Lista de campeonatos disponíveis (Brasileirão + Inglaterra/Espanha —
+// as duas últimas ainda "em breve", ver server/src/competitions.js) e
+// as temporadas de histórico do plano Enterprise, já anotadas com o
+// que o plano do usuário logado libera. Usada só pra atualizar os
+// itens da barra lateral (ver applyCompetitionsSidebar em app.js) —
+// não bloqueia o boot do app se essa chamada falhar.
+async function loadCompetitionsInfo() {
+  try {
+    return await safeFetchJSON("/api/competitions");
+  } catch (err) {
+    console.warn("[competitions] não foi possível carregar a lista de campeonatos:", err.message);
+    return null;
+  }
+}
+
 // Elenco completo de UM time — lazy, só quando a página de detalhe
 // do time é aberta em modo ao vivo. Cacheado por time.
 const teamRosterCache = new Map();
