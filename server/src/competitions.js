@@ -2,13 +2,22 @@
    multi-campeonato (Pro: Brasil/Inglaterra/Espanha temporada atual;
    Enterprise: as mesmas 3 ligas + histórico de temporadas anteriores).
 
-   IMPORTANTE: cada entrada aqui já é capaz de puxar dado real da
-   API-Sports (o apiLeagueId de cada uma é o id oficial da liga lá,
-   conferido em https://dashboard.api-football.com) assim que:
-     (a) API_SPORTS_KEY estiver configurada no host, e
-     (b) o plano contratado na API-Sports cobrir aquela liga/temporada
-         (nem todo tier cobre todas as ligas, e planos free geralmente
-         só cobrem temporada corrente — confirme antes de ativar).
+   IMPORTANTE: cada entrada aqui já é capaz de puxar dado real assim
+   que:
+     (a) o fornecedor ativo (ver server/src/providers/, escolhido pela
+         env var DATA_PROVIDER) tiver credencial configurada, e
+     (b) o plano contratado nesse fornecedor cobrir aquela liga/
+         temporada (nem todo tier cobre todas as ligas, e planos free
+         geralmente só cobrem temporada corrente — confirme antes de
+         ativar).
+
+   `providerLeagueIds` guarda o id de cada campeonato NO FORNECEDOR
+   (o mesmo campeonato pode ter ids diferentes em cada um — por isso é
+   um objeto por fornecedor, não um valor único). Hoje só existe
+   "api-sports" (ids conferidos em https://dashboard.api-football.com);
+   ao adicionar um 2º fornecedor em providers/, é só somar a entrada
+   dele aqui (ex.: `sportmonks: "123"`) — resolveCompetition() (ver
+   server.js) já resolve automaticamente pro fornecedor ativo.
 
    Até você confirmar a cobertura, cada campeonato fica com
    `enabled:false` — aparece no app como "em breve" (Pro/Enterprise) ou
@@ -44,7 +53,7 @@ const ENABLED_COMPETITION_IDS = new Set(
 const COMPETITIONS = [
   {
     id: "brasileirao",
-    apiLeagueId: process.env.LEAGUE_ID || "71",
+    providerLeagueIds: { "api-sports": process.env.LEAGUE_ID || "71" },
     name: "Brasileirão Série A",
     country: "Brasil",
     flag: "🇧🇷",
@@ -53,7 +62,7 @@ const COMPETITIONS = [
   },
   {
     id: "premier_league",
-    apiLeagueId: "39", // Premier League (Inglaterra) na API-Sports
+    providerLeagueIds: { "api-sports": "39" }, // Premier League (Inglaterra)
     name: "Premier League",
     country: "Inglaterra",
     flag: "🏴",
@@ -62,7 +71,7 @@ const COMPETITIONS = [
   },
   {
     id: "la_liga",
-    apiLeagueId: "140", // La Liga (Espanha) na API-Sports
+    providerLeagueIds: { "api-sports": "140" }, // La Liga (Espanha)
     name: "La Liga",
     country: "Espanha",
     flag: "🇪🇸",
@@ -70,6 +79,14 @@ const COMPETITIONS = [
     enabled: ENABLED_COMPETITION_IDS.has("la_liga"),
   },
 ];
+
+// Id desse campeonato NO FORNECEDOR informado, ou null se esse
+// fornecedor não tiver esse campeonato cadastrado ainda (ver
+// resolveCompetition em server.js — nesse caso trata como "em breve",
+// igual a enabled:false).
+function providerLeagueId(comp, providerName) {
+  return comp.providerLeagueIds?.[providerName] ?? null;
+}
 
 // Hierarquia de plano só pra decidir "esse plano alcança aquele
 // mínimo?" — Freemium e Lite são equivalentes aqui (nenhum dos dois
@@ -131,5 +148,5 @@ function listForPlan(plan) {
 
 module.exports = {
   COMPETITIONS, DEFAULT_SEASON, HISTORY_SEASONS_BACK, HISTORY_ENABLED,
-  getCompetition, planAllowsCompetition, planAllowsHistory, listForPlan,
+  getCompetition, planAllowsCompetition, planAllowsHistory, listForPlan, providerLeagueId,
 };

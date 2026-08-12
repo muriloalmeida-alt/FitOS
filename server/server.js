@@ -30,8 +30,10 @@ const crypto = require("crypto");
 // no arquivo (hoisting).
 loadDotEnv();
 
-const { apiSportsGet, getQuota } = require("./src/apiSports");
-const { mapTeam, mapStandingRow, mapFixture, mapStatistics, mapEvents, mapSubstitutions, mapLineups, mapOdds, mapPlayerEntry } = require("./src/adapter");
+// Camada de fornecedor de dados esportivos (ver server/src/providers/
+// index.js) — server.js só fala com essa interface, nunca direto com
+// apiSportsGet/adapter.js. Trocar de fornecedor é 100% isolado ali.
+const dataProvider = require("./src/providers");
 const cache = require("./src/cache");
 const oddsHistory = require("./src/oddsHistory");
 const { fetchBroadcastStation } = require("./src/broadcastSource");
@@ -204,7 +206,18 @@ function resolveCompetition(req, searchParams) {
     err.status = 501; err.code = "COMPETITION_COMING_SOON";
     throw err;
   }
-  return comp;
+  // Resolve o id desse campeonato NO FORNECEDOR ATIVO (ver
+  // server/src/providers/) — se o fornecedor atual não tiver esse
+  // campeonato cadastrado (ex.: trocou de fornecedor e o novo ainda
+  // não tem os 3 mapeados), trata igual a "em breve" em vez de
+  // deixar a chamada quebrar lá na frente.
+  const leagueId = competitions.providerLeagueId(comp, dataProvider.ACTIVE_PROVIDER_NAME);
+  if (!leagueId) {
+    const err = new Error(`${comp.name} ainda não está mapeado pro fornecedor de dados ativo (${dataProvider.ACTIVE_PROVIDER_NAME}).`);
+    err.status = 501; err.code = "COMPETITION_COMING_SOON";
+    throw err;
+  }
+  return { ...comp, leagueId };
 }
 
 // Lê o corpo de um POST (JSON ou form-urlencoded, o Mercado Pago pode
@@ -309,7 +322,7 @@ const server = http.createServer(async (req, res) => {
           : null,
         leagueId: LEAGUE_ID,
         season: LIVE_SEASON,
-        quota: getQuota(),
+        quota: dataProvider.getQuota(),
       });
     }
 
@@ -376,70 +389,50 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === "/api/leagues/search") {
       const name = searchParams.get("name") || "Brazil";
-      const data = await withCache(`leagues:${name}`, TTL.leagueSearch, () =>
-        apiSportsGet("/leagues", { search: name })
+      const leagues = await withCache(`leagues:${name}`, TTL.leagueSearch, () =>
+        dataProvider.searchLeagues({ name })
       );
-      return sendJSON(res, 200, {
-        leagues: data.map(l => ({ id: l.league.id, name: l.league.name, type: l.league.type, country: l.country.name, seasons: l.seasons.map(s => s.year) })),
-      });
+      return sendJSON(res, 200, { leagues });
     }
 
     if (pathname === "/api/teams") {
       const season = searchParams.get("season");
       if (!season) return sendJSON(res, 400, { error: "parâmetro season é obrigatório" });
       const comp = resolveCompetition(req, searchParams);
-      const data = await withCache(`teams:${comp.id}:${season}`, TTL.teams, () =>
-        apiSportsGet("/teams", { league: comp.apiLeagueId, season })
+      const teams = await withCache(`teams:${comp.id}:${season}`, TTL.teams, () =>
+        dataProvider.getTeams({ leagueId: comp.leagueId, season })
       );
-      return sendJSON(res, 200, { teams: data.map(mapTeam) });
+      return sendJSON(res, 200, { teams });
     }
 
     if (pathname === "/api/standings") {
       const season = searchParams.get("season");
       if (!season) return sendJSON(res, 400, { error: "parâmetro season é obrigatório" });
       const comp = resolveCompetition(req, searchParams);
-      const data = await withCache(`standings:${comp.id}:${season}`, TTL.standings, () =>
-        apiSportsGet("/standings", { league: comp.apiLeagueId, season })
+      const standings = await withCache(`standings:${comp.id}:${season}`, TTL.standings, () =>
+        dataProvider.getStandings({ leagueId: comp.leagueId, season })
       );
-      const table = data?.[0]?.league?.standings?.[0] || [];
-      return sendJSON(res, 200, { standings: table.map(mapStandingRow) });
+      return sendJSON(res, 200, { standings });
     }
 
     if (pathname === "/api/fixtures") {
       const season = searchParams.get("season");
       if (!season) return sendJSON(res, 400, { error: "parâmetro season é obrigatório" });
       const comp = resolveCompetition(req, searchParams);
-      const data = await withCache(`fixtures:${comp.id}:${season}`, TTL.fixtures, () =>
-        apiSportsGet("/fixtures", { league: comp.apiLeagueId, season })
+      const fixtures = await withCache(`fixtures:${comp.id}:${season}`, TTL.fixtures, () =>
+        dataProvider.getFixtures({ leagueId: comp.leagueId, season })
       );
-      return sendJSON(res, 200, { fixtures: data.map(mapFixture) });
+      return sendJSON(res, 200, { fixtures });
     }
 
     if (pathname === "/api/players/leaders") {
       const season = searchParams.get("season");
       if (!season) return sendJSON(res, 400, { error: "parâmetro season é obrigatório" });
       const comp = resolveCompetition(req, searchParams);
-      const data = await withCache(`players:${comp.id}:${season}`, TTL.playersLeaders, async () => {
-        // 4 chamadas baratas (1 página cada, ~20 jogadores) em vez de
-        // paginar /players inteiro (custaria dezenas de requisições
-        // pra cobrir o elenco completo da liga). Cada item já vem com
-        // o bloco de estatísticas completo da temporada, então dá pra
-        // montar uma lista única com gols+assistências+cartões+nota
-        // mesmo sem uma chamada dedicada de "nota por jogo".
-        const [scorers, assists, yellows, reds] = await Promise.all([
-          apiSportsGet("/players/topscorers", { league: comp.apiLeagueId, season }),
-          apiSportsGet("/players/topassists", { league: comp.apiLeagueId, season }),
-          apiSportsGet("/players/topyellowcards", { league: comp.apiLeagueId, season }),
-          apiSportsGet("/players/topredcards", { league: comp.apiLeagueId, season }),
-        ]);
-        const byId = new Map();
-        [...scorers, ...assists, ...yellows, ...reds].forEach(item => {
-          const p = mapPlayerEntry(item);
-          if (p) byId.set(p.id, p);
-        });
-        return Array.from(byId.values());
-      });
-      return sendJSON(res, 200, { players: data });
+      const players = await withCache(`players:${comp.id}:${season}`, TTL.playersLeaders, () =>
+        dataProvider.getPlayersLeaders({ leagueId: comp.leagueId, season })
+      );
+      return sendJSON(res, 200, { players });
     }
 
     const teamPlayersMatch = pathname.match(/^\/api\/teams\/(\d+)\/players$/);
@@ -447,21 +440,10 @@ const server = http.createServer(async (req, res) => {
       const teamId = teamPlayersMatch[1];
       const season = searchParams.get("season");
       if (!season) return sendJSON(res, 400, { error: "parâmetro season é obrigatório" });
-      const data = await withCache(`teamplayers:${teamId}:${season}`, TTL.teams, async () => {
-        // Elenco de 1 time só cabe em 1-2 páginas (~20-40 jogadores);
-        // busca as duas sempre, sem depender do "paging" da resposta
-        // (o cliente genérico já descarta esse campo). Página vazia
-        // não quebra a outra.
-        const fetchPage = (p) => apiSportsGet("/players", { team: teamId, season, page: p }).catch(() => []);
-        const [page1, page2] = await Promise.all([fetchPage(1), fetchPage(2)]);
-        const byId = new Map();
-        [...page1, ...page2].forEach(item => {
-          const p = mapPlayerEntry(item);
-          if (p) byId.set(p.id, p);
-        });
-        return Array.from(byId.values());
-      });
-      return sendJSON(res, 200, { players: data });
+      const players = await withCache(`teamplayers:${teamId}:${season}`, TTL.teams, () =>
+        dataProvider.getTeamPlayers({ teamId, season })
+      );
+      return sendJSON(res, 200, { players });
     }
 
     const playerMatch = pathname.match(/^\/api\/players\/(\d+)$/);
@@ -469,12 +451,10 @@ const server = http.createServer(async (req, res) => {
       const playerId = playerMatch[1];
       const season = searchParams.get("season");
       if (!season) return sendJSON(res, 400, { error: "parâmetro season é obrigatório" });
-      const data = await withCache(`player:${playerId}:${season}`, TTL.teams, async () => {
-        const resp = await apiSportsGet("/players", { id: playerId, season });
-        const item = (resp || [])[0];
-        return item ? mapPlayerEntry(item) : null;
-      });
-      return sendJSON(res, 200, { player: data });
+      const player = await withCache(`player:${playerId}:${season}`, TTL.teams, () =>
+        dataProvider.getPlayer({ playerId, season })
+      );
+      return sendJSON(res, 200, { player });
     }
 
     const statsMatch = pathname.match(/^\/api\/fixtures\/(\d+)\/statistics$/);
@@ -482,40 +462,36 @@ const server = http.createServer(async (req, res) => {
       const fixtureId = statsMatch[1];
       const homeId = parseInt(searchParams.get("home"), 10);
       const awayId = parseInt(searchParams.get("away"), 10);
-      const data = await withCache(`fxstats:${fixtureId}`, TTL.fixtureDetail, () =>
-        apiSportsGet("/fixtures/statistics", { fixture: fixtureId })
+      const stats = await withCache(`fxstats:${fixtureId}`, TTL.fixtureDetail, () =>
+        dataProvider.getFixtureStatistics({ fixtureId, homeId, awayId })
       );
-      return sendJSON(res, 200, { stats: mapStatistics(data, homeId, awayId) });
+      return sendJSON(res, 200, { stats });
     }
 
     const eventsMatch = pathname.match(/^\/api\/fixtures\/(\d+)\/events$/);
     if (eventsMatch) {
       const fixtureId = eventsMatch[1];
-      // Gols e substituições vêm do mesmo endpoint (/fixtures/events)
-      // — só filtram tipos diferentes do mesmo payload, então uma
-      // chamada só já serve os dois.
-      const data = await withCache(`fxevents:${fixtureId}`, TTL.fixtureDetail, () =>
-        apiSportsGet("/fixtures/events", { fixture: fixtureId })
+      const { goals, substitutions } = await withCache(`fxevents:${fixtureId}`, TTL.fixtureDetail, () =>
+        dataProvider.getFixtureEvents({ fixtureId })
       );
-      return sendJSON(res, 200, { goals: mapEvents(data), substitutions: mapSubstitutions(data) });
+      return sendJSON(res, 200, { goals, substitutions });
     }
 
     const lineupsMatch = pathname.match(/^\/api\/fixtures\/(\d+)\/lineups$/);
     if (lineupsMatch) {
       const fixtureId = lineupsMatch[1];
-      const data = await withCache(`fxlineups:${fixtureId}`, TTL.lineups, () =>
-        apiSportsGet("/fixtures/lineups", { fixture: fixtureId })
+      const lineups = await withCache(`fxlineups:${fixtureId}`, TTL.lineups, () =>
+        dataProvider.getFixtureLineups({ fixtureId })
       );
-      return sendJSON(res, 200, { lineups: mapLineups(data) });
+      return sendJSON(res, 200, { lineups });
     }
 
     const oddsMatch = pathname.match(/^\/api\/fixtures\/(\d+)\/odds$/);
     if (oddsMatch) {
       const fixtureId = oddsMatch[1];
-      const data = await withCache(`fxodds:${fixtureId}`, TTL.odds, () =>
-        apiSportsGet("/odds", { fixture: fixtureId })
+      const odds = await withCache(`fxodds:${fixtureId}`, TTL.odds, () =>
+        dataProvider.getFixtureOdds({ fixtureId })
       );
-      const odds = mapOdds(data);
       if (odds && typeof odds.home === "number") oddsHistory.record(fixtureId, odds.home);
       return sendJSON(res, 200, { odds });
     }
