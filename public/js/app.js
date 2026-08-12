@@ -96,6 +96,7 @@ async function startApp(user) {
   const modePill = document.getElementById("modePill");
   modePill.textContent = LIVE_MODE ? "● Ao vivo" : "● Exemplo";
   modePill.className = "mode-pill " + (LIVE_MODE ? "live" : "demo");
+  updateRefreshButtonVisibility();
 
   state.jogosRound = Math.max(1, firstUndecidedRound() - 1) || 1;
   state.simRound = firstUndecidedRound();
@@ -1301,6 +1302,44 @@ function toggleTheme() {
   try { localStorage.setItem("brdata_theme", next); } catch {}
 }
 
+/* ================= Botão "Atualizar app" (PWA + modo Exemplo) =================
+   Só some do jeito certo se: (a) o site está instalado/rodando como
+   PWA (display-mode: standalone — iOS mais antigo usa
+   navigator.standalone, que o media query não cobre) e (b) o app caiu
+   no modo Exemplo (sem dado real). Nessas condições, dá pra estar
+   vendo uma versão desatualizada do app shell (JS/CSS) cacheada pelo
+   service worker — o botão limpa esse cache e recarrega, forçando
+   buscar tudo de novo do servidor. */
+function isStandalonePWA() {
+  return window.matchMedia?.("(display-mode: standalone)")?.matches || window.navigator.standalone === true;
+}
+
+function updateRefreshButtonVisibility() {
+  const btn = document.getElementById("btnForceRefresh");
+  if (!btn) return;
+  btn.style.display = (isStandalonePWA() && !LIVE_MODE) ? "flex" : "none";
+}
+
+async function forceRefreshApp() {
+  const btn = document.getElementById("btnForceRefresh");
+  if (btn) { btn.disabled = true; btn.classList.add("spinning"); }
+  try {
+    if ("caches" in window) {
+      const keys = await caches.keys();
+      await Promise.all(keys.map(k => caches.delete(k)));
+    }
+    // Também pede pro service worker checar se sw.js mudou — não é
+    // estritamente necessário (o server já manda sw.js com
+    // Cache-Control: no-cache, e o install/activate dele já ativa a
+    // versão nova na hora), mas não custa garantir.
+    const reg = await navigator.serviceWorker?.getRegistration();
+    await reg?.update();
+  } catch (err) {
+    console.warn("[refresh] falha ao limpar cache:", err);
+  }
+  location.reload();
+}
+
 /* ================= NOTÍCIAS ================= */
 // Feed RSS real (busca do Google Notícias por "Brasileirão"/"futebol
 // brasileiro", agregando vários veículos — ver server/src/newsSource.js).
@@ -2028,6 +2067,7 @@ function setupEventListeners() {
   document.addEventListener("click", () => document.getElementById("avatarMenu")?.classList.remove("open"));
   document.getElementById("btnLogout").addEventListener("click", logout);
   document.getElementById("btnLogoutMobile").addEventListener("click", logout);
+  document.getElementById("btnForceRefresh").addEventListener("click", forceRefreshApp);
 
   document.getElementById("btnAddTeam").addEventListener("click", () => {
     const existing = document.getElementById("quickAddSelect");

@@ -811,6 +811,9 @@ h1,h2,h3{ margin:0; }
 .plan-card.current{ opacity:.75; cursor:default; }
 .plan-card.current:hover{ border-color:var(--border); }
 
+#btnForceRefresh.spinning svg{ animation:btn-refresh-spin .8s linear infinite; }
+@keyframes btn-refresh-spin{ to{ transform:rotate(360deg); } }
+
 @media (prefers-reduced-motion: reduce){
   *{ animation-duration:.001ms !important; transition-duration:.001ms !important; }
 }
