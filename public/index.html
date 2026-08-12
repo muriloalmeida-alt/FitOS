@@ -22,6 +22,64 @@
 </head>
 <body>
 
+<!-- ================= GATE DE LOGIN/CADASTRO =================
+     Cobre a tela inteira pra visitante sem sessão válida — controlado
+     por JS (gate.js/app.js: renderAuthGate). Cadastro é obrigatório:
+     enquanto #authGate estiver visível, .shell fica escondido (ver
+     setGateVisible em app.js) e nenhum dado da API é carregado. -->
+<div id="authGate" class="auth-gate">
+  <div class="auth-gate-inner">
+    <div class="auth-gate-brand">
+      <img src="img/logo.png" alt="BR Data" class="auth-gate-logo">
+      <span class="auth-gate-brand-name">BR DATA</span>
+    </div>
+
+    <!-- conta já existe, mas o plano pago ainda não foi confirmado -->
+    <div id="gatePendingView" class="auth-gate-card" style="display:none;">
+      <h2>Falta pouco! 👋</h2>
+      <p class="auth-gate-sub" id="gatePendingMsg">Finalize o pagamento pra liberar seu acesso.</p>
+      <div id="gatePendingBanner"></div>
+      <button type="button" class="btn btn-accent full" id="gatePendingPayBtn">Finalizar pagamento (cartão ou PIX)</button>
+      <button type="button" class="btn btn-secondary full" id="gatePendingLogoutBtn" style="margin-top:8px;">Sair</button>
+    </div>
+
+    <!-- cadastro (padrão) -->
+    <div id="gateSignupView" class="auth-gate-card">
+      <h2>Crie sua conta</h2>
+      <p class="auth-gate-sub">Escolha um plano pra começar a usar o BR Data</p>
+      <div id="gatePlansGrid" class="plans-grid gate-plans-grid"></div>
+
+      <div id="gateSignupStatusBanner"></div>
+
+      <form id="gateSignupForm" class="auth-gate-form">
+        <div class="field"><label for="gateName">Nome completo</label><input type="text" id="gateName" autocomplete="name" placeholder="Seu nome"></div>
+        <div class="field"><label for="gatePhone">Telefone</label><input type="tel" id="gatePhone" autocomplete="tel" placeholder="(11) 99999-9999"></div>
+        <div class="field"><label for="gateEmail">E-mail</label><input type="email" id="gateEmail" autocomplete="email" placeholder="voce@email.com"></div>
+        <div class="field"><label for="gatePassword">Senha</label><input type="password" id="gatePassword" autocomplete="new-password" placeholder="Mínimo 8 caracteres"></div>
+        <div class="apoie-form-error" id="gateSignupError" style="display:none;"></div>
+        <button type="submit" class="btn btn-accent full" id="gateSignupSubmit" disabled>Escolha um plano acima</button>
+      </form>
+      <p class="auth-gate-switch">Já tem conta? <a href="#" id="gateGoLogin">Fazer login</a></p>
+    </div>
+
+    <!-- login -->
+    <div id="gateLoginView" class="auth-gate-card" style="display:none;">
+      <h2>Entrar</h2>
+      <p class="auth-gate-sub">Acesse sua conta do BR Data</p>
+      <div id="gateLoginNotice"></div>
+      <form id="gateLoginForm" class="auth-gate-form">
+        <div class="field"><label for="gateLoginEmail">E-mail</label><input type="email" id="gateLoginEmail" autocomplete="email" placeholder="voce@email.com"></div>
+        <div class="field"><label for="gateLoginPassword">Senha</label><input type="password" id="gateLoginPassword" autocomplete="current-password" placeholder="Sua senha"></div>
+        <div class="apoie-form-error" id="gateLoginError" style="display:none;"></div>
+        <button type="submit" class="btn btn-accent full">Entrar</button>
+      </form>
+      <p class="auth-gate-switch">Ainda não tem conta? <a href="#" id="gateGoSignup">Criar conta</a></p>
+    </div>
+
+    <p class="auth-gate-disclaimer">🔒 Pagamento processado com segurança pelo Mercado Pago (cartão ou PIX). Os dados do seu cartão nunca passam pelos servidores do BR Data.</p>
+  </div>
+</div>
+
 <div class="shell">
 
   <!-- ================= SIDEBAR ================= -->
@@ -89,7 +147,14 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
           <span class="dot"></span>
         </button>
-        <div class="avatar"><div class="circ">M</div><span>Murilo</span></div>
+        <div class="avatar" id="avatarBtn">
+          <div class="circ" id="avatarInitial">?</div><span id="avatarName">…</span>
+          <div class="avatar-menu" id="avatarMenu">
+            <div class="avatar-menu-email" id="avatarEmail"></div>
+            <div class="avatar-menu-plan" id="avatarPlan"></div>
+            <button type="button" class="avatar-menu-item" id="btnLogout">Sair</button>
+          </div>
+        </div>
       </div>
     </header>
 
@@ -343,33 +408,13 @@
 
       <!-- ================= APOIE O BR DATA ================= -->
       <section class="page" id="page-apoie">
-        <div class="page-head"><div><h1>Apoie o BR Data</h1><div class="sub">Escolha um plano e ajude o projeto a crescer</div></div></div>
+        <div class="page-head"><div><h1>Apoie o BR Data</h1><div class="sub">Seu plano atual e opções pra fazer upgrade</div></div></div>
 
         <div id="apoieStatusBanner"></div>
+        <div class="apoie-current-plan card" id="apoieCurrentPlanCard"></div>
 
         <div class="plans-grid" id="plansGrid"></div>
-
-        <div class="card apoie-form-card" id="apoieFormCard">
-          <div class="card-head"><h3>Seus dados</h3></div>
-          <div class="apoie-selected-plan" id="apoieSelectedPlanLabel">Escolha um plano acima pra continuar</div>
-          <form id="apoieForm">
-            <div class="field">
-              <label for="apoieName">Nome completo</label>
-              <input type="text" id="apoieName" name="name" autocomplete="name" placeholder="Seu nome">
-            </div>
-            <div class="field">
-              <label for="apoiePhone">Telefone</label>
-              <input type="tel" id="apoiePhone" name="phone" autocomplete="tel" placeholder="(11) 99999-9999">
-            </div>
-            <div class="field">
-              <label for="apoieEmail">E-mail</label>
-              <input type="email" id="apoieEmail" name="email" autocomplete="email" placeholder="voce@email.com">
-            </div>
-            <div class="apoie-form-error" id="apoieFormError" style="display:none;"></div>
-            <button type="submit" class="btn btn-accent full" id="apoieSubmit" disabled>Ir para pagamento (cartão ou PIX)</button>
-          </form>
-          <p class="apoie-disclaimer">🔒 Pagamento processado com segurança pelo Mercado Pago — os dados do seu cartão nunca passam pelos servidores do BR Data.</p>
-        </div>
+        <p class="apoie-disclaimer">🔒 Pagamento processado com segurança pelo Mercado Pago — os dados do seu cartão nunca passam pelos servidores do BR Data.</p>
       </section>
 
       <!-- ================= DETALHE DO TIME ================= -->
@@ -428,8 +473,8 @@
       <section class="page" id="page-mais">
         <div class="page-head"><div><h1>Mais</h1><div class="sub">Ferramentas e configurações</div></div></div>
         <div class="card kpi" style="margin-bottom:16px;">
-          <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--brd-blue),var(--brd-navy));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;">M</div>
-          <div><div style="font-weight:700; font-size:14px;">Murilo</div><div style="font-size:11.5px; color:var(--text-1);">Conta gratuita</div></div>
+          <div style="width:44px;height:44px;border-radius:50%;background:linear-gradient(135deg,var(--brd-blue),var(--brd-navy));color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;flex-shrink:0;" id="maisAvatarInitial">?</div>
+          <div><div style="font-weight:700; font-size:14px;" id="maisAvatarName">…</div><div style="font-size:11.5px; color:var(--text-1);" id="maisAvatarPlan"></div></div>
         </div>
         <div class="card" style="padding:6px; margin-bottom:16px;">
           <button class="menu-link" data-page="estatisticas">📊 Comparador de Times</button>
@@ -444,10 +489,11 @@
           <p style="color:var(--text-1);">Tenha acesso a recursos exclusivos e ajude o projeto a crescer.</p>
           <button class="btn btn-accent full" id="btnPremiumMobile" data-page="apoie">★ Seja Premium</button>
         </div>
-        <div class="card" style="display:flex; align-items:center; justify-content:space-between;">
+        <div class="card" style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
           <span style="font-size:13px; font-weight:600;">Modo escuro</span>
           <button class="switch" id="themeSwitchMobile"></button>
         </div>
+        <button class="btn btn-secondary full" id="btnLogoutMobile" style="color:#B3202F;">Sair</button>
       </section>
 
     </main>

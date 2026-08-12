@@ -16,6 +16,19 @@ function priceFromEnv(envVar, fallback) {
 }
 
 const PLANS = {
+  freemium: {
+    id: "freemium",
+    title: "Freemium",
+    price: 0,
+    tagline: "Grátis — em breve, com anúncios",
+    description: "Mesmo acesso do plano Lite",
+    features: [
+      "Tabela, jogos e estatísticas da temporada atual",
+      "Simulador e calculadora de probabilidades",
+      "Alertas e times favoritos",
+      "Grátis — com anúncios em breve",
+    ],
+  },
   lite: {
     id: "lite",
     title: "Lite",

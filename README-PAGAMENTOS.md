@@ -1,32 +1,35 @@
-# "Apoie o BR Data" — planos e pagamento (Mercado Pago)
+# Planos e pagamento (Mercado Pago)
 
-Área de apoio/monetização do site: 3 planos (Lite, Pro, Enterprise),
-cadastro simples (nome/telefone/e-mail) e pagamento por **cartão ou
-PIX** via [Mercado Pago](https://www.mercadopago.com.br/) — pagamento
-único (sem cobrança recorrente).
+Pagamento por **cartão ou PIX** via [Mercado Pago](https://www.mercadopago.com.br/)
+dos planos pagos (Lite, Pro, Enterprise) — pagamento único, sem
+cobrança recorrente.
 
-Botão de entrada: "★ Seja Premium" (sidebar, card do Dashboard e menu
-"Mais" no mobile) → página **Apoie o BR Data**.
+> Desde a versão com login obrigatório, o pagamento faz parte do fluxo
+> de **cadastro** (`POST /api/auth/signup`) e de **upgrade de plano**
+> pra quem já tem conta (`POST /api/support/checkout`, autenticado). O
+> passo a passo completo do fluxo de conta/login está em
+> **`README-LOGIN.md`** — este arquivo foca só na parte de pagamento em
+> si (como ativar o Mercado Pago, como os preços são decididos, os
+> endpoints envolvidos).
 
 ---
 
 ## Como funciona (visão geral)
 
-1. Usuário escolhe um plano e preenche o formulário na página **Apoie
-   o BR Data**.
-2. O front-end chama `POST /api/support/checkout` no nosso backend.
-3. O backend valida os dados, **decide o preço a partir do arquivo
-   `server/src/supportPlans.js`** (nunca confia em preço vindo do
-   navegador) e cria uma *preference* no Mercado Pago.
-4. O usuário é redirecionado pra uma página **hospedada pelo Mercado
+1. No cadastro (`POST /api/auth/signup`) ou no upgrade de plano já
+   logado (`POST /api/support/checkout`), o backend **decide o preço a
+   partir do arquivo `server/src/supportPlans.js`** (nunca confia em
+   preço vindo do navegador) e cria uma *preference* no Mercado Pago.
+2. O usuário é redirecionado pra uma página **hospedada pelo Mercado
    Pago** (Checkout Pro), onde escolhe cartão ou PIX. Os dados do
    cartão nunca passam pelo nosso servidor — fora do escopo de
    PCI-DSS.
-5. O Mercado Pago chama nosso `POST /api/support/webhook` quando o
+3. O Mercado Pago chama nosso `POST /api/support/webhook` quando o
    pagamento muda de status, e traz o usuário de volta pro site.
-6. O status mostrado ao usuário sempre vem de uma consulta nossa à API
+4. O status mostrado ao usuário sempre vem de uma consulta nossa à API
    do Mercado Pago (nunca do conteúdo bruto do webhook, que poderia
    ser forjado) — ver `GET /api/support/status?ref=...`.
+5. Só depois disso o usuário faz login — ver `README-LOGIN.md`.
 
 ## 1. Como ativar
 
@@ -44,9 +47,10 @@ Botão de entrada: "★ Seja Premium" (sidebar, card do Dashboard e menu
    deixa a confirmação mais rápida, especialmente pro PIX.
 5. Reinicie/faça o deploy do servidor.
 
-Sem `MERCADOPAGO_ACCESS_TOKEN`, a página continua abrindo normal (planos
-aparecem), mas o botão de pagamento retorna erro — o resto do site
-não é afetado.
+Sem `MERCADOPAGO_ACCESS_TOKEN`, o cadastro com plano **Freemium**
+continua funcionando normalmente (é grátis, não passa pelo Mercado
+Pago). Cadastro com plano pago cria a conta, mas fica com o pagamento
+pendente — o usuário consegue tentar de novo depois de fazer login.
 
 ## 2. Os planos
 
@@ -54,66 +58,42 @@ Título, descrição e lista de recursos ficam em
 `server/src/supportPlans.js` — é a **única fonte de verdade do
 preço** (o front-end só exibe o que vem de `GET /api/support/plans`).
 
-O **preço** de cada plano dá pra ajustar sem editar código: defina
+O **preço** de cada plano pago dá pra ajustar sem editar código: defina
 `PLAN_LITE_PRICE`, `PLAN_PRO_PRICE` e/ou `PLAN_ENTERPRISE_PRICE` no
 Railway/host (ver `server/.env.example`) e reinicie o serviço. Sem
 essas variáveis, usa os valores padrão abaixo.
 
 | Plano | Preço (padrão) | Descrição |
 |---|---|---|
+| Freemium | Grátis | Mesmo acesso do Lite (sem anúncios ainda — planejado) |
 | Lite | R$ 5,99 | Acesso aos campeonatos atuais |
 | Pro | R$ 14,99 | Acesso a todo o histórico de campeonatos |
 | Enterprise | R$ 29,99 | Histórico completo + análise de odds ao vivo |
 
-> Hoje os planos **não liberam automaticamente** nenhum recurso
-> exclusivo no site — o pagamento é registrado e confirmado, mas
-> ainda não existe um sistema de contas/login pra sujeitar features a
-> um plano pago. Ver seção 5 (Próximos passos).
+> O gating técnico de recursos por plano (ex.: só Pro/Enterprise verem
+> histórico de temporadas) ainda não está implementado — ver
+> `README-LOGIN.md`, seção "O que NÃO está implementado".
 
-## 3. Onde ficam os cadastros
-
-Cada cadastro (nome, telefone, e-mail, plano, status do pagamento) é
-salvo em `server/data/support-leads.json`.
-
-**Atenção — armazenamento local, não é um banco de verdade:** em hosts
-com sistema de arquivos efêmero (Railway, por padrão, sem um Volume
-anexado ao serviço), esse arquivo **é apagado a cada novo deploy**. Pra
-não perder cadastros de pagamentos reais:
-
-- Anexe um [Volume no
-  Railway](https://docs.railway.com/reference/volumes) apontando pra
-  pasta `server/data` do serviço, **ou**
-- Evolua `server/src/supportLeads.js` pra gravar em algum lugar
-  persistente (planilha, banco de dados, e-mail de notificação) —
-  ele já centraliza toda a leitura/escrita, então dá pra trocar só
-  esse arquivo.
-
-O arquivo nunca é commitado (está no `.gitignore` — tem dado pessoal).
-
-## 4. Endpoints
+## 3. Endpoints
 
 | Rota | O que faz |
 |---|---|
-| `GET /api/support/plans` | lista os 3 planos (preço vem do backend) |
-| `POST /api/support/checkout` | `{name, phone, email, plan}` → cria o cadastro + a preference no Mercado Pago, devolve `{checkoutUrl, ref}` |
+| `GET /api/support/plans` | lista os planos (preço vem do backend) — pública, usada na tela de cadastro |
+| `POST /api/auth/signup` | cria a conta; se o plano escolhido for pago, já devolve `checkoutUrl` do Mercado Pago (ver `README-LOGIN.md`) |
+| `POST /api/support/checkout` | **autenticado** — retoma um pagamento pendente do próprio cadastro, ou inicia upgrade de plano |
 | `POST /api/support/webhook` | recebido pelo Mercado Pago quando um pagamento muda de status |
-| `GET /api/support/status?ref=` | status atual de um cadastro (usado pela página de retorno do checkout) |
+| `GET /api/support/status?ref=` | status atual de um pagamento (usado pela tela de retorno do checkout, ainda sem sessão) |
 
-## 5. Próximos passos (não implementado ainda)
+## 4. Próximos passos (não implementado ainda)
 
-- **Liberar acesso de verdade por plano**: hoje não existe login de
-  usuário no site — o pagamento fica registrado, mas nada no site
-  verifica "esse visitante pagou o plano Pro" antes de mostrar
-  histórico/odds ao vivo. Pra isso valer a pena de verdade, precisa de
-  autenticação (mesmo que simples, por e-mail/link mágico) ligada ao
-  registro do pagamento.
 - **Assinatura recorrente**: os planos hoje são pagamento único. Se no
   futuro quiser cobrança mensal automática, o Mercado Pago tem uma API
   de assinaturas (`preapproval`) diferente da usada aqui (Checkout
   Pro) — é uma integração à parte.
 - **E-mail de confirmação**: hoje a confirmação só aparece na tela de
   retorno do checkout. Enviar um e-mail (recibo/boas-vindas) exigiria
-  configurar um provedor de e-mail (SMTP, Resend, etc.).
+  configurar um provedor de e-mail (SMTP, Resend, etc.) — o mesmo que
+  resolveria o "esqueci minha senha" do login, ver `README-LOGIN.md`.
 - **Assinatura do webhook**: `/api/support/webhook` aceita a
   notificação e usa o `id` do pagamento nela pra ir buscar o status
   real na API do Mercado Pago (autenticado com nosso token) — isso já

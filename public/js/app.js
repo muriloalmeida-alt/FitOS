@@ -35,10 +35,48 @@ const state = {
 /* ---------- Boot ---------- */
 function setActiveTeams(teams) { TEAMS = teams; setTeamMap(teams); }
 
+// Usuário logado (null se ninguém logado ainda) — ver renderAuthGate()
+// mais abaixo. Cadastro/login é obrigatório: enquanto não tiver
+// currentUser com planStatus "active", só o #authGate é mostrado, o
+// resto do app (.shell) fica escondido e nenhum dado é carregado.
+let currentUser = null;
+
 async function boot() {
+  // Liga os listeners 1x só, logo de cara — os elementos do gate (login/
+  // cadastro) e do shell (app "de verdade") já existem os dois no DOM
+  // desde o carregamento, só um dos dois fica visível por vez (display
+  // controlado por setGateVisible). Assim não corre risco de re-ligar
+  // listener duplicado quando o login acontece sem reload de página.
+  setupEventListeners();
+  initTheme(); // roda antes do login pra o próprio gate já respeitar o tema salvo
+
+  const authState = await checkAuth();
+
+  if (!authState.authenticated) {
+    await renderAuthGate();
+    setGateVisible(true);
+    return;
+  }
+  if (authState.user.planStatus !== "active") {
+    currentUser = authState.user;
+    renderAvatar(authState.user);
+    renderGatePending(authState.user);
+    setGateVisible(true);
+    return;
+  }
+
+  await startApp(authState.user);
+}
+
+// Chamado (a) no boot normal, já logado, e (b) logo depois de um login
+// bem-sucedido dentro do gate — sem precisar recarregar a página.
+async function startApp(user) {
+  currentUser = user;
+  setGateVisible(false);
+  renderAvatar(user);
+
   loadFavorites();
   loadFavoriteClub();
-  initTheme();
   setActiveTeams(DEMO_TEAMS);
   const live = await tryLoadLiveData();
 
@@ -70,9 +108,7 @@ async function boot() {
 
   populateAllSelects();
   renderMyTeamsSidebar();
-  setupEventListeners();
-  captureApoieReturnParams();
-  setActivePage(apoieReturnStatus ? "apoie" : "dashboard");
+  setActivePage("dashboard");
 }
 
 function initDemoSeason() {
@@ -1281,20 +1317,36 @@ async function renderNews() {
     : `<div class="empty" style="padding:12px 0;">Não foi possível carregar notícias agora. Tente novamente mais tarde.</div>`;
 }
 
-/* ================= APOIE O BR DATA (planos + checkout Mercado Pago) =================
-   Fluxo: carrega os planos do backend (preço é decidido lá, não aqui)
-   -> usuário escolhe um card -> preenche nome/telefone/e-mail -> POST
-   /api/support/checkout -> backend cria a preference no Mercado Pago e
-   devolve uma URL de checkout hospedada por eles (cartão + PIX) ->
-   redireciona o navegador pra lá. Depois do pagamento, o Mercado Pago
-   traz o usuário de volta com o status na própria URL (ver
-   captureApoieReturnParams, chamada 1x no boot). */
+/* ================= Login / Cadastro obrigatório =================
+   Fluxo:
+   1) boot() pergunta pro backend GET /api/auth/me. Sem sessão válida
+      -> renderAuthGate() (tela cheia, .shell escondida).
+   2) No gate, escolhe um plano (inclusive Freemium, grátis) + preenche
+      nome/telefone/e-mail/senha -> POST /api/auth/signup.
+        - Freemium: conta já ativa, só falta logar -> mostra a view de
+          login com um aviso.
+        - Plano pago: backend já devolve a URL de checkout do Mercado
+          Pago (cartão/PIX) -> sai do site, vai pra lá.
+   3) Mercado Pago traz o usuário de volta (?status=...&external_
+      reference=...) -> gate detecta, confirma com o backend, mostra o
+      resultado e empurra pra view de login.
+   4) POST /api/auth/login -> cookie de sessão -> startApp() sem
+      precisar recarregar a página.
+   5) Se a sessão existe mas o pagamento ainda não confirmou
+      (planStatus != "active"), mostra a view "pending" — permite
+      retomar o pagamento (POST /api/support/checkout, agora
+      autenticado) ou sair.
+   Depois de logado, a página "Apoie o BR Data" (renderApoiePage) vira
+   tela de UPGRADE de plano — mesmos cards, sem formulário (já temos
+   nome/telefone/e-mail da conta). */
+
 let apoiePlansCache = null;
-let apoieSelectedPlan = null;
-let apoieReturnStatus = null; // { status, ref } | null — preenchido no boot() se voltou de um checkout
+let apoieReturnStatus = null; // { status, ref } | null — lido 1x na 1ª renderização do gate
+let gateSelectedPlan = null;
 
 function fmtBRL(v) {
-  return (typeof v === "number" ? v : 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  if (!v || v <= 0) return "Grátis";
+  return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
 
 async function loadSupportPlans() {
@@ -1309,92 +1361,271 @@ async function loadSupportPlans() {
   return apoiePlansCache;
 }
 
-function planCardHTML(plan) {
-  const selected = apoieSelectedPlan === plan.id;
+// selectedId: plano marcado como "escolhido" (gate de cadastro).
+// currentId: plano que o usuário já tem (página de upgrade, logado) —
+// esse fica com o card desabilitado ("Plano atual").
+function planCardHTML(plan, selectedId, currentId) {
+  const selected = selectedId === plan.id;
+  const isCurrent = currentId === plan.id;
+  const btnLabel = isCurrent ? "Plano atual" : (selected ? "✓ Selecionado" : `Escolher ${plan.title}`);
   return `
-    <div class="plan-card${plan.highlight ? " highlight" : ""}${selected ? " selected" : ""}" data-plan="${plan.id}">
+    <div class="plan-card${plan.highlight ? " highlight" : ""}${selected ? " selected" : ""}${isCurrent ? " current" : ""}" data-plan="${plan.id}">
       ${plan.highlight ? `<span class="plan-badge">Mais popular</span>` : ""}
       <div class="plan-title">${plan.title}</div>
       <div class="plan-tagline">${plan.tagline || ""}</div>
-      <div class="plan-price">${fmtBRL(plan.price)}<small> pagamento único</small></div>
+      <div class="plan-price">${fmtBRL(plan.price)}${plan.price > 0 ? "<small> pagamento único</small>" : ""}</div>
       <ul class="plan-features">${(plan.features || []).map(f => `<li>${f}</li>`).join("")}</ul>
-      <button type="button" class="btn ${selected ? "btn-accent" : "btn-secondary"} full plan-select-btn">${selected ? "✓ Selecionado" : `Escolher ${plan.title}`}</button>
+      <button type="button" class="btn ${selected ? "btn-accent" : "btn-secondary"} full plan-select-btn"${isCurrent ? " disabled" : ""}>${btnLabel}</button>
     </div>`;
 }
 
-function apoieSelectPlan(planId, plans) {
-  apoieSelectedPlan = planId;
-  document.querySelectorAll("#plansGrid .plan-card").forEach(card => {
+/* ---- Chamadas de auth ---- */
+async function checkAuth() {
+  try {
+    const res = await fetch("/api/auth/me");
+    return await res.json();
+  } catch {
+    return { authenticated: false };
+  }
+}
+
+function setGateVisible(visible) {
+  document.getElementById("authGate").style.display = visible ? "flex" : "none";
+  document.querySelector(".shell").style.display = visible ? "none" : "";
+}
+
+function showGateView(view) {
+  document.getElementById("gateSignupView").style.display = view === "signup" ? "block" : "none";
+  document.getElementById("gateLoginView").style.display = view === "login" ? "block" : "none";
+  document.getElementById("gatePendingView").style.display = view === "pending" ? "block" : "none";
+}
+
+function gateShowMsg(elId, msg, cls = "error") {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  if (!msg) { el.style.display = "none"; el.textContent = ""; el.className = "apoie-form-error"; return; }
+  if (cls === "error") {
+    el.className = "apoie-form-error";
+    el.textContent = msg;
+  } else {
+    el.className = `apoie-status-banner ${cls}`;
+    el.innerHTML = `<span class="icon">${cls === "success" ? "✅" : "ℹ️"}</span><div><p>${msg}</p></div>`;
+  }
+  el.style.display = "block";
+}
+
+function gateSelectPlan(planId, plans) {
+  gateSelectedPlan = planId;
+  const plan = plans.find(p => p.id === planId);
+  document.querySelectorAll("#gatePlansGrid .plan-card").forEach(card => {
     const isSel = card.dataset.plan === planId;
     card.classList.toggle("selected", isSel);
     const btn = card.querySelector(".plan-select-btn");
-    const plan = plans.find(p => p.id === card.dataset.plan);
-    if (btn && plan) {
-      btn.textContent = isSel ? "✓ Selecionado" : `Escolher ${plan.title}`;
+    const p = plans.find(pp => pp.id === card.dataset.plan);
+    if (btn && p) {
+      btn.textContent = isSel ? "✓ Selecionado" : `Escolher ${p.title}`;
       btn.className = `btn ${isSel ? "btn-accent" : "btn-secondary"} full plan-select-btn`;
     }
   });
-  const plan = plans.find(p => p.id === planId);
-  const label = document.getElementById("apoieSelectedPlanLabel");
-  if (label && plan) label.innerHTML = `Plano selecionado: <b>${plan.title}</b> — ${fmtBRL(plan.price)}`;
-  document.getElementById("apoieSubmit").disabled = false;
+  const submitBtn = document.getElementById("gateSignupSubmit");
+  submitBtn.disabled = false;
+  submitBtn.textContent = plan && plan.price > 0 ? `Continuar — ${fmtBRL(plan.price)}` : "Criar conta grátis";
 }
 
-async function renderApoiePage() {
-  const grid = document.getElementById("plansGrid");
-  grid.innerHTML = `<div class="empty">Carregando planos...</div>`;
+async function renderAuthGate() {
+  captureApoieReturnParams();
   const plans = await loadSupportPlans();
+  const grid = document.getElementById("gatePlansGrid");
   grid.innerHTML = plans.length
-    ? plans.map(planCardHTML).join("")
-    : `<div class="empty">Não foi possível carregar os planos agora. Recarregue a página e tente de novo.</div>`;
+    ? plans.map(p => planCardHTML(p, gateSelectedPlan, null)).join("")
+    : `<div class="empty">Não foi possível carregar os planos agora. Recarregue a página.</div>`;
   grid.querySelectorAll(".plan-card").forEach(card => {
-    card.addEventListener("click", () => apoieSelectPlan(card.dataset.plan, plans));
+    card.addEventListener("click", () => gateSelectPlan(card.dataset.plan, plans));
   });
-  document.getElementById("apoieSubmit").disabled = !apoieSelectedPlan;
-  renderApoieStatusBanner();
+
+  if (apoieReturnStatus) {
+    // Voltando de um checkout de cadastro pago — mostra o resultado e
+    // já leva pra tela de login (é o próximo passo, sempre).
+    const status = await renderStatusBanner("gateSignupStatusBanner");
+    showGateView("login");
+    if (status === "approved") gateShowMsg("gateLoginNotice", "Pagamento aprovado! Faça login pra continuar.", "success");
+  } else {
+    showGateView("signup");
+  }
 }
 
-function apoieShowError(msg) {
-  const el = document.getElementById("apoieFormError");
-  if (!el) return;
-  el.style.display = msg ? "block" : "none";
-  el.textContent = msg || "";
+function renderGatePending(user) {
+  showGateView("pending");
+  const planNames = { freemium: "Freemium", lite: "Lite", pro: "Pro", enterprise: "Enterprise" };
+  document.getElementById("gatePendingMsg").textContent =
+    `Sua conta foi criada. Finalize o pagamento do plano ${planNames[user.plan] || user.plan} pra liberar seu acesso.`;
+  document.getElementById("gatePendingPayBtn").onclick = () => retryPendingPayment(user.plan);
 }
 
-async function submitApoieForm(e) {
-  e.preventDefault();
-  apoieShowError("");
-  const name = document.getElementById("apoieName").value.trim();
-  const phone = document.getElementById("apoiePhone").value.trim();
-  const email = document.getElementById("apoieEmail").value.trim();
-
-  if (!apoieSelectedPlan) return apoieShowError("Escolha um plano acima antes de continuar.");
-  if (name.length < 2) return apoieShowError("Informe seu nome completo.");
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return apoieShowError("Informe um e-mail válido.");
-  if (phone.replace(/\D/g, "").length < 8) return apoieShowError("Informe um telefone válido, com DDD.");
-
-  const btn = document.getElementById("apoieSubmit");
+async function retryPendingPayment(planId) {
+  const btn = document.getElementById("gatePendingPayBtn");
   const originalLabel = btn.textContent;
   btn.disabled = true; btn.textContent = "Preparando pagamento...";
   try {
     const res = await fetch("/api/support/checkout", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, phone, email, plan: apoieSelectedPlan }),
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ plan: planId }),
     });
     const data = await res.json().catch(() => null);
-    if (!res.ok || !data?.checkoutUrl) throw new Error(data?.error || "Não foi possível iniciar o pagamento agora.");
-    window.location.href = data.checkoutUrl; // sai do site — vai pro checkout hospedado do Mercado Pago
+    if (!res.ok || !data?.checkoutUrl) throw new Error(data?.error || "Não foi possível iniciar o pagamento.");
+    window.location.href = data.checkoutUrl;
   } catch (err) {
-    apoieShowError(err.message || "Não foi possível iniciar o pagamento agora. Tente novamente.");
+    document.getElementById("gatePendingBanner").innerHTML =
+      `<div class="apoie-status-banner error"><span class="icon">❌</span><div><b>Erro</b><p>${err.message}</p></div></div>`;
     btn.disabled = false; btn.textContent = originalLabel;
   }
 }
 
-// Lido 1x no boot(), a partir da URL de retorno do Mercado Pago
-// (?status=...&external_reference=... — anexados por eles no
-// back_url que configuramos). Limpa a URL logo em seguida pra não
-// reaparecer se o usuário der refresh ou voltar depois.
+async function submitGateSignup(e) {
+  e.preventDefault();
+  gateShowMsg("gateSignupError", "");
+  const name = document.getElementById("gateName").value.trim();
+  const phone = document.getElementById("gatePhone").value.trim();
+  const email = document.getElementById("gateEmail").value.trim();
+  const password = document.getElementById("gatePassword").value;
+
+  if (!gateSelectedPlan) return gateShowMsg("gateSignupError", "Escolha um plano acima antes de continuar.");
+  if (name.length < 2) return gateShowMsg("gateSignupError", "Informe seu nome completo.");
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return gateShowMsg("gateSignupError", "Informe um e-mail válido.");
+  if (phone.replace(/\D/g, "").length < 8) return gateShowMsg("gateSignupError", "Informe um telefone válido, com DDD.");
+  if (password.length < 8) return gateShowMsg("gateSignupError", "A senha precisa ter pelo menos 8 caracteres.");
+
+  const btn = document.getElementById("gateSignupSubmit");
+  const originalLabel = btn.textContent;
+  btn.disabled = true; btn.textContent = "Criando conta...";
+  try {
+    const res = await fetch("/api/auth/signup", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, phone, email, password, plan: gateSelectedPlan }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.error || "Não foi possível criar sua conta agora.");
+
+    if (data.requiresPayment && data.checkoutUrl) {
+      window.location.href = data.checkoutUrl; // sai do site — checkout hospedado do Mercado Pago
+      return;
+    }
+    document.getElementById("gateLoginEmail").value = email;
+    if (data.requiresPayment && !data.checkoutUrl) {
+      // conta criada mas a preference falhou (raro) — desloga pro
+      // fluxo de login normal, de lá dá pra tentar de novo (gatePendingView)
+      gateShowMsg("gateLoginNotice", data.warning || "Conta criada — faça login pra continuar.", "pending");
+    } else {
+      gateShowMsg("gateLoginNotice", "Conta criada! Faça login pra continuar.", "success");
+    }
+    showGateView("login");
+  } catch (err) {
+    gateShowMsg("gateSignupError", err.message || "Não foi possível criar sua conta agora.");
+  } finally {
+    btn.disabled = false; btn.textContent = originalLabel;
+  }
+}
+
+async function submitGateLogin(e) {
+  e.preventDefault();
+  gateShowMsg("gateLoginError", "");
+  const email = document.getElementById("gateLoginEmail").value.trim();
+  const password = document.getElementById("gateLoginPassword").value;
+  if (!email || !password) return gateShowMsg("gateLoginError", "Informe e-mail e senha.");
+
+  const btn = e.target.querySelector("button[type=submit]");
+  const originalLabel = btn.textContent;
+  btn.disabled = true; btn.textContent = "Entrando...";
+  try {
+    const res = await fetch("/api/auth/login", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok) throw new Error(data?.error || "E-mail ou senha incorretos.");
+    if (data.user.planStatus !== "active") {
+      currentUser = data.user;
+      renderAvatar(data.user);
+      renderGatePending(data.user);
+    } else {
+      await startApp(data.user);
+    }
+  } catch (err) {
+    gateShowMsg("gateLoginError", err.message || "Não foi possível entrar agora.");
+    btn.disabled = false; btn.textContent = originalLabel;
+  }
+}
+
+async function logout() {
+  try { await fetch("/api/auth/logout", { method: "POST" }); } catch { /* segue mesmo se falhar */ }
+  location.reload();
+}
+
+function renderAvatar(user) {
+  if (!user) return;
+  const planNames = { freemium: "Freemium", lite: "Lite", pro: "Pro", enterprise: "Enterprise" };
+  const initial = (user.name || "?").trim()[0]?.toUpperCase() || "?";
+  const firstName = (user.name || "").split(" ")[0] || "Conta";
+  const planLabel = `Plano ${planNames[user.plan] || user.plan}`;
+  document.getElementById("avatarInitial").textContent = initial;
+  document.getElementById("avatarName").textContent = firstName;
+  document.getElementById("avatarEmail").textContent = user.email || "";
+  document.getElementById("avatarPlan").textContent = planLabel;
+  document.getElementById("maisAvatarInitial").textContent = initial;
+  document.getElementById("maisAvatarName").textContent = user.name || "";
+  document.getElementById("maisAvatarPlan").textContent = planLabel;
+}
+
+/* ---- Página "Apoie o BR Data" já logado (upgrade de plano) ---- */
+async function renderApoiePage() {
+  if (!currentUser) return;
+  const grid = document.getElementById("plansGrid");
+  grid.innerHTML = `<div class="empty">Carregando planos...</div>`;
+  const plans = await loadSupportPlans();
+  grid.innerHTML = plans.length
+    ? plans.map(p => planCardHTML(p, null, currentUser.plan)).join("")
+    : `<div class="empty">Não foi possível carregar os planos agora. Recarregue a página.</div>`;
+  grid.querySelectorAll(".plan-card").forEach(card => {
+    if (card.classList.contains("current")) return;
+    card.addEventListener("click", () => upgradeToPlan(card.dataset.plan, plans));
+  });
+  renderApoieCurrentPlanCard();
+  renderStatusBanner("apoieStatusBanner");
+}
+
+function renderApoieCurrentPlanCard() {
+  const el = document.getElementById("apoieCurrentPlanCard");
+  if (!el || !currentUser) return;
+  const planNames = { freemium: "Freemium", lite: "Lite", pro: "Pro", enterprise: "Enterprise" };
+  const pendingTxt = currentUser.pendingPlan
+    ? ` <span style="color:var(--text-2); font-weight:600;">· upgrade pra ${planNames[currentUser.pendingPlan] || currentUser.pendingPlan} pendente de pagamento</span>`
+    : "";
+  el.innerHTML = `<span class="lbl">Seu plano atual</span><span class="val">${planNames[currentUser.plan] || currentUser.plan}${pendingTxt}</span>`;
+}
+
+async function upgradeToPlan(planId, plans) {
+  const plan = plans.find(p => p.id === planId);
+  if (!plan) return;
+  if (plan.price <= 0) return; // não deveria acontecer (freemium nunca é upgrade pago), defensivo
+  if (!confirm(`Trocar pro plano ${plan.title} por ${fmtBRL(plan.price)}?`)) return;
+  try {
+    const res = await fetch("/api/support/checkout", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ plan: planId }),
+    });
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.checkoutUrl) throw new Error(data?.error || "Não foi possível iniciar o pagamento.");
+    window.location.href = data.checkoutUrl;
+  } catch (err) {
+    alert(err.message || "Não foi possível iniciar o pagamento agora.");
+  }
+}
+
+/* ---- Retorno do checkout do Mercado Pago (compartilhado gate + upgrade) ---- */
+
+// Lido 1x, a partir da URL de retorno do Mercado Pago (?status=...&
+// external_reference=... — anexados por eles no back_url configurado).
+// Limpa a URL logo em seguida pra não reaparecer num refresh.
 function captureApoieReturnParams() {
   const params = new URLSearchParams(location.search);
   const status = params.get("collection_status") || params.get("status");
@@ -1413,11 +1644,12 @@ const APOIE_STATUS_LABELS = {
 
 // Confirma o status direto com o backend (mais confiável que o valor
 // que veio na URL — cobre o caso do PIX, que às vezes confirma alguns
-// segundos depois do redirect de volta pro site).
-async function renderApoieStatusBanner() {
-  const box = document.getElementById("apoieStatusBanner");
-  if (!box) return;
-  if (!apoieReturnStatus) { box.innerHTML = ""; return; }
+// segundos depois do redirect de volta pro site). Devolve o status
+// resolvido pra quem chamou poder reagir (ex.: pular pra tela de login).
+async function renderStatusBanner(targetId) {
+  const box = document.getElementById(targetId);
+  if (!box) return null;
+  if (!apoieReturnStatus) { box.innerHTML = ""; return null; }
 
   let status = apoieReturnStatus.status;
   if (apoieReturnStatus.ref) {
@@ -1430,6 +1662,7 @@ async function renderApoieStatusBanner() {
 
   const info = APOIE_STATUS_LABELS[status] || { cls: "pending", icon: "ℹ️", title: "Pagamento em processamento", msg: "Vamos confirmar o status assim que possível." };
   box.innerHTML = `<div class="apoie-status-banner ${info.cls}"><span class="icon">${info.icon}</span><div><b>${info.title}</b><p>${info.msg}</p></div></div>`;
+  return status;
 }
 
 /* ================= NAVEGAÇÃO PRA DETALHE (time/jogador) ================= */
@@ -1772,7 +2005,22 @@ function setupEventListeners() {
   // "Apoie o BR Data" (data-page="apoie" no HTML) — já cobertos pelo
   // listener genérico de [data-page] logo acima, nada extra aqui.
   document.getElementById("themeSwitchMobile")?.addEventListener("click", () => { toggleTheme(); document.getElementById("themeSwitchMobile").classList.toggle("on", document.documentElement.getAttribute("data-theme") === "dark"); });
-  document.getElementById("apoieForm").addEventListener("submit", submitApoieForm);
+
+  // ---- Gate de login/cadastro ----
+  document.getElementById("gateSignupForm").addEventListener("submit", submitGateSignup);
+  document.getElementById("gateLoginForm").addEventListener("submit", submitGateLogin);
+  document.getElementById("gateGoLogin").addEventListener("click", (e) => { e.preventDefault(); gateShowMsg("gateLoginNotice", ""); showGateView("login"); });
+  document.getElementById("gateGoSignup").addEventListener("click", (e) => { e.preventDefault(); showGateView("signup"); });
+  document.getElementById("gatePendingLogoutBtn").addEventListener("click", logout);
+
+  // ---- Avatar (topbar desktop) e "Sair" (mobile, página Mais) ----
+  document.getElementById("avatarBtn").addEventListener("click", (e) => {
+    e.stopPropagation();
+    document.getElementById("avatarMenu").classList.toggle("open");
+  });
+  document.addEventListener("click", () => document.getElementById("avatarMenu")?.classList.remove("open"));
+  document.getElementById("btnLogout").addEventListener("click", logout);
+  document.getElementById("btnLogoutMobile").addEventListener("click", logout);
 
   document.getElementById("btnAddTeam").addEventListener("click", () => {
     const existing = document.getElementById("quickAddSelect");

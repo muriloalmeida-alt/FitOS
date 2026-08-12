@@ -37,7 +37,8 @@ const { fetchBroadcastStation } = require("./src/broadcastSource");
 const { fetchNews } = require("./src/newsSource");
 const mercadoPago = require("./src/mercadoPago");
 const supportPlans = require("./src/supportPlans");
-const supportLeads = require("./src/supportLeads");
+const users = require("./src/users");
+const sessions = require("./src/sessions");
 
 const PORT = process.env.PORT || 8787;
 const LEAGUE_ID = process.env.LEAGUE_ID || "71"; // 71 = Brasileirão Série A na API-Sports (confirme no /api/leagues/search)
@@ -84,6 +85,38 @@ function publicBaseUrl(req) {
   const host = req.headers.host || `localhost:${PORT}`;
   const proto = req.headers["x-forwarded-proto"] || (/^(localhost|127\.0\.0\.1)/.test(host) ? "http" : "https");
   return `${proto}://${host}`;
+}
+
+function isHttps(req) {
+  return String(req.headers["x-forwarded-proto"] || "").includes("https") || !!req.socket?.encrypted;
+}
+
+// ---- Login (cookie de sessão) ----
+const SESSION_COOKIE = "brdata_session";
+
+function parseCookies(req) {
+  const header = req.headers.cookie;
+  const out = {};
+  if (!header) return out;
+  header.split(";").forEach(pair => {
+    const idx = pair.indexOf("=");
+    if (idx === -1) return;
+    const k = pair.slice(0, idx).trim();
+    if (k) out[k] = decodeURIComponent(pair.slice(idx + 1).trim());
+  });
+  return out;
+}
+
+function setSessionCookie(res, token, secure) {
+  const parts = [`${SESSION_COOKIE}=${encodeURIComponent(token)}`, "Path=/", "HttpOnly", "SameSite=Lax", `Max-Age=${Math.floor(sessions.SESSION_TTL_MS / 1000)}`];
+  if (secure) parts.push("Secure");
+  res.setHeader("Set-Cookie", parts.join("; "));
+}
+
+function clearSessionCookie(res, secure) {
+  const parts = [`${SESSION_COOKIE}=`, "Path=/", "HttpOnly", "SameSite=Lax", "Max-Age=0"];
+  if (secure) parts.push("Secure");
+  res.setHeader("Set-Cookie", parts.join("; "));
 }
 
 const TTL = {
@@ -224,13 +257,45 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
+    // ================= Login obrigatório =================
+    // Toda rota /api/* a partir daqui exige sessão válida (cookie),
+    // EXCETO as que precisam funcionar antes/sem estar logado: as
+    // próprias rotas de auth, a lista de planos (mostrada na tela de
+    // cadastro), e o webhook/status do Mercado Pago (chamados pelo
+    // próprio Mercado Pago, ou consultados durante o retorno do
+    // checkout — ainda sem sessão). /api/support/checkout FICA de fora
+    // dessa lista de propósito: exige login (é usado tanto durante o
+    // cadastro com plano pago quanto pra trocar de plano depois).
+    const AUTH_EXEMPT_PATHS = new Set([
+      "/api/auth/signup", "/api/auth/login", "/api/auth/logout", "/api/auth/me",
+      "/api/support/plans", "/api/support/webhook", "/api/support/status",
+    ]);
+    if (pathname.startsWith("/api/") && !AUTH_EXEMPT_PATHS.has(pathname)) {
+      const cookies = parseCookies(req);
+      const session = sessions.getSession(cookies[SESSION_COOKIE]);
+      const authUser = session ? users.findById(session.userId) : null;
+      if (!authUser) return sendJSON(res, 401, { error: "Login necessário.", code: "AUTH_REQUIRED" });
+      req.authUser = authUser;
+      // /api/support/checkout é a única rota autenticada que não exige
+      // plano ativo — é exatamente o endpoint que ativa/retenta o
+      // pagamento de quem ainda está com planStatus pendente.
+      if (pathname !== "/api/support/checkout" && authUser.planStatus !== "active") {
+        return sendJSON(res, 402, {
+          error: "Pagamento pendente — finalize o pagamento pra liberar o acesso.",
+          code: "PAYMENT_REQUIRED", plan: authUser.plan, planStatus: authUser.planStatus,
+        });
+      }
+    }
+
     // Bloqueia cedo qualquer rota que dependa da API-Sports quando o
     // modo ao vivo está desligado (sem chave, ou APP_MODE=demo forçando
     // exemplo mesmo com chave presente) — /api/health, /api/broadcast
-    // (TheSportsDB), /api/news (RSS) e /api/support/* (Mercado Pago,
-    // independente da API-Sports e do modo ao vivo/exemplo) não usam a
-    // API-Sports, então ficam de fora dessa checagem.
-    const LIVE_ONLY = pathname.startsWith("/api/") && pathname !== "/api/broadcast" && pathname !== "/api/news" && !pathname.startsWith("/api/support/");
+    // (TheSportsDB), /api/news (RSS), /api/support/* e /api/auth/*
+    // (Mercado Pago e login, independentes da API-Sports e do modo ao
+    // vivo/exemplo) não usam a API-Sports, então ficam de fora dessa
+    // checagem.
+    const LIVE_ONLY = pathname.startsWith("/api/") && pathname !== "/api/broadcast" && pathname !== "/api/news"
+      && !pathname.startsWith("/api/support/") && !pathname.startsWith("/api/auth/");
     if (LIVE_ONLY && !liveModeEnabled()) {
       const err = new Error(
         APP_MODE === "demo"
@@ -432,9 +497,8 @@ const server = http.createServer(async (req, res) => {
       return sendJSON(res, 200, data);
     }
 
-    // ================= "Apoie o BR Data" (planos + Mercado Pago) =================
-    // Independente do modo ao vivo/exemplo da API-Sports — funciona
-    // igual nos dois. Preço sempre decidido aqui no backend
+    // ================= Cadastro / Login / Planos =================
+    // Preço de cada plano sempre decidido aqui no backend
     // (server/src/supportPlans.js), nunca confiar em valor vindo do
     // front-end.
 
@@ -442,42 +506,112 @@ const server = http.createServer(async (req, res) => {
       return sendJSON(res, 200, { plans: supportPlans.listPlans() });
     }
 
-    if (pathname === "/api/support/checkout" && req.method === "POST") {
+    // Cadastro — cria a conta (com senha já com hash) e, se o plano
+    // escolhido for pago, já cria a preference do Mercado Pago aqui
+    // dentro (não existe mais um /api/support/checkout público — essa
+    // rota exige login, ver guard lá em cima — porque na hora do
+    // cadastro ainda não existe sessão).
+    if (pathname === "/api/auth/signup" && req.method === "POST") {
       const body = await readBody(req);
       const name = String(body.name || "").trim();
-      const email = String(body.email || "").trim();
+      const email = users.normalizeEmail(body.email);
       const phone = String(body.phone || "").trim();
-      const planId = String(body.plan || "").trim();
+      const password = String(body.password || "");
+      const plan = supportPlans.getPlan(String(body.plan || "").trim());
 
       if (!name || name.length < 2) return sendJSON(res, 400, { error: "Informe seu nome." });
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return sendJSON(res, 400, { error: "E-mail inválido." });
       if (phone.replace(/\D/g, "").length < 8) return sendJSON(res, 400, { error: "Telefone inválido." });
-      const plan = supportPlans.getPlan(planId);
+      if (password.length < 8) return sendJSON(res, 400, { error: "A senha precisa ter pelo menos 8 caracteres." });
       if (!plan) return sendJSON(res, 400, { error: "Plano inválido." });
+      if (users.findByEmail(email)) return sendJSON(res, 409, { error: "Já existe uma conta com esse e-mail. Faça login." });
 
-      const ref = `sup_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-      const base = publicBaseUrl(req);
-
-      supportLeads.create({
-        ref, name, email, phone,
-        planId: plan.id, planTitle: plan.title, price: plan.price,
-        status: "created", createdAt: Date.now(), updatedAt: Date.now(),
+      const isFree = plan.price <= 0;
+      const user = await users.createUser({
+        name, email, phone, password,
+        plan: plan.id,
+        planStatus: isFree ? "active" : "pending_payment",
       });
 
+      if (isFree) return sendJSON(res, 200, { requiresPayment: false });
+
+      const base = publicBaseUrl(req);
       try {
         const pref = await mercadoPago.createPreference({
           plan, name, email, phone,
-          externalReference: ref,
+          externalReference: user.id,
           backUrl: `${base}/apoie`,
           notificationUrl: `${base}/api/support/webhook`,
         });
-        supportLeads.updateStatus(ref, "pending", { preferenceId: pref.id });
-        return sendJSON(res, 200, { checkoutUrl: pref.init_point, ref });
+        users.updateUser(user.id, { preferenceId: pref.id });
+        return sendJSON(res, 200, { requiresPayment: true, checkoutUrl: pref.init_point, ref: user.id });
       } catch (err) {
-        supportLeads.updateStatus(ref, "checkout_error", { errorMessage: err.message });
-        // O detalhe técnico (token ausente, erro da API do Mercado
-        // Pago etc.) fica só no log do servidor — pro usuário final, uma
-        // mensagem genérica é mais apropriada que expor causa interna.
+        users.updateUser(user.id, { planStatus: "checkout_error" });
+        console.error("[auth/signup] falha ao criar preference:", err.message);
+        return sendJSON(res, 200, {
+          requiresPayment: true, checkoutUrl: null, ref: user.id,
+          warning: "Conta criada, mas não foi possível iniciar o pagamento agora. Faça login que a gente tenta de novo.",
+        });
+      }
+    }
+
+    if (pathname === "/api/auth/login" && req.method === "POST") {
+      const body = await readBody(req);
+      const email = users.normalizeEmail(body.email);
+      const password = String(body.password || "");
+      const user = users.findByEmail(email);
+      // Roda o verifyPassword mesmo sem usuário achado (contra um hash
+      // fixo, ver users.js) — mantém o tempo de resposta parecido pra
+      // não dar pra descobrir por timing se aquele e-mail existe ou não.
+      const ok = await users.verifyPassword(password, user?.passwordHash);
+      if (!user || !ok) return sendJSON(res, 401, { error: "E-mail ou senha incorretos." });
+
+      const token = sessions.createSession(user.id);
+      setSessionCookie(res, token, isHttps(req));
+      return sendJSON(res, 200, { user: users.publicUser(user) });
+    }
+
+    if (pathname === "/api/auth/logout" && req.method === "POST") {
+      sessions.destroySession(parseCookies(req)[SESSION_COOKIE]);
+      clearSessionCookie(res, isHttps(req));
+      return sendJSON(res, 200, { ok: true });
+    }
+
+    if (pathname === "/api/auth/me") {
+      const session = sessions.getSession(parseCookies(req)[SESSION_COOKIE]);
+      const user = session ? users.findById(session.userId) : null;
+      return sendJSON(res, 200, user ? { authenticated: true, user: users.publicUser(user) } : { authenticated: false });
+    }
+
+    // Cria um novo checkout pra quem já está logado — cobre 2 casos:
+    // (1) retomar o pagamento de um cadastro pago que ainda não
+    // confirmou (planStatus "pending_payment"/"checkout_error"), e
+    // (2) trocar de plano depois de já estar ativo (upgrade). No caso
+    // (2), o plano atual só é substituído quando o pagamento é
+    // confirmado (ver webhook) — assim ninguém perde acesso no meio de
+    // uma troca de plano.
+    if (pathname === "/api/support/checkout" && req.method === "POST") {
+      const user = req.authUser; // setado pelo guard de login lá em cima
+      const body = await readBody(req);
+      const plan = supportPlans.getPlan(String(body.plan || "").trim());
+      if (!plan) return sendJSON(res, 400, { error: "Plano inválido." });
+      if (plan.price <= 0) return sendJSON(res, 400, { error: "Esse plano é gratuito, não precisa de pagamento." });
+
+      const base = publicBaseUrl(req);
+      try {
+        const pref = await mercadoPago.createPreference({
+          plan, name: user.name, email: user.email, phone: user.phone,
+          externalReference: user.id,
+          backUrl: `${base}/apoie`,
+          notificationUrl: `${base}/api/support/webhook`,
+        });
+        if (user.planStatus === "active" && user.plan !== plan.id) {
+          users.updateUser(user.id, { pendingPlan: plan.id, pendingPreferenceId: pref.id });
+        } else {
+          users.updateUser(user.id, { plan: plan.id, planStatus: "pending_payment", preferenceId: pref.id });
+        }
+        return sendJSON(res, 200, { checkoutUrl: pref.init_point });
+      } catch (err) {
         console.error("[support/checkout] falha ao criar preference:", err.message);
         return sendJSON(res, 502, { error: "Não foi possível iniciar o pagamento agora. Tente novamente em instantes." });
       }
@@ -500,13 +634,18 @@ const server = http.createServer(async (req, res) => {
           // token) — nunca do conteúdo da notificação em si, que
           // poderia ser forjado por qualquer um que descobrisse a URL.
           const payment = await mercadoPago.getPayment(paymentId);
-          const ref = payment.external_reference;
-          if (ref) {
-            supportLeads.updateStatus(ref, payment.status, {
-              paymentId: String(payment.id),
-              paymentMethod: payment.payment_type_id || null,
-              amount: payment.transaction_amount || null,
-            });
+          const user = payment.external_reference ? users.findById(payment.external_reference) : null;
+          if (user) {
+            if (payment.status === "approved") {
+              // Se tinha uma troca de plano em andamento (upgrade), é
+              // ela que vira o plano ativo agora; senão é a própria
+              // conta nova sendo ativada pela 1ª vez.
+              const patch = { planStatus: "active", paymentId: String(payment.id) };
+              if (user.pendingPlan) { patch.plan = user.pendingPlan; patch.pendingPlan = null; }
+              users.updateUser(user.id, patch);
+            } else {
+              users.updateUser(user.id, { lastPaymentStatus: payment.status, paymentId: String(payment.id) });
+            }
           }
         }
       } catch (err) {
@@ -515,21 +654,18 @@ const server = http.createServer(async (req, res) => {
       return sendJSON(res, 200, { received: true });
     }
 
-    // GET /api/support/status?ref=... — a página de retorno usa isso
-    // pra confirmar o pagamento (o redirect de volta do Mercado Pago já
-    // vem com o status na URL, mas essa consulta pega o status mais
-    // recente direto do nosso registro, atualizado pelo webhook — útil
-    // pro caso do PIX, que às vezes confirma alguns segundos depois do
-    // redirect). Só devolve o essencial — nada de nome/telefone/e-mail
-    // nessa resposta pública.
+    // GET /api/support/status?ref=... — a tela de cadastro/retorno do
+    // checkout usa isso pra confirmar o pagamento antes mesmo de haver
+    // sessão (o redirect de volta do Mercado Pago já vem com o status
+    // na URL, mas essa consulta pega o mais recente, atualizado pelo
+    // webhook — útil pro PIX, que às vezes confirma alguns segundos
+    // depois do redirect). `ref` é o id do usuário — resposta minimalista
+    // de propósito, sem nome/telefone/e-mail/senha, é uma rota pública.
     if (pathname === "/api/support/status") {
       const ref = searchParams.get("ref");
-      const rec = ref ? supportLeads.findByRef(ref) : null;
-      if (!rec) return sendJSON(res, 404, { error: "cadastro não encontrado" });
-      return sendJSON(res, 200, {
-        status: rec.status, planId: rec.planId, planTitle: rec.planTitle,
-        price: rec.price, updatedAt: rec.updatedAt,
-      });
+      const user = ref ? users.findById(ref) : null;
+      if (!user) return sendJSON(res, 404, { error: "cadastro não encontrado" });
+      return sendJSON(res, 200, { status: user.planStatus, plan: user.plan });
     }
 
     if (pathname.startsWith("/api/")) {

@@ -749,6 +749,59 @@ h1,h2,h3{ margin:0; }
   .apoie-form-card{ max-width:none; }
 }
 
+/* ================= Gate de login/cadastro (tela cheia) ================= */
+.auth-gate{
+  display:flex; align-items:flex-start; justify-content:center; min-height:100vh;
+  padding:40px 16px 60px; background:linear-gradient(160deg, var(--brd-navy), #030d1e);
+  overflow-y:auto;
+}
+.auth-gate-inner{ width:100%; max-width:920px; }
+.auth-gate-brand{ display:flex; align-items:center; gap:10px; justify-content:center; margin-bottom:28px; }
+.auth-gate-logo{ height:40px; width:auto; }
+.auth-gate-brand-name{ color:#fff; font-size:20px; font-weight:800; letter-spacing:.5px; }
+.auth-gate-card{
+  background:var(--bg-surface); border-radius:var(--radius-lg); padding:28px; max-width:460px; margin:0 auto;
+  box-shadow:0 20px 60px rgba(0,0,0,.35);
+}
+.auth-gate-card:has(.gate-plans-grid){ max-width:920px; }
+.auth-gate-card h2{ font-size:20px; font-weight:800; color:var(--text-0); margin:0 0 4px; text-align:center; }
+.auth-gate-sub{ font-size:13px; color:var(--text-1); text-align:center; margin:0 0 20px; }
+.gate-plans-grid{ margin-bottom:20px; }
+.gate-plans-grid .plan-card{ padding:16px; }
+.gate-plans-grid .plan-price{ font-size:21px; }
+.auth-gate-form{ max-width:420px; margin:0 auto; }
+.auth-gate-switch{ text-align:center; font-size:12.5px; color:var(--text-1); margin:16px 0 0; }
+.auth-gate-switch a{ color:var(--brd-blue); font-weight:700; text-decoration:none; cursor:pointer; }
+.auth-gate-switch a:hover{ text-decoration:underline; }
+.auth-gate-disclaimer{ text-align:center; font-size:11px; color:rgba(255,255,255,.55); margin:24px 0 0; }
+
+@media (max-width:640px){
+  .gate-plans-grid{ grid-template-columns:1fr; }
+  .auth-gate-card{ padding:20px; }
+}
+
+/* Menu do avatar (topbar) — abre "Sair" */
+.avatar{ position:relative; cursor:pointer; }
+.avatar-menu{
+  position:absolute; top:calc(100% + 8px); right:0; width:200px; background:var(--bg-surface); border:1px solid var(--border);
+  border-radius:var(--radius-md); box-shadow:var(--shadow-card); z-index:60; overflow:hidden; display:none; padding:10px;
+}
+.avatar-menu.open{ display:block; }
+.avatar-menu-email{ font-size:11.5px; font-weight:700; color:var(--text-0); padding:4px 6px 2px; word-break:break-all; }
+.avatar-menu-plan{ font-size:10.5px; color:var(--text-2); text-transform:uppercase; letter-spacing:.4px; padding:0 6px 8px; }
+.avatar-menu-item{
+  width:100%; text-align:left; padding:8px 6px; border:none; background:none; font-size:12.5px; font-weight:700;
+  color:#B3202F; cursor:pointer; border-radius:8px; font-family:inherit;
+}
+.avatar-menu-item:hover{ background:rgba(255,77,94,.08); }
+
+/* Página "Apoie o BR Data" já logado (upgrade de plano) */
+.apoie-current-plan{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; }
+.apoie-current-plan .lbl{ font-size:11px; color:var(--text-1); text-transform:uppercase; letter-spacing:.4px; }
+.apoie-current-plan .val{ font-size:16px; font-weight:800; color:var(--text-0); }
+.plan-card.current{ opacity:.75; cursor:default; }
+.plan-card.current:hover{ border-color:var(--border); }
+
 @media (prefers-reduced-motion: reduce){
   *{ animation-duration:.001ms !important; transition-duration:.001ms !important; }
 }

@@ -15,8 +15,14 @@ deploy/                → arquivos de deploy (systemd, nginx)
 Dockerfile / docker-compose.yml → deploy via Docker + Caddy (HTTPS automático)
 README-INSTALACAO.md   → guia completo de instalação/deploy
 README-API-SPORTS.md   → detalhes da integração com a API-Sports
-README-PAGAMENTOS.md   → área "Apoie o BR Data" (planos + Mercado Pago)
+README-LOGIN.md        → cadastro/login obrigatório, planos e sessão (LEIA — tem um passo obrigatório no Railway)
+README-PAGAMENTOS.md   → pagamento por cartão/PIX via Mercado Pago
 ```
+
+> ⚠️ O site agora exige login pra qualquer acesso (cadastro + escolha
+> de plano + pagamento quando aplicável). Isso guarda dados de conta
+> num arquivo local que **precisa de um Volume no Railway** pra não se
+> perder a cada deploy — detalhes em `README-LOGIN.md`.
 
 ## Rodando local
 
