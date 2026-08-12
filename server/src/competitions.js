@@ -53,10 +53,7 @@ const ENABLED_COMPETITION_IDS = new Set(
 const COMPETITIONS = [
   {
     id: "brasileirao",
-    providerLeagueIds: {
-      "api-sports": process.env.LEAGUE_ID || "71",
-      "campeonato-brasileiro": "a", // ver server/src/providers/campeonatoBrasileiro.js (limitações importantes)
-    },
+    providerLeagueIds: { "api-sports": process.env.LEAGUE_ID || "71" },
     name: "Brasileirão Série A",
     country: "Brasil",
     flag: "🇧🇷",

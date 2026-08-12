@@ -100,14 +100,8 @@ async function getFixtureOdds({ fixtureId }) {
   return mapOdds(data);
 }
 
-// Precisa de API_SPORTS_KEY configurada pra funcionar — ver
-// hasCredential()/liveModeEnabled() em server.js.
-function hasCredential() { return !!process.env.API_SPORTS_KEY; }
-
 module.exports = {
   name: "api-sports",
-  requiresKey: true,
-  hasCredential,
   searchLeagues, getTeams, getStandings, getFixtures,
   getPlayersLeaders, getTeamPlayers, getPlayer,
   getFixtureStatistics, getFixtureEvents, getFixtureLineups, getFixtureOdds,

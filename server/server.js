@@ -89,14 +89,11 @@ function isValidAdminSecret(req, searchParams) {
 const RAW_APP_MODE = (process.env.APP_MODE || "").trim().toLowerCase();
 const APP_MODE = ["auto", "live", "demo"].includes(RAW_APP_MODE) ? RAW_APP_MODE : "auto";
 
-// Se true, os endpoints que dependem do fornecedor de dados ativo (ver
-// server/src/providers/) devem responder. Combina APP_MODE com a
-// credencial daquele fornecedor especificamente estar configurada —
-// nem todo fornecedor precisa de chave (ex.: campeonato-brasileiro é
-// grátis, hasCredential() sempre true nele).
+// Se true, os endpoints que dependem da API-Sports devem responder.
+// Combina APP_MODE com a presença (ou não) da chave.
 function liveModeEnabled() {
   if (APP_MODE === "demo") return false;
-  return dataProvider.hasCredential();
+  return !!process.env.API_SPORTS_KEY;
 }
 
 // URL pública do site — usada pra montar os back_urls/notification_url
@@ -316,14 +313,12 @@ const server = http.createServer(async (req, res) => {
         ok: true,
         hasKey: liveModeEnabled(),
         mode: APP_MODE,
-        provider: dataProvider.ACTIVE_PROVIDER_NAME,
         // Sinal explícito pra debug: pediram modo ao vivo (APP_MODE=live)
-        // mas o fornecedor ativo não tem credencial configurada no host
-        // — em vez de cair quieto pro modo exemplo, isso aparece aqui e
-        // nos endpoints que dependem dele (erro 501 em vez de resposta
-        // vazia).
-        warning: (APP_MODE === "live" && !dataProvider.hasCredential())
-          ? `APP_MODE=live mas o fornecedor ativo (${dataProvider.ACTIVE_PROVIDER_NAME}) não tem credencial configurada neste host.`
+        // mas a chave não está configurada no host — em vez de cair
+        // quieto pro modo exemplo, isso aparece aqui e nos endpoints
+        // que dependem da API-Sports (erro 501 em vez de resposta vazia).
+        warning: (APP_MODE === "live" && !process.env.API_SPORTS_KEY)
+          ? "APP_MODE=live mas API_SPORTS_KEY não está configurada neste host."
           : null,
         leagueId: LEAGUE_ID,
         season: LIVE_SEASON,
@@ -377,7 +372,7 @@ const server = http.createServer(async (req, res) => {
       const err = new Error(
         APP_MODE === "demo"
           ? "Modo Exemplo forçado (APP_MODE=demo) — dados reais desativados de propósito neste host."
-          : `Fornecedor ativo (${dataProvider.ACTIVE_PROVIDER_NAME}) sem credencial configurada neste host (ou modo ao vivo desativado).`
+          : "API_SPORTS_KEY não configurada neste host (ou modo ao vivo desativado)."
       );
       err.code = "NO_API_KEY";
       throw err;
@@ -777,10 +772,9 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.log(`\n⚽  Brasileirão 2026 rodando em http://localhost:${PORT}`);
-  console.log(`   Fornecedor de dados ativo: ${dataProvider.ACTIVE_PROVIDER_NAME}`);
-  console.log(dataProvider.hasCredential()
-    ? `   Credencial configurada — modo ao vivo disponível.`
-    : `   Sem credencial configurada pra esse fornecedor — o site usará dados de exemplo.\n   Copie .env.example para .env e configure a credencial (se esse fornecedor precisar de uma) para ativar dados reais.`);
+  console.log(process.env.API_SPORTS_KEY
+    ? `   Chave da API-Sports detectada — modo ao vivo disponível.`
+    : `   Nenhuma API_SPORTS_KEY em .env — o site usará dados de exemplo.\n   Copie .env.example para .env e cole sua chave para ativar dados reais.`);
   // Log explícito do que a variável de ambiente realmente chegou (ou
   // não) no processo — se o valor configurado no host não bater com o
   // que aparece aqui, o problema é no nome/escopo da variável no

@@ -40,15 +40,6 @@
           feita; um fornecedor sem esse conceito pode devolver
           { limit: null, remaining: null }
 
-   Cada provider também exporta (não são métodos, são valores/funções
-   síncronas lidas no boot e a cada request — ver liveModeEnabled() em
-   server.js):
-     requiresKey    -> boolean — precisa de credencial pra funcionar?
-     hasCredential  -> () => boolean — a credencial necessária (se
-                       houver) está configurada nesse host agora?
-                       Fornecedor sem chave nenhuma (ex.: scraping de
-                       página pública) sempre devolve true aqui.
-
    `leagueId`/`teamId`/`playerId`/`fixtureId` chegam já resolvidos pro
    sistema de ids DESSE fornecedor específico (ver
    server/src/competitions.js — providerLeagueIds — pra league; os
@@ -60,8 +51,7 @@
 
 const PROVIDERS = {
   "api-sports": require("./apiSports"),
-  "campeonato-brasileiro": require("./campeonatoBrasileiro"), // grátis, só Brasileirão, só rodada atual — ver aviso no topo do arquivo
-  // "sportmonks": require("./sportmonks"), // exemplo de como um 3º fornecedor entraria aqui
+  // "sportmonks": require("./sportmonks"), // exemplo de como um 2º fornecedor entraria aqui
 };
 
 const ACTIVE_PROVIDER_NAME = (process.env.DATA_PROVIDER || "api-sports").trim().toLowerCase();
