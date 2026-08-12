@@ -756,6 +756,21 @@ h1,h2,h3{ margin:0; }
   .apoie-form-card{ max-width:none; }
 }
 
+/* iOS Safari/WebKit: campos de formulário com font-size menor que 16px
+   fazem o navegador dar zoom automático ao focar o campo — e em PWA
+   instalado (sem chrome do navegador pra dar duplo-toque e desfazer)
+   esse zoom pode "vazar" pro resto do app depois do login. Força 16px
+   em telas mobile só nesses seletores, sem alterar a tipografia mais
+   compacta do desktop. */
+@media (max-width:1024px){
+  .field input,
+  .top-search input,
+  .compare-select,
+  .input{
+    font-size:16px;
+  }
+}
+
 /* ================= Gate de login/cadastro (tela cheia) ================= */
 .auth-gate{
   display:flex; flex-direction:column; align-items:center; min-height:100vh;
