@@ -10,15 +10,36 @@
          (nem todo tier cobre todas as ligas, e planos free geralmente
          só cobrem temporada corrente — confirme antes de ativar).
 
-   Até você confirmar a cobertura, `enabled:false` faz esse campeonato
-   aparecer no app como "em breve" em vez de tentar buscar um dado que
-   ainda não existe (ou pior, que existe mas não está incluído no seu
-   plano — dá erro 403 da própria API-Sports). Pra ativar depois, é só
-   virar o enabled pra true aqui e dar redeploy — não precisa mexer em
-   mais nada, o resto do backend (rotas /api/teams, /api/standings
-   etc.) e o front-end já leem esse registro. */
+   Até você confirmar a cobertura, cada campeonato fica com
+   `enabled:false` — aparece no app como "em breve" (Pro/Enterprise) ou
+   bloqueado por plano (Freemium/Lite) em vez de tentar buscar um dado
+   que ainda não existe (ou que existe mas não está incluído no seu
+   plano — daria erro 403 da própria API-Sports). Enquanto isso, o
+   Pro/Enterprise continua explorando esse campeonato normalmente em
+   modo exemplo (ver DEMO_DATA_BY_COMPETITION em public/js/data.js) —
+   habilitar aqui só troca esse modo exemplo por dado real.
+
+   ATIVAÇÃO — via variável de ambiente (Railway/host), SEM editar
+   código nem dar redeploy manual de código:
+     ENABLED_COMPETITIONS=premier_league,la_liga
+   Lista separada por vírgula com os "id" que você quer habilitar (os
+   mesmos ids do array COMPETITIONS abaixo — "brasileirao" já vem
+   habilitado sempre, não precisa incluir). Pra habilitar só uma:
+     ENABLED_COMPETITIONS=premier_league
+   Pra desabilitar as duas de novo (voltar pro modo exemplo), apague a
+   variável ou deixe em branco. Ver server/.env.example. */
 
 const DEFAULT_SEASON = process.env.LIVE_SEASON || "2023";
+
+// "premier_league,la_liga" -> Set{"premier_league","la_liga"} (trim +
+// minúsculo, pra tolerar espaço depois da vírgula ou maiúscula por
+// engano). Vazia/ausente = nenhuma das duas habilitada ainda.
+const ENABLED_COMPETITION_IDS = new Set(
+  (process.env.ENABLED_COMPETITIONS || "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean)
+);
 
 const COMPETITIONS = [
   {
@@ -28,7 +49,7 @@ const COMPETITIONS = [
     country: "Brasil",
     flag: "🇧🇷",
     minPlan: "freemium", // liberado pra todo mundo
-    enabled: true,
+    enabled: true, // sempre — é o único campeonato coberto por todos os planos
   },
   {
     id: "premier_league",
@@ -37,7 +58,7 @@ const COMPETITIONS = [
     country: "Inglaterra",
     flag: "🏴",
     minPlan: "pro",
-    enabled: false, // "em breve" — vire true quando confirmar cobertura no seu plano da API-Sports
+    enabled: ENABLED_COMPETITION_IDS.has("premier_league"),
   },
   {
     id: "la_liga",
@@ -46,7 +67,7 @@ const COMPETITIONS = [
     country: "Espanha",
     flag: "🇪🇸",
     minPlan: "pro",
-    enabled: false, // "em breve" — idem acima
+    enabled: ENABLED_COMPETITION_IDS.has("la_liga"),
   },
 ];
 
@@ -60,11 +81,12 @@ const PLAN_RANK = { freemium: 0, lite: 0, pro: 1, enterprise: 1 };
 // Enterprise: histórico de temporadas anteriores, além da atual —
 // combinado com o usuário: 3 anos pra começar (não os 10 originalmente
 // cogitados), pra reduzir risco de estourar cota da API-Sports numa
-// primeira fase. HISTORY_ENABLED segue "em breve" até confirmar que o
-// plano da API-Sports cobre temporadas passadas (geralmente exige tier
-// pago específico — confirme antes de ativar).
+// primeira fase. Ativa com ENABLE_HISTORY=true (env var, mesmo
+// espírito do ENABLED_COMPETITIONS acima) quando confirmar que o plano
+// da API-Sports cobre temporadas passadas (geralmente exige tier pago
+// específico — confirme antes de ativar).
 const HISTORY_SEASONS_BACK = 3;
-const HISTORY_ENABLED = false;
+const HISTORY_ENABLED = (process.env.ENABLE_HISTORY || "").trim().toLowerCase() === "true";
 
 function getCompetition(id) {
   return COMPETITIONS.find((c) => c.id === id) || null;
