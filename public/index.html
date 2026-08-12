@@ -43,13 +43,25 @@
       <button type="button" class="btn btn-secondary full" id="gatePendingLogoutBtn" style="margin-top:8px;">Sair</button>
     </div>
 
-    <!-- cadastro (padrão) -->
-    <div id="gateSignupView" class="auth-gate-card">
+    <!-- login (padrão) -->
+    <div id="gateLoginView" class="auth-gate-card">
+      <h2>Entrar</h2>
+      <p class="auth-gate-sub">Acesse sua conta do BR Data</p>
+      <div id="gateLoginNotice"></div>
+      <form id="gateLoginForm" class="auth-gate-form">
+        <div class="field"><label for="gateLoginEmail">E-mail</label><input type="email" id="gateLoginEmail" autocomplete="email" placeholder="voce@email.com"></div>
+        <div class="field"><label for="gateLoginPassword">Senha</label><input type="password" id="gateLoginPassword" autocomplete="current-password" placeholder="Sua senha"></div>
+        <div class="apoie-form-error" id="gateLoginError" style="display:none;"></div>
+        <button type="submit" class="btn btn-accent full">Entrar</button>
+      </form>
+      <p class="auth-gate-switch">Não tem uma conta? <a href="#" id="gateGoSignup">Cadastre-se</a></p>
+    </div>
+
+    <!-- cadastro + seleção de plano -->
+    <div id="gateSignupView" class="auth-gate-card" style="display:none;">
       <h2>Crie sua conta</h2>
       <p class="auth-gate-sub">Escolha um plano pra começar a usar o BR Data</p>
       <div id="gatePlansGrid" class="plans-grid gate-plans-grid"></div>
-
-      <div id="gateSignupStatusBanner"></div>
 
       <form id="gateSignupForm" class="auth-gate-form">
         <div class="field"><label for="gateName">Nome completo</label><input type="text" id="gateName" autocomplete="name" placeholder="Seu nome"></div>
@@ -60,20 +72,6 @@
         <button type="submit" class="btn btn-accent full" id="gateSignupSubmit" disabled>Escolha um plano acima</button>
       </form>
       <p class="auth-gate-switch">Já tem conta? <a href="#" id="gateGoLogin">Fazer login</a></p>
-    </div>
-
-    <!-- login -->
-    <div id="gateLoginView" class="auth-gate-card" style="display:none;">
-      <h2>Entrar</h2>
-      <p class="auth-gate-sub">Acesse sua conta do BR Data</p>
-      <div id="gateLoginNotice"></div>
-      <form id="gateLoginForm" class="auth-gate-form">
-        <div class="field"><label for="gateLoginEmail">E-mail</label><input type="email" id="gateLoginEmail" autocomplete="email" placeholder="voce@email.com"></div>
-        <div class="field"><label for="gateLoginPassword">Senha</label><input type="password" id="gateLoginPassword" autocomplete="current-password" placeholder="Sua senha"></div>
-        <div class="apoie-form-error" id="gateLoginError" style="display:none;"></div>
-        <button type="submit" class="btn btn-accent full">Entrar</button>
-      </form>
-      <p class="auth-gate-switch">Ainda não tem conta? <a href="#" id="gateGoSignup">Criar conta</a></p>
     </div>
 
     <p class="auth-gate-disclaimer">🔒 Pagamento processado com segurança pelo Mercado Pago (cartão ou PIX). Os dados do seu cartão nunca passam pelos servidores do BR Data.</p>

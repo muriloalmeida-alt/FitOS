@@ -1443,15 +1443,11 @@ async function renderAuthGate() {
     card.addEventListener("click", () => gateSelectPlan(card.dataset.plan, plans));
   });
 
-  if (apoieReturnStatus) {
-    // Voltando de um checkout de cadastro pago — mostra o resultado e
-    // já leva pra tela de login (é o próximo passo, sempre).
-    const status = await renderStatusBanner("gateSignupStatusBanner");
-    showGateView("login");
-    if (status === "approved") gateShowMsg("gateLoginNotice", "Pagamento aprovado! Faça login pra continuar.", "success");
-  } else {
-    showGateView("signup");
-  }
+  // Login é sempre a tela padrão. Se estiver voltando de um checkout
+  // de cadastro pago, o resultado aparece ali mesmo, na view de login
+  // (é o próximo passo de qualquer jeito — ver renderStatusBanner).
+  showGateView("login");
+  if (apoieReturnStatus) await renderStatusBanner("gateLoginNotice");
 }
 
 function renderGatePending(user) {
