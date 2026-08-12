@@ -2,7 +2,7 @@
   "name": "brasileirao-2026-server",
   "version": "1.0.0",
   "private": true,
-  "description": "Backend proxy/cache para integrar o Simulador Brasileirão 2026 com a API-Sports (api-football v3).",
+  "description": "Backend proxy/cache para integrar o Simulador Brasileirão 2026 com a API-Sports (api-football v3) e, opcionalmente, com a campeonato-brasileiro-api (ver server/src/providers/campeonatoBrasileiro.js).",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -10,5 +10,8 @@
   },
   "engines": {
     "node": ">=18"
+  },
+  "dependencies": {
+    "campeonato-brasileiro-api": "github:ezefranca/campeonato-brasileiro-api#e7f68cf18ddab019899a05eab068158f75942518"
   }
 }
