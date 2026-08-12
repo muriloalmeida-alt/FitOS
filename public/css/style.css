@@ -456,7 +456,6 @@ h1,h2,h3{ margin:0; }
 .linechart-val small.down{ background:rgba(217,45,32,.12); color:var(--brd-red); }
 
 /* Simulador "E se" */
-.whatif-team{ display:flex; align-items:center; gap:8px; margin-bottom:14px; font-size:12.5px; font-weight:600; }
 .stepper{ display:flex; align-items:center; gap:10px; margin-bottom:14px; }
 .stepper button{ width:30px; height:30px; border-radius:9px; border:1px solid var(--border); background:var(--bg-app); font-size:15px; font-weight:700; cursor:pointer; color:var(--text-0); }
 .stepper b{ font-size:16px; min-width:20px; text-align:center; }

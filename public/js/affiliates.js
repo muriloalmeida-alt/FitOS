@@ -26,12 +26,10 @@
 =================================================================== */
 
 const AFFILIATE_OPERATORS = [
-  { id: "bet365",      name: "bet365",      color: "#0A6C3C", url: "#" },
-  { id: "betano",      name: "Betano",      color: "#0E1E5B", url: "#" },
-  { id: "kto",         name: "KTO",         color: "#F5B301", url: "#" },
-  { id: "superbet",    name: "Superbet",    color: "#E10600", url: "#" },
-  { id: "betnacional", name: "Betnacional", color: "#00A651", url: "#" },
-  { id: "sportingbet", name: "Sportingbet", color: "#D2001F", url: "#" },
+  { id: "bet365",   name: "bet365",   color: "#0A6C3C", url: "#" },
+  { id: "betano",   name: "Betano",   color: "#0E1E5B", url: "#" },
+  { id: "kto",      name: "KTO",      color: "#F5B301", url: "#" },
+  { id: "superbet", name: "Superbet", color: "#E10600", url: "#" },
 ];
 
 const RESPONSIBLE_GAMBLING_URL = "https://www.gov.br/fazenda/pt-br/composicao/orgaos/secretaria-de-premios-e-apostas/autoexclusao";

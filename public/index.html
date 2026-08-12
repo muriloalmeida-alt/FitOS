@@ -243,34 +243,8 @@
           </div>
         </div>
 
-        <div class="grid grid-3">
-          <div class="card">
-            <div class="card-head"><h3>Odds — próximo jogo</h3></div>
-            <div id="dashOddsBlock"></div>
-          </div>
-          <div class="card">
-            <div class="card-head"><h3>Movimentação de odds</h3>
-              <div class="range-tabs" id="oddsRangeTabs">
-                <button class="range-tab" data-range="24h">24H</button>
-                <button class="range-tab active" data-range="7d">7D</button>
-                <button class="range-tab" data-range="30d">30D</button>
-              </div>
-            </div>
-            <div id="oddsChart"></div>
-          </div>
-          <div class="card">
-            <div class="card-head"><h3>Simulador — E se...</h3></div>
-            <div class="whatif-team">
-              <span>Time:</span>
-              <select class="compare-select" id="whatifTeamSelect"></select>
-            </div>
-            <div class="stepper">
-              <button id="whatifMinus">−</button><b id="whatifN">5</b><span>jogos</span><button id="whatifPlus">+</button>
-            </div>
-            <div id="whatifResults"></div>
-            <div class="card-link" data-page="simulador" style="margin-top:12px;">Acessar simulador completo →</div>
-          </div>
-        </div>
+        <div class="card-head" style="margin-bottom:10px;"><h3>Próximo jogo</h3></div>
+        <div id="dashOddsBlock" style="margin-bottom:16px;"></div>
         </div>
 
         <div class="dash-rail">
@@ -469,6 +443,26 @@
             <select class="compare-select" style="flex:none; width:auto;" id="teamPageCompareSelect"></select>
           </div>
           <div id="teamPageCompareBody"></div>
+        </div>
+        <div class="grid grid-2" style="margin-bottom:16px;">
+          <div class="card">
+            <div class="card-head"><h3>Movimentação de odds</h3>
+              <div class="range-tabs" id="oddsRangeTabs">
+                <button class="range-tab" data-range="24h">24H</button>
+                <button class="range-tab active" data-range="7d">7D</button>
+                <button class="range-tab" data-range="30d">30D</button>
+              </div>
+            </div>
+            <div id="oddsChart"></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h3>Simulador — E se...</h3></div>
+            <div class="stepper">
+              <button id="whatifMinus">−</button><b id="whatifN">5</b><span>próximos jogos vencidos</span><button id="whatifPlus">+</button>
+            </div>
+            <div id="whatifResults"></div>
+            <div class="card-link" data-page="simulador" style="margin-top:12px;">Acessar simulador completo →</div>
+          </div>
         </div>
         <div class="card" style="margin-bottom:16px;">
           <div class="card-head"><h3>Elenco</h3><span style="font-size:11px; color:var(--text-2); font-weight:600;" id="teamPageRosterHint"></span></div>

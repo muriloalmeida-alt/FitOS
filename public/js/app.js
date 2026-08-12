@@ -172,12 +172,6 @@ async function startApp(user) {
 
   state.jogosRound = Math.max(1, firstUndecidedRound() - 1) || 1;
   state.simRound = firstUndecidedRound();
-  // Se já existe um Clube Favorito salvo (de uma visita anterior), o
-  // simulador "E se..." do Dashboard já abre nele — mesmo default usado
-  // quando o favorito é escolhido/trocado depois (onFavoriteClubChange).
-  state.whatifTeamId = (state.favoriteClubId && TEAM_MAP[state.favoriteClubId])
-    ? state.favoriteClubId
-    : (currentStandings()[0]?.id || TEAMS[0].id);
 
   populateAllSelects();
   renderMyTeamsSidebar();
@@ -410,8 +404,6 @@ function renderDashboard() {
   renderDashTitleChance();
   renderDashNextFixtures();
   renderDashOdds();
-  renderOddsChart();
-  renderWhatIf();
   renderDashNewsMini();
 }
 
@@ -766,25 +758,13 @@ function oddsPillsHTML(odds, isLoading, compact = false) {
   }
   return `<div class="empty" style="padding:10px 0;">${isLoading ? "Carregando odds..." : "Odds não disponíveis para este jogo/plano."}</div>`;
 }
-function oddsInnerHTML(m) {
-  const H = TEAM_MAP[m.home], A = TEAM_MAP[m.away];
-  const domId = `oddsinner-${m.round}-${m.home}-${m.away}`;
-  const needsLazyLoad = LIVE_MODE && m.fixtureId && m.odds === undefined;
-  if (needsLazyLoad) {
-    loadFixtureOdds(m.fixtureId).then(odds => { m.odds = odds; const el = document.getElementById(domId); if (el) el.outerHTML = oddsInnerHTML(m); })
-      .catch(() => { m.odds = null; const el = document.getElementById(domId); if (el) el.outerHTML = oddsInnerHTML(m); });
-  }
-  const { odds, simulated } = matchOdds(m);
-  return `
-    <div id="${domId}">
-      <div class="odds-hero"><div class="match">${H.short} × ${A.short}</div><div class="meta">${fmtFixtureDate(m.date, m.round)}</div></div>
-      ${oddsPillsHTML(odds, needsLazyLoad)}
-      ${affiliateComplianceHTML(simulated ? " (odds simuladas — sem integração com casas de apostas ainda)" : "")}
-    </div>`;
-}
+// Mesmo card de jogo usado na aba Jogos (fullMatchCardHTML) — igual
+// visual, igual comportamento (expande "Ver detalhes", odds+parceiros
+// já visíveis antes de expandir), só que aqui é sempre o próximo jogo
+// em destaque (do Clube Favorito, se houver; senão, o da liga).
 function renderDashOdds() {
   const m = dashOddsFixture();
-  document.getElementById("dashOddsBlock").innerHTML = m ? oddsInnerHTML(m) : `<div class="empty">Sem próximos jogos cadastrados.</div>`;
+  document.getElementById("dashOddsBlock").innerHTML = m ? fullMatchCardHTML(m) : `<div class="empty">Sem próximos jogos cadastrados.</div>`;
 }
 
 /* ---------- Odds + parceiros dentro do próprio card de jogo ----------
@@ -835,8 +815,10 @@ function syntheticOddsHistory(seedKey, range) {
   }
   return points;
 }
-async function renderOddsChart() {
-  const m = dashOddsFixture();
+// Movimentação de odds do PRÓXIMO jogo do time — vive só na página do
+// Time agora (ver renderTeamPage), sempre do time em questão.
+async function renderOddsChart(teamId) {
+  const m = teamNextFixtures(teamId, 1)[0];
   const box = document.getElementById("oddsChart");
   if (!m) { box.innerHTML = `<div class="empty">Sem próximos jogos.</div>`; return; }
   let points;
@@ -1337,15 +1319,6 @@ function saveFavoriteClub() {
 function applyFavoriteClub(newId) {
   state.favoriteClubId = newId || null;
   saveFavoriteClub();
-  // O simulador "E se..." do Dashboard passa a sugerir o clube
-  // favorito por padrão (o usuário ainda pode trocar manualmente no
-  // próprio seletor depois — isso só define o ponto de partida).
-  const defaultWhatif = state.favoriteClubId || currentStandings()[0]?.id || null;
-  if (defaultWhatif) {
-    state.whatifTeamId = defaultWhatif;
-    const whatifSel = document.getElementById("whatifTeamSelect");
-    if (whatifSel) whatifSel.value = defaultWhatif;
-  }
   renderDashboard();
 }
 function onFavoriteClubChange(e) { applyFavoriteClub(e.target.value); }
@@ -2029,6 +2002,12 @@ function renderTeamPage() {
   renderTeamCompare(teamId, standings);
   renderTeamRoster(teamId);
   renderTeamLastLineup(teamId, last[0]);
+
+  // Movimentação de odds + simulador "E se..." — sempre do time desta
+  // página (não existem mais no Dashboard).
+  renderOddsChart(teamId);
+  state.whatifTeamId = teamId;
+  renderWhatIf();
 }
 // "Comparar com outro time" — time A é sempre o time da página atual;
 // só o time B (adversário) é escolhido no seletor.
@@ -2101,7 +2080,6 @@ function populateAllSelects() {
   populateSelect(document.getElementById("radarTeamSelect2"), leader);
   populateSelect(document.getElementById("compareTeamA2"), leader);
   populateSelect(document.getElementById("compareTeamB2"), second);
-  populateSelect(document.getElementById("whatifTeamSelect"), state.whatifTeamId || leader);
 }
 
 /* ================= NAVEGAÇÃO ================= */
@@ -2262,16 +2240,17 @@ function setupEventListeners() {
     renderCompareInto("teamPageCompareBody", state.selectedTeamId, e.target.value);
   });
 
-  document.getElementById("whatifTeamSelect").addEventListener("change", e => { state.whatifTeamId = e.target.value; renderWhatIf(); });
   // favoriteClubSelect é recriado a cada render do card (ver
   // renderFavoriteClubCard) — o listener é anexado lá, não aqui.
+  // whatif e movimentação de odds vivem só na página do Time agora —
+  // sempre o time da própria página (ver renderTeamPage), sem seletor.
   document.getElementById("whatifMinus").addEventListener("click", () => { state.whatifN = Math.max(1, state.whatifN - 1); renderWhatIf(); });
   document.getElementById("whatifPlus").addEventListener("click", () => { state.whatifN = Math.min(19, state.whatifN + 1); renderWhatIf(); });
 
   document.getElementById("oddsRangeTabs").addEventListener("click", e => {
     const btn = e.target.closest(".range-tab"); if (!btn) return;
     document.querySelectorAll("#oddsRangeTabs .range-tab").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active"); state.oddsRange = btn.dataset.range; renderOddsChart();
+    btn.classList.add("active"); state.oddsRange = btn.dataset.range; renderOddsChart(state.selectedTeamId);
   });
 
   // Busca de times
