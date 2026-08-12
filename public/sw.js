@@ -18,7 +18,7 @@
    o cache antigo automaticamente no próximo deploy (ver "activate"
    abaixo, que limpa qualquer cache com nome diferente deste).
 =================================================================== */
-const CACHE_NAME = "brdata-shell-v10";
+const CACHE_NAME = "brdata-shell-v11";
 const API_CACHE_NAME = "brdata-api-v1";
 
 const APP_SHELL = [
@@ -26,6 +26,7 @@ const APP_SHELL = [
   "/index.html",
   "/manifest.json",
   "/css/style.css",
+  "/js/qrcode-lib.js",
   "/js/data.js",
   "/js/engine.js",
   "/js/liveData.js",

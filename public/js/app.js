@@ -40,6 +40,66 @@ function setActiveTeams(teams) { TEAMS = teams; setTeamMap(teams); }
 // currentUser com planStatus "active", só o #authGate é mostrado, o
 // resto do app (.shell) fica escondido e nenhum dado é carregado.
 let currentUser = null;
+// true depois que o fluxo de login/app já rodou pelo menos uma vez —
+// evita refazer tudo de novo só porque a janela foi redimensionada
+// (ver evaluateDesktopGate).
+let appBooted = false;
+
+/* ================= Gate de desktop (foco 100% PWA/mobile) =================
+   Telas maiores que DESKTOP_BREAKPOINT mostram uma página pra baixar/
+   instalar o app em vez do login — tem prioridade sobre tudo, inclusive
+   sobre quem já está logado. Reavaliado no boot() e a cada resize da
+   janela. "Continuar no navegador" grava um flag em localStorage que
+   pula esse gate dali pra frente, nesse mesmo navegador. */
+const DESKTOP_BREAKPOINT = 1024; // mesmo breakpoint dos media queries responsivos do resto do CSS
+const DESKTOP_BYPASS_KEY = "brdata_desktop_bypass";
+
+function hasDesktopBypass() {
+  try { return localStorage.getItem(DESKTOP_BYPASS_KEY) === "1"; } catch { return false; }
+}
+function setDesktopBypass() {
+  try { localStorage.setItem(DESKTOP_BYPASS_KEY, "1"); } catch {}
+}
+function isDesktopWidth() { return window.innerWidth > DESKTOP_BREAKPOINT; }
+
+function debounce(fn, ms) {
+  let t;
+  return (...args) => { clearTimeout(t); t = setTimeout(() => fn(...args), ms); };
+}
+
+function renderDesktopGateQR() {
+  const box = document.getElementById("desktopGateQr");
+  const urlEl = document.getElementById("desktopGateUrl");
+  const url = `${location.origin}/`;
+  if (urlEl) urlEl.textContent = url;
+  if (!box) return;
+  try {
+    const qr = qrcode(0, "M"); // qrcode-lib.js (vendorizado, ver public/js/qrcode-lib.js) — sem depender de serviço externo
+    qr.addData(url);
+    qr.make();
+    box.innerHTML = qr.createSvgTag(6, 4);
+  } catch (err) {
+    console.warn("[desktop-gate] falha ao gerar QR code:", err);
+  }
+}
+
+// Decide se mostra o gate de desktop. Retorna true se mostrou (chamado
+// tanto no boot quanto a cada resize da janela).
+function evaluateDesktopGate() {
+  const shouldGate = isDesktopWidth() && !hasDesktopBypass();
+  document.getElementById("desktopGate").style.display = shouldGate ? "flex" : "none";
+  if (shouldGate) {
+    document.getElementById("authGate").style.display = "none";
+    document.querySelector(".shell").style.display = "none";
+  } else if (appBooted) {
+    // Saiu do gate de desktop (redimensionou pra baixo, ou clicou
+    // "continuar") depois do app já ter carregado 1x — só devolve a
+    // visibilidade certa (logado ou tela de login), sem refazer o
+    // boot inteiro de novo.
+    setGateVisible(!(currentUser && currentUser.planStatus === "active"));
+  }
+  return shouldGate;
+}
 
 async function boot() {
   // Liga os listeners 1x só, logo de cara — os elementos do gate (login/
@@ -49,7 +109,19 @@ async function boot() {
   // listener duplicado quando o login acontece sem reload de página.
   setupEventListeners();
   initTheme(); // roda antes do login pra o próprio gate já respeitar o tema salvo
+  renderDesktopGateQR();
 
+  window.addEventListener("resize", debounce(() => {
+    const gated = evaluateDesktopGate();
+    if (!gated && !appBooted) startAuthFlow();
+  }, 200));
+
+  if (evaluateDesktopGate()) return; // tela de desktop sem bypass — só a página de download, nada mais carrega
+  await startAuthFlow();
+}
+
+async function startAuthFlow() {
+  appBooted = true;
   const authState = await checkAuth();
 
   if (!authState.authenticated) {
@@ -2068,6 +2140,12 @@ function setupEventListeners() {
   document.getElementById("btnLogout").addEventListener("click", logout);
   document.getElementById("btnLogoutMobile").addEventListener("click", logout);
   document.getElementById("btnForceRefresh").addEventListener("click", forceRefreshApp);
+  document.getElementById("desktopGateContinue").addEventListener("click", (e) => {
+    e.preventDefault();
+    setDesktopBypass();
+    const gated = evaluateDesktopGate();
+    if (!gated && !appBooted) startAuthFlow();
+  });
 
   document.getElementById("btnAddTeam").addEventListener("click", () => {
     const existing = document.getElementById("quickAddSelect");

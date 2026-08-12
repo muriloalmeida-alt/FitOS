@@ -22,6 +22,33 @@
 </head>
 <body>
 
+<!-- ================= GATE DE DESKTOP =================
+     Foco 100% PWA/mobile: em telas maiores que o breakpoint mobile
+     (ver DESKTOP_BREAKPOINT em app.js), isso substitui TUDO — nem o
+     login chega a aparecer. Sempre reavaliado (boot + resize da
+     janela, ver evaluateDesktopGate). "Continuar no navegador" grava
+     um flag em localStorage (DESKTOP_BYPASS_KEY) que pula esse gate
+     nas próximas vezes, nesse mesmo navegador. -->
+<div id="desktopGate" class="auth-gate" style="display:none;">
+  <div class="auth-gate-inner">
+    <div class="auth-gate-brand">
+      <img src="img/logo.png" alt="BR Data" class="auth-gate-logo">
+    </div>
+    <div class="auth-gate-card">
+      <h2>O BR Data é feito pro seu celular</h2>
+      <p class="auth-gate-sub">Aponte a câmera do celular pro QR code abaixo pra abrir o app e instalar na tela inicial.</p>
+      <div class="desktop-gate-qr" id="desktopGateQr"></div>
+      <p class="desktop-gate-url" id="desktopGateUrl"></p>
+      <div class="desktop-gate-steps">
+        <div><b>Android (Chrome)</b><span>Menu ⋮ → "Instalar app" (ou "Adicionar à tela inicial")</span></div>
+        <div><b>iPhone (Safari)</b><span>Botão Compartilhar → "Adicionar à Tela de Início"</span></div>
+      </div>
+      <p class="desktop-gate-soon">📱 Em breve também na App Store e no Google Play.</p>
+    </div>
+    <p class="auth-gate-switch"><a href="#" id="desktopGateContinue">Continuar no navegador mesmo assim</a></p>
+  </div>
+</div>
+
 <!-- ================= GATE DE LOGIN/CADASTRO =================
      Cobre a tela inteira pra visitante sem sessão válida — controlado
      por JS (gate.js/app.js: renderAuthGate). Cadastro é obrigatório:
@@ -31,7 +58,6 @@
   <div class="auth-gate-inner">
     <div class="auth-gate-brand">
       <img src="img/logo.png" alt="BR Data" class="auth-gate-logo">
-      <span class="auth-gate-brand-name">BR DATA</span>
     </div>
 
     <!-- conta já existe, mas o plano pago ainda não foi confirmado -->
@@ -515,6 +541,7 @@
 
 </div>
 
+<script src="js/qrcode-lib.js"></script>
 <script src="js/data.js"></script>
 <script src="js/engine.js"></script>
 <script src="js/liveData.js"></script>
