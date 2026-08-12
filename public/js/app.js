@@ -256,13 +256,14 @@ function dashRowHTML(row, pos, favId, pinned = false) {
     <td><span class="pos">${pos}</span></td>
     <td class="clickable-team" onclick="goToTeam('${team.id}')">${crestEl(team, 22)}</td>
     <td class="team-cell clickable-team" onclick="goToTeam('${team.id}')">${isFav ? "⭐ " : ""}${team.name}</td>
-    <td class="num">${row.pts}</td><td class="num">${row.j}</td><td class="num">${row.v}</td>
-    <td class="num">${row.e}</td><td class="num">${row.d}</td>
-    <td class="num only-desktop">${row.gp}</td><td class="num only-desktop">${row.gc}</td>
-    <td class="num only-desktop">${row.sg > 0 ? "+" + row.sg : row.sg}</td>
-    <td class="num mobile-only-col">${row.pts}</td>
+    <td class="num">${row.pts}</td><td class="num">${row.j}</td>
+    <td class="num">${row.sg > 0 ? "+" + row.sg : row.sg}</td>
   </tr>`;
 }
+// Colunas reduzidas de propósito (#, Time, Pontos, Jogos, Saldo de
+// Gols) — com nomes de time longos (ex: "Athletico Paranaense",
+// "Vasco da Gama") e mais colunas, o nome quebrava em duas linhas e
+// deixava as linhas da tabela com alturas diferentes.
 function fullRowHTML(row, pos) {
   const team = TEAM_MAP[row.id];
   const isFav = state.favorites.includes(team.id);
@@ -270,9 +271,9 @@ function fullRowHTML(row, pos) {
   return `<tr data-zone="${zone}">
     <td><span class="pos">${pos}</span></td>
     <td class="clickable-team" onclick="goToTeam('${team.id}')">${crestEl(team, 24)}</td>
-    <td><div class="team-cell clickable-team" onclick="goToTeam('${team.id}')">${team.name}<span class="fav-heart ${isFav ? "active" : ""}" data-team="${team.id}" title="Favoritar">${isFav ? "♥" : "♡"}</span></div></td>
-    <td class="num">${row.pts}</td><td class="num">${row.j}</td><td class="num">${row.v}</td><td class="num">${row.e}</td><td class="num">${row.d}</td>
-    <td class="num">${row.sg > 0 ? "+" + row.sg : row.sg}</td><td class="num">${row.gp}</td><td class="num">${aprov(row.pts, row.j)}%</td>
+    <td><div class="team-cell clickable-team" onclick="goToTeam('${team.id}')"><span class="tname-ellipsis">${team.name}</span><span class="fav-heart ${isFav ? "active" : ""}" data-team="${team.id}" title="Favoritar">${isFav ? "♥" : "♡"}</span></div></td>
+    <td class="num">${row.pts}</td><td class="num">${row.j}</td>
+    <td class="num">${row.sg > 0 ? "+" + row.sg : row.sg}</td>
   </tr>`;
 }
 // Linha compacta pra tabela da barra lateral do Simulador (espaço estreito).
@@ -316,7 +317,7 @@ function renderDashStandings(standings) {
     const idx = standings.findIndex(r => r.id === favId);
     if (idx >= 0) rowsHTML += dashRowHTML(standings[idx], idx + 1, favId, true);
   }
-  document.getElementById("dashStandings").innerHTML = rowsHTML || `<tr><td colspan="7" class="empty">Sem jogos decididos ainda.</td></tr>`;
+  document.getElementById("dashStandings").innerHTML = rowsHTML || `<tr><td colspan="6" class="empty">Sem jogos decididos ainda.</td></tr>`;
 }
 
 // "há Xmin/Xh/Xd" a partir de uma data (pubDate do RSS, formato RFC
@@ -947,7 +948,7 @@ function renderEstatisticasConsolidadas(tilesId, ataqueId, defesaId, cartoesId) 
 function renderTabela() {
   const standings = currentStandings();
   document.getElementById("tabelaHint").textContent = LIVE_MODE ? "dados ao vivo" : `${firstUndecidedRound() - 1}ª rodada`;
-  document.getElementById("fullStandings").innerHTML = standings.map((r, i) => fullRowHTML(r, i + 1)).join("") || `<tr><td colspan="11" class="empty">Sem jogos decididos ainda.</td></tr>`;
+  document.getElementById("fullStandings").innerHTML = standings.map((r, i) => fullRowHTML(r, i + 1)).join("") || `<tr><td colspan="6" class="empty">Sem jogos decididos ainda.</td></tr>`;
   document.querySelectorAll("#fullStandings .fav-heart").forEach(h => h.addEventListener("click", onToggleFavoriteClick));
 }
 

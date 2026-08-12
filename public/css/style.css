@@ -285,6 +285,30 @@ h1,h2,h3{ margin:0; }
 .table-std tr.clickable-player:hover{ background:var(--bg-app); }
 .table-std .num{ text-align:center; font-variant-numeric:tabular-nums; color:var(--text-1); }
 .table-std td:first-child{ padding-left:10px; font-weight:700; color:var(--text-0); }
+/* Tabela de classificação (Dashboard e página Tabela): nome do time
+   nunca quebra linha — trunca com reticências se precisar, garante
+   que todas as linhas fiquem com a mesma altura (times com nome longo
+   como "Athletico Paranaense"/"Vasco da Gama" quebravam em 2 linhas
+   antes disso, mesmo já com menos colunas).
+   table-layout:fixed + larguras fixas nas colunas estreitas (#, brasão,
+   Pts, J, SG) — "Time" fica sem largura declarada e herda o resto do
+   espaço da tabela. Sem isso, table-layout:auto "esmaga" a coluna do
+   nome pra caber as outras, e o texto trunca quase todo (ex: só "Ju"
+   de "Juventude") em vez de mostrar o nome quase inteiro. */
+.table-standings{ table-layout:fixed; }
+.table-standings th:nth-child(1), .table-standings td:nth-child(1){ width:22px; }
+.table-standings th:nth-child(2), .table-standings td:nth-child(2){ width:34px; }
+.table-standings th:nth-child(4), .table-standings td:nth-child(4){ width:46px; }
+.table-standings th:nth-child(5), .table-standings td:nth-child(5){ width:34px; }
+.table-standings th:nth-child(6), .table-standings td:nth-child(6){ width:50px; }
+/* dashStandings: .team-cell é o próprio <td> (texto puro, sem coração
+   de favorito) — dá pra truncar direto nele.
+   fullStandings: .team-cell é um <div style="display:flex"> (nome +
+   coração de favorito) — flex não trunca com ellipsis sozinho, então
+   o nome fica num <span> à parte (.tname-ellipsis) que recebe o corte. */
+#dashStandings .team-cell{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; }
+#fullStandings .team-cell{ min-width:0; }
+#fullStandings .tname-ellipsis{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
 .table-std tr[data-zone]{ box-shadow:none; }
 .table-std tr[data-zone] td:first-child{ border-left:3px solid transparent; }
 .table-std tr[data-zone="campeao"] td:first-child,
