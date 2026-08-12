@@ -294,7 +294,7 @@ function renderDashboard() {
   const standings = currentStandings();
   document.getElementById("roundPill").textContent = `Rodada ${Math.min(firstUndecidedRound(), TOTAL_ROUNDS)}/${TOTAL_ROUNDS}`;
 
-  renderFavoriteClubCard();
+  renderFavoriteClubCard(standings);
   renderDashKpis(standings);
   renderDashStandings(standings);
   renderDashTitleChance();
@@ -435,6 +435,14 @@ function renderDashKpis(standings) {
     heroCrest.classList.add("clickable-team"); heroCrest.onclick = () => goToTeam(highlightTeam.id);
     heroName.classList.add("clickable-team"); heroName.onclick = () => goToTeam(highlightTeam.id);
   }
+
+  // Com favorito ativo, o card "Clube Favorito" (que já ganhou a cor
+  // do time — ver renderFavoriteClubCard) já mostra brasão/nome/pts/
+  // posição, então esse hero mobile ficaria repetindo a mesma info
+  // logo abaixo — escondido nesse caso. Sem favorito, ele volta a
+  // aparecer normalmente (mobile-only) mostrando o líder.
+  const liderHeroEl = document.getElementById("liderHero");
+  if (liderHeroEl) liderHeroEl.style.display = isFavoriteActive ? "none" : "";
 }
 
 // Chance de título do Dashboard — top 5 de sempre. Com um Clube
@@ -1194,7 +1202,7 @@ function clearFavoriteClub() { applyFavoriteClub(null); }
 // 1) Sem favorito: card neutro com o seletor de time.
 // 2) Com favorito: o seletor some, e o card inteiro vira as cores do
 //    clube (ex: Flamengo = vermelho/preto), com um botão pra trocar.
-function renderFavoriteClubCard() {
+function renderFavoriteClubCard(standings) {
   const box = document.getElementById("favClubCard");
   if (!box) return;
   const favTeam = activeFavoriteTeam();
@@ -1219,6 +1227,12 @@ function renderFavoriteClubCard() {
   // o texto/botão brancos ilegíveis do lado claro do degradê.
   box.style.cssText = `margin-bottom:16px; border:none; color:#fff;
     background:linear-gradient(135deg, rgba(0,0,0,.4), rgba(0,0,0,.12)), linear-gradient(135deg, ${favTeam.c1 || "#0057B8"}, ${favTeam.c2 || "#062B5C"});`;
+  // Posição/pontos do time (mesma informação que o hero mobile
+  // "Líder/Seu clube" mostrava) — trazida pra cá pra esse card ser a
+  // única fonte de destaque do favorito; ver ocultação do .lider-hero
+  // em renderDashKpis, que evita repetir os dois cards no mobile.
+  const idx = standings ? standings.findIndex(r => r.id === favTeam.id) : -1;
+  const metaHTML = idx >= 0 ? `<div class="fav-club-active-meta">${idx + 1}º colocado · ${standings[idx].pts} pts</div>` : "";
   box.innerHTML = `
     <div class="fav-club-active">
       <div class="fav-club-active-info">
@@ -1226,6 +1240,7 @@ function renderFavoriteClubCard() {
         <div>
           <div class="fav-club-active-lbl">⭐ Clube Favorito</div>
           <div class="fav-club-active-name">${favTeam.name}</div>
+          ${metaHTML}
         </div>
       </div>
       <button class="fav-club-remove" onclick="clearFavoriteClub()">Trocar time</button>

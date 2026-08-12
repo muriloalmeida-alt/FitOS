@@ -174,10 +174,10 @@ h1,h2,h3{ margin:0; }
    solto que existia antes. O <h1> continua herdando o tamanho/peso de
    .page-head h1 acima (inclusive o ajuste mobile), só ganha cor/tracking. */
 .brasileirao-brand{ display:flex; align-items:center; gap:10px; }
-.brasileirao-emblem{ width:30px; height:auto; flex-shrink:0; }
+.brasileirao-emblem{ height:38px; width:auto; flex-shrink:0; }
 .brasileirao-word{ letter-spacing:.3px; white-space:nowrap; }
 .brasileirao-word span{ color:var(--brd-blue); }
-@media (max-width:1024px){ .brasileirao-emblem{ width:22px; } }
+@media (max-width:1024px){ .brasileirao-emblem{ height:26px; } }
 .select-pill{
   display:flex; align-items:center; gap:8px; padding:9px 14px; border-radius:100px;
   background:var(--bg-surface); border:1px solid var(--border); font-size:12.5px; font-weight:600; cursor:pointer;
@@ -255,6 +255,7 @@ h1,h2,h3{ margin:0; }
 .fav-club-active-info{ display:flex; align-items:center; gap:12px; min-width:0; }
 .fav-club-active-lbl{ font-size:10px; text-transform:uppercase; letter-spacing:.5px; color:rgba(255,255,255,.8); font-weight:700; }
 .fav-club-active-name{ font-size:19px; font-weight:800; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.25); }
+.fav-club-active-meta{ font-size:12px; font-weight:600; color:rgba(255,255,255,.85); margin-top:2px; }
 /* Fundo escuro fixo (não translúcido) — precisa contrastar com o
    texto branco em qualquer cor de clube, inclusive as claras (ex:
    Botafogo tem branco como 2ª cor). */
