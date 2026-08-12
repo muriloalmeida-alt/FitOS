@@ -60,7 +60,12 @@ async function boot() {
 
   state.jogosRound = Math.max(1, firstUndecidedRound() - 1) || 1;
   state.simRound = firstUndecidedRound();
-  state.whatifTeamId = currentStandings()[0]?.id || TEAMS[0].id;
+  // Se já existe um Clube Favorito salvo (de uma visita anterior), o
+  // simulador "E se..." do Dashboard já abre nele — mesmo default usado
+  // quando o favorito é escolhido/trocado depois (onFavoriteClubChange).
+  state.whatifTeamId = (state.favoriteClubId && TEAM_MAP[state.favoriteClubId])
+    ? state.favoriteClubId
+    : (currentStandings()[0]?.id || TEAMS[0].id);
 
   populateAllSelects();
   renderMyTeamsSidebar();
@@ -237,13 +242,19 @@ function fmtFixtureDate(dateIso, round) {
 }
 
 /* ================= LINHAS DE TABELA ================= */
-function dashRowHTML(row, pos) {
+// favId + pinned: quando o clube favorito é passado, destaca a linha
+// dele em negrito (.fav-row); pinned marca que essa linha foi "presa"
+// no fim da lista porque o time não estava entre os primeiros
+// exibidos (ver renderDashboard) — só some uma borda de separação.
+function dashRowHTML(row, pos, favId, pinned = false) {
   const team = TEAM_MAP[row.id];
   const zone = zoneOfPosition(pos);
-  return `<tr data-zone="${zone}">
+  const isFav = favId && team.id === favId;
+  const cls = [isFav ? "fav-row" : "", pinned ? "fav-row-pinned" : ""].filter(Boolean).join(" ");
+  return `<tr data-zone="${zone}"${cls ? ` class="${cls}"` : ""}>
     <td><span class="pos">${pos}</span></td>
     <td class="clickable-team" onclick="goToTeam('${team.id}')">${crestEl(team, 22)}</td>
-    <td class="team-cell clickable-team" onclick="goToTeam('${team.id}')">${team.name}</td>
+    <td class="team-cell clickable-team" onclick="goToTeam('${team.id}')">${isFav ? "⭐ " : ""}${team.name}</td>
     <td class="num">${row.pts}</td><td class="num">${row.j}</td><td class="num">${row.v}</td>
     <td class="num">${row.e}</td><td class="num">${row.d}</td>
     <td class="num only-desktop">${row.gp}</td><td class="num only-desktop">${row.gc}</td>
@@ -282,13 +293,28 @@ function renderDashboard() {
   document.getElementById("roundPill").textContent = `Rodada ${Math.min(firstUndecidedRound(), TOTAL_ROUNDS)}/${TOTAL_ROUNDS}`;
 
   renderDashKpis(standings);
-  document.getElementById("dashStandings").innerHTML = standings.slice(0, 6).map((r, i) => dashRowHTML(r, i + 1)).join("") || `<tr><td colspan="7" class="empty">Sem jogos decididos ainda.</td></tr>`;
+  renderDashStandings(standings);
   renderDashTitleChance();
   renderDashNextFixtures();
   renderDashOdds();
   renderOddsChart();
   renderWhatIf();
   renderDashNewsMini();
+}
+
+// Tabela de classificação do Dashboard — top 6 de sempre. Com um Clube
+// Favorito selecionado, a linha dele vem em negrito (⭐); se ele não
+// estiver entre os 6 primeiros, a linha é "presa" no fim da lista, sem
+// tirar ninguém do topo — assim o destaque nunca fica de fora.
+function renderDashStandings(standings) {
+  const favId = state.favoriteClubId;
+  const top = standings.slice(0, 6);
+  let rowsHTML = top.map((r, i) => dashRowHTML(r, i + 1, favId)).join("");
+  if (favId && !top.some(r => r.id === favId)) {
+    const idx = standings.findIndex(r => r.id === favId);
+    if (idx >= 0) rowsHTML += dashRowHTML(standings[idx], idx + 1, favId, true);
+  }
+  document.getElementById("dashStandings").innerHTML = rowsHTML || `<tr><td colspan="7" class="empty">Sem jogos decididos ainda.</td></tr>`;
 }
 
 // "há Xmin/Xh/Xd" a partir de uma data (pubDate do RSS, formato RFC
@@ -303,37 +329,87 @@ function timeAgo(dateStr) {
   if (hours < 24) return `há ${hours}h`;
   return `há ${Math.floor(hours / 24)}d`;
 }
+// Com Clube Favorito ativo, busca notícias daquele time específico
+// (ver /api/news?team=... e newsSource.js) em vez do feed genérico de
+// Brasileirão — mesmo card, foco diferente.
 async function renderDashNewsMini() {
   const box = document.getElementById("dashNewsMini");
   if (!box) return;
-  const items = (await loadNews()).slice(0, 3);
+  const favTeam = activeFavoriteTeam();
+  const items = (await loadNews(favTeam?.name || "")).slice(0, 3);
+  if (activeFavoriteTeam()?.id !== favTeam?.id) return; // favorito mudou enquanto buscava — deixa a chamada mais nova escrever
   box.innerHTML = items.length
     ? items.map(n => `
       <a class="news-mini" href="${n.link}" target="_blank" rel="noopener">
         <div class="thumb"></div>
         <div><h4>${n.title}</h4><div class="meta">${n.source || "Notícia"} · ${timeAgo(n.pubDate)}</div></div>
       </a>`).join("")
-    : `<div class="empty" style="padding:8px 0;">Não foi possível carregar notícias agora.</div>`;
+    : `<div class="empty" style="padding:8px 0;">${favTeam ? `Não foi possível carregar notícias de ${favTeam.name} agora.` : "Não foi possível carregar notícias agora."}</div>`;
 }
 
-function renderDashKpis(standings) {
-  const matches = allDecidedMatches();
+// Estatísticas de UM time específico (usadas nos cards de KPI do
+// Dashboard quando há um Clube Favorito ativo — ver renderDashKpis).
+function teamKpiStats(teamId) {
+  const matches = allDecidedMatches().filter(m => m.home === teamId || m.away === teamId);
   const withStats = matches.filter(m => m.stats);
-  const totalGols = matches.reduce((s, m) => s + m.gh + m.ga, 0);
-  const mediaGols = matches.length ? (totalGols / matches.length).toFixed(2) : "0.00";
-  const posseAvg = withStats.length ? Math.round(withStats.reduce((s, m) => s + m.stats.posse[0] + m.stats.posse[1], 0) / (withStats.length * 2)) : 0;
-  const homeWins = matches.filter(m => m.gh > m.ga).length;
-  const homeWinPct = matches.length ? Math.round((homeWins / matches.length) * 100) : 0;
+  let goalsFor = 0, homeGames = 0, homeWins = 0;
+  matches.forEach(m => {
+    const isHome = m.home === teamId;
+    goalsFor += isHome ? m.gh : m.ga;
+    if (isHome) { homeGames++; if (m.gh > m.ga) homeWins++; }
+  });
+  const posseAvg = withStats.length
+    ? Math.round(withStats.reduce((s, m) => s + (m.home === teamId ? m.stats.posse[0] : m.stats.posse[1]), 0) / withStats.length)
+    : 0;
+  return {
+    goalsAvg: matches.length ? (goalsFor / matches.length).toFixed(2) : "0.00",
+    goalsTotal: goalsFor,
+    posseAvg,
+    homeWinPct: homeGames ? Math.round((homeWins / homeGames) * 100) : 0,
+  };
+}
+function renderDashKpis(standings) {
+  const favTeam = activeFavoriteTeam();
+  const goalsAvgLabel = document.getElementById("kpiGoalsAvgLabel");
+  const possAvgLabel = document.getElementById("kpiPossAvgLabel");
+  const goalsTotalLabel = document.getElementById("kpiGoalsTotalLabel");
+  const homeWinLabel = document.getElementById("kpiHomeWinLabel");
 
-  document.getElementById("kpiGoalsAvg").textContent = mediaGols;
-  document.getElementById("kpiPossAvg").textContent = posseAvg ? posseAvg + "%" : "—";
-  document.getElementById("kpiGoalsTotal").textContent = totalGols;
-  document.getElementById("kpiHomeWin").textContent = homeWinPct + "%";
+  if (favTeam) {
+    // Clube Favorito ativo: os KPIs passam a ser do time selecionado,
+    // não mais da liga inteira.
+    const t = teamKpiStats(favTeam.id);
+    if (goalsAvgLabel) goalsAvgLabel.textContent = "Gols/jogo";
+    if (possAvgLabel) possAvgLabel.textContent = "Posse média";
+    if (goalsTotalLabel) goalsTotalLabel.textContent = "Gols na temporada";
+    if (homeWinLabel) homeWinLabel.textContent = "Vitórias em casa";
+    document.getElementById("kpiGoalsAvg").textContent = t.goalsAvg;
+    document.getElementById("kpiPossAvg").textContent = t.posseAvg ? t.posseAvg + "%" : "—";
+    document.getElementById("kpiGoalsTotal").textContent = t.goalsTotal;
+    document.getElementById("kpiHomeWin").textContent = t.homeWinPct + "%";
+  } else {
+    // Sem favorito: KPIs da liga inteira (comportamento padrão).
+    const matches = allDecidedMatches();
+    const withStats = matches.filter(m => m.stats);
+    const totalGols = matches.reduce((s, m) => s + m.gh + m.ga, 0);
+    const mediaGols = matches.length ? (totalGols / matches.length).toFixed(2) : "0.00";
+    const posseAvg = withStats.length ? Math.round(withStats.reduce((s, m) => s + m.stats.posse[0] + m.stats.posse[1], 0) / (withStats.length * 2)) : 0;
+    const homeWins = matches.filter(m => m.gh > m.ga).length;
+    const homeWinPct = matches.length ? Math.round((homeWins / matches.length) * 100) : 0;
+
+    if (goalsAvgLabel) goalsAvgLabel.textContent = "Média de gols";
+    if (possAvgLabel) possAvgLabel.textContent = "Posse média";
+    if (goalsTotalLabel) goalsTotalLabel.textContent = "Total de gols";
+    if (homeWinLabel) homeWinLabel.textContent = "% mandantes";
+    document.getElementById("kpiGoalsAvg").textContent = mediaGols;
+    document.getElementById("kpiPossAvg").textContent = posseAvg ? posseAvg + "%" : "—";
+    document.getElementById("kpiGoalsTotal").textContent = totalGols;
+    document.getElementById("kpiHomeWin").textContent = homeWinPct + "%";
+  }
 
   // Destaque do Dashboard: o clube favorito (se escolhido em "Clube
   // Favorito", no máximo 1) substitui o líder do campeonato. Sem
   // seleção, o destaque continua sendo o líder normalmente.
-  const favTeam = state.favoriteClubId ? TEAM_MAP[state.favoriteClubId] : null;
   const favIdx = favTeam ? standings.findIndex(r => r.id === favTeam.id) : -1;
   const isFavoriteActive = favTeam && favIdx >= 0;
   const highlightRow = isFavoriteActive ? standings[favIdx] : standings[0];
@@ -358,25 +434,57 @@ function renderDashKpis(standings) {
   }
 }
 
+// Chance de título do Dashboard — top 5 de sempre. Com um Clube
+// Favorito selecionado, o nome dele vem em negrito; se não estiver
+// entre os 5 primeiros, entra como 6º item só nessa lista (mesma
+// lógica de "presa no fim" da tabela de classificação).
 function renderDashTitleChance() {
   if (!state.probResults) { runProbabilitiesQuiet(); }
-  const ordered = TEAMS.map(t => ({ team: t, p: state.probResults[t.id] })).filter(x => x.p).sort((a, b) => b.p.campeao - a.p.campeao).slice(0, 5);
+  const favId = state.favoriteClubId;
+  const allRanked = TEAMS.map(t => ({ team: t, p: state.probResults[t.id] })).filter(x => x.p).sort((a, b) => b.p.campeao - a.p.campeao);
+  let ordered = allRanked.slice(0, 5);
+  if (favId && !ordered.some(x => x.team.id === favId)) {
+    const favEntry = allRanked.find(x => x.team.id === favId);
+    if (favEntry) ordered = [...ordered, favEntry];
+  }
   document.getElementById("dashTitleChance").innerHTML = ordered.map(({ team, p }) => `
     <div class="prob-row">
-      <div class="top-line">${teamLinkHTML(team, 20)}<b>${(p.campeao * 100).toFixed(1)}%</b></div>
+      <div class="top-line">${teamLinkHTML(team, 20, "name", favId && team.id === favId)}<b>${(p.campeao * 100).toFixed(1)}%</b></div>
       <div class="prob-track"><div class="prob-fill" style="width:${Math.max(p.campeao * 100, 1)}%; background:var(--brd-yellow);"></div></div>
     </div>`).join("");
 }
 
+// Próximos jogos do Dashboard — com Clube Favorito ativo, mostra os
+// próximos jogos DAQUELE time (em vez dos próximos jogos da liga em
+// geral), com o nome dele em negrito em cada linha.
 function renderDashNextFixtures() {
+  const favTeam = activeFavoriteTeam();
+  const out = favTeam ? teamNextFixtures(favTeam.id, 4) : leagueNextFixtures(4);
+  document.getElementById("dashNextFixtures").innerHTML = out.length
+    ? out.map(m => fixtureRowHTML(m, favTeam?.id)).join("")
+    : `<div class="empty">Sem jogos futuros cadastrados.</div>`;
+}
+function leagueNextFixtures(count) {
   const out = [];
-  for (let r = firstUndecidedRound(); r <= TOTAL_ROUNDS && out.length < 4; r++) {
-    getRoundMatches(r).filter(m => m.pending).forEach(m => { if (out.length < 4) out.push(m); });
+  for (let r = firstUndecidedRound(); r <= TOTAL_ROUNDS && out.length < count; r++) {
+    getRoundMatches(r).filter(m => m.pending).forEach(m => { if (out.length < count) out.push(m); });
   }
-  document.getElementById("dashNextFixtures").innerHTML = out.length ? out.map(fixtureRowHTML).join("") : `<div class="empty">Sem jogos futuros cadastrados.</div>`;
+  return out;
+}
+// Próximos jogos de UM time específico — usada no card "Próximos
+// jogos" do Dashboard (quando há favorito) e na página do Time.
+function teamNextFixtures(teamId, count) {
+  const out = [];
+  for (let r = 1; r <= TOTAL_ROUNDS && out.length < count; r++) {
+    getRoundMatches(r).filter(m => m.pending && (m.home === teamId || m.away === teamId)).forEach(m => { if (out.length < count) out.push(m); });
+  }
+  return out;
 }
 
-function fixtureRowHTML(m) {
+// favId: destaca (negrito) o lado que for o Clube Favorito, quando a
+// linha envolve times diferentes (usado no Dashboard). undefined em
+// outros lugares (ex: página do Time) não destaca ninguém.
+function fixtureRowHTML(m, favId) {
   const H = TEAM_MAP[m.home], A = TEAM_MAP[m.away];
   const domId = `fxrow-odds-${m.round}-${m.home}-${m.away}`;
   if (LIVE_MODE && m.fixtureId) {
@@ -388,7 +496,7 @@ function fixtureRowHTML(m) {
   return `
   <div class="rail-fixture">
     <div class="when">${fmtFixtureDate(m.date, m.round)}</div>
-    <div class="teams">${teamLinkHTML(H, 20, "short")}<span class="vs">×</span>${teamLinkHTML(A, 20, "short")}</div>
+    <div class="teams">${teamLinkHTML(H, 20, "short", H.id === favId)}<span class="vs">×</span>${teamLinkHTML(A, 20, "short", A.id === favId)}</div>
     <div class="odds3" id="${domId}"><span>—</span><span>—</span><span>—</span></div>
   </div>`;
 }
@@ -492,6 +600,17 @@ function nextFixtureWithId() {
   }
   return null;
 }
+// Jogo usado nos cards "Odds — próximo jogo" e "Movimentação de odds"
+// do Dashboard: com Clube Favorito ativo, o próximo jogo DAQUELE time;
+// sem favorito, o próximo jogo da liga (comportamento padrão).
+function dashOddsFixture() {
+  const favTeam = activeFavoriteTeam();
+  if (favTeam) {
+    const fx = teamNextFixtures(favTeam.id, 1)[0];
+    if (fx) return fx;
+  }
+  return nextFixtureWithId();
+}
 function oddsInnerHTML(m) {
   const H = TEAM_MAP[m.home], A = TEAM_MAP[m.away];
   const domId = `oddsinner-${m.round}-${m.home}-${m.away}`;
@@ -522,7 +641,7 @@ function oddsInnerHTML(m) {
     </div>`;
 }
 function renderDashOdds() {
-  const m = nextFixtureWithId();
+  const m = dashOddsFixture();
   document.getElementById("dashOddsBlock").innerHTML = m ? oddsInnerHTML(m) : `<div class="empty">Sem próximos jogos cadastrados.</div>`;
 }
 
@@ -553,7 +672,7 @@ function syntheticOddsHistory(seedKey, range) {
   return points;
 }
 async function renderOddsChart() {
-  const m = nextFixtureWithId();
+  const m = dashOddsFixture();
   const box = document.getElementById("oddsChart");
   if (!m) { box.innerHTML = `<div class="empty">Sem próximos jogos.</div>`; return; }
   let points;
@@ -1062,6 +1181,15 @@ function populateFavoriteClubSelect() {
 function onFavoriteClubChange(e) {
   state.favoriteClubId = e.target.value || null;
   saveFavoriteClub();
+  // O simulador "E se..." do Dashboard passa a sugerir o clube
+  // favorito por padrão (o usuário ainda pode trocar manualmente no
+  // próprio seletor depois — isso só define o ponto de partida).
+  const defaultWhatif = state.favoriteClubId || currentStandings()[0]?.id || null;
+  if (defaultWhatif) {
+    state.whatifTeamId = defaultWhatif;
+    const whatifSel = document.getElementById("whatifTeamSelect");
+    if (whatifSel) whatifSel.value = defaultWhatif;
+  }
   renderDashboard();
 }
 
@@ -1103,10 +1231,16 @@ const POSITION_LABELS = { Goalkeeper: "Goleiro", Defender: "Zagueiro", Midfielde
 function translatePosition(pos) { return POSITION_LABELS[pos] || pos || ""; }
 function initialsOf(name) { return (name || "?").split(" ").filter(Boolean).map(w => w[0]).slice(0, 2).join("").toUpperCase(); }
 // Crest + nome do time, clicável — abre a página de detalhe do time.
-// nameKey escolhe "name" (nome completo) ou "short" (sigla).
-function teamLinkHTML(team, size, nameKey = "name") {
+// nameKey escolhe "name" (nome completo) ou "short" (sigla). bold
+// destaca o nome (usado pro Clube Favorito nas listas com vários times).
+function teamLinkHTML(team, size, nameKey = "name", bold = false) {
   if (!team) return "";
-  return `<span class="clickable-team team-link" onclick="goToTeam('${team.id}')">${crestEl(team, size)}<span class="tname">${team[nameKey]}</span></span>`;
+  return `<span class="clickable-team team-link" onclick="goToTeam('${team.id}')">${crestEl(team, size)}<span class="tname${bold ? " tname-fav" : ""}">${team[nameKey]}</span></span>`;
+}
+// Time favorito ativo (ver "Clube Favorito" no Dashboard) — null se
+// nenhum estiver selecionado.
+function activeFavoriteTeam() {
+  return state.favoriteClubId ? TEAM_MAP[state.favoriteClubId] || null : null;
 }
 
 function goToTeam(teamId) {
@@ -1275,10 +1409,7 @@ function renderTeamPage() {
   renderFormaInto("teamPageForma", teamId);
   renderRadarInto("teamPageRadar", teamId);
 
-  const upcoming = [];
-  for (let r = 1; r <= TOTAL_ROUNDS && upcoming.length < 4; r++) {
-    getRoundMatches(r).filter(m => m.pending && (m.home === teamId || m.away === teamId)).forEach(m => { if (upcoming.length < 4) upcoming.push(m); });
-  }
+  const upcoming = teamNextFixtures(teamId, 4);
   document.getElementById("teamPageNextFixtures").innerHTML = upcoming.length ? upcoming.map(fixtureRowHTML).join("") : `<div class="empty">Sem jogos futuros cadastrados.</div>`;
 
   const last = allDecidedMatches().filter(m => m.home === teamId || m.away === teamId).sort((a, b) => b.round - a.round).slice(0, 6);

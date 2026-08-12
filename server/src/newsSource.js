@@ -56,8 +56,21 @@ function parseRssItems(xml, limit) {
   return items;
 }
 
-async function fetchNews(limit = 20) {
-  const url = process.env.NEWS_RSS_URL || DEFAULT_NEWS_RSS_URL;
+// Quando teamName é passado (ver "Clube Favorito" no Dashboard), busca
+// notícias daquele time específico em vez do feed genérico de
+// Brasileirão — mesmo mecanismo do Google Notícias, só troca o "q=" da
+// busca. Ignora NEWS_RSS_URL nesse caso (aquela variável é pra trocar o
+// feed padrão inteiro, não faz sentido pra uma busca por time).
+function newsUrlFor(teamName) {
+  if (teamName) {
+    const q = encodeURIComponent(`"${teamName}" futebol`);
+    return `https://news.google.com/rss/search?q=${q}&hl=pt-BR&gl=BR&ceid=BR:pt-419`;
+  }
+  return process.env.NEWS_RSS_URL || DEFAULT_NEWS_RSS_URL;
+}
+
+async function fetchNews(limit = 20, teamName = null) {
+  const url = newsUrlFor(teamName);
   const res = await fetch(url, {
     headers: { "User-Agent": "Mozilla/5.0 (compatible; BRDATA/1.0; +https://github.com)" },
   });

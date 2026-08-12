@@ -182,11 +182,16 @@ async function loadPlayersLeaders(season = LIVE_SEASON) {
 // API-Sports (ver server/src/newsSource.js), funciona igual em modo
 // demo ou ao vivo. Cacheada em memória: uma busca por sessão de
 // navegação (o backend já cacheia 20min do lado dele também).
-let newsCache = null;
-async function loadNews() {
-  if (newsCache) return newsCache;
-  const promise = safeFetchJSON("/api/news").then(r => r.items || []).catch(() => []);
-  newsCache = promise;
+// teamName opcional — busca notícias só daquele time (usado pelo card
+// "Últimas notícias" do Dashboard quando há um Clube Favorito
+// selecionado); cache separado do feed genérico, por nome de time.
+const newsCache = new Map(); // chave: "" (genérico) ou nome do time
+async function loadNews(teamName = "") {
+  const key = teamName || "";
+  if (newsCache.has(key)) return newsCache.get(key);
+  const url = teamName ? `/api/news?team=${encodeURIComponent(teamName)}` : "/api/news";
+  const promise = safeFetchJSON(url).then(r => r.items || []).catch(() => []);
+  newsCache.set(key, promise);
   return promise;
 }
 

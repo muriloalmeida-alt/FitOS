@@ -296,9 +296,14 @@ const server = http.createServer(async (req, res) => {
       // TheSportsDB, não depende de nenhuma chave. Best-effort: erro
       // vira lista vazia, nunca quebra a página (o front mostra um
       // aviso e o usuário pode tentar de novo depois).
-      const data = await withCache("news:brasileirao", TTL.news, async () => {
+      // ?team=Nome do Time — busca notícias daquele time específico
+      // (usado pelo card "Últimas notícias" do Dashboard quando há um
+      // Clube Favorito selecionado); cache separado por time.
+      const team = searchParams.get("team");
+      const cacheKey = team ? `news:team:${team.toLowerCase()}` : "news:brasileirao";
+      const data = await withCache(cacheKey, TTL.news, async () => {
         try {
-          return { items: await fetchNews(20) };
+          return { items: await fetchNews(20, team) };
         } catch (err) {
           console.error("[news] falha ao buscar RSS:", err.message);
           return { items: [] };
