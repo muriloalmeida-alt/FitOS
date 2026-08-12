@@ -20,13 +20,13 @@ const PLANS = {
     id: "freemium",
     title: "Freemium",
     price: 0,
-    tagline: "Grátis — em breve, com anúncios",
+    tagline: "Grátis — com anúncios",
     description: "Brasileirão da temporada atual, com anúncios",
     features: [
       "Campeonatos do Brasil da temporada atual",
       "Tabela, jogos e estatísticas",
       "Sem comparador de times, probabilidades ou simulador",
-      "Anúncio em vídeo a cada 5 min (em breve)",
+      "Anúncio em vídeo a cada 5 min",
     ],
   },
   lite: {

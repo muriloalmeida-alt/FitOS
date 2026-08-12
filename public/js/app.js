@@ -65,6 +65,59 @@ function lockedFeatureHTML(title, desc) {
   </div>`;
 }
 
+/* ================= Modal de anúncio em vídeo (Freemium) =================
+   SIMULADO por enquanto — sem integração com rede de anúncios de
+   verdade (ver comentário em cima de #adModal no index.html pra saber
+   onde plugar isso depois). Só roda pro plano Freemium, reaparecendo a
+   cada AD_INTERVAL_MS de app aberto. Não soma tempo com a aba em
+   segundo plano (document.hidden) — só pula aquele ciclo e tenta de
+   novo no próximo, então nunca acumula vários anúncios de uma vez pra
+   descarregar quando o usuário volta. */
+const AD_INTERVAL_MS = 5 * 60 * 1000; // 5 minutos
+const AD_SKIP_AFTER_S = 5; // segundos até o botão de fechar liberar (padrão de anúncio pulável)
+let adTimerId = null;
+let adSkipIntervalId = null;
+
+function startAdTimer() {
+  stopAdTimer();
+  adTimerId = setInterval(() => {
+    if (document.hidden) return; // app em segundo plano, tenta de novo no próximo ciclo
+    if (!currentUser || currentUser.plan !== "freemium") { stopAdTimer(); return; }
+    showAdModal();
+  }, AD_INTERVAL_MS);
+}
+function stopAdTimer() {
+  if (adTimerId) { clearInterval(adTimerId); adTimerId = null; }
+}
+
+function showAdModal() {
+  const modal = document.getElementById("adModal");
+  if (!modal || modal.style.display === "flex") return; // já tem um aberto, não empilha
+  modal.style.display = "flex";
+  const closeBtn = document.getElementById("adModalClose");
+  closeBtn.disabled = true;
+  let remaining = AD_SKIP_AFTER_S;
+  closeBtn.innerHTML = `Fechar em <span id="adModalSkipCount">${remaining}</span>s`;
+  clearInterval(adSkipIntervalId);
+  adSkipIntervalId = setInterval(() => {
+    remaining--;
+    if (remaining <= 0) {
+      clearInterval(adSkipIntervalId);
+      closeBtn.disabled = false;
+      closeBtn.textContent = "Fechar anúncio ✕";
+    } else {
+      const c = document.getElementById("adModalSkipCount");
+      if (c) c.textContent = remaining;
+    }
+  }, 1000);
+}
+
+function closeAdModal() {
+  const modal = document.getElementById("adModal");
+  if (modal) modal.style.display = "none";
+  clearInterval(adSkipIntervalId);
+}
+
 /* ================= Gate de desktop (foco 100% PWA/mobile) =================
    Telas maiores que DESKTOP_BREAKPOINT mostram uma página pra baixar/
    instalar o app em vez do login — tem prioridade sobre tudo, inclusive
@@ -196,6 +249,8 @@ async function startApp(user) {
   populateAllSelects();
   renderMyTeamsSidebar();
   setActivePage("dashboard");
+
+  if (user.plan === "freemium") startAdTimer(); else stopAdTimer();
 }
 
 function initDemoSeason() {
@@ -2239,6 +2294,15 @@ function setupEventListeners() {
     setDesktopBypass();
     const gated = evaluateDesktopGate();
     if (!gated && !appBooted) startAuthFlow();
+  });
+
+  // ---- Modal de anúncio (Freemium) ----
+  document.getElementById("adModalClose").addEventListener("click", () => {
+    if (!document.getElementById("adModalClose").disabled) closeAdModal();
+  });
+  document.getElementById("adModalUpsellLink").addEventListener("click", () => {
+    closeAdModal();
+    setActivePage("apoie");
   });
 
   document.getElementById("btnAddTeam").addEventListener("click", () => {
