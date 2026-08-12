@@ -751,11 +751,20 @@ h1,h2,h3{ margin:0; }
 
 /* ================= Gate de login/cadastro (tela cheia) ================= */
 .auth-gate{
-  display:flex; align-items:flex-start; justify-content:center; min-height:100vh;
+  display:flex; flex-direction:column; align-items:center; min-height:100vh;
   padding:40px 16px 60px; background:linear-gradient(160deg, var(--brd-navy), #030d1e);
   overflow-y:auto;
 }
 .auth-gate-inner{ width:100%; max-width:920px; }
+/* Instalado como app (PWA): centraliza verticalmente. Usa margin:auto
+   em vez de justify-content:center de propósito — com
+   justify-content:center, conteúdo mais alto que a tela (a view de
+   cadastro, com os 4 cards de plano) fica com a borda de cima
+   inacessível mesmo rolando (flexbug #9); com margin:auto, quando não
+   sobra espaço a margem some sozinha e volta a ficar 100% rolável. */
+@media (display-mode: standalone){
+  .auth-gate-inner{ margin-top:auto; margin-bottom:auto; }
+}
 .auth-gate-brand{ display:flex; align-items:center; gap:10px; justify-content:center; margin-bottom:28px; }
 .auth-gate-logo{ height:40px; width:auto; }
 .auth-gate-brand-name{ color:#fff; font-size:20px; font-weight:800; letter-spacing:.5px; }

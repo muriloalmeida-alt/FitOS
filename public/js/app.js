@@ -1971,7 +1971,18 @@ function setActivePage(name, opts = {}) {
   if (name === "time") renderTeamPage();
   if (name === "jogador") renderPlayerPage();
 
-  if (opts.scrollTo) setTimeout(() => document.getElementById(opts.scrollTo)?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
+  // Cada página troca de conteúdo (às vezes bem mais curto/mais longo
+  // que a anterior) mas o scroll é da janela toda (sidebar é que tem
+  // scroll próprio) — sem isso, navegar pra uma página mais curta
+  // enquanto rolado lá embaixo deixava a tela em branco/cortada, e em
+  // geral a página nova não abria com foco no topo. opts.scrollTo
+  // (link direto pra uma seção específica, ex.: Comparador de Times)
+  // continua tendo prioridade sobre esse reset.
+  if (opts.scrollTo) {
+    setTimeout(() => document.getElementById(opts.scrollTo)?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
+  } else {
+    window.scrollTo(0, 0);
+  }
 }
 
 // Troca a sub-aba de Jogos (Rodadas / Estatísticas consolidadas /
