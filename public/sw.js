@@ -18,7 +18,7 @@
    o cache antigo automaticamente no próximo deploy (ver "activate"
    abaixo, que limpa qualquer cache com nome diferente deste).
 =================================================================== */
-const CACHE_NAME = "brdata-shell-v12";
+const CACHE_NAME = "brdata-shell-v13";
 const API_CACHE_NAME = "brdata-api-v1";
 
 const APP_SHELL = [

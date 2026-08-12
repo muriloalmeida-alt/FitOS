@@ -438,19 +438,13 @@ h1,h2,h3{ margin:0; }
 .compliance-line{ font-size:9.5px; color:var(--text-2); margin-top:10px; line-height:1.5; text-align:center; }
 .compliance-line a{ color:var(--brd-blue); font-weight:600; }
 
-/* Board de odds da rodada (aba Jogos) — várias linhas compactas, 1 por jogo */
-.odds-board-rows{ display:flex; flex-direction:column; gap:8px; margin-bottom:14px; }
-.odds-board-row{
-  display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap;
-  padding:10px 12px; background:var(--bg-app); border:1px solid var(--border); border-radius:var(--radius-sm);
-}
-.odds-board-teams{ display:flex; align-items:center; gap:6px; font-size:12.5px; font-weight:700; color:var(--text-0); min-width:150px; }
-.odds-board-teams .vs{ color:var(--text-2); font-weight:500; font-size:11px; }
-.odds-pills3-compact{ margin:0; gap:6px; }
-.odds-pills3-compact .odds-pill3{ padding:5px 10px; }
+/* Odds + parceiros dentro do card de cada jogo (aba Jogos), antes do
+   botão "Ver detalhes" — só em jogo pendente (ver matchOddsStripHTML). */
+.match-odds-strip{ margin-top:10px; padding-top:10px; border-top:1px dashed var(--border); }
+.odds-pills3-compact{ margin:0 0 10px; gap:6px; }
+.odds-pills3-compact .odds-pill3{ padding:6px 4px; }
 .odds-pills3-compact .odds-pill3 span{ font-size:8.5px; }
-.odds-pills3-compact .odds-pill3 b{ font-size:12.5px; }
-.odds-board-loading{ font-size:11px; color:var(--text-2); }
+.odds-pills3-compact .odds-pill3 b{ font-size:13px; }
 
 /* Line chart (movimentação de odds) */
 .range-tabs{ display:flex; gap:4px; }

@@ -756,9 +756,9 @@ function matchOdds(m) {
   if (!LIVE_MODE) return { odds: simulatedOddsFor(m.home, m.away), simulated: true };
   return { odds: null, simulated: false };
 }
-function oddsPillsHTML(odds, isLoading) {
+function oddsPillsHTML(odds, isLoading, compact = false) {
   if (odds) {
-    return `<div class="odds-pills3">
+    return `<div class="odds-pills3${compact ? " odds-pills3-compact" : ""}">
       <div class="odds-pill3"><span>Casa</span><b>${odds.home.toFixed(2)}</b></div>
       <div class="odds-pill3"><span>Empate</span><b>${odds.draw.toFixed(2)}</b></div>
       <div class="odds-pill3"><span>Fora</span><b>${odds.away.toFixed(2)}</b></div>
@@ -787,63 +787,26 @@ function renderDashOdds() {
   document.getElementById("dashOddsBlock").innerHTML = m ? oddsInnerHTML(m) : `<div class="empty">Sem próximos jogos cadastrados.</div>`;
 }
 
-/* ---------- Board de odds da rodada (aba Jogos) ----------
-   O item de monetização em si: mostra odds + parceiros de TODOS os
-   jogos pendentes da rodada aberta, sem precisar expandir card por
-   card. Só aparece quando a rodada está em andamento ou prevista
-   (isRoundDecided false) — rodada já encerrada não tem valor de
-   monetização, então o card some. */
-function jogosOddsFixtures() {
-  return getRoundMatches(state.jogosRound).filter(m => m.pending);
-}
-function oddsBoardRowHTML(m) {
-  const H = TEAM_MAP[m.home], A = TEAM_MAP[m.away];
+/* ---------- Odds + parceiros dentro do próprio card de jogo ----------
+   O item de monetização em si: mostra odds (Casa/Empate/Fora) + tira
+   de parceiros direto no card de cada jogo pendente, ANTES do botão
+   "Ver detalhes" — sem precisar expandir nada. Mantém o layout de
+   sempre (1 card por jogo); só jogo pendente (rodada em andamento ou
+   prevista) ganha esse bloco — jogo já encerrado não tem valor de
+   monetização. Usada por fullMatchCardHTML. */
+function matchOddsStripHTML(m) {
+  const domId = `oddsstrip-${m.round}-${m.home}-${m.away}`;
   const needsLazyLoad = LIVE_MODE && m.fixtureId && m.odds === undefined;
-  const { odds } = matchOdds(m);
+  if (needsLazyLoad) {
+    loadFixtureOdds(m.fixtureId).then(odds => { m.odds = odds; const el = document.getElementById(domId); if (el) el.outerHTML = matchOddsStripHTML(m); })
+      .catch(() => { m.odds = null; const el = document.getElementById(domId); if (el) el.outerHTML = matchOddsStripHTML(m); });
+  }
+  const { odds, simulated } = matchOdds(m);
   return `
-    <div class="odds-board-row">
-      <div class="odds-board-teams">${crestEl(H, 22)}<span>${H.short}</span><span class="vs">×</span>${crestEl(A, 22)}<span>${A.short}</span></div>
-      <div class="odds-pills3 odds-pills3-compact">
-        ${odds
-          ? `<div class="odds-pill3"><span>Casa</span><b>${odds.home.toFixed(2)}</b></div>
-             <div class="odds-pill3"><span>Empate</span><b>${odds.draw.toFixed(2)}</b></div>
-             <div class="odds-pill3"><span>Fora</span><b>${odds.away.toFixed(2)}</b></div>`
-          : `<span class="odds-board-loading">${needsLazyLoad ? "Carregando…" : "Sem odds"}</span>`}
-      </div>
+    <div class="match-odds-strip" id="${domId}">
+      ${oddsPillsHTML(odds, needsLazyLoad, true)}
+      ${affiliateComplianceHTML(simulated ? " (odds simuladas — sem integração com casas de apostas ainda)" : "")}
     </div>`;
-}
-function renderJogosOddsBoard() {
-  const card = document.getElementById("jogosOddsCard");
-  const box = document.getElementById("jogosOddsBoard");
-  const pill = document.getElementById("jogosOddsModePill");
-  if (!card || !box) return;
-
-  if (isRoundDecided(state.jogosRound)) { card.style.display = "none"; return; }
-  card.style.display = "";
-  if (pill) {
-    pill.textContent = LIVE_MODE ? "● Ao vivo" : "● Simulação";
-    pill.className = "mode-pill " + (LIVE_MODE ? "live" : "demo");
-  }
-
-  const fixtures = jogosOddsFixtures();
-  if (!fixtures.length) { box.innerHTML = `<div class="empty">Sem jogos pendentes nessa rodada.</div>`; return; }
-
-  // Dispara os fetches que ainda faltam (modo ao vivo) — cada resposta
-  // só re-renderiza esse board (e só se o usuário ainda estiver na
-  // aba Jogos), sem mexer no resto da página.
-  if (LIVE_MODE) {
-    fixtures.forEach(m => {
-      if (m.fixtureId && m.odds === undefined) {
-        loadFixtureOdds(m.fixtureId)
-          .then(odds => { m.odds = odds; if (state.page === "jogos") renderJogosOddsBoard(); })
-          .catch(() => { m.odds = null; if (state.page === "jogos") renderJogosOddsBoard(); });
-      }
-    });
-  }
-
-  box.innerHTML =
-    `<div class="odds-board-rows">${fixtures.map(oddsBoardRowHTML).join("")}</div>` +
-    affiliateComplianceHTML(!LIVE_MODE ? " (odds simuladas — sem integração com casas de apostas ainda)" : "");
 }
 
 /* ---------- Movimentação de odds ---------- */
@@ -1055,7 +1018,6 @@ function pendingMatchDetailHTML(m, domId) {
     }).catch(() => { m.broadcast = null; });
   }
   return `
-    ${oddsInnerHTML(m)}
     <div class="detail-subtitle">Escalação provável</div>
     ${m.lineups === undefined ? `<div class="empty">Carregando escalação...</div>` : lineupsBlockHTML(H, A, m.lineups)}
     <div class="detail-subtitle">Onde e quando</div>
@@ -1083,6 +1045,7 @@ function fullMatchCardHTML(m) {
         <div class="match-team clickable-team" onclick="goToTeam('${A.id}')">${crestEl(A, 40)}<span class="tname">${A.name}</span></div>
       </div>
       <div class="match-meta">${metaHTML}</div>
+      ${m.pending ? matchOddsStripHTML(m) : ""}
       <button class="match-toggle" onclick="toggleMatchExpand('${domId}')">${m.expanded ? "Ocultar detalhes ▴" : "Ver detalhes ▾"}</button>
       <div class="match-detail" style="display:${m.expanded ? "block" : "none"};">${detailHTML}</div>
     </div>`;
@@ -1099,7 +1062,6 @@ function renderJogos() {
   document.getElementById("roundLabel").textContent = `Rodada ${state.jogosRound}`;
   document.getElementById("roundSubLabel").textContent = isRoundDecided(state.jogosRound) ? "encerrada" : (state.jogosRound === firstUndecidedRound() ? "em andamento" : "a definir");
   document.getElementById("matchesList").innerHTML = getRoundMatches(state.jogosRound).map(fullMatchCardHTML).join("");
-  renderJogosOddsBoard();
   renderEstatisticasConsolidadas("statTiles", "leaderAtaque", "leaderDefesa");
 }
 
