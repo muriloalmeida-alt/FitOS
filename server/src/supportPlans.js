@@ -47,10 +47,10 @@ const PLANS = {
     title: "Pro",
     price: priceFromEnv("PLAN_PRO_PRICE", 14.99),
     tagline: "Pra quem quer mais campeonatos e ferramentas",
-    description: "Brasil, Inglaterra e Espanha, temporada atual",
+    description: "Série A, B, C, D e Copa do Brasil, temporada atual",
     highlight: true,
     features: [
-      "Campeonatos do Brasil, Inglaterra e Espanha (temporada atual) — em breve",
+      "Brasileirão Série A, B, C, D e Copa do Brasil (temporada atual) — em breve",
       "Comparador de times, probabilidades e simulador",
       "Odds simplificadas",
     ],
@@ -60,7 +60,7 @@ const PLANS = {
     title: "Enterprise",
     price: priceFromEnv("PLAN_ENTERPRISE_PRICE", 29.99),
     tagline: "Pra quem quer histórico completo",
-    description: "Brasil, Inglaterra e Espanha, com 3 anos de histórico",
+    description: "Série A, B, C, D e Copa do Brasil, com 3 anos de histórico",
     features: [
       "Tudo do plano Pro",
       "Histórico de 3 temporadas anteriores — em breve",

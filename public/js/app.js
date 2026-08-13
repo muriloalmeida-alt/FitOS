@@ -42,9 +42,11 @@ const state = {
 // competitions.js) e do DEMO_DATA_BY_COMPETITION (data.js). emblemImg
 // null usa a bandeirinha (flag) como emblema em vez de uma imagem.
 const COMPETITION_META = {
-  brasileirao:    { name: "Brasileirão", seasonLabel: "2026", emblemImg: "img/cbf-logo.png", flag: "🇧🇷", subtitle: "Série A" },
-  premier_league: { name: "Premier League", seasonLabel: "2025/26", emblemImg: null, flag: "🏴", subtitle: "Inglaterra" },
-  la_liga:        { name: "La Liga", seasonLabel: "2025/26", emblemImg: null, flag: "🇪🇸", subtitle: "Espanha" },
+  brasileirao:     { name: "Brasileirão", seasonLabel: "2026", emblemImg: "img/cbf-logo.png", flag: "🇧🇷", subtitle: "Série A" },
+  serie_b:         { name: "Brasileirão", seasonLabel: "2026", emblemImg: "img/cbf-logo.png", flag: "🇧🇷", subtitle: "Série B" },
+  serie_c:         { name: "Brasileirão", seasonLabel: "2026", emblemImg: "img/cbf-logo.png", flag: "🇧🇷", subtitle: "Série C" },
+  serie_d:         { name: "Brasileirão", seasonLabel: "2026", emblemImg: "img/cbf-logo.png", flag: "🇧🇷", subtitle: "Série D" },
+  copa_do_brasil:  { name: "Copa do Brasil", seasonLabel: "2026", emblemImg: "img/cbf-logo.png", flag: "🇧🇷", subtitle: "Mata-mata" },
 };
 function applyCompetitionBranding(id) {
   const meta = COMPETITION_META[id] || COMPETITION_META.brasileirao;
@@ -83,17 +85,24 @@ function planAllowsAdvanced() {
   const p = currentUser && currentUser.plan;
   return p === "pro" || p === "enterprise";
 }
-// Atualiza os itens de Premier League/La Liga na barra lateral com o
-// que o plano do usuário logado realmente libera (ver GET
-// /api/competitions, server/src/competitions.js). Os dois já nascem
-// "disabled" no HTML (nada real pra mostrar ainda em nenhum plano) —
-// isso aqui só ajusta o texto/badge pra deixar claro se é "em breve
-// mesmo pro seu plano" ou "em breve + precisa de upgrade".
+// Atualiza os itens de Série B/C na barra lateral com o que o plano do
+// usuário logado realmente libera (ver GET /api/competitions,
+// server/src/competitions.js). Os dois já nascem "disabled" no HTML
+// (nada real pra mostrar ainda em nenhum plano) — isso aqui só ajusta
+// o texto/badge pra deixar claro se é "em breve mesmo pro seu plano"
+// ou "em breve + precisa de upgrade".
 // Cache do último GET /api/competitions — consultado no clique de
-// Premier League/La Liga (ver onCompetitionNavClick) pra decidir na
-// hora "troca de campeonato" ou "manda pra Apoie o BR Data".
+// Série B/C (ver onCompetitionNavClick) pra decidir na hora "troca de
+// campeonato" ou "manda pra Apoie o BR Data".
 let competitionsInfo = null;
 
+// Série D e Copa do Brasil NÃO entram aqui de propósito — ver aviso
+// grande em DEMO_DATA_BY_COMPETITION (data.js): o formato real das
+// duas (grupos+mata-mata / mata-mata direto) não bate com o molde de
+// pontos corridos que o resto do app assume, então os botões delas na
+// sidebar/menu ficam sempre com a cara de "em breve" (disabled já no
+// HTML) e nunca chamam switchCompetition — só Série B/C entram no
+// switcher de verdade, igual Série A.
 function applyCompetitionsSidebar(data) {
   competitionsInfo = data;
   if (!data || !data.competitions) return;
@@ -101,8 +110,8 @@ function applyCompetitionsSidebar(data) {
   // equivalente na página "Mais" do mobile (a sidebar inteira some
   // em telas ≤1024px, ver style.css) — os dois atualizados juntos.
   const elIdsByCompetition = {
-    premier_league: ["navPremierLeague", "navPremierLeagueMobile"],
-    la_liga: ["navLaLiga", "navLaLigaMobile"],
+    serie_b: ["navSerieB", "navSerieBMobile"],
+    serie_c: ["navSerieC", "navSerieCMobile"],
   };
   data.competitions.forEach((c) => {
     (elIdsByCompetition[c.id] || []).forEach((elId) => {
@@ -131,8 +140,8 @@ function applyCompetitionsSidebar(data) {
   document.getElementById("navBrasileiraoMobile")?.classList.toggle("active", state.competitionId === "brasileirao");
 }
 
-// Clique em Premier League/La Liga na barra lateral — troca de
-// campeonato se o plano libera, ou manda pra Apoie o BR Data se não.
+// Clique em Série B/C na barra lateral — troca de campeonato se o
+// plano libera, ou manda pra Apoie o BR Data se não.
 function onCompetitionNavClick(compId) {
   const info = competitionsInfo?.competitions?.find((c) => c.id === compId);
   if (info && info.locked) { setActivePage("apoie"); return; }
@@ -378,8 +387,8 @@ async function loadCompetitionData(id) {
   applyCompetitionBranding(id);
 }
 
-// Troca o campeonato ativo (chamado pelos itens Brasileirão/Premier
-// League/La Liga da barra lateral — ver onCompetitionNavClick).
+// Troca o campeonato ativo (chamado pelos itens Brasileirão/Série B/
+// Série C da barra lateral — ver onCompetitionNavClick).
 // Favoritos e clube favorito são por campeonato (ver loadFavorites/
 // loadFavoriteClub) — time/jogador selecionados são zerados porque o
 // id de um time do Brasileirão não existe nos outros campeonatos (e
@@ -2478,12 +2487,14 @@ function setupEventListeners() {
   });
 
   // ---- Seletor de campeonato (barra lateral no desktop, página "Mais" no mobile) ----
+  // Série D e Copa do Brasil ficam sem listener de propósito — sempre
+  // "em breve" (ver aviso em applyCompetitionsSidebar acima).
   document.getElementById("navBrasileirao").addEventListener("click", () => switchCompetition("brasileirao"));
-  document.getElementById("navPremierLeague").addEventListener("click", () => onCompetitionNavClick("premier_league"));
-  document.getElementById("navLaLiga").addEventListener("click", () => onCompetitionNavClick("la_liga"));
+  document.getElementById("navSerieB").addEventListener("click", () => onCompetitionNavClick("serie_b"));
+  document.getElementById("navSerieC").addEventListener("click", () => onCompetitionNavClick("serie_c"));
   document.getElementById("navBrasileiraoMobile").addEventListener("click", () => switchCompetition("brasileirao"));
-  document.getElementById("navPremierLeagueMobile").addEventListener("click", () => onCompetitionNavClick("premier_league"));
-  document.getElementById("navLaLigaMobile").addEventListener("click", () => onCompetitionNavClick("la_liga"));
+  document.getElementById("navSerieBMobile").addEventListener("click", () => onCompetitionNavClick("serie_b"));
+  document.getElementById("navSerieCMobile").addEventListener("click", () => onCompetitionNavClick("serie_c"));
 
   document.getElementById("btnAddTeam").addEventListener("click", () => {
     const existing = document.getElementById("quickAddSelect");

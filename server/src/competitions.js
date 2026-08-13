@@ -1,42 +1,58 @@
 /* Registro de campeonatos suportados — a peça central da expansão
-   multi-campeonato (Pro: Brasil/Inglaterra/Espanha temporada atual;
-   Enterprise: as mesmas 3 ligas + histórico de temporadas anteriores).
+   multi-campeonato. Estratégia atual (Sportmonks, ver
+   server/src/providers/sportmonks.js): Freemium/Lite ficam só com o
+   Brasileirão Série A (grátis); Pro/Enterprise desbloqueiam os outros
+   4 campeonatos nacionais contratados — Série B, Série C, Série D e
+   Copa do Brasil. (Premier League/La Liga continuam cadastradas mais
+   abaixo pra não perder o trabalho já feito, mas saíram do foco — ver
+   histórico da conversa; não fazem mais parte do plano contratado.)
 
    IMPORTANTE: cada entrada aqui já é capaz de puxar dado real assim
    que:
      (a) o fornecedor ativo (ver server/src/providers/, escolhido pela
-         env var DATA_PROVIDER) tiver credencial configurada, e
+         env var DATA_PROVIDER) tiver credencial configurada,
      (b) o plano contratado nesse fornecedor cobrir aquela liga/
          temporada (nem todo tier cobre todas as ligas, e planos free
          geralmente só cobrem temporada corrente — confirme antes de
-         ativar).
+         ativar), e
+     (c) o id numérico da liga NESSE FORNECEDOR estiver preenchido em
+         `providerLeagueIds` (ver abaixo).
 
    `providerLeagueIds` guarda o id de cada campeonato NO FORNECEDOR
    (o mesmo campeonato pode ter ids diferentes em cada um — por isso é
-   um objeto por fornecedor, não um valor único). Hoje só existe
-   "api-sports" (ids conferidos em https://dashboard.api-football.com);
-   ao adicionar um 2º fornecedor em providers/, é só somar a entrada
-   dele aqui (ex.: `sportmonks: "123"`) — resolveCompetition() (ver
-   server.js) já resolve automaticamente pro fornecedor ativo.
+   um objeto por fornecedor, não um valor único). Ao adicionar um novo
+   fornecedor em providers/, é só somar a entrada dele aqui (ex.:
+   `sportmonks: "123"`) — resolveCompetition() (ver server.js) já
+   resolve automaticamente pro fornecedor ativo. Campeonato bem
+   conhecido/popular (Brasileirão, Premier League, La Liga) teve o id
+   confirmado via busca pública; Série B/C/D e Copa do Brasil NÃO —
+   Sportmonks não expõe esses ids fora da própria API/documentação
+   (atrás de login), então cada um vem de uma env var própria (ver
+   sportmonksIdFromEnv abaixo e server/.env.example) que você preenche
+   depois de descobrir o id certo em GET /api/leagues/search?name=Brazil
+   rodando no seu host de verdade (esse ambiente de desenvolvimento não
+   consegue falar com a Sportmonks pra descobrir sozinho).
 
-   Até você confirmar a cobertura, cada campeonato fica com
-   `enabled:false` — aparece no app como "em breve" (Pro/Enterprise) ou
-   bloqueado por plano (Freemium/Lite) em vez de tentar buscar um dado
-   que ainda não existe (ou que existe mas não está incluído no seu
-   plano — daria erro 403 da própria API-Sports). Enquanto isso, o
-   Pro/Enterprise continua explorando esse campeonato normalmente em
-   modo exemplo (ver DEMO_DATA_BY_COMPETITION em public/js/data.js) —
-   habilitar aqui só troca esse modo exemplo por dado real.
+   Até você confirmar a cobertura (e preencher o id, quando aplicável),
+   cada campeonato fica com `enabled:false` — aparece no app como "em
+   breve" (Pro/Enterprise) ou bloqueado por plano (Freemium/Lite) em
+   vez de tentar buscar um dado que ainda não existe (ou que existe mas
+   não está incluído no seu plano — daria erro da própria API).
+   Enquanto isso, o plano que libera aquele campeonato continua
+   explorando ele normalmente em modo exemplo (ver
+   DEMO_DATA_BY_COMPETITION em public/js/data.js) — habilitar aqui só
+   troca esse modo exemplo por dado real.
 
    ATIVAÇÃO — via variável de ambiente (Railway/host), SEM editar
    código nem dar redeploy manual de código:
-     ENABLED_COMPETITIONS=premier_league,la_liga
+     ENABLED_COMPETITIONS=serie_b,serie_c,serie_d,copa_do_brasil
    Lista separada por vírgula com os "id" que você quer habilitar (os
    mesmos ids do array COMPETITIONS abaixo — "brasileirao" já vem
    habilitado sempre, não precisa incluir). Pra habilitar só uma:
-     ENABLED_COMPETITIONS=premier_league
-   Pra desabilitar as duas de novo (voltar pro modo exemplo), apague a
-   variável ou deixe em branco. Ver server/.env.example. */
+     ENABLED_COMPETITIONS=serie_b
+   Pra desabilitar de novo (voltar pro modo exemplo), tire o id da
+   lista (ou apague a variável pra desabilitar todas). Ver
+   server/.env.example. */
 
 const DEFAULT_SEASON = process.env.LIVE_SEASON || "2023";
 
@@ -50,6 +66,23 @@ const ENABLED_COMPETITION_IDS = new Set(
     .filter(Boolean)
 );
 
+// Série B/C/D e Copa do Brasil na Sportmonks: ao contrário de
+// Brasileirão/Premier League/La Liga (ids conferidos via busca pública
+// — são as ligas mais populares, então aparecem em vários lugares),
+// não achei o id numérico dessas 4 documentado publicamente (Sportmonks
+// não expõe isso fora da própria API/documentação, e ambas ficam atrás
+// de login). Em vez de arriscar um id CHUTADO (puxaria dado da liga
+// errada silenciosamente, sem erro nenhum pra avisar), cada uma fica
+// configurável por variável de ambiente — descubra o id certo com
+// GET /api/leagues/search?name=Brazil (rodando já no Railway, que
+// consegue falar com a Sportmonks de verdade — esse ambiente aqui não
+// consegue) e cole o "id" retornado na env var correspondente, sem
+// precisar editar código nem dar redeploy manual. Ver server/.env.example.
+function sportmonksIdFromEnv(envVar) {
+  const v = (process.env[envVar] || "").trim();
+  return v || null;
+}
+
 const COMPETITIONS = [
   {
     id: "brasileirao",
@@ -62,6 +95,56 @@ const COMPETITIONS = [
     flag: "🇧🇷",
     minPlan: "freemium", // liberado pra todo mundo
     enabled: true, // sempre — é o único campeonato coberto por todos os planos
+  },
+  {
+    id: "serie_b",
+    providerLeagueIds: {
+      "sportmonks": sportmonksIdFromEnv("SPORTMONKS_LEAGUE_ID_SERIE_B"),
+    },
+    name: "Brasileirão Série B",
+    country: "Brasil",
+    flag: "🇧🇷",
+    minPlan: "pro",
+    enabled: ENABLED_COMPETITION_IDS.has("serie_b"),
+  },
+  {
+    id: "serie_c",
+    providerLeagueIds: {
+      "sportmonks": sportmonksIdFromEnv("SPORTMONKS_LEAGUE_ID_SERIE_C"),
+    },
+    name: "Brasileirão Série C",
+    country: "Brasil",
+    flag: "🇧🇷",
+    minPlan: "pro",
+    enabled: ENABLED_COMPETITION_IDS.has("serie_c"),
+  },
+  {
+    id: "serie_d",
+    providerLeagueIds: {
+      "sportmonks": sportmonksIdFromEnv("SPORTMONKS_LEAGUE_ID_SERIE_D"),
+    },
+    name: "Brasileirão Série D",
+    country: "Brasil",
+    flag: "🇧🇷",
+    minPlan: "pro",
+    enabled: ENABLED_COMPETITION_IDS.has("serie_d"),
+  },
+  {
+    id: "copa_do_brasil",
+    providerLeagueIds: {
+      "sportmonks": sportmonksIdFromEnv("SPORTMONKS_LEAGUE_ID_COPA_DO_BRASIL"),
+    },
+    name: "Copa do Brasil",
+    country: "Brasil",
+    flag: "🇧🇷",
+    minPlan: "pro",
+    // AVISO: é mata-mata, não pontos corridos — a Tabela (getStandings)
+    // pode vir vazia ou num formato diferente do esperado pelas outras
+    // competições (que são todas de pontos corridos). Testar com dado
+    // real antes de anunciar essa competição pro usuário final; pode
+    // precisar de ajuste na tela (ex.: esconder aba Tabela pra essa
+    // competição específica) — não fiz esse ajuste agora.
+    enabled: ENABLED_COMPETITION_IDS.has("copa_do_brasil"),
   },
   {
     id: "premier_league",

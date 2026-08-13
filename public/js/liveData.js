@@ -54,8 +54,9 @@ async function tryLoadLiveData(season = LIVE_SEASON, competitionId = "brasileira
     // A partir daqui, qualquer chamada nesse arquivo que use o default
     // `season = LIVE_SEASON` (elenco, jogador, ranking de jogadores)
     // já pega o valor configurado no backend, não o chute inicial.
-    // Só vale pro Brasileirão — Premier League/La Liga usam a mesma
-    // temporada "atual" por enquanto, ver server/src/competitions.js.
+    // Só vale pro Brasileirão Série A — as outras competições (Série
+    // B/C/D, Copa do Brasil) usam a mesma temporada "atual" por
+    // enquanto, ver server/src/competitions.js.
     if (health.season && competitionId === "brasileirao") { LIVE_SEASON = Number(health.season) || LIVE_SEASON; season = LIVE_SEASON; }
 
     const comp = `&competition=${encodeURIComponent(competitionId)}`;
@@ -208,7 +209,7 @@ async function loadNews(teamName = "") {
   return promise;
 }
 
-// Lista de campeonatos disponíveis (Brasileirão + Inglaterra/Espanha —
+// Lista de campeonatos disponíveis (Brasileirão Série A + Série B/C —
 // as duas últimas ainda "em breve", ver server/src/competitions.js) e
 // as temporadas de histórico do plano Enterprise, já anotadas com o
 // que o plano do usuário logado libera. Usada só pra atualizar os

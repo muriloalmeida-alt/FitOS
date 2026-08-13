@@ -112,6 +112,65 @@ const DEMO_TEAMS_LA_LIGA = [
   { id: "vll", name: "Real Valladolid",   short: "VLL", c1: "#663399", c2: "#FFFFFF", atk: 1.00, def: 1.33, venue: { name: "José Zorrilla", city: "Valladolid" } },
 ];
 
+/* 20 clubes de exemplo da Série B 2025 (Brasil) — nomes reais,
+   estádios reais (dado público estável). Força de ataque/defesa é
+   FICTÍCIA, só pra alimentar o motor de simulação em modo exemplo —
+   ver mesmo aviso em DEMO_TEAMS acima. Plano Pro/Enterprise (ver
+   server/src/competitions.js) — "em breve" até o id da liga na
+   Sportmonks ser configurado (SPORTMONKS_LEAGUE_ID_SERIE_B); até lá,
+   esse é o dado que aparece no modo exemplo. Ids diferentes dos usados
+   em DEMO_TEAMS (Série A) mesmo pros 2 clubes em comum (Cuiabá,
+   Athletico Paranaense) — cada competição tem seu próprio "elenco" de
+   ids, não compartilha com as outras. */
+const DEMO_TEAMS_SERIE_B = [
+  { id: "atp", name: "Athletico Paranaense", short: "CAP", uf: "PR", c1: "#C8102E", c2: "#1A1A1A", atk: 1.55, def: 0.85, venue: { name: "Arena da Baixada", city: "Curitiba" } },
+  { id: "cta", name: "Coritiba",             short: "CTA", uf: "PR", c1: "#0B6E33", c2: "#FFFFFF", atk: 1.50, def: 0.88, venue: { name: "Couto Pereira", city: "Curitiba" } },
+  { id: "cha", name: "Chapecoense",          short: "CHA", uf: "SC", c1: "#1E7A3D", c2: "#FFFFFF", atk: 1.46, def: 0.90, venue: { name: "Arena Condá", city: "Chapecó" } },
+  { id: "rem", name: "Remo",                 short: "REM", uf: "PA", c1: "#003DA5", c2: "#FFFFFF", atk: 1.44, def: 0.92, venue: { name: "Baenão", city: "Belém" } },
+  { id: "goi", name: "Goiás",                short: "GOI", uf: "GO", c1: "#0B6E33", c2: "#FFFFFF", atk: 1.42, def: 0.94, venue: { name: "Hailé Pinheiro", city: "Goiânia" } },
+  { id: "ava", name: "Avaí",                 short: "AVA", uf: "SC", c1: "#0057B8", c2: "#FFFFFF", atk: 1.38, def: 0.96, venue: { name: "Ressacada", city: "Florianópolis" } },
+  { id: "cri", name: "Criciúma",             short: "CRI", uf: "SC", c1: "#1A1A1A", c2: "#FFFFFF", atk: 1.36, def: 0.98, venue: { name: "Heriberto Hülse", city: "Criciúma" } },
+  { id: "vno", name: "Vila Nova",            short: "VNO", uf: "GO", c1: "#C8102E", c2: "#1A1A1A", atk: 1.34, def: 1.00, venue: { name: "Serra Dourada", city: "Goiânia" } },
+  { id: "cub", name: "Cuiabá",               short: "CUI", uf: "MT", c1: "#00A650", c2: "#FFC72C", atk: 1.32, def: 1.02, venue: { name: "Arena Pantanal", city: "Cuiabá" } },
+  { id: "acg", name: "Atlético Goianiense",  short: "ACG", uf: "GO", c1: "#C8102E", c2: "#1A1A1A", atk: 1.30, def: 1.04, venue: { name: "Antônio Accioly", city: "Goiânia" } },
+  { id: "ame", name: "América Mineiro",      short: "AME", uf: "MG", c1: "#1E7A3D", c2: "#FFFFFF", atk: 1.28, def: 1.06, venue: { name: "Independência", city: "Belo Horizonte" } },
+  { id: "crb", name: "CRB",                  short: "CRB", uf: "AL", c1: "#DC2626", c2: "#1A1A1A", atk: 1.26, def: 1.08, venue: { name: "Rei Pelé", city: "Maceió" } },
+  { id: "nvz", name: "Novorizontino",        short: "NOV", uf: "SP", c1: "#DC2626", c2: "#1A1A1A", atk: 1.24, def: 1.10, venue: { name: "Jorge Ismael de Biasi", city: "Novo Horizonte" } },
+  { id: "ope", name: "Operário-PR",          short: "OPE", uf: "PR", c1: "#1E7A3D", c2: "#FFFFFF", atk: 1.22, def: 1.12, venue: { name: "Germano Krüger", city: "Ponta Grossa" } },
+  { id: "amz", name: "Amazonas",             short: "AMZ", uf: "AM", c1: "#1E3A8A", c2: "#DC2626", atk: 1.20, def: 1.14, venue: { name: "Arena da Amazônia", city: "Manaus" } },
+  { id: "pay", name: "Paysandu",             short: "PAY", uf: "PA", c1: "#003DA5", c2: "#FFFFFF", atk: 1.18, def: 1.16, venue: { name: "Curuzu", city: "Belém" } },
+  { id: "bsp", name: "Botafogo-SP",          short: "BSP", uf: "SP", c1: "#DC2626", c2: "#FFFFFF", atk: 1.16, def: 1.18, venue: { name: "Santa Cruz", city: "Ribeirão Preto" } },
+  { id: "atc", name: "Athletic Club",        short: "ATH", uf: "MG", c1: "#1A1A1A", c2: "#FFFFFF", atk: 1.14, def: 1.20, venue: { name: "Antônio Guimarães de Almeida", city: "São João del-Rei" } },
+  { id: "vre", name: "Volta Redonda",        short: "VOL", uf: "RJ", c1: "#FFC93C", c2: "#1A1A1A", atk: 1.12, def: 1.22, venue: { name: "Raulino de Oliveira", city: "Volta Redonda" } },
+  { id: "frv", name: "Ferroviária",          short: "FER", uf: "SP", c1: "#DC2626", c2: "#FFFFFF", atk: 1.10, def: 1.24, venue: { name: "Fonte Luminosa", city: "Araraquara" } },
+];
+
+/* 20 clubes de exemplo da Série C 2025 (Brasil) — mesmo modelo/aviso
+   acima. Plano Pro/Enterprise, "em breve" até
+   SPORTMONKS_LEAGUE_ID_SERIE_C ser configurado. */
+const DEMO_TEAMS_SERIE_C = [
+  { id: "nau", name: "Náutico",         short: "NAU", uf: "PE", c1: "#DC2626", c2: "#FFFFFF", atk: 1.42, def: 0.90, venue: { name: "Aflitos", city: "Recife" } },
+  { id: "csa", name: "CSA",             short: "CSA", uf: "AL", c1: "#003DA5", c2: "#FFFFFF", atk: 1.38, def: 0.93, venue: { name: "Rei Pelé", city: "Maceió" } },
+  { id: "pon", name: "Ponte Preta",     short: "PON", uf: "SP", c1: "#1A1A1A", c2: "#FFFFFF", atk: 1.36, def: 0.95, venue: { name: "Moisés Lucarelli", city: "Campinas" } },
+  { id: "gua", name: "Guarani",         short: "GUA", uf: "SP", c1: "#0B6E33", c2: "#003DA5", atk: 1.34, def: 0.97, venue: { name: "Brinco de Ouro da Princesa", city: "Campinas" } },
+  { id: "fig", name: "Figueirense",     short: "FIG", uf: "SC", c1: "#1A1A1A", c2: "#FFFFFF", atk: 1.32, def: 0.99, venue: { name: "Orlando Scarpelli", city: "Florianópolis" } },
+  { id: "abc", name: "ABC",             short: "ABC", uf: "RN", c1: "#C8102E", c2: "#1A1A1A", atk: 1.30, def: 1.01, venue: { name: "Frasqueirão", city: "Natal" } },
+  { id: "itu", name: "Ituano",          short: "ITU", uf: "SP", c1: "#FFC93C", c2: "#DC2626", atk: 1.28, def: 1.03, venue: { name: "Novelli Júnior", city: "Itu" } },
+  { id: "bru", name: "Brusque",         short: "BRU", uf: "SC", c1: "#DC2626", c2: "#1A1A1A", atk: 1.26, def: 1.05, venue: { name: "Augusto Bauer", city: "Brusque" } },
+  { id: "tbe", name: "Tombense",        short: "TOM", uf: "MG", c1: "#00A99D", c2: "#FFFFFF", atk: 1.24, def: 1.07, venue: { name: "Soberanão", city: "Tombos" } },
+  { id: "con", name: "Confiança",       short: "CON", uf: "SE", c1: "#DC2626", c2: "#1A1A1A", atk: 1.22, def: 1.09, venue: { name: "Batistão", city: "Aracaju" } },
+  { id: "cax", name: "Caxias",          short: "CAX", uf: "RS", c1: "#8A2432", c2: "#1A1A1A", atk: 1.20, def: 1.11, venue: { name: "Centenário", city: "Caxias do Sul" } },
+  { id: "lon", name: "Londrina",        short: "LON", uf: "PR", c1: "#DC2626", c2: "#1A1A1A", atk: 1.18, def: 1.13, venue: { name: "Estádio do Café", city: "Londrina" } },
+  { id: "bpb", name: "Botafogo-PB",     short: "BPB", uf: "PB", c1: "#DC2626", c2: "#1A1A1A", atk: 1.16, def: 1.15, venue: { name: "Almeidão", city: "João Pessoa" } },
+  { id: "flo", name: "Floresta",        short: "FLO", uf: "CE", c1: "#1E3A8A", c2: "#FFFFFF", atk: 1.14, def: 1.17, venue: { name: "Presidente Vargas", city: "Fortaleza" } },
+  { id: "sbc", name: "São Bernardo",    short: "SBE", uf: "SP", c1: "#003DA5", c2: "#FFFFFF", atk: 1.12, def: 1.19, venue: { name: "1º de Maio", city: "São Bernardo do Campo" } },
+  { id: "ypi", name: "Ypiranga",        short: "YPI", uf: "RS", c1: "#DC2626", c2: "#FFFFFF", atk: 1.10, def: 1.21, venue: { name: "Colosso do Butantã", city: "Erechim" } },
+  { id: "ana", name: "Anápolis",        short: "ANA", uf: "GO", c1: "#DC2626", c2: "#FFFFFF", atk: 1.08, def: 1.23, venue: { name: "Jonas Duarte", city: "Anápolis" } },
+  { id: "ret", name: "Retrô",           short: "RET", uf: "PE", c1: "#1A1A1A", c2: "#FFC93C", atk: 1.06, def: 1.25, venue: { name: "Arena de Pernambuco", city: "Camaragibe" } },
+  { id: "ita", name: "Itabaiana",       short: "ITA", uf: "SE", c1: "#DC2626", c2: "#FFFFFF", atk: 1.04, def: 1.27, venue: { name: "Etelvino Mendonça", city: "Itabaiana" } },
+  { id: "mga", name: "Maringá",         short: "MGA", uf: "PR", c1: "#003DA5", c2: "#FFFFFF", atk: 1.02, def: 1.29, venue: { name: "Willie Davids", city: "Maringá" } },
+];
+
 /* Jogadores de exemplo (fictícios) — elenco de 24 por time (3
    goleiros, 8 zagueiros/laterais, 7 meias, 6 atacantes — composição
    parecida com um elenco de verdade), usados na sub-aba "Jogadores" de
@@ -162,12 +221,28 @@ function buildDemoPlayers(teams) {
 const DEMO_PLAYERS = buildDemoPlayers(DEMO_TEAMS);
 const DEMO_PLAYERS_PREMIER_LEAGUE = buildDemoPlayers(DEMO_TEAMS_PREMIER_LEAGUE);
 const DEMO_PLAYERS_LA_LIGA = buildDemoPlayers(DEMO_TEAMS_LA_LIGA);
+const DEMO_PLAYERS_SERIE_B = buildDemoPlayers(DEMO_TEAMS_SERIE_B);
+const DEMO_PLAYERS_SERIE_C = buildDemoPlayers(DEMO_TEAMS_SERIE_C);
 
 // Registro central dos dados de exemplo por campeonato — mesma chave
 // "id" usada em server/src/competitions.js, pra app.js poder trocar de
 // campeonato sem precisar saber o nome de cada array específico.
+//
+// Série D e Copa do Brasil NÃO estão aqui de propósito: o motor de
+// simulação/Tabela desse app assume pontos corridos com um turno único
+// entre um grupo fixo de times (ver engine.js) — bate certinho com
+// Série A/B/C, Premier League e La Liga, mas NÃO com o formato real
+// dessas duas (Série D = 64 times em 8 grupos + mata-mata; Copa do
+// Brasil = mata-mata direto, sem tabela de pontos corridos nenhuma).
+// Forçar as duas nesse molde geraria uma "Tabela"/simulação que não
+// corresponde a como a competição realmente funciona — por isso elas
+// aparecem no menu (ver app.js) mas permanecem "em breve" mesmo em
+// modo exemplo, até o app ganhar uma tela própria pra fase de
+// grupos/mata-mata (fora do escopo desta integração).
 const DEMO_DATA_BY_COMPETITION = {
   brasileirao:    { teams: DEMO_TEAMS,               players: DEMO_PLAYERS },
+  serie_b:        { teams: DEMO_TEAMS_SERIE_B,        players: DEMO_PLAYERS_SERIE_B },
+  serie_c:        { teams: DEMO_TEAMS_SERIE_C,        players: DEMO_PLAYERS_SERIE_C },
   premier_league: { teams: DEMO_TEAMS_PREMIER_LEAGUE, players: DEMO_PLAYERS_PREMIER_LEAGUE },
   la_liga:        { teams: DEMO_TEAMS_LA_LIGA,        players: DEMO_PLAYERS_LA_LIGA },
 };
