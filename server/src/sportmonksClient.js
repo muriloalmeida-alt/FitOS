@@ -81,6 +81,23 @@ async function sportmonksGet(path, params = {}) {
   return json?.data;
 }
 
+// pagination.next_cursor na prática NÃO vem como um token curto
+// isolado — confirmado com log real do Railway, vem como a URL
+// COMPLETA da próxima página (com filters/include repetidos e um
+// "cursor=<token de verdade>" já embutido nela). Anexar esse valor
+// inteiro como query param "cursor" (por cima da URL original) gera
+// uma URL sem sentido nenhum. Esta função extrai só o token de dentro
+// dessa URL (ou usa o valor direto, se um dia vier como token puro
+// mesmo — tolera os dois formatos).
+function extractCursorToken(raw) {
+  if (!raw) return null;
+  if (/^https?:\/\//i.test(raw)) {
+    try { return new URL(raw).searchParams.get("cursor") || raw; }
+    catch { return raw; }
+  }
+  return raw;
+}
+
 // Igual sportmonksGet, mas pagina automaticamente (cursor-based, ver
 // json.pagination.has_more/next_cursor na doc da Sportmonks) até
 // esgotar has_more — usar em qualquer listagem que possa passar do
@@ -89,17 +106,27 @@ async function sportmonksGet(path, params = {}) {
 // ter mais de 25 jogadores com gol na temporada). Teto de segurança de
 // 20 páginas (1000 itens com per_page=50) pra nunca entrar em loop
 // infinito por um "has_more" que nunca desliga.
+//
+// per_page só vai na 1ª página — a Sportmonks rejeita explicitamente
+// ("per_page parameter cannot be used together with cursor") mandar os
+// dois juntos numa página seguinte; o tamanho de página já fica
+// implícito no cursor a partir da 2ª chamada.
 async function sportmonksGetAll(path, params = {}) {
   let all = [];
   let cursor = null;
   let page = 0;
   do {
-    const p = { ...params, per_page: params.per_page || 50 };
-    if (cursor) p.cursor = cursor;
+    const p = { ...params };
+    if (cursor) {
+      p.cursor = cursor;
+      delete p.per_page;
+    } else {
+      p.per_page = params.per_page || 50;
+    }
     const json = await sportmonksRequest(path, p);
     const data = json?.data;
     all = all.concat(Array.isArray(data) ? data : (data ? [data] : []));
-    cursor = json?.pagination?.has_more ? json.pagination.next_cursor : null;
+    cursor = json?.pagination?.has_more ? extractCursorToken(json.pagination.next_cursor) : null;
     page++;
   } while (cursor && page < 20);
   return all;
