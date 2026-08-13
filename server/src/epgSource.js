@@ -1,27 +1,38 @@
 /* Busca (best-effort) a emissora de TV de uma partida via um feed
-   XMLTV público (epgshare01.online, agregador comunitário de grade de
+   XMLTV público (open-epg.com, agregador comunitário de grade de
    programação — mesmo espírito do broadcastSource.js: fonte
    independente, gratuita, não é registro oficial de direitos de
    transmissão, pode vir vazia/desatualizada/imprecisa).
 
-   AVISO IMPORTANTE (pedido pelo usuário, avaliado antes de implementar
-   — ver histórico da conversa): não foi possível confirmar de antemão
-   se os canais PAGOS que realmente transmitem o Brasileirão
-   (Premiere, SporTV, Globo, Amazon Prime Video...) aparecem com jogo
-   por jogo nesse feed — agregadores comunitários de EPG costumam ser
-   fortes em TV aberta/regional e fracos em canais pagos, já que o
-   emissor não publica isso abertamente. Implementado mesmo assim, por
-   decisão explícita do usuário, com essa incerteza documentada. Se na
-   prática vier sempre vazio, é sinal de que o feed realmente não cobre
-   esses canais — nesse caso o /api/broadcast já cai pro
-   broadcastSource.js (TheSportsDB) sozinho, sem quebrar nada.
+   HISTÓRICO (útil se trocar de fonte de novo):
+   1ª versão usava epgshare01.online (epg_ripper_BR1.xml.gz,
+   comprimido). Trocado pra open-epg.com/files/brazil1.xml (indicado
+   pelo usuário, que confirmou ter os canais que precisamos — Premiere,
+   SporTV etc.) — mas esse arquivo NÃO é comprimido (.xml puro, não
+   .xml.gz). Por isso refreshCache() abaixo detecta gzip pelos BYTES
+   MÁGICOS do arquivo (0x1f 0x8b no início) em vez de confiar na
+   extensão da URL — funciona com as duas fontes (comprimida ou não)
+   sem precisar saber de antemão qual é qual.
 
-   Arquivo usado: epg_ripper_BR1.xml.gz (só Brasil) — NÃO o
-   ALL_SOURCES1.xml.gz que foi sugerido originalmente, que é a grade
-   combinada de TODOS os países do catálogo (centenas de MB mesmo
-   comprimido, quase tudo irrelevante pro Brasileirão). BR1 é a mesma
-   fonte, só que já filtrada pelo próprio epgshare01 pro país que
-   interessa — muito mais leve pra baixar/processar num host Railway.
+   AVISO da fonte atual (open-epg.com, conferido via pesquisa pública):
+   arquivo cobre só ~2 DIAS de grade (bem mais curto que o epgshare01),
+   atualiza 1x/dia (~20h CET), limite de 20 downloads/dia por IP — o
+   refresh a cada 12h daqui fica bem dentro desse limite (2x/dia). Jogo
+   marcado pra mais de 2 dias no futuro ainda não vai aparecer na grade
+   até chegar mais perto da data — isso é esperado, não é bug (a
+   própria emissora também só define/publica a programação perto do
+   jogo, então nem uma fonte "oficial" teria isso com muita
+   antecedência).
+
+   AVISO IMPORTANTE (pedido pelo usuário, avaliado antes de implementar
+   epgshare01 — ver histórico da conversa; mesma ressalva vale pra
+   qualquer EPG comunitário, incluindo esse): não é registro oficial de
+   direitos de transmissão — pode vir vazio, desatualizado ou
+   impreciso. Se na prática vier sempre vazio, o /api/broadcast já cai
+   pro broadcastSource.js (TheSportsDB) sozinho, sem quebrar nada.
+   (Sportmonks tvStations foi tentada como fonte nativa/paga antes
+   dessa, mas foi removida — devolvia lista genérica de emissoras
+   possíveis, não o canal daquele jogo específico, ver server.js.)
 
    Parser XMLTV feito na mão (regex), não uma lib de verdade — o
    projeto é zero-dependência de propósito (ver header de server.js;
@@ -35,8 +46,8 @@
 const zlib = require("zlib");
 const { normalizeName } = require("./broadcastSource");
 
-const EPG_URL = process.env.EPG_URL || "https://epgshare01.online/epgshare01/epg_ripper_BR1.xml.gz";
-const REFRESH_INTERVAL_MS = 12 * 60 * 60 * 1000; // 12h — mesma cadência típica desses agregadores
+const EPG_URL = process.env.EPG_URL || "https://www.open-epg.com/files/brazil1.xml";
+const REFRESH_INTERVAL_MS = 12 * 60 * 60 * 1000; // 12h — bem dentro do limite de 20 downloads/dia do open-epg.com
 
 // Filtro de canal — sem isso, guardaríamos em memória milhares de
 // entradas de canais de TV aberta/regional que nunca vão bater com um
@@ -110,12 +121,18 @@ let refreshPromise = null;
 
 async function refreshCache() {
   const res = await fetch(EPG_URL);
-  if (!res.ok) throw new Error(`EPG (epgshare01) respondeu ${res.status}`);
-  const gz = Buffer.from(await res.arrayBuffer());
-  const xml = zlib.gunzipSync(gz).toString("utf8");
+  if (!res.ok) throw new Error(`EPG (${EPG_URL}) respondeu ${res.status}`);
+  const buf = Buffer.from(await res.arrayBuffer());
+  // Detecta gzip pelos 2 primeiros bytes do arquivo (assinatura padrão
+  // 0x1f 0x8b), não pela extensão da URL nem pelo header Content-Type
+  // (nenhum dos dois é totalmente confiável) — funciona tanto com um
+  // .xml.gz quanto com um .xml puro sem precisar configurar nada
+  // diferente por fonte.
+  const isGzip = buf.length > 2 && buf[0] === 0x1f && buf[1] === 0x8b;
+  const xml = (isGzip ? zlib.gunzipSync(buf) : buf).toString("utf8");
   const parsed = parseXMLTV(xml);
   cache = { ...parsed, fetchedAt: Date.now() };
-  console.log(`[epg] atualizado — ${parsed.channels.size} canais esportivos reconhecidos, ${parsed.programmes.length} programas na grade.`);
+  console.log(`[epg] atualizado (${isGzip ? "gzip" : "texto puro"}) — ${parsed.channels.size} canais esportivos reconhecidos, ${parsed.programmes.length} programas na grade.`);
 }
 
 // Busca sob demanda, só quando alguém pedir — não bloqueia o boot do
