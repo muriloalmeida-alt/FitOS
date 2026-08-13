@@ -454,8 +454,13 @@ const server = http.createServer(async (req, res) => {
       const teamId = teamPlayersMatch[1];
       const season = searchParams.get("season");
       if (!season) return sendJSON(res, 400, { error: "parâmetro season é obrigatório" });
-      const players = await withCache(`teamplayers:${teamId}:${season}`, TTL.teams, () =>
-        dataProvider.getTeamPlayers({ teamId, season })
+      // leagueId aqui é usado só por fornecedores que precisam dele pra
+      // resolver estatística de jogador por temporada (ver aviso no
+      // contrato em providers/index.js) — resolveCompetition() já
+      // trata "competição não informada" caindo pro Brasileirão.
+      const comp = resolveCompetition(req, searchParams);
+      const players = await withCache(`teamplayers:${comp.id}:${teamId}:${season}`, TTL.teams, () =>
+        dataProvider.getTeamPlayers({ teamId, season, leagueId: comp.leagueId })
       );
       return sendJSON(res, 200, { players });
     }

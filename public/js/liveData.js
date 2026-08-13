@@ -225,11 +225,14 @@ async function loadCompetitionsInfo() {
 }
 
 // Elenco completo de UM time — lazy, só quando a página de detalhe
-// do time é aberta em modo ao vivo. Cacheado por time.
+// do time é aberta em modo ao vivo. Cacheado por time. competitionId
+// precisa ir junto (ver /api/teams/:id/players em server.js) — alguns
+// fornecedores precisam saber a liga pra resolver estatística de
+// jogador por temporada.
 const teamRosterCache = new Map();
-async function loadTeamRoster(teamId, season = LIVE_SEASON) {
+async function loadTeamRoster(teamId, season = LIVE_SEASON, competitionId = "brasileirao") {
   if (teamRosterCache.has(teamId)) return teamRosterCache.get(teamId);
-  const promise = safeFetchJSON(`/api/teams/${teamId}/players?season=${season}`).then(r => r.players || []).catch(() => []);
+  const promise = safeFetchJSON(`/api/teams/${teamId}/players?season=${season}&competition=${encodeURIComponent(competitionId)}`).then(r => r.players || []).catch(() => []);
   teamRosterCache.set(teamId, promise);
   return promise;
 }

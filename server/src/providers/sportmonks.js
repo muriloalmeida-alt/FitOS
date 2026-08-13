@@ -187,7 +187,16 @@ function mapPlayerFromTopscorer(item) {
   };
 }
 
-function mapPlayerFromSquad(item) {
+// AJUSTE (13/08/2026): item.appearances/goals/assists/yellowcards/
+// redcards NUNCA vêm preenchidos aqui — o endpoint de elenco
+// (/squads/teams/{id}) só devolve VÍNCULO do jogador com o time
+// (posição, camisa...), não estatística de temporada nenhuma. Por
+// isso "games"/"goals"/"assists" ficavam sempre null (Elenco aparecia
+// com nome mas sem número nenhum). Agora recebe um objeto "stats" já
+// pronto (ver playerSeasonStats abaixo, buscado separado por
+// jogador) — sem ele, cai de volta pro item.xxx antigo só por
+// garantia (não deveria nunca vir preenchido, mas não custa nada).
+function mapPlayerFromSquad(item, stats) {
   const p = item.player;
   if (!p) return null;
   return {
@@ -196,13 +205,61 @@ function mapPlayerFromSquad(item) {
     photo: p.image_path || null,
     teamId: item.team_id ?? null,
     position: null,
-    games: item.appearances ?? null,
-    goals: item.goals ?? null,
-    assists: item.assists ?? null,
-    yellow: item.yellowcards ?? null,
-    red: item.redcards ?? null,
+    games: stats?.games ?? item.appearances ?? null,
+    goals: stats?.goals ?? item.goals ?? null,
+    assists: stats?.assists ?? item.assists ?? null,
+    yellow: stats?.yellow ?? item.yellowcards ?? null,
+    red: stats?.red ?? item.redcards ?? null,
     rating: null,
   };
+}
+
+// Ids numéricos fixos da Sportmonks pra estatística de JOGADOR
+// (diferente de STANDING_TYPE/EVENT_TYPE acima, que são de tabela e
+// eventos de partida) — conferidos via documentação pública.
+const PLAYER_STAT_TYPE = { APPEARANCES: 321, GOALS: 52, ASSISTS: 79, YELLOWCARDS: 84, REDCARDS: 83, REDCARDS_2ND_YELLOW: 85 };
+
+// Soma os type_id de PLAYER_STAT_TYPE dentro do array "statistics" de
+// 1 jogador (vindo de GET /players/{id}?include=statistics, filtrado
+// por temporada — ver getPlayerSeasonStats abaixo). "statistics" pode
+// vir com mais de 1 item mesmo filtrando por 1 temporada só (ex.:
+// jogador que atuou por 2 times na mesma temporada) — por isso soma
+// em vez de pegar só o primeiro. d.value tolera tanto um número direto
+// quanto um objeto {total: N} (formato exato não confirmado contra
+// resposta real — ver aviso no topo do arquivo).
+function extractPlayerSeasonStats(statistics) {
+  const out = { games: null, goals: null, assists: null, yellow: null, red: null };
+  (statistics || []).forEach((stat) => {
+    (stat.details || []).forEach((d) => {
+      const raw = d.value?.total ?? d.value;
+      const n = Number(raw);
+      if (!Number.isFinite(n)) return;
+      if (d.type_id === PLAYER_STAT_TYPE.APPEARANCES) out.games = (out.games || 0) + n;
+      else if (d.type_id === PLAYER_STAT_TYPE.GOALS) out.goals = (out.goals || 0) + n;
+      else if (d.type_id === PLAYER_STAT_TYPE.ASSISTS) out.assists = (out.assists || 0) + n;
+      else if (d.type_id === PLAYER_STAT_TYPE.YELLOWCARDS) out.yellow = (out.yellow || 0) + n;
+      else if (d.type_id === PLAYER_STAT_TYPE.REDCARDS || d.type_id === PLAYER_STAT_TYPE.REDCARDS_2ND_YELLOW) out.red = (out.red || 0) + n;
+    });
+  });
+  return out;
+}
+
+// 1 chamada por jogador (GET /players/{id}?include=statistics, flat —
+// sem include aninhado, ver histórico de ajuste no topo do arquivo —
+// filtrado pra só trazer a temporada que interessa via
+// playerStatisticSeasons). Tolerante a falha por jogador (um jogador
+// sem estatística nessa temporada, ou uma chamada que falhe, não
+// derruba o elenco inteiro — só aquele jogador fica sem número).
+async function getPlayerSeasonStats(playerId, seasonId) {
+  try {
+    const p = await sportmonksGet(`/players/${playerId}`, {
+      include: "statistics",
+      filters: `playerStatisticSeasons:${seasonId}`,
+    });
+    return extractPlayerSeasonStats(p?.statistics);
+  } catch {
+    return null;
+  }
 }
 
 async function searchLeagues({ name }) {
@@ -302,13 +359,42 @@ async function getPlayersLeaders({ leagueId, season }) {
 // (elenco ATUAL do time, sem precisar de season/seasonId nenhum) — é
 // exatamente o que a tela de "Elenco" mostra mesmo (o elenco de
 // agora, não um histórico por temporada).
+//
+// AJUSTE (13/08/2026): elenco aparecia com nome mas sem jogos/gols/
+// assistências — /squads/teams/{id} não traz estatística de temporada
+// nenhuma (só vínculo do jogador com o time, ver mapPlayerFromSquad).
+// Agora busca a estatística de CADA jogador do elenco em paralelo
+// (getPlayerSeasonStats, 1 chamada por jogador — só dá pra saber a
+// temporada certa se tiver leagueId, por isso esse parâmetro agora é
+// aceito aqui; ver contrato em providers/index.js) e junta no mapeamento
+// final. Custo: ~20-30 chamadas extra por time, mas cacheado por 12h
+// no server (ver TTL.teams em server.js) — não bate na Sportmonks de
+// novo a cada usuário que abre a mesma página de time. Tolerante a
+// falha por jogador (getPlayerSeasonStats já trata isso) e também
+// tolerante a leagueId ausente (aí cai sem estatística nenhuma, só
+// nome/posição, em vez de quebrar a página inteira).
 // sportmonksGetAll (paginado) — elenco com reservas facilmente passa
 // dos 25 itens por página padrão da Sportmonks.
-async function getTeamPlayers({ teamId }) {
+async function getTeamPlayers({ teamId, season, leagueId }) {
   const squad = await sportmonksGetAll(`/squads/teams/${teamId}`, { include: "player" });
+
+  let statsByPlayerId = new Map();
+  if (leagueId && season) {
+    try {
+      const seasonId = await resolveSeasonId(leagueId, season);
+      const playerIds = squad.map((item) => item.player?.id).filter(Boolean);
+      const statsList = await Promise.all(playerIds.map((pid) => getPlayerSeasonStats(pid, seasonId)));
+      playerIds.forEach((pid, i) => { if (statsList[i]) statsByPlayerId.set(pid, statsList[i]); });
+    } catch {
+      // Temporada não resolvida (ver resolveSeason) — segue sem
+      // estatística nenhuma, melhor um elenco incompleto do que a
+      // página inteira quebrada.
+    }
+  }
+
   const byId = new Map();
   squad.forEach((item) => {
-    const p = mapPlayerFromSquad(item);
+    const p = mapPlayerFromSquad(item, statsByPlayerId.get(item.player?.id));
     if (p) byId.set(p.id, p);
   });
   return Array.from(byId.values());

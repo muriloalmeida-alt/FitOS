@@ -932,6 +932,34 @@ function buildRadarSVG(axes) {
   const labels = axes.map((a, i) => { const x = cx + (maxR + 26) * Math.cos(ang(i)), y = cy + (maxR + 26) * Math.sin(ang(i)); return `<text x="${x}" y="${y}" font-size="8.5" fill="var(--text-2)" text-anchor="middle" dominant-baseline="middle">${a.label}</text>`; }).join("");
   return `<svg width="230" height="215" viewBox="0 0 210 200">${grid}${axisLines}<polygon points="${dataPts}" fill="rgba(0,87,184,.22)" stroke="var(--brd-blue)" stroke-width="2"/>${labels}</svg>`;
 }
+// AJUSTE (13/08/2026): "Desempenho" (radar) aparecia praticamente
+// zerado em modo ao vivo — finalizações/posse/escanteios vêm de
+// m.stats em cada jogo decidido (ver aggregateTeamStats acima), mas
+// esse campo só é preenchido quando o usuário expande um jogo
+// específico em "Jogos" (loadFixtureDetails, liveData.js) — pra não
+// buscar estatística de partida de TODOS os jogos da liga de uma vez
+// só (custaria uma chamada por jogo). Como a página do Time só
+// precisa dos jogos de 1 time (bem menos: no máximo ~19-38 por
+// temporada), busca sob demanda aqui — reaproveita loadFixtureDetails
+// (mesmo cache, e o servidor já guarda estatística de jogo encerrado
+// por 7 dias, ver TTL.fixtureDetail em server.js, então o custo real
+// só acontece 1x por jogo, não 1x por visita). Muta m.stats DIRETO no
+// objeto de MATCH_RESULTS (mesma referência que allDecidedMatches()
+// devolve), então quem mais usa aggregateTeamStats (ex.: aba
+// Estatísticas) também se beneficia depois que algum usuário visitou
+// a página de algum dos dois times daquele jogo.
+async function ensureTeamMatchStats(teamId) {
+  if (!LIVE_MODE) return false;
+  const pending = allDecidedMatches().filter((m) => !m.stats && m.fixtureId && (m.home === teamId || m.away === teamId));
+  if (!pending.length) return false;
+  await Promise.all(pending.map(async (m) => {
+    try {
+      const details = await loadFixtureDetails(m.fixtureId, m.home, m.away);
+      if (details?.stats) m.stats = details.stats;
+    } catch { /* esse jogo específico só fica sem estatística — não trava o resto */ }
+  }));
+  return true;
+}
 function renderRadarInto(containerId, teamId) {
   const metrics = radarMetrics();
   const m = metrics[teamId];
@@ -2165,7 +2193,7 @@ function teamLastMatchRowHTML(m, teamId) {
 let teamRosterCacheDemo = null; // não precisa de cache específico, DEMO_PLAYERS já é síncrono
 async function resolveTeamRoster(teamId) {
   if (!LIVE_MODE) return activeDemoPlayers.filter(p => p.teamId === teamId);
-  return loadTeamRoster(teamId);
+  return loadTeamRoster(teamId, LIVE_SEASON, state.competitionId);
 }
 // Lista (não mais grade de cards): nome + posição + partidas
 // jogadas/gols/assistências, uma linha por jogador — mesmo padrão visual
@@ -2317,6 +2345,13 @@ function renderTeamPage() {
 
   renderFormaInto("teamPageForma", teamId);
   renderRadarInto("teamPageRadar", teamId);
+  // Busca estatística de partida sob demanda (ver aviso acima) e
+  // redesenha só o radar quando chegar — sem travar o resto da página
+  // esperando isso (mesmo padrão fire-and-forget do elenco/escalação
+  // logo abaixo).
+  ensureTeamMatchStats(teamId).then((changed) => {
+    if (changed && state.selectedTeamId === teamId) renderRadarInto("teamPageRadar", teamId);
+  });
 
   const upcoming = teamNextFixtures(teamId, 4);
   document.getElementById("teamPageNextFixtures").innerHTML = upcoming.length ? upcoming.map(fixtureRowHTML).join("") : `<div class="empty">Sem jogos futuros cadastrados.</div>`;

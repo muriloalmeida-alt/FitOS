@@ -22,8 +22,15 @@
        -> [{ id, date, status, round, home, away, gh, ga, venue }]
      getPlayersLeaders({ leagueId, season })
        -> [{ id, name, photo, teamId, position, games, goals, assists, yellow, red, rating }]
-     getTeamPlayers({ teamId, season })
-       -> mesmo formato de getPlayersLeaders, só que do elenco de 1 time
+     getTeamPlayers({ teamId, season, leagueId })
+       -> mesmo formato de getPlayersLeaders, só que do elenco de 1
+          time. leagueId é OPCIONAL pro contrato (nem todo fornecedor
+          precisa — API-Sports não usa), mas alguns fornecedores
+          precisam dele pra resolver estatística de jogador por
+          temporada (ver server/src/providers/sportmonks.js) — quem
+          chama (server.js) já resolve a competição e passa o
+          leagueId de qualquer forma, então não custa nada mandar
+          mesmo quando o fornecedor ativo não usa.
      getPlayer({ playerId, season })
        -> 1 item do formato acima, ou null se não achar
      getFixtureStatistics({ fixtureId, homeId, awayId })
