@@ -39,6 +39,16 @@
    confira se a relação pedida é de 1º nível DAQUELE endpoint
    específico, não só se a sintaxe do include tem ponto ou não.
 
+   AJUSTE 3 (13/08/2026, mesmo dia): a troca acima resolveu o "nested
+   includes", mas /fixtures/between/{de}/{até} tem outro limite
+   documentado — MÁXIMO 100 DIAS entre "de" e "até" ("Invalid request
+   parameters", confirmado com log real de novo). Uma temporada
+   brasileira inteira (~10-11 meses) estoura isso fácil. Correção:
+   chunkDateRange() abaixo quebra o intervalo da temporada em pedaços
+   de até 100 dias, getFixtures dispara 1 requisição (já paginada) por
+   pedaço e junta tudo (dedupe por id, embora não devesse haver
+   sobreposição já que os pedaços são contíguos sem overlap).
+
    IMPORTANTE — o que ainda não foi testado contra uma resposta real:
    1) ESTATÍSTICA DE PARTIDA (getFixtureStatistics) e ESCALAÇÃO
       (getFixtureLineups): não tenho os type_id numéricos exatos da
@@ -216,11 +226,32 @@ async function getStandings({ leagueId, season }) {
   return (standings || []).map(mapStandingEntry);
 }
 
-// Ver AJUSTE 2 no topo do arquivo — /fixtures/between/{de}/{até}
+// Ver AJUSTE 3 no topo do arquivo — /fixtures/between/{de}/{até} só
+// aceita até 100 dias entre as duas datas; quebra [from, to] numa
+// lista de pedaços contíguos de até maxDays cada (o último pedaço fica
+// menor, do jeito que sobrar). Datas em "YYYY-MM-DD" (mesmo formato
+// que a Sportmonks espera na URL e que starting_at/ending_at já vêm).
+function chunkDateRange(fromStr, toStr, maxDays = 100) {
+  const chunks = [];
+  const to = new Date(`${toStr}T00:00:00Z`);
+  let cursor = new Date(`${fromStr}T00:00:00Z`);
+  while (cursor <= to) {
+    const chunkEnd = new Date(cursor);
+    chunkEnd.setUTCDate(chunkEnd.getUTCDate() + maxDays - 1);
+    if (chunkEnd > to) chunkEnd.setTime(to.getTime());
+    chunks.push([cursor.toISOString().slice(0, 10), chunkEnd.toISOString().slice(0, 10)]);
+    cursor = new Date(chunkEnd);
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return chunks;
+}
+
+// Ver AJUSTE 2 e 3 no topo do arquivo — /fixtures/between/{de}/{até}
 // filtrado por liga, não /schedules/seasons/{id} (que rejeitava
-// include de nível de jogo com "0 nested includes"). Paginado porque
-// uma temporada inteira (~380 jogos num campeonato de 20 times) passa
-// fácil do per_page padrão da Sportmonks.
+// include de nível de jogo com "0 nested includes"); quebrado em
+// pedaços de até 100 dias (limite da Sportmonks pra esse endpoint) e
+// cada pedaço já paginado (uma temporada inteira, ~380 jogos num
+// campeonato de 20 times, passa fácil do per_page padrão).
 async function getFixtures({ leagueId, season }) {
   const s = await resolveSeason(leagueId, season);
   const start = String(s.starting_at || "").slice(0, 10);
@@ -230,11 +261,16 @@ async function getFixtures({ leagueId, season }) {
     err.status = 501; err.code = "NOT_SUPPORTED_BY_PROVIDER";
     throw err;
   }
-  const fixtures = await sportmonksGetAll(`/fixtures/between/${start}/${end}`, {
-    include: "participants;scores;state;round;venue",
-    filters: `fixtureLeagues:${leagueId}`,
-  });
-  return fixtures.map(mapFixture);
+  const chunks = chunkDateRange(start, end, 100);
+  const perChunk = await Promise.all(chunks.map(([from, to]) =>
+    sportmonksGetAll(`/fixtures/between/${from}/${to}`, {
+      include: "participants;scores;state;round;venue",
+      filters: `fixtureLeagues:${leagueId}`,
+    })
+  ));
+  const byId = new Map();
+  perChunk.flat().forEach((fx) => byId.set(fx.id, fx));
+  return Array.from(byId.values()).map(mapFixture);
 }
 
 // sportmonksGetAll (paginado) — artilharia pode ter mais de 25
