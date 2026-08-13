@@ -118,16 +118,16 @@ async function loadFixtureLineups(fixtureId) {
   return promise;
 }
 
-// Emissora de TV de UM jogo — GET /api/broadcast já tenta, nessa
-// ordem: fornecedor de dados esportivos ativo (ex.: Sportmonks
-// tvStations, direto pelo fixtureId — sem ambiguidade), depois EPG
-// (epgSource.js), depois TheSportsDB (broadcastSource.js). fixtureId
-// é opcional (undefined em modo exemplo, onde essa função nem é
-// chamada) — sem ele, a rota já pula direto pras fontes 2/3. Lazy,
-// cacheada, e tolerante a falha: erro vira null, o front-end cai no
-// texto genérico nesse caso. Resolve pra { station, source } | null —
-// "source" só serve pro texto de rodapé (watchTvHTML em app.js) saber
-// se é dado do próprio fornecedor pago ou de fonte comunitária.
+// Emissora de TV de UM jogo — GET /api/broadcast já tenta EPG
+// (epgSource.js) e depois TheSportsDB (broadcastSource.js). O
+// fornecedor de dados esportivos ativo (ex.: Sportmonks tvStations)
+// FOI TIRADO dessa busca (ver aviso em server.js) — devolvia lista
+// genérica de emissoras possíveis da competição, não o canal
+// específico do jogo; fixtureId continua sendo mandado pra rota (usa
+// só no log do servidor agora, ver server.js) caso isso mude no
+// futuro. Lazy, cacheada, e tolerante a falha: erro vira null, o
+// front-end cai no texto genérico nesse caso. Resolve pra
+// { station, source } | null.
 const broadcastCache = new Map();
 async function loadBroadcastInfo(dateIso, homeName, awayName, fixtureId) {
   const day = String(dateIso || "").slice(0, 10);
