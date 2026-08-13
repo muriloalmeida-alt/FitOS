@@ -474,7 +474,29 @@ function isRoundDecided(round) {
   const fixtures = getRoundFixtures(round);
   return fixtures.length > 0 && fixtures.every(fx => MATCH_RESULTS[keyFor(round, fx.home, fx.away)]);
 }
+// AJUSTE DE LÓGICA (13/08/2026): em modo ao vivo, "próxima rodada" usa
+// o CALENDÁRIO (data de cada jogo) em vez de olhar se todo mundo já
+// tem resultado gravado — antes, se um resultado não fosse lido certo
+// (ex.: campo de placar num formato inesperado vindo do fornecedor), a
+// rodada nunca virava "decidida" mesmo já tendo acontecido de verdade,
+// travando a rodada "atual" do app pra trás. Uma rodada com pelo menos
+// 1 jogo hoje ou no futuro ainda é a atual/próxima pelo calendário,
+// independente do que MATCH_RESULTS diz. Em modo exemplo não tem data
+// de verdade (ver generateAllRounds em data.js — só {home, away}, sem
+// data), então continua usando a lógica antiga (baseada no que o
+// simulador já decidiu).
+function firstUndecidedRoundByCalendar() {
+  const today = new Date();
+  for (let r = 1; r <= TOTAL_ROUNDS; r++) {
+    const fixtures = getRoundFixtures(r);
+    if (!fixtures.length) continue;
+    const stillOpen = fixtures.some(fx => !fx.date || new Date(fx.date) >= today);
+    if (stillOpen) return r;
+  }
+  return TOTAL_ROUNDS;
+}
 function firstUndecidedRound() {
+  if (LIVE_MODE) return firstUndecidedRoundByCalendar();
   for (let r = 1; r <= TOTAL_ROUNDS; r++) if (!isRoundDecided(r)) return r;
   return TOTAL_ROUNDS;
 }
