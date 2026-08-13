@@ -528,6 +528,20 @@ async function getFixtureOdds({ fixtureId }) {
   };
 }
 
+// Emissora de TV nativa da Sportmonks (endpoint dedicado — não
+// depende de "onde assistir" fazer casamento por nome de time/data
+// como as fontes comunitárias externas em broadcastSource.js/
+// epgSource.js; aqui é direto pelo fixtureId, sem ambiguidade
+// nenhuma). Disponível em todos os planos da Sportmonks (Starter,
+// Growth, Pro, Enterprise), confirmado via documentação pública. Um
+// jogo pode ter mais de uma emissora (ex.: canal fechado + streaming)
+// — junta os nomes com ", ".
+async function getFixtureBroadcast({ fixtureId }) {
+  const stations = await sportmonksGet(`/tv-stations/fixtures/${fixtureId}`, {});
+  const names = (Array.isArray(stations) ? stations : []).map((s) => s.name).filter(Boolean);
+  return names.length ? names.join(", ") : null;
+}
+
 module.exports = {
   name: "sportmonks",
   requiresKey: true,
@@ -535,5 +549,6 @@ module.exports = {
   searchLeagues, getTeams, getStandings, getFixtures,
   getPlayersLeaders, getTeamPlayers, getPlayer,
   getFixtureStatistics, getFixtureEvents, getFixtureLineups, getFixtureOdds,
+  getFixtureBroadcast,
   getQuota,
 };

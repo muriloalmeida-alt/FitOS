@@ -526,23 +526,39 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname === "/api/broadcast") {
-      // 2 fontes independentes da API-Sports (nenhuma exige
-      // API_SPORTS_KEY), tentadas em sequência — best-effort: erro ou
-      // "não achou" em qualquer uma delas nunca quebra a página, só
-      // passa pra próxima (ou devolve station:null no final):
-      //   1) epgSource.js (grade de TV real, XMLTV) — tentada primeiro
-      //      por ser potencialmente mais precisa (grade de canal de
-      //      verdade), mas com cobertura incerta pra canais pagos (ver
-      //      aviso no topo do arquivo).
-      //   2) broadcastSource.js (TheSportsDB) — fallback já existente,
-      //      base de dados esportiva comunitária.
+      // 3 fontes tentadas em sequência — best-effort: erro ou "não
+      // achou" em qualquer uma delas nunca quebra a página, só passa
+      // pra próxima (ou devolve station:null no final):
+      //   1) fornecedor de dados esportivos ativo (ex.: Sportmonks
+      //      tvStations — ver providers/index.js) — SÓ tentada quando
+      //      fixtureId vem preenchido (o front-end manda quando tem,
+      //      ver loadBroadcastInfo em liveData.js) e o fornecedor tem
+      //      credencial configurada. Casamento direto por fixtureId
+      //      (sem ambiguidade de nome/data), então é tentada primeiro.
+      //   2) epgSource.js (grade de TV real, XMLTV) — fallback pra
+      //      quando o fornecedor ativo não tem esse recurso
+      //      (API-Sports não tem) ou não achou aquele jogo específico.
+      //   3) broadcastSource.js (TheSportsDB) — último fallback, base
+      //      de dados esportiva comunitária.
+      // Nenhuma dessas 3 exige API_SPORTS_KEY/SPORTMONKS_API_TOKEN pra
+      // FUNCIONAR (mesmo sem credencial, cai direto pras fontes 2/3) —
+      // por isso essa rota fica de fora do bloqueio LIVE_ONLY acima.
       // "source" na resposta é só debug (não usado pelo front-end) —
-      // ajuda a saber qual das duas achou o dado, se achou.
+      // ajuda a saber qual das 3 achou o dado, se achou.
       const date = searchParams.get("date");
       const home = searchParams.get("home");
       const away = searchParams.get("away");
+      const fixtureId = searchParams.get("fixtureId");
       if (!date || !home || !away) return sendJSON(res, 400, { error: "date, home e away são obrigatórios" });
-      const data = await withCache(`broadcast:${date.slice(0, 10)}:${home}:${away}`, TTL.broadcast, async () => {
+      const data = await withCache(`broadcast:${date.slice(0, 10)}:${home}:${away}:${fixtureId || ""}`, TTL.broadcast, async () => {
+        if (fixtureId && dataProvider.hasCredential()) {
+          try {
+            const fromProvider = await dataProvider.getFixtureBroadcast({ fixtureId });
+            if (fromProvider) return { station: fromProvider, source: dataProvider.ACTIVE_PROVIDER_NAME };
+          } catch (err) {
+            console.error(`[broadcast] falha ao consultar o fornecedor ativo (${dataProvider.ACTIVE_PROVIDER_NAME}):`, err.message);
+          }
+        }
         try {
           const fromEpg = await fetchBroadcastFromEPG(date, home, away);
           if (fromEpg) return { station: fromEpg, source: "epg" };

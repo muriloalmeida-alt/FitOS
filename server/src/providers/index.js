@@ -42,6 +42,15 @@
        -> { [teamId]: { formation, coach, startXI, substitutes } }
      getFixtureOdds({ fixtureId })
        -> { bookmaker, home, draw, away } | null
+     getFixtureBroadcast({ fixtureId })
+       -> string | null — nome da(s) emissora(s) que vão transmitir
+          esse jogo (junte com ", " se vier mais de uma), direto do
+          fornecedor de dados esportivos (ex.: Sportmonks tem
+          "tvStations" nativo, ligado ao fixtureId — sem ambiguidade
+          de casamento por nome/data). Fornecedor sem esse recurso
+          (ex.: API-Sports não tem) devolve null sempre — server.js já
+          trata isso como "sem essa fonte, tenta a próxima" (EPG /
+          TheSportsDB, ver GET /api/broadcast), nunca quebra a página.
      getQuota()
        -> { limit, remaining } — síncrono, só reflete a última chamada
           feita; um fornecedor sem esse conceito pode devolver

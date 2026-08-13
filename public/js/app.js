@@ -1220,14 +1220,31 @@ function venueLineHTML(m) {
   if (!venue) return "";
   return `<div class="venue-line">📍 ${venue.name}${venue.city ? " · " + venue.city : ""}</div>`;
 }
-// Emissora de TV: em modo ao vivo tenta a fonte comunitária
-// (TheSportsDB, via loadBroadcastInfo) — se achar, mostra com um
-// aviso de que é dado da comunidade, não confirmado oficialmente.
-// Sem achar (ou em modo demo, onde não existe "hoje" real pra
-// consultar), cai no texto genérico de sempre.
+// Emissora de TV: em modo ao vivo, GET /api/broadcast já tenta nessa
+// ordem (ver server.js): fornecedor de dados esportivos ativo (ex.:
+// Sportmonks tvStations — direto pelo fixtureId, sem ambiguidade),
+// depois EPG, depois TheSportsDB — m.broadcastSource diz qual das 3
+// achou, só pra ajustar o aviso de confiabilidade do rodapé (dado do
+// fornecedor pago é mais provável de estar certo que fonte
+// comunitária, mas nenhuma das 3 é registro oficial de direitos de
+// transmissão — sempre pede pra confirmar). Sem achar (ou em modo
+// demo, onde não existe "hoje" real pra consultar), cai no texto
+// genérico de sempre.
+const BROADCAST_SOURCE_LABEL = {
+  epg: "grade de TV", thesportsdb: "TheSportsDB",
+};
+function watchTvSourceHTML(source) {
+  if (BROADCAST_SOURCE_LABEL[source]) {
+    return `<div class="tv-source">Fonte comunitária (${BROADCAST_SOURCE_LABEL[source]}) — confirme antes de assistir.</div>`;
+  }
+  // "source" é o nome do fornecedor de dados esportivos ativo
+  // (sportmonks/api-sports) — dado do próprio fornecedor, mais
+  // provável de estar certo, mas ainda não é registro oficial.
+  return `<div class="tv-source">Confirme o horário antes de assistir.</div>`;
+}
 function watchTvHTML(m) {
   if (LIVE_MODE && m.broadcast) {
-    return `<div class="tv-line">📺 <b>${m.broadcast}</b><div class="tv-source">Fonte comunitária (TheSportsDB) — confirme antes de assistir.</div></div>`;
+    return `<div class="tv-line">📺 <b>${m.broadcast}</b>${watchTvSourceHTML(m.broadcastSource)}</div>`;
   }
   if (LIVE_MODE && m.broadcast === undefined) {
     return `<div class="tv-line">📺 Buscando emissora...</div>`;
@@ -1292,9 +1309,11 @@ function pendingMatchDetailHTML(m, domId) {
   }
   const needsBroadcastLoad = LIVE_MODE && m.date && m.broadcast === undefined;
   if (needsBroadcastLoad) {
-    loadBroadcastInfo(m.date, H.name, A.name).then(station => {
-      m.broadcast = station; const el = document.getElementById(domId); if (el) el.outerHTML = fullMatchCardHTML(m);
-    }).catch(() => { m.broadcast = null; });
+    loadBroadcastInfo(m.date, H.name, A.name, m.fixtureId).then(result => {
+      m.broadcast = result?.station || null;
+      m.broadcastSource = result?.source || null;
+      const el = document.getElementById(domId); if (el) el.outerHTML = fullMatchCardHTML(m);
+    }).catch(() => { m.broadcast = null; m.broadcastSource = null; });
   }
   return `
     <div class="detail-subtitle">Escalação provável</div>

@@ -100,6 +100,12 @@ async function getFixtureOdds({ fixtureId }) {
   return mapOdds(data);
 }
 
+// A API-Sports não tem um recurso equivalente ao "tvStations" da
+// Sportmonks — devolve null sempre (ver contrato em
+// providers/index.js: GET /api/broadcast já trata isso como "sem essa
+// fonte, tenta a próxima" — EPG/TheSportsDB — sem quebrar a página).
+async function getFixtureBroadcast() { return null; }
+
 // Precisa de API_SPORTS_KEY configurada pra funcionar — ver
 // hasCredential()/liveModeEnabled() em server.js.
 function hasCredential() { return !!process.env.API_SPORTS_KEY; }
@@ -111,5 +117,6 @@ module.exports = {
   searchLeagues, getTeams, getStandings, getFixtures,
   getPlayersLeaders, getTeamPlayers, getPlayer,
   getFixtureStatistics, getFixtureEvents, getFixtureLineups, getFixtureOdds,
+  getFixtureBroadcast,
   getQuota,
 };

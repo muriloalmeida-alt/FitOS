@@ -118,17 +118,24 @@ async function loadFixtureLineups(fixtureId) {
   return promise;
 }
 
-// Emissora de TV (best-effort, fonte comunitária TheSportsDB — ver
-// server/src/broadcastSource.js) de UM jogo futuro. Lazy, cacheada, e
-// tolerante a falha: erro ou "não achou" vira null, o front-end cai
-// no texto genérico nesse caso.
+// Emissora de TV de UM jogo — GET /api/broadcast já tenta, nessa
+// ordem: fornecedor de dados esportivos ativo (ex.: Sportmonks
+// tvStations, direto pelo fixtureId — sem ambiguidade), depois EPG
+// (epgSource.js), depois TheSportsDB (broadcastSource.js). fixtureId
+// é opcional (undefined em modo exemplo, onde essa função nem é
+// chamada) — sem ele, a rota já pula direto pras fontes 2/3. Lazy,
+// cacheada, e tolerante a falha: erro vira null, o front-end cai no
+// texto genérico nesse caso. Resolve pra { station, source } | null —
+// "source" só serve pro texto de rodapé (watchTvHTML em app.js) saber
+// se é dado do próprio fornecedor pago ou de fonte comunitária.
 const broadcastCache = new Map();
-async function loadBroadcastInfo(dateIso, homeName, awayName) {
+async function loadBroadcastInfo(dateIso, homeName, awayName, fixtureId) {
   const day = String(dateIso || "").slice(0, 10);
-  const key = `${day}:${homeName}:${awayName}`;
+  const key = `${day}:${homeName}:${awayName}:${fixtureId || ""}`;
   if (broadcastCache.has(key)) return broadcastCache.get(key);
-  const promise = safeFetchJSON(`/api/broadcast?date=${encodeURIComponent(day)}&home=${encodeURIComponent(homeName)}&away=${encodeURIComponent(awayName)}`)
-    .then(r => r.station || null)
+  const fx = fixtureId ? `&fixtureId=${encodeURIComponent(fixtureId)}` : "";
+  const promise = safeFetchJSON(`/api/broadcast?date=${encodeURIComponent(day)}&home=${encodeURIComponent(homeName)}&away=${encodeURIComponent(awayName)}${fx}`)
+    .then(r => r.station ? { station: r.station, source: r.source || null } : null)
     .catch(() => null);
   broadcastCache.set(key, promise);
   return promise;
