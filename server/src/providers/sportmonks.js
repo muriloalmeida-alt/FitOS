@@ -287,12 +287,25 @@ async function getPlayersLeaders({ leagueId, season }) {
   return Array.from(byId.values());
 }
 
+// BUG CORRIGIDO (13/08/2026): essa função usava
+// /squads/seasons/{season}/teams/{teamId} sempre que "season" vinha
+// preenchido (que é sempre — a rota /api/teams/:id/players em
+// server.js exige season) — só que "season" aqui chega como o ANO
+// (ex.: "2026", o mesmo valor cru do LIVE_SEASON), não como o
+// seasonId NUMÉRICO INTERNO da Sportmonks que esse endpoint espera
+// (ex.: 26763, ver resolveSeason acima) — e essa função nem recebe
+// leagueId (ver contrato em providers/index.js) pra poder resolver o
+// id certo. Resultado: sempre batia num id de temporada que não
+// existe, a Sportmonks respondia com uma lista vazia (sem erro
+// nenhum pra logar) e o elenco aparecia como "não disponível" sem
+// pista nenhuma nos logs. Correção: usar sempre /squads/teams/{id}
+// (elenco ATUAL do time, sem precisar de season/seasonId nenhum) — é
+// exatamente o que a tela de "Elenco" mostra mesmo (o elenco de
+// agora, não um histórico por temporada).
 // sportmonksGetAll (paginado) — elenco com reservas facilmente passa
 // dos 25 itens por página padrão da Sportmonks.
-async function getTeamPlayers({ teamId, season }) {
-  const squad = season
-    ? await sportmonksGetAll(`/squads/seasons/${season}/teams/${teamId}`, { include: "player" })
-    : await sportmonksGetAll(`/squads/teams/${teamId}`, { include: "player" });
+async function getTeamPlayers({ teamId }) {
+  const squad = await sportmonksGetAll(`/squads/teams/${teamId}`, { include: "player" });
   const byId = new Map();
   squad.forEach((item) => {
     const p = mapPlayerFromSquad(item);
