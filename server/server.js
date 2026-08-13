@@ -317,6 +317,15 @@ const server = http.createServer(async (req, res) => {
         hasKey: liveModeEnabled(),
         mode: APP_MODE,
         provider: dataProvider.ACTIVE_PROVIDER_NAME,
+        // Sinal de qual commit está rodando de verdade nesse host — o
+        // Railway preenche RAILWAY_GIT_COMMIT_SHA sozinho em todo build
+        // (nenhuma configuração extra necessária). Serve pra confirmar
+        // rapidinho, sem precisar entrar no painel do Railway, se um
+        // deploy específico já "pegou" (ex.: depois de pedir uma
+        // correção, comparar esse valor com o hash do commit no
+        // GitHub) — sem isso não dava pra saber, só de olhar o
+        // comportamento do site, se o host tinha mesmo redeployado.
+        commit: (process.env.RAILWAY_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA || "").slice(0, 12) || null,
         // Sinal explícito pra debug: pediram modo ao vivo (APP_MODE=live)
         // mas o fornecedor ativo não tem credencial configurada no host
         // — em vez de cair quieto pro modo exemplo, isso aparece aqui e

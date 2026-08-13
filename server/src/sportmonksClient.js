@@ -31,8 +31,18 @@ async function sportmonksGet(path, params = {}) {
   const res = await fetch(url);
   const json = await res.json().catch(() => null);
 
+  // path + params (sem o token) de toda chamada que deu erro — pra dar
+  // pra achar nos logs do Railway exatamente qual endpoint/include
+  // causou aquele erro específico (esse client fica isolado demais do
+  // resto do app pra só a mensagem de erro sozinha bastar pra debugar
+  // à distância, ver histórico de ajuste em providers/sportmonks.js).
+  const logFailure = (msg) => {
+    console.error(`[sportmonks] ${path}?${new URLSearchParams(params).toString()} -> ${msg}`);
+  };
+
   if (!res.ok) {
     const msg = json?.message || `Sportmonks respondeu ${res.status}`;
+    logFailure(`HTTP ${res.status}: ${msg}`);
     const err = new Error(`Sportmonks: ${msg}`);
     err.status = res.status;
     throw err;
@@ -51,6 +61,7 @@ async function sportmonksGet(path, params = {}) {
   if (json?.message && !json?.data) {
     // Erro "de negócio" (ex.: token sem acesso àquela liga) que ainda
     // assim vem com status 200 em alguns endpoints da Sportmonks.
+    logFailure(`200 com erro no corpo: ${json.message}`);
     const err = new Error(`Sportmonks: ${json.message}`);
     throw err;
   }
