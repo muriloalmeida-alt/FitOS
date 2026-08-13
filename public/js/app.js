@@ -2113,9 +2113,25 @@ function activeFavoriteTeam() {
   return state.favoriteClubId ? TEAM_MAP[state.favoriteClubId] || null : null;
 }
 
+// BUG CORRIGIDO (13/08/2026): quase todo onclick="goToTeam('${team.id}')"
+// do arquivo embute o id do time ENTRE ASPAS no HTML (necessário pro
+// modo exemplo, cujos ids já são strings tipo "fla") — só que isso faz
+// teamId chegar aqui SEMPRE como string, mesmo em modo ao vivo, onde
+// os ids da Sportmonks são NÚMEROS (em ALL_ROUNDS/fixtures, MATCH_
+// RESULTS etc.). state.selectedTeamId guardava esse valor cru (string
+// "123"), e toda comparação ESTRITA (===) contra ele nos outros
+// lugares do código (m.home === teamId, r.id === teamId...) quebrava
+// silenciosamente (123 === "123" é false em JS) — daí os cards
+// "Próximos jogos", "Últimos jogos", "Forma recente" e "Movimentação
+// de Odds" aparecerem vazios na página do Time em modo ao vivo, sem
+// erro nenhum (o app só "não achava" nenhum jogo daquele time).
+// Correção: resolve pro id de fato usado em TEAMS (mesmo tipo, número
+// ou string, dependendo do fornecedor) em vez de guardar o que veio
+// cru do HTML.
 function goToTeam(teamId) {
   if (state.page !== "time" && state.page !== "jogador") state.pageBeforeDetail = state.page;
-  state.selectedTeamId = teamId;
+  const match = TEAMS.find((t) => String(t.id) === String(teamId));
+  state.selectedTeamId = match ? match.id : teamId;
   setActivePage("time");
 }
 function goToPlayer(playerId) {
