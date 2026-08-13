@@ -573,6 +573,12 @@ const server = http.createServer(async (req, res) => {
           return { station: null, source: null };
         }
       });
+      // Log SEMPRE (não só em falha) — resume numa linha só o
+      // resultado final de qualquer consulta de "onde assistir",
+      // achando ou não achando em qualquer das 3 fontes. Pensado pra
+      // debugar sem precisar abrir a aba Network do navegador (não dá
+      // pra usar no celular) — só olhar os logs do Railway já basta.
+      console.log(`[broadcast] ${home} x ${away} (${date.slice(0, 10)}${fixtureId ? `, fixture ${fixtureId}` : ", sem fixtureId"}) -> ${data.station ? `"${data.station}" via ${data.source}` : "não encontrado em nenhuma das 3 fontes"}`);
       return sendJSON(res, 200, data);
     }
 

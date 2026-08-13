@@ -539,6 +539,15 @@ async function getFixtureOdds({ fixtureId }) {
 async function getFixtureBroadcast({ fixtureId }) {
   const stations = await sportmonksGet(`/tv-stations/fixtures/${fixtureId}`, {});
   const names = (Array.isArray(stations) ? stations : []).map((s) => s.name).filter(Boolean);
+  // Log só do caso "respondeu 200 OK, sem erro nenhum, mas a lista
+  // veio vazia" — diferente de uma falha (essa já cai no logFailure()
+  // de sportmonksClient.js), isso aqui é "a Sportmonks simplesmente
+  // não tem emissora cadastrada pra esse jogo". Sem esse log, esse
+  // caso específico (bem provável de ser o mais comum — nem toda liga/
+  // jogo tem direito de transmissão mapeado) ficaria invisível nos
+  // logs do Railway, obrigando a olhar a aba Network do navegador (que
+  // não dá pra usar no celular).
+  if (!names.length) console.log(`[sportmonks] /tv-stations/fixtures/${fixtureId} -> 0 emissoras cadastradas (resposta OK, lista vazia).`);
   return names.length ? names.join(", ") : null;
 }
 
