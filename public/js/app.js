@@ -1178,14 +1178,15 @@ function statBarRow(label, a, b, unit = "") {
 }
 /* ---------- Escalação / substituições (compartilhado entre jogo
    encerrado e jogo futuro) ---------- */
+// Link pro jogador DESLIGADO por enquanto (13/08/2026, pedido do
+// usuário: "vamos tirar o link dos jogadores por enquanto pra
+// pensarmos nessa página num segundo momento") — goToPlayer()/
+// renderPlayerPage() continuam existindo, só não tem mais nenhum
+// "onclick" chamando eles nas telas principais. Pra reativar depois,
+// é só devolver o "clickable-player" + onclick="goToPlayer(...)" nos
+// pontos marcados com esse mesmo aviso.
 function lineupPlayerLine(p) {
-  // Só clicável quando tem id (modo ao vivo) — nomes de escalação do
-  // modo demo são fictícios, gerados só pra aquela partida, sem
-  // registro persistente pra abrir uma página de detalhe de verdade.
-  const nameHTML = p.id
-    ? `<span class="lp-name clickable-player" onclick="goToPlayer(${p.id})">${p.name}</span>`
-    : `<span class="lp-name">${p.name}</span>`;
-  return `<div class="lineup-player"><span class="lp-num">${p.number ?? "-"}</span>${nameHTML}<span class="lp-pos">${p.pos || ""}</span></div>`;
+  return `<div class="lineup-player"><span class="lp-num">${p.number ?? "-"}</span><span class="lp-name">${p.name}</span><span class="lp-pos">${p.pos || ""}</span></div>`;
 }
 function lineupSideHTML(team, lineup) {
   if (!lineup || !lineup.startXI || !lineup.startXI.length) {
@@ -1210,9 +1211,8 @@ function substitutionsHTML(subs) {
     <div class="detail-subtitle">Substituições</div>
     <div class="subs-list">${subs.map(s => {
       const team = TEAM_MAP[s.team];
-      const outHTML = s.outId ? `<span class="clickable-player" onclick="goToPlayer(${s.outId})">${s.out}</span>` : s.out;
-      const inHTML = s.inId ? `<span class="clickable-player" onclick="goToPlayer(${s.inId})">${s.in}</span>` : s.in;
-      return `<div class="sub-line"><b>${s.min}'</b> ${team ? team.short : ""} — <span class="sub-out">↓ ${outHTML}</span> <span class="sub-in">↑ ${inHTML}</span></div>`;
+      // Link pro jogador desligado por enquanto — ver aviso em lineupPlayerLine.
+      return `<div class="sub-line"><b>${s.min}'</b> ${team ? team.short : ""} — <span class="sub-out">↓ ${s.out}</span> <span class="sub-in">↑ ${s.in}</span></div>`;
     }).join("")}</div>`;
 }
 function venueLineHTML(m) {
@@ -1258,9 +1258,9 @@ function decidedMatchDetailHTML(m, domId) {
   const goals = m.goals || [];
   const goalsHTML = goals.length ? `
     <div class="goals-list">${goals.map(g => {
+      // Link pro jogador desligado por enquanto — ver aviso em lineupPlayerLine.
       const scorer = g.player || ("Camisa " + g.camisa);
-      const scorerHTML = g.playerId ? `<span class="clickable-player" onclick="goToPlayer(${g.playerId})">${scorer}</span>` : scorer;
-      return `<div class="goal-line"><b>${g.min}'</b> ⚽ ${TEAM_MAP[g.team].short} · ${scorerHTML}</div>`;
+      return `<div class="goal-line"><b>${g.min}'</b> ⚽ ${TEAM_MAP[g.team].short} · ${scorer}</div>`;
     }).join("")}</div>`
     : `<div class="goals-list"><div class="goal-line">Sem gols na partida.</div></div>`;
   const s = m.stats;
@@ -1426,7 +1426,7 @@ function playerCardsValue(p) { return p.yellow + p.red * 2; }
 function playerLeaderRowHTML(p, valueLabel) {
   const team = TEAM_MAP[p.teamId];
   return `<tr>
-    <td><div class="team-cell">${team ? crestEl(team, 22) : ""}<b class="clickable-player" onclick="goToPlayer(${p.id})">${p.name}</b>${team ? `<span class="clickable-team" onclick="goToTeam('${team.id}')" style="color:var(--text-2); font-weight:500;"> · ${team.short}</span>` : ""}</div></td>
+    <td><div class="team-cell">${team ? crestEl(team, 22) : ""}<b>${p.name}</b>${team ? `<span class="clickable-team" onclick="goToTeam('${team.id}')" style="color:var(--text-2); font-weight:500;"> · ${team.short}</span>` : ""}</div></td>
     <td class="num" style="font-weight:700;">${valueLabel}</td>
   </tr>`;
 }
@@ -2201,7 +2201,7 @@ async function resolveTeamRoster(teamId) {
 function playerRosterRowHTML(p) {
   const avatar = p.photo ? `<img src="${escAttr(p.photo)}" alt="">` : initialsOf(p.name);
   return `
-  <tr class="clickable-player" onclick="goToPlayer(${p.id})">
+  <tr>
     <td><div class="team-cell"><div class="roster-avatar-sm">${avatar}</div><div><div class="rname">${p.name}</div><div class="rmeta">${translatePosition(p.position)}</div></div></div></td>
     <td class="num">${p.games ?? "—"}</td>
     <td class="num">${p.goals ?? 0}</td>
@@ -2257,9 +2257,8 @@ function lastNameOf(name) {
   return parts[parts.length - 1] || name || "?";
 }
 function buttonPieceHTML(p, team) {
-  const nameHTML = p.id
-    ? `<span class="btn-name clickable-player" onclick="goToPlayer(${p.id})">${lastNameOf(p.name)}</span>`
-    : `<span class="btn-name">${lastNameOf(p.name)}</span>`;
+  // Link pro jogador desligado por enquanto — ver aviso em lineupPlayerLine.
+  const nameHTML = `<span class="btn-name">${lastNameOf(p.name)}</span>`;
   return `
   <div class="button-piece" title="${escAttr(p.name)}">
     <div class="button-disc" style="background:linear-gradient(160deg, ${team.c1 || "#0057B8"}, ${team.c2 || "#062B5C"});">${p.number ?? "-"}</div>
