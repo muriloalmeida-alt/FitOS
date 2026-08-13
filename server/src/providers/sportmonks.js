@@ -244,6 +244,26 @@ function extractPlayerSeasonStats(statistics) {
   return out;
 }
 
+// Log de diagnóstico — só dispara quando a extração deu em nada
+// (nenhum type_id de PLAYER_STAT_TYPE bateu), pra não poluir o log
+// numa temporada normal onde tudo funciona. Os type_id em
+// PLAYER_STAT_TYPE foram conferidos via busca pública (não achei doc
+// oficial acessível daqui pra bater 100%, ver histórico de ajuste no
+// topo do arquivo) — se o elenco continuar sem número mesmo depois do
+// fix anterior, essa linha aparece nos logs do Railway com o "raw" de
+// verdade (1º jogador só, pra não floodar) e dá pra corrigir os
+// type_id certos direto contra dado real, em vez de ficar chutando de
+// novo.
+let loggedEmptyStatsOnce = false;
+function logEmptyStatsIfNeeded(playerId, statistics) {
+  if (loggedEmptyStatsOnce) return;
+  loggedEmptyStatsOnce = true;
+  const typeIdsFound = (statistics || []).flatMap((s) => (s.details || []).map((d) => d.type_id));
+  console.error(`[sportmonks] estatística de jogador ${playerId} não bateu com nenhum PLAYER_STAT_TYPE conhecido. ` +
+    `statistics.length=${(statistics || []).length}, type_id encontrados=${JSON.stringify(typeIdsFound)}, ` +
+    `raw (1º item)=${JSON.stringify(statistics?.[0] || null)}`);
+}
+
 // 1 chamada por jogador (GET /players/{id}?include=statistics, flat —
 // sem include aninhado, ver histórico de ajuste no topo do arquivo —
 // filtrado pra só trazer a temporada que interessa via
@@ -256,7 +276,9 @@ async function getPlayerSeasonStats(playerId, seasonId) {
       include: "statistics",
       filters: `playerStatisticSeasons:${seasonId}`,
     });
-    return extractPlayerSeasonStats(p?.statistics);
+    const stats = extractPlayerSeasonStats(p?.statistics);
+    if (Object.values(stats).every((v) => v == null)) logEmptyStatsIfNeeded(playerId, p?.statistics);
+    return stats;
   } catch {
     return null;
   }
