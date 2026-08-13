@@ -45,8 +45,9 @@ const COMPETITION_META = {
   brasileirao:     { name: "Brasileirão", seasonLabel: "2026", emblemImg: "img/cbf-logo.png", flag: "🇧🇷", subtitle: "Série A" },
   serie_b:         { name: "Brasileirão", seasonLabel: "2026", emblemImg: "img/cbf-logo.png", flag: "🇧🇷", subtitle: "Série B" },
   serie_c:         { name: "Brasileirão", seasonLabel: "2026", emblemImg: "img/cbf-logo.png", flag: "🇧🇷", subtitle: "Série C" },
-  serie_d:         { name: "Brasileirão", seasonLabel: "2026", emblemImg: "img/cbf-logo.png", flag: "🇧🇷", subtitle: "Série D" },
   copa_do_brasil:  { name: "Copa do Brasil", seasonLabel: "2026", emblemImg: "img/cbf-logo.png", flag: "🇧🇷", subtitle: "Mata-mata" },
+  // Série D não tem entrada aqui — desligada de propósito por enquanto
+  // (nem existe no registro do backend, ver server/src/competitions.js).
 };
 function applyCompetitionBranding(id) {
   const meta = COMPETITION_META[id] || COMPETITION_META.brasileirao;
@@ -96,13 +97,14 @@ function planAllowsAdvanced() {
 // campeonato" ou "manda pra Apoie o BR Data".
 let competitionsInfo = null;
 
-// Série D e Copa do Brasil NÃO entram aqui de propósito — ver aviso
-// grande em DEMO_DATA_BY_COMPETITION (data.js): o formato real das
-// duas (grupos+mata-mata / mata-mata direto) não bate com o molde de
-// pontos corridos que o resto do app assume, então os botões delas na
-// sidebar/menu ficam sempre com a cara de "em breve" (disabled já no
-// HTML) e nunca chamam switchCompetition — só Série B/C entram no
-// switcher de verdade, igual Série A.
+// Copa do Brasil NÃO entra aqui de propósito — ver aviso grande em
+// DEMO_DATA_BY_COMPETITION (data.js): o formato real dela (mata-mata
+// direto) não bate com o molde de pontos corridos que o resto do app
+// assume, então o botão dela na sidebar/menu fica sempre com a cara de
+// "em breve" (disabled já no HTML) e nunca chama switchCompetition —
+// só Série B/C entram no switcher de verdade, igual Série A. (Série D
+// também tinha esse problema, mas nem chegou a ganhar botão — foi
+// desligada de propósito por enquanto, ver server/src/competitions.js.)
 function applyCompetitionsSidebar(data) {
   competitionsInfo = data;
   if (!data || !data.competitions) return;
@@ -2487,8 +2489,9 @@ function setupEventListeners() {
   });
 
   // ---- Seletor de campeonato (barra lateral no desktop, página "Mais" no mobile) ----
-  // Série D e Copa do Brasil ficam sem listener de propósito — sempre
-  // "em breve" (ver aviso em applyCompetitionsSidebar acima).
+  // Copa do Brasil fica sem listener de propósito — sempre "em breve"
+  // (ver aviso em applyCompetitionsSidebar acima). Série D nem tem
+  // botão (desligada de propósito, ver server/src/competitions.js).
   document.getElementById("navBrasileirao").addEventListener("click", () => switchCompetition("brasileirao"));
   document.getElementById("navSerieB").addEventListener("click", () => onCompetitionNavClick("serie_b"));
   document.getElementById("navSerieC").addEventListener("click", () => onCompetitionNavClick("serie_c"));

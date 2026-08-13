@@ -228,17 +228,19 @@ const DEMO_PLAYERS_SERIE_C = buildDemoPlayers(DEMO_TEAMS_SERIE_C);
 // "id" usada em server/src/competitions.js, pra app.js poder trocar de
 // campeonato sem precisar saber o nome de cada array específico.
 //
-// Série D e Copa do Brasil NÃO estão aqui de propósito: o motor de
+// Copa do Brasil NÃO está aqui de propósito: o motor de
 // simulação/Tabela desse app assume pontos corridos com um turno único
 // entre um grupo fixo de times (ver engine.js) — bate certinho com
 // Série A/B/C, Premier League e La Liga, mas NÃO com o formato real
-// dessas duas (Série D = 64 times em 8 grupos + mata-mata; Copa do
-// Brasil = mata-mata direto, sem tabela de pontos corridos nenhuma).
-// Forçar as duas nesse molde geraria uma "Tabela"/simulação que não
-// corresponde a como a competição realmente funciona — por isso elas
-// aparecem no menu (ver app.js) mas permanecem "em breve" mesmo em
-// modo exemplo, até o app ganhar uma tela própria pra fase de
-// grupos/mata-mata (fora do escopo desta integração).
+// dela (mata-mata direto, sem tabela de pontos corridos nenhuma).
+// Forçar nesse molde geraria uma "Tabela"/simulação que não corresponde
+// a como a competição realmente funciona — por isso ela aparece no
+// menu (ver app.js) mas permanece "em breve" mesmo em modo exemplo,
+// até o app ganhar uma tela própria pra mata-mata (fora do escopo
+// desta integração). (Série D também tinha esse mesmo problema — 64
+// times em 8 grupos + mata-mata — mas foi desligada de propósito por
+// enquanto, nem entra no registro do backend, ver
+// server/src/competitions.js.)
 const DEMO_DATA_BY_COMPETITION = {
   brasileirao:    { teams: DEMO_TEAMS,               players: DEMO_PLAYERS },
   serie_b:        { teams: DEMO_TEAMS_SERIE_B,        players: DEMO_PLAYERS_SERIE_B },

@@ -1,11 +1,14 @@
 /* Registro de campeonatos suportados — a peça central da expansão
    multi-campeonato. Estratégia atual (Sportmonks, ver
    server/src/providers/sportmonks.js): Freemium/Lite ficam só com o
-   Brasileirão Série A (grátis); Pro/Enterprise desbloqueiam os outros
-   4 campeonatos nacionais contratados — Série B, Série C, Série D e
-   Copa do Brasil. (Premier League/La Liga continuam cadastradas mais
-   abaixo pra não perder o trabalho já feito, mas saíram do foco — ver
-   histórico da conversa; não fazem mais parte do plano contratado.)
+   Brasileirão Série A (grátis); Pro/Enterprise desbloqueiam Série B,
+   Série C e Copa do Brasil. (Série D foi contratada na Sportmonks mas
+   está DESLIGADA de propósito por enquanto — decisão do usuário,
+   "depois pensamos nisso"; ver aviso ao lado de onde ela ficava, perto
+   de copa_do_brasil no array abaixo. Premier League/La Liga continuam
+   cadastradas mais abaixo pra não perder o trabalho já feito, mas
+   saíram do foco — ver histórico da conversa; não fazem mais parte do
+   plano contratado.)
 
    IMPORTANTE: cada entrada aqui já é capaz de puxar dado real assim
    que:
@@ -25,7 +28,7 @@
    `sportmonks: "123"`) — resolveCompetition() (ver server.js) já
    resolve automaticamente pro fornecedor ativo. Campeonato bem
    conhecido/popular (Brasileirão, Premier League, La Liga) teve o id
-   confirmado via busca pública; Série B/C/D e Copa do Brasil NÃO —
+   confirmado via busca pública; Série B/C e Copa do Brasil NÃO —
    Sportmonks não expõe esses ids fora da própria API/documentação
    (atrás de login), então cada um vem de uma env var própria (ver
    sportmonksIdFromEnv abaixo e server/.env.example) que você preenche
@@ -45,7 +48,7 @@
 
    ATIVAÇÃO — via variável de ambiente (Railway/host), SEM editar
    código nem dar redeploy manual de código:
-     ENABLED_COMPETITIONS=serie_b,serie_c,serie_d,copa_do_brasil
+     ENABLED_COMPETITIONS=serie_b,serie_c,copa_do_brasil
    Lista separada por vírgula com os "id" que você quer habilitar (os
    mesmos ids do array COMPETITIONS abaixo — "brasileirao" já vem
    habilitado sempre, não precisa incluir). Pra habilitar só uma:
@@ -66,10 +69,10 @@ const ENABLED_COMPETITION_IDS = new Set(
     .filter(Boolean)
 );
 
-// Série B/C/D e Copa do Brasil na Sportmonks: ao contrário de
+// Série B/C e Copa do Brasil na Sportmonks: ao contrário de
 // Brasileirão/Premier League/La Liga (ids conferidos via busca pública
 // — são as ligas mais populares, então aparecem em vários lugares),
-// não achei o id numérico dessas 4 documentado publicamente (Sportmonks
+// não achei o id numérico dessas 3 documentado publicamente (Sportmonks
 // não expõe isso fora da própria API/documentação, e ambas ficam atrás
 // de login). Em vez de arriscar um id CHUTADO (puxaria dado da liga
 // errada silenciosamente, sem erro nenhum pra avisar), cada uma fica
@@ -118,17 +121,15 @@ const COMPETITIONS = [
     minPlan: "pro",
     enabled: ENABLED_COMPETITION_IDS.has("serie_c"),
   },
-  {
-    id: "serie_d",
-    providerLeagueIds: {
-      "sportmonks": sportmonksIdFromEnv("SPORTMONKS_LEAGUE_ID_SERIE_D"),
-    },
-    name: "Brasileirão Série D",
-    country: "Brasil",
-    flag: "🇧🇷",
-    minPlan: "pro",
-    enabled: ENABLED_COMPETITION_IDS.has("serie_d"),
-  },
+  // Série D DESLIGADA por decisão do usuário (13/08/2026) — "vamos
+  // desligar por enquanto, depois pensamos nisso". Tirada do registro
+  // de propósito (não é só enabled:false — some do /api/competitions
+  // e do seletor). Pra reativar no futuro: reintroduzir a entrada
+  // (mesmo molde de serie_b/serie_c acima, id "serie_d",
+  // SPORTMONKS_LEAGUE_ID_SERIE_D como env var do id), lembrando do
+  // aviso sobre o formato (64 times em 8 grupos + mata-mata, não bate
+  // com o motor de pontos corridos — ver aviso em copa_do_brasil
+  // abaixo, mesmo problema) antes de dar vida de verdade a ela na UI.
   {
     id: "copa_do_brasil",
     providerLeagueIds: {
