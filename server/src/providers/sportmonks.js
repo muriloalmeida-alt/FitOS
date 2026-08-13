@@ -264,8 +264,24 @@ function logEmptyStatsIfNeeded(playerId, statistics) {
     `raw (1º item)=${JSON.stringify(statistics?.[0] || null)}`);
 }
 
-// 1 chamada por jogador (GET /players/{id}?include=statistics, flat —
-// sem include aninhado, ver histórico de ajuste no topo do arquivo —
+// AJUSTE (13/08/2026): include=statistics (flat) devolvia cada item
+// SEM o array "details" — só metadados (has_values:true, position_id,
+// jersey_number), confirmado com log real do Railway. "details" aqui
+// é sub-relação de CADA item de "statistics" (não do jogador direto),
+// então precisa mesmo de um include ANINHADO — statistics.details —
+// pra vir junto. Isso não contradiz o que foi aprendido antes: a
+// restrição de "0 nested includes" era só de alguns endpoints
+// específicos (schedules/seasons, standings/seasons — todos
+// organizados como "temporada -> algo -> algo"), não universal;
+// /players/{id} é um endpoint de 1 entidade só, mais provável de
+// aceitar 1 nível de aninhamento (mesmo espírito do que já foi
+// confirmado pra /fixtures/{id}, que aceita até 3 níveis segundo a
+// doc pública). Se isso voltar a dar "nested includes" de novo, é
+// porque esse endpoint específico também não aceita — nesse caso a
+// saída seria um endpoint de estatística agregada por temporada (bulk,
+// não por jogador), ainda não pesquisado.
+//
+// 1 chamada por jogador (GET /players/{id}?include=statistics.details,
 // filtrado pra só trazer a temporada que interessa via
 // playerStatisticSeasons). Tolerante a falha por jogador (um jogador
 // sem estatística nessa temporada, ou uma chamada que falhe, não
@@ -273,7 +289,7 @@ function logEmptyStatsIfNeeded(playerId, statistics) {
 async function getPlayerSeasonStats(playerId, seasonId) {
   try {
     const p = await sportmonksGet(`/players/${playerId}`, {
-      include: "statistics",
+      include: "statistics.details",
       filters: `playerStatisticSeasons:${seasonId}`,
     });
     const stats = extractPlayerSeasonStats(p?.statistics);
