@@ -37,6 +37,7 @@ const dataProvider = require("./src/providers");
 const cache = require("./src/cache");
 const oddsHistory = require("./src/oddsHistory");
 const { fetchBroadcastStation } = require("./src/broadcastSource");
+const { fetchBroadcastFromEPG } = require("./src/epgSource");
 const { fetchNews } = require("./src/newsSource");
 const mercadoPago = require("./src/mercadoPago");
 const supportPlans = require("./src/supportPlans");
@@ -525,19 +526,35 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname === "/api/broadcast") {
-      // Fonte independente da API-Sports (TheSportsDB, gratuita e
-      // comunitária) — não exige API_SPORTS_KEY. Best-effort: erro
-      // ou "não achou" vira station:null, nunca quebra a página.
+      // 2 fontes independentes da API-Sports (nenhuma exige
+      // API_SPORTS_KEY), tentadas em sequência — best-effort: erro ou
+      // "não achou" em qualquer uma delas nunca quebra a página, só
+      // passa pra próxima (ou devolve station:null no final):
+      //   1) epgSource.js (grade de TV real, XMLTV) — tentada primeiro
+      //      por ser potencialmente mais precisa (grade de canal de
+      //      verdade), mas com cobertura incerta pra canais pagos (ver
+      //      aviso no topo do arquivo).
+      //   2) broadcastSource.js (TheSportsDB) — fallback já existente,
+      //      base de dados esportiva comunitária.
+      // "source" na resposta é só debug (não usado pelo front-end) —
+      // ajuda a saber qual das duas achou o dado, se achou.
       const date = searchParams.get("date");
       const home = searchParams.get("home");
       const away = searchParams.get("away");
       if (!date || !home || !away) return sendJSON(res, 400, { error: "date, home e away são obrigatórios" });
       const data = await withCache(`broadcast:${date.slice(0, 10)}:${home}:${away}`, TTL.broadcast, async () => {
         try {
-          return { station: await fetchBroadcastStation(date, home, away) };
+          const fromEpg = await fetchBroadcastFromEPG(date, home, away);
+          if (fromEpg) return { station: fromEpg, source: "epg" };
+        } catch (err) {
+          console.error("[broadcast] falha ao consultar o EPG:", err.message);
+        }
+        try {
+          const fromSportsDb = await fetchBroadcastStation(date, home, away);
+          return { station: fromSportsDb, source: fromSportsDb ? "thesportsdb" : null };
         } catch (err) {
           console.error("[broadcast] falha ao consultar TheSportsDB:", err.message);
-          return { station: null };
+          return { station: null, source: null };
         }
       });
       return sendJSON(res, 200, data);
