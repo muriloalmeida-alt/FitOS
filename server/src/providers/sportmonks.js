@@ -17,6 +17,28 @@
    type_id que já vêm nos includes FLAT (sem ponto), sem precisar
    resolver nome nenhum.
 
+   AJUSTE 2 (13/08/2026): o próprio getFixtures batia no MESMO erro
+   "0 nested includes" contra /schedules/seasons/{id} MESMO com include
+   flat (sem ponto nenhum: "participants;scores;state;round;venue") —
+   confirmado com log real do Railway. Explicação: esse endpoint
+   organiza a resposta por rodada/fase (season -> stage -> round ->
+   fixtures), então pedir uma relação de NÍVEL DE JOGO (participants,
+   scores...) já significa descer 1+ nível dentro dessa árvore, mesmo
+   sem ponto na sintaxe — não é sobre a sintaxe do include, é sobre a
+   PROFUNDIDADE do dado pedido em relação à raiz do endpoint. Troquei
+   getFixtures pra usar /fixtures/between/{de}/{até} (endpoint de
+   LISTAGEM DE JOGOS — não de calendário por temporada), filtrado por
+   liga (filters=fixtureLeagues:ID) e pelas datas de início/fim da
+   temporada (já vêm do mesmo /leagues/{id}?include=seasons de sempre)
+   — nesse endpoint, participants/scores/etc. SÃO relações diretas do
+   jogo (não precisam descer nenhum nível), o mesmo padrão que já
+   funciona em getFixtureStatistics/Events/Lineups (/fixtures/{id}).
+   Paginado via sportmonksGetAll (cursor, ver sportmonksClient.js) —
+   uma temporada inteira passa fácil dos 25 itens por página padrão da
+   Sportmonks. MESMA LIÇÃO se aparecer de novo em outro endpoint:
+   confira se a relação pedida é de 1º nível DAQUELE endpoint
+   específico, não só se a sintaxe do include tem ponto ou não.
+
    IMPORTANTE — o que ainda não foi testado contra uma resposta real:
    1) ESTATÍSTICA DE PARTIDA (getFixtureStatistics) e ESCALAÇÃO
       (getFixtureLineups): não tenho os type_id numéricos exatos da
@@ -25,19 +47,14 @@
       confirmados abaixo) — a extração tenta múltiplas formas de ler o
       tipo (campo "type" direto, ou nome, com fallback) mas pode
       precisar de ajuste. Se vier tudo zerado, esse é o lugar.
-   2) CALENDÁRIO DA TEMPORADA (getFixtures/flattenFixtures): o endpoint
-      /schedules/seasons/{id} agrupa jogos por rodada/fase — o
-      aninhamento exato pode variar por campeonato, então
-      flattenFixtures() varre recursivamente procurando por objetos
-      que "parecem" um jogo, tolerante à profundidade.
-   3) LÍDERES DE ARTILHARIA (getPlayersLeaders): só o endpoint de
+   2) LÍDERES DE ARTILHARIA (getPlayersLeaders): só o endpoint de
       artilheiros — pode não trazer assistências/cartões/nota; nesse
       caso ficam null (degradação graciosa).
 
    Cobertura: qualquer liga/temporada que o SEU plano na Sportmonks
    incluir (ver server/src/competitions.js). */
 
-const { sportmonksGet, getQuota } = require("../sportmonksClient");
+const { sportmonksGet, sportmonksGetAll, getQuota } = require("../sportmonksClient");
 
 function hasCredential() { return !!process.env.SPORTMONKS_API_TOKEN; }
 
@@ -52,11 +69,13 @@ const EVENT_TYPE = { GOAL: 14, OWN_GOAL: 15, PENALTY: 16, MISSED_PENALTY: 17, SU
 // liga+ano direto nos endpoints de dado: precisa resolver pro
 // "seasonId" dela primeiro (um id só que já representa "essa liga,
 // esse ano"). Cache em memória — a lista de temporadas de uma liga
-// não muda de um dia pro outro.
-const seasonIdCache = new Map();
-async function resolveSeasonId(leagueId, season) {
+// não muda de um dia pro outro. Guarda o objeto INTEIRO da temporada
+// (não só o id) porque getFixtures também precisa de starting_at/
+// ending_at (ver AJUSTE 2 no topo do arquivo).
+const seasonCache = new Map();
+async function resolveSeason(leagueId, season) {
   const key = `${leagueId}:${season}`;
-  if (seasonIdCache.has(key)) return seasonIdCache.get(key);
+  if (seasonCache.has(key)) return seasonCache.get(key);
   const league = await sportmonksGet(`/leagues/${leagueId}`, { include: "seasons" });
   const seasons = league?.seasons || [];
   const found = seasons.find((s) => String(s.name) === String(season))
@@ -66,8 +85,12 @@ async function resolveSeasonId(leagueId, season) {
     err.status = 501; err.code = "NOT_SUPPORTED_BY_PROVIDER";
     throw err;
   }
-  seasonIdCache.set(key, found.id);
-  return found.id;
+  seasonCache.set(key, found);
+  return found;
+}
+async function resolveSeasonId(leagueId, season) {
+  const s = await resolveSeason(leagueId, season);
+  return s.id;
 }
 
 function mapTeam(t) {
@@ -105,24 +128,6 @@ function mapStandingEntry(entry) {
     d: findDetailById(entry.details, STANDING_TYPE.LOST),
     gp, gc, sg,
   };
-}
-
-// Ver aviso (2) no topo do arquivo. Varre recursivamente o payload de
-// /schedules/seasons/{id} (rounds/stages aninhados) coletando qualquer
-// objeto que "pareça" um jogo — tem participants e starting_at —
-// independente da profundidade exata do aninhamento.
-function flattenFixtures(node, round, acc) {
-  if (Array.isArray(node)) { node.forEach((n) => flattenFixtures(n, round, acc)); return acc; }
-  if (!node || typeof node !== "object") return acc;
-  if (Array.isArray(node.participants) && node.starting_at) {
-    acc.push(node);
-    return acc;
-  }
-  const nextRound = node.name && (node.round_id || node.type === "round") ? node : round;
-  ["fixtures", "rounds", "stages", "data"].forEach((key) => {
-    if (node[key]) flattenFixtures(node[key], nextRound, acc);
-  });
-  return acc;
 }
 
 function mapStatus(shortName) {
@@ -211,29 +216,49 @@ async function getStandings({ leagueId, season }) {
   return (standings || []).map(mapStandingEntry);
 }
 
+// Ver AJUSTE 2 no topo do arquivo — /fixtures/between/{de}/{até}
+// filtrado por liga, não /schedules/seasons/{id} (que rejeitava
+// include de nível de jogo com "0 nested includes"). Paginado porque
+// uma temporada inteira (~380 jogos num campeonato de 20 times) passa
+// fácil do per_page padrão da Sportmonks.
 async function getFixtures({ leagueId, season }) {
-  const seasonId = await resolveSeasonId(leagueId, season);
-  const schedule = await sportmonksGet(`/schedules/seasons/${seasonId}`, { include: "participants;scores;state;round;venue" });
-  return flattenFixtures(schedule, null, []).map(mapFixture);
+  const s = await resolveSeason(leagueId, season);
+  const start = String(s.starting_at || "").slice(0, 10);
+  const end = String(s.ending_at || "").slice(0, 10);
+  if (!start || !end) {
+    const err = new Error(`Temporada ${season} da liga ${leagueId} não tem starting_at/ending_at na Sportmonks — não dá pra montar o calendário.`);
+    err.status = 501; err.code = "NOT_SUPPORTED_BY_PROVIDER";
+    throw err;
+  }
+  const fixtures = await sportmonksGetAll(`/fixtures/between/${start}/${end}`, {
+    include: "participants;scores;state;round;venue",
+    filters: `fixtureLeagues:${leagueId}`,
+  });
+  return fixtures.map(mapFixture);
 }
 
+// sportmonksGetAll (paginado) — artilharia pode ter mais de 25
+// jogadores com gol na temporada, que é o per_page padrão da
+// Sportmonks.
 async function getPlayersLeaders({ leagueId, season }) {
   const seasonId = await resolveSeasonId(leagueId, season);
-  const topscorers = await sportmonksGet(`/topscorers/seasons/${seasonId}`, { include: "player" });
+  const topscorers = await sportmonksGetAll(`/topscorers/seasons/${seasonId}`, { include: "player" });
   const byId = new Map();
-  (topscorers || []).forEach((item) => {
+  topscorers.forEach((item) => {
     const p = mapPlayerFromTopscorer(item);
     if (p) byId.set(p.id, p);
   });
   return Array.from(byId.values());
 }
 
+// sportmonksGetAll (paginado) — elenco com reservas facilmente passa
+// dos 25 itens por página padrão da Sportmonks.
 async function getTeamPlayers({ teamId, season }) {
   const squad = season
-    ? await sportmonksGet(`/squads/seasons/${season}/teams/${teamId}`, { include: "player" })
-    : await sportmonksGet(`/squads/teams/${teamId}`, { include: "player" });
+    ? await sportmonksGetAll(`/squads/seasons/${season}/teams/${teamId}`, { include: "player" })
+    : await sportmonksGetAll(`/squads/teams/${teamId}`, { include: "player" });
   const byId = new Map();
-  (squad || []).forEach((item) => {
+  squad.forEach((item) => {
     const p = mapPlayerFromSquad(item);
     if (p) byId.set(p.id, p);
   });

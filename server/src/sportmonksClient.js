@@ -12,10 +12,20 @@ let lastQuota = { limit: null, remaining: null };
 
 function getQuota() { return lastQuota; }
 
-// path já sem a base (ex.: "/teams/seasons/123"). params vira query
-// string; "include" (lista de relações a embutir na resposta, sintaxe
-// "a;b;c" da própria Sportmonks) é só mais um parâmetro normal.
-async function sportmonksGet(path, params = {}) {
+// path + params (sem o token) de toda chamada que deu erro — pra dar
+// pra achar nos logs do Railway exatamente qual endpoint/include
+// causou aquele erro específico (esse client fica isolado demais do
+// resto do app pra só a mensagem de erro sozinha bastar pra debugar
+// à distância, ver histórico de ajuste em providers/sportmonks.js).
+function logFailure(path, params, msg) {
+  console.error(`[sportmonks] ${path}?${new URLSearchParams(params).toString()} -> ${msg}`);
+}
+
+// Chamada crua — devolve o corpo INTEIRO já decodificado (data +
+// pagination + rate_limit etc.), não só o campo "data". Uso interno;
+// sportmonksGet/sportmonksGetAll abaixo são o que o resto do provider
+// deveria chamar.
+async function sportmonksRequest(path, params = {}) {
   const token = process.env.SPORTMONKS_API_TOKEN;
   if (!token) {
     const err = new Error("SPORTMONKS_API_TOKEN não configurado no .env");
@@ -31,18 +41,9 @@ async function sportmonksGet(path, params = {}) {
   const res = await fetch(url);
   const json = await res.json().catch(() => null);
 
-  // path + params (sem o token) de toda chamada que deu erro — pra dar
-  // pra achar nos logs do Railway exatamente qual endpoint/include
-  // causou aquele erro específico (esse client fica isolado demais do
-  // resto do app pra só a mensagem de erro sozinha bastar pra debugar
-  // à distância, ver histórico de ajuste em providers/sportmonks.js).
-  const logFailure = (msg) => {
-    console.error(`[sportmonks] ${path}?${new URLSearchParams(params).toString()} -> ${msg}`);
-  };
-
   if (!res.ok) {
     const msg = json?.message || `Sportmonks respondeu ${res.status}`;
-    logFailure(`HTTP ${res.status}: ${msg}`);
+    logFailure(path, params, `HTTP ${res.status}: ${msg}`);
     const err = new Error(`Sportmonks: ${msg}`);
     err.status = res.status;
     throw err;
@@ -61,12 +62,47 @@ async function sportmonksGet(path, params = {}) {
   if (json?.message && !json?.data) {
     // Erro "de negócio" (ex.: token sem acesso àquela liga) que ainda
     // assim vem com status 200 em alguns endpoints da Sportmonks.
-    logFailure(`200 com erro no corpo: ${json.message}`);
+    logFailure(path, params, `200 com erro no corpo: ${json.message}`);
     const err = new Error(`Sportmonks: ${json.message}`);
     throw err;
   }
 
+  return json;
+}
+
+// path já sem a base (ex.: "/teams/seasons/123"). params vira query
+// string; "include" (lista de relações a embutir na resposta, sintaxe
+// "a;b;c" da própria Sportmonks) é só mais um parâmetro normal. Uso
+// pros endpoints cujo total de itens já nasce pequeno (ex.: tabela/
+// elenco de 1 liga, ~20 times — bem abaixo do per_page padrão da
+// Sportmonks, então 1 página sempre basta).
+async function sportmonksGet(path, params = {}) {
+  const json = await sportmonksRequest(path, params);
   return json?.data;
 }
 
-module.exports = { sportmonksGet, getQuota, BASE_URL };
+// Igual sportmonksGet, mas pagina automaticamente (cursor-based, ver
+// json.pagination.has_more/next_cursor na doc da Sportmonks) até
+// esgotar has_more — usar em qualquer listagem que possa passar do
+// per_page padrão (25): calendário de temporada inteira (~380 jogos),
+// elenco de time (pode passar de 25 com reservas) e artilharia (pode
+// ter mais de 25 jogadores com gol na temporada). Teto de segurança de
+// 20 páginas (1000 itens com per_page=50) pra nunca entrar em loop
+// infinito por um "has_more" que nunca desliga.
+async function sportmonksGetAll(path, params = {}) {
+  let all = [];
+  let cursor = null;
+  let page = 0;
+  do {
+    const p = { ...params, per_page: params.per_page || 50 };
+    if (cursor) p.cursor = cursor;
+    const json = await sportmonksRequest(path, p);
+    const data = json?.data;
+    all = all.concat(Array.isArray(data) ? data : (data ? [data] : []));
+    cursor = json?.pagination?.has_more ? json.pagination.next_cursor : null;
+    page++;
+  } while (cursor && page < 20);
+  return all;
+}
+
+module.exports = { sportmonksGet, sportmonksGetAll, getQuota, BASE_URL };
