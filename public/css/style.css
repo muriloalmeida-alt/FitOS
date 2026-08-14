@@ -534,7 +534,11 @@ h1,h2,h3{ margin:0; }
 .odds-pill3{ flex:1; text-align:center; padding:10px 4px; border-radius:var(--radius-sm); background:var(--bg-app); border:1px solid var(--border); }
 .odds-pill3 span{ display:block; font-size:9.5px; color:var(--text-2); text-transform:uppercase; }
 .odds-pill3 b{ font-size:15px; font-weight:800; color:var(--brd-blue); }
-.affiliate-strip{ display:flex; gap:8px; overflow-x:auto; margin-top:4px; }
+/* justify-content:center funciona bem com poucos parceiros (hoje 3,
+   ver AFFILIATE_OPERATORS em affiliates.js) — se um dia voltar a ter
+   mais itens do que cabe na tela, overflow-x:auto ainda garante que dá
+   pra rolar em vez de estourar o card. */
+.affiliate-strip{ display:flex; justify-content:center; gap:8px; overflow-x:auto; margin-top:4px; }
 /* Wrapper em si fica transparente/sem padding — quem desenha o visual
    é sempre um dos 2 filhos (nunca os dois ao mesmo tempo, ver
    affiliateLogoFallbackHandler em app.js), os dois no MESMO tamanho

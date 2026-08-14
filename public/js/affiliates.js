@@ -51,7 +51,10 @@ const AFFILIATE_OPERATORS = [
   { id: "bet365",   name: "bet365",   color: "#0A6C3C", url: "https://www.bet365.bet.br", affiliate: false },
   { id: "betano",   name: "Betano",   color: "#0E1E5B", url: "https://www.betano.bet.br",  affiliate: false },
   { id: "kto",      name: "KTO",      color: "#F5B301", url: "https://www.kto.bet.br",     affiliate: false },
-  { id: "superbet", name: "Superbet", color: "#E10600", url: "https://www.superbet.bet.br", affiliate: false },
+  // Superbet tirada por enquanto (pedido do usuário) — só comentada,
+  // não apagada: é só descomentar essa linha (e o logo já está salvo
+  // em img/partners/superbet.png) pra voltar a mostrar.
+  // { id: "superbet", name: "Superbet", color: "#E10600", url: "https://www.superbet.bet.br", affiliate: false },
 ];
 
 const RESPONSIBLE_GAMBLING_URL = "https://www.gov.br/fazenda/pt-br/composicao/orgaos/secretaria-de-premios-e-apostas/autoexclusao";
