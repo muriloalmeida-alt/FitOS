@@ -793,6 +793,13 @@ h1,h2,h3{ margin:0; }
   flex:1; text-align:center; padding:6px 4px; border-radius:8px; font-size:11px; font-weight:700;
   background:var(--bg-app); border:1px solid var(--border); color:var(--brd-blue);
 }
+/* Estado alternativo do espaço das odds ("A definir" / local do jogo)
+   — ocupa a linha inteira sozinho (só 1 span em vez de 3), texto mais
+   solto (sem negrito forçado) e sem quebrar/estourar com nome de
+   estádio comprido — ver oddsSlotFallbackHTML em app.js. */
+.rail-fixture .odds3 .odds-note{
+  font-weight:600; color:var(--text-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
 
 /* Notícias (mini, coluna lateral) */
 .news-mini{ display:flex; gap:10px; padding:10px 0; border-bottom:1px solid var(--border); }

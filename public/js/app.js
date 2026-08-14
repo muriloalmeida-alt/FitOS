@@ -600,11 +600,22 @@ function watchLink(homeTeam, awayTeam, gh, ga) {
     <svg viewBox="0 0 24 24" fill="currentColor"><path d="M10 8l6 4-6 4V8z"/><rect x="2" y="4" width="20" height="16" rx="3" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>
     Assistir gols e melhores momentos</a>`;
 }
+// BUG CORRIGIDO: horário exibido saía errado (deslocado pelo fuso do
+// aparelho de quem via a tela, ou do ambiente onde o app rodava) —
+// vinha de 2 causas somadas: (1) a Sportmonks manda a data em UTC sem
+// sufixo "Z" (corrigido na origem, ver normalizeUtcDate em
+// server/src/providers/sportmonks.js), e (2) mesmo com a data certa,
+// toLocaleTimeString sem "timeZone" explícito usa o fuso do
+// dispositivo — que só coincide com Brasília por acaso. Como o app é
+// sobre futebol BRASILEIRO, os horários sempre são referenciados em
+// BRT/BRST — fixa timeZone:"America/Sao_Paulo" pra mostrar sempre o
+// mesmo horário pra todo mundo, não importa o fuso de quem acessa.
 function fmtFixtureDate(dateIso, round) {
   if (!dateIso) return `Rodada ${round}`;
   const d = new Date(dateIso);
   if (isNaN(d)) return `Rodada ${round}`;
-  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) + " · " + d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const opts = { timeZone: "America/Sao_Paulo" };
+  return d.toLocaleDateString("pt-BR", { ...opts, day: "2-digit", month: "2-digit" }) + " · " + d.toLocaleTimeString("pt-BR", { ...opts, hour: "2-digit", minute: "2-digit" });
 }
 
 /* ================= LINHAS DE TABELA ================= */
@@ -854,23 +865,47 @@ function teamNextFixtures(teamId, count) {
   return out;
 }
 
+// AJUSTE: espaço das odds ficava com "—/—/—" pra sempre sempre que
+// não havia odds (partida longe demais da data pra casa de apostas
+// já ter aberto o mercado, fixtureId ausente, ou modo exemplo — que
+// nunca busca odds nenhuma) — sem dizer o motivo. Relatado pelo
+// usuário: horário da partida devia estar em dia, e enquanto não tem
+// odds esse espaço devia mostrar algo útil em vez de traço vazio.
+// Agora tem 3 estados em cascata pro mesmo espaço:
+//   1) odds de verdade, quando a casa de apostas já abriu o mercado;
+//   2) sem confirmação de horário ainda (m.date vazio -- fixture
+//      "a definir" na própria Sportmonks, ou modo exemplo, que não
+//      gera data real nenhuma) -> "A definir";
+//   3) horário confirmado mas odds ainda vazias -> local do jogo
+//      (venueFor, mesmo helper usado no "Onde e quando" da aba Jogos).
+function oddsSlotFallbackHTML(m) {
+  if (!m.date) return `<span class="odds-note">A definir</span>`;
+  const venue = venueFor(m);
+  return venue ? `<span class="odds-note">📍 ${venue.name}</span>` : `<span>—</span><span>—</span><span>—</span>`;
+}
 // favId: destaca (negrito) o lado que for o Clube Favorito, quando a
 // linha envolve times diferentes (usado no Dashboard). undefined em
 // outros lugares (ex: página do Time) não destaca ninguém.
 function fixtureRowHTML(m, favId) {
   const H = TEAM_MAP[m.home], A = TEAM_MAP[m.away];
   const domId = `fxrow-odds-${m.round}-${m.home}-${m.away}`;
-  if (LIVE_MODE && m.fixtureId) {
+  // Só vale a pena buscar odds quando o horário já está confirmado —
+  // sem starting_at definido a casa de apostas ainda nem abriu
+  // mercado nenhum pra essa partida (ver oddsSlotFallbackHTML).
+  if (LIVE_MODE && m.fixtureId && m.date) {
     loadFixtureOdds(m.fixtureId).then(odds => {
       const el = document.getElementById(domId);
-      if (el && odds) el.innerHTML = `<span>${odds.home?.toFixed(2) ?? "-"}</span><span>${odds.draw?.toFixed(2) ?? "-"}</span><span>${odds.away?.toFixed(2) ?? "-"}</span>`;
+      if (!el) return;
+      el.innerHTML = odds
+        ? `<span>${odds.home?.toFixed(2) ?? "-"}</span><span>${odds.draw?.toFixed(2) ?? "-"}</span><span>${odds.away?.toFixed(2) ?? "-"}</span>`
+        : oddsSlotFallbackHTML(m);
     }).catch(() => {});
   }
   return `
   <div class="rail-fixture">
     <div class="when">${fmtFixtureDate(m.date, m.round)}</div>
     <div class="teams">${teamLinkHTML(H, 20, "short", H.id === favId)}<span class="vs">×</span>${teamLinkHTML(A, 20, "short", A.id === favId)}</div>
-    <div class="odds3" id="${domId}"><span>—</span><span>—</span><span>—</span></div>
+    <div class="odds3" id="${domId}">${oddsSlotFallbackHTML(m)}</div>
   </div>`;
 }
 

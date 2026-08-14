@@ -187,6 +187,26 @@ function mapStatus(shortName) {
   return "LIVE"; // 1H, HT, 2H, ET etc.
 }
 
+// BUG CORRIGIDO (14/08/2026): "horário da partida" errado nos
+// "Próximos jogos" — relatado pelo usuário. Causa (confirmada via
+// pesquisa pública): a Sportmonks manda starting_at em UTC no formato
+// "YYYY-MM-DD HH:mm:ss", SEM sufixo "Z"/offset nenhum. `new Date(...)`
+// no front-end, sem esse sufixo, interpreta a string como hora LOCAL
+// do dispositivo (não UTC) — o horário exibido saía deslocado pelo
+// fuso horário de quem tava vendo (ou do ambiente de teste, cujo
+// padrão costuma ser UTC) em vez de convertido certinho pra
+// horário de Brasília. Corrigido normalizando pra ISO 8601 de
+// verdade ("...T...Z") aqui, antes de devolver — front-end também
+// passou a fixar timeZone:"America/Sao_Paulo" no toLocaleString (ver
+// fmtFixtureDate em app.js), pra sempre mostrar hora de Brasília
+// independente do fuso do aparelho de quem acessa (o app é sobre
+// futebol brasileiro, os horários sempre são referenciados em BRT).
+function normalizeUtcDate(raw) {
+  if (!raw) return null;
+  const s = String(raw).trim();
+  return /[Zz]|[+-]\d{2}:?\d{2}$/.test(s) ? s : `${s.replace(" ", "T")}Z`;
+}
+
 function mapFixture(fx) {
   const home = (fx.participants || []).find((p) => p.meta?.location === "home");
   const away = (fx.participants || []).find((p) => p.meta?.location === "away");
@@ -196,7 +216,7 @@ function mapFixture(fx) {
   };
   return {
     id: fx.id,
-    date: fx.starting_at || null,
+    date: normalizeUtcDate(fx.starting_at),
     status: mapStatus(fx.state?.short_name),
     round: Number(fx.round?.name) || null,
     home: home?.id ?? null,
