@@ -31,6 +31,7 @@ const state = {
   whatifTeamId: null,
   favorites: [],
   favoriteClubId: null,
+  favoriteClubEditing: false, // true = mostra o seletor no card "Clube Favorito" em vez do líder/favorito (ver renderFavoriteClubCard) — nunca persistido, só estado de UI da sessão atual
   selectedTeamId: null,
   selectedPlayerId: null,
   rosterExpanded: false,
@@ -408,6 +409,7 @@ async function switchCompetition(id) {
   await loadCompetitionData(id);
   loadFavorites();
   loadFavoriteClub();
+  state.favoriteClubEditing = false; // não carrega o "modo escolher" de uma competição pra outra
   populateAllSelects();
   renderMyTeamsSidebar();
   applyCompetitionsSidebar(competitionsInfo); // reaplica pra atualizar qual item fica "active"
@@ -777,33 +779,20 @@ function renderDashKpis(standings) {
   const favIdx = favTeam ? standings.findIndex(r => r.id === favTeam.id) : -1;
   const isFavoriteActive = favTeam && favIdx >= 0;
   const highlightRow = isFavoriteActive ? standings[favIdx] : standings[0];
-  const highlightRank = isFavoriteActive ? favIdx + 1 : 1;
   const highlightTeam = highlightRow ? TEAM_MAP[highlightRow.id] : null;
   const highlightLabel = isFavoriteActive ? "Seu clube" : "Líder";
   const highlightIcon = isFavoriteActive ? "⭐" : "🏆";
 
+  // Tile compacto de KPI (desktop, entre os outros stats — Média de
+  // gols/Posse/etc.) — resumo rápido, continua existindo além do card
+  // "Clube Favorito" grande (que já mostra o mesmo destaque com mais
+  // detalhe — ver renderFavoriteClubCard). O hero mobile separado que
+  // existia antes (#liderHero) foi removido: ficou redundante desde
+  // que o card "Clube Favorito" passou a mostrar o líder também
+  // quando não há favorito escolhido (pedido do usuário).
   document.getElementById("kpiLeaderLabel").textContent = highlightLabel;
   document.getElementById("kpiLeaderIcon").textContent = highlightIcon;
   document.getElementById("kpiLeader").innerHTML = highlightRow ? `${highlightTeam.short} <small>${highlightRow.pts} pts</small>` : "—";
-
-  if (highlightRow) {
-    document.getElementById("liderCrest").innerHTML = crestEl(highlightTeam, 52);
-    document.getElementById("liderTeamName").textContent = highlightTeam.name;
-    document.getElementById("liderLabel").textContent = highlightLabel;
-    document.getElementById("liderPts").textContent = highlightRow.pts;
-    document.getElementById("liderRank").textContent = isFavoriteActive ? `${highlightRank}º colocado` : "";
-    const heroCrest = document.getElementById("liderCrest"), heroName = document.getElementById("liderTeamName");
-    heroCrest.classList.add("clickable-team"); heroCrest.onclick = () => goToTeam(highlightTeam.id);
-    heroName.classList.add("clickable-team"); heroName.onclick = () => goToTeam(highlightTeam.id);
-  }
-
-  // Com favorito ativo, o card "Clube Favorito" (que já ganhou a cor
-  // do time — ver renderFavoriteClubCard) já mostra brasão/nome/pts/
-  // posição, então esse hero mobile ficaria repetindo a mesma info
-  // logo abaixo — escondido nesse caso. Sem favorito, ele volta a
-  // aparecer normalmente (mobile-only) mostrando o líder.
-  const liderHeroEl = document.getElementById("liderHero");
-  if (liderHeroEl) liderHeroEl.style.display = isFavoriteActive ? "none" : "";
 }
 
 // Chance de título do Dashboard — top 5 de sempre. Com um Clube
@@ -1676,24 +1665,85 @@ function applyFavoriteClub(newId) {
   saveFavoriteClub();
   renderDashboard();
 }
-function onFavoriteClubChange(e) { applyFavoriteClub(e.target.value); }
-function clearFavoriteClub() { applyFavoriteClub(null); }
+// Qualquer escolha no <select> — um time OU a opção "Nenhum" (value="")
+// — fecha o editor. Não dá pra decidir isso dentro de applyFavoriteClub
+// olhando só "newId truthy": "Nenhum" tem newId="" (falsy) mas ainda
+// assim é uma escolha deliberada do usuário, não deve deixar o seletor
+// aberto (bug corrigido: ver histórico da conversa).
+function onFavoriteClubChange(e) {
+  state.favoriteClubEditing = false;
+  applyFavoriteClub(e.target.value);
+}
+// "Trocar time" já abre o seletor direto (sem passar pelo card do
+// líder de novo) — é exatamente o que quem clicou nesse botão quer.
+function clearFavoriteClub() { state.favoriteClubEditing = true; applyFavoriteClub(null); }
+function startFavoriteClubEdit() { state.favoriteClubEditing = true; renderFavoriteClubCard(currentStandings()); }
+function cancelFavoriteClubEdit() { state.favoriteClubEditing = false; renderFavoriteClubCard(currentStandings()); }
 
-// Card "Clube Favorito" do Dashboard — dois estados:
-// 1) Sem favorito: card neutro com o seletor de time.
-// 2) Com favorito: o seletor some, e o card inteiro vira as cores do
-//    clube (ex: Flamengo = vermelho/preto), com um botão pra trocar.
+// Camada escura semi-transparente sobre o degradê nas cores do time
+// (favorito OU líder, ver renderFavoriteClubCard) — sem isso, times
+// com uma cor clara (ex: Botafogo preto/BRANCO) deixavam o texto/botão
+// brancos ilegíveis do lado claro do degradê.
+function favClubGradientCSS(team) {
+  return `margin-bottom:16px; border:none; color:#fff;
+    background:linear-gradient(135deg, rgba(0,0,0,.4), rgba(0,0,0,.12)), linear-gradient(135deg, ${team.c1 || "#0057B8"}, ${team.c2 || "#062B5C"});`;
+}
+function favClubBrandedHTML(team, label, rank, pts, buttonHTML) {
+  const metaHTML = rank != null ? `<div class="fav-club-active-meta">${rank}º colocado · ${pts} pts</div>` : "";
+  return `
+    <div class="fav-club-active">
+      <div class="fav-club-active-info">
+        ${crestEl(team, 46)}
+        <div>
+          <div class="fav-club-active-lbl">${label}</div>
+          <div class="fav-club-active-name">${team.name}</div>
+          ${metaHTML}
+        </div>
+      </div>
+      ${buttonHTML}
+    </div>`;
+}
+function favClubSelectorHTML(showCancel) {
+  return `
+    <div class="card-head"><h3>⭐ Escolher clube favorito</h3></div>
+    <p class="fav-club-hint">Escolha 1 clube para deixá-lo em destaque na página inicial no lugar do líder do campeonato.</p>
+    <select class="compare-select fav-club-select" id="favoriteClubSelect"></select>
+    ${showCancel ? `<button class="fav-club-remove" style="margin-top:10px;" onclick="cancelFavoriteClubEdit()">Cancelar</button>` : ""}`;
+}
+
+// Card "Clube Favorito" do Dashboard — 3 estados:
+// 1) Editando (state.favoriteClubEditing — usuário clicou "Trocar
+//    time"/"Escolher favorito" —, ou sem líder ainda porque nenhum
+//    jogo foi decidido): card neutro com o seletor de time.
+// 2) Sem favorito (e já tem líder): o espaço mostra o LÍDER do
+//    campeonato, nas cores do time — pedido do usuário, pra esse
+//    espaço nunca ficar neutro/vazio antes de alguém escolher um
+//    favorito. Esse é o mesmo destaque que antes vivia só no hero
+//    mobile separado (#liderHero, removido — virou redundante já que
+//    esse card agora cobre os dois casos, líder e favorito).
+// 3) Com favorito: o card vira as cores do clube escolhido (ex:
+//    Flamengo = vermelho/preto), com um botão pra trocar.
 function renderFavoriteClubCard(standings) {
   const box = document.getElementById("favClubCard");
   if (!box) return;
   const favTeam = activeFavoriteTeam();
 
-  if (!favTeam) {
+  if (favTeam) {
+    box.style.cssText = favClubGradientCSS(favTeam);
+    const idx = standings ? standings.findIndex(r => r.id === favTeam.id) : -1;
+    box.innerHTML = favClubBrandedHTML(
+      favTeam, "⭐ Clube Favorito", idx >= 0 ? idx + 1 : null, idx >= 0 ? standings[idx].pts : null,
+      `<button class="fav-club-remove" onclick="clearFavoriteClub()">Trocar time</button>`
+    );
+    return;
+  }
+
+  const leaderRow = standings && standings[0];
+  const leaderTeam = leaderRow ? TEAM_MAP[leaderRow.id] : null;
+
+  if (state.favoriteClubEditing || !leaderTeam) {
     box.style.cssText = "margin-bottom:16px;";
-    box.innerHTML = `
-      <div class="card-head"><h3>⭐ Clube Favorito</h3></div>
-      <p class="fav-club-hint">Escolha 1 clube para deixá-lo em destaque na página inicial no lugar do líder do campeonato. Sem seleção, o destaque continua sendo o líder.</p>
-      <select class="compare-select fav-club-select" id="favoriteClubSelect"></select>`;
+    box.innerHTML = favClubSelectorHTML(!!leaderTeam);
     const sel = document.getElementById("favoriteClubSelect");
     const sorted = [...TEAMS].sort((a, b) => a.name.localeCompare(b.name));
     sel.innerHTML = `<option value="">— Nenhum (exibir líder do campeonato) —</option>` +
@@ -1703,29 +1753,11 @@ function renderFavoriteClubCard(standings) {
     return;
   }
 
-  // Camada escura semi-transparente sobre o gradiente do clube — sem
-  // isso, times com uma cor clara (ex: Botafogo preto/BRANCO) deixavam
-  // o texto/botão brancos ilegíveis do lado claro do degradê.
-  box.style.cssText = `margin-bottom:16px; border:none; color:#fff;
-    background:linear-gradient(135deg, rgba(0,0,0,.4), rgba(0,0,0,.12)), linear-gradient(135deg, ${favTeam.c1 || "#0057B8"}, ${favTeam.c2 || "#062B5C"});`;
-  // Posição/pontos do time (mesma informação que o hero mobile
-  // "Líder/Seu clube" mostrava) — trazida pra cá pra esse card ser a
-  // única fonte de destaque do favorito; ver ocultação do .lider-hero
-  // em renderDashKpis, que evita repetir os dois cards no mobile.
-  const idx = standings ? standings.findIndex(r => r.id === favTeam.id) : -1;
-  const metaHTML = idx >= 0 ? `<div class="fav-club-active-meta">${idx + 1}º colocado · ${standings[idx].pts} pts</div>` : "";
-  box.innerHTML = `
-    <div class="fav-club-active">
-      <div class="fav-club-active-info">
-        ${crestEl(favTeam, 46)}
-        <div>
-          <div class="fav-club-active-lbl">⭐ Clube Favorito</div>
-          <div class="fav-club-active-name">${favTeam.name}</div>
-          ${metaHTML}
-        </div>
-      </div>
-      <button class="fav-club-remove" onclick="clearFavoriteClub()">Trocar time</button>
-    </div>`;
+  box.style.cssText = favClubGradientCSS(leaderTeam);
+  box.innerHTML = favClubBrandedHTML(
+    leaderTeam, "🏆 Líder", 1, leaderRow.pts,
+    `<button class="fav-club-remove" onclick="startFavoriteClubEdit()">Escolher favorito</button>`
+  );
 }
 
 /* ================= TEMA CLARO/ESCURO ================= */
