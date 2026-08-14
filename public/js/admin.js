@@ -88,6 +88,7 @@ async function boot() {
   document.getElementById("adminDeniedBack").addEventListener("click", () => { window.location.href = "/"; });
   document.getElementById("adminLogoutBtn").addEventListener("click", onLogout);
   document.getElementById("usersSearch").addEventListener("input", renderUsersTable);
+  document.getElementById("btnTestAd").addEventListener("click", onTestAd);
 
   await checkAuth();
 }
@@ -385,6 +386,162 @@ async function loadIntegrations() {
   } catch (err) {
     smRecentBody.innerHTML = `<tr><td colspan="5">Falha ao carregar: ${err.message}</td></tr>`;
   }
+  loadAdsDiagnostics();
+}
+
+/* ---------- AdSense / CMP (movido da antiga página /adsense-check,
+   que era protegida por ADMIN_SECRET numa rota própria — agora é só
+   mais uma seção atrás do mesmo login de admin de sempre, ver AJUSTE
+   no server.js/env.example). Reusa /api/health e /ads.txt, os 2 já
+   públicos e usados pelo resto do app (nenhuma rota nova precisou ser
+   criada) — só o teste de anúncio ao vivo é exclusivo dessa tela. ---------- */
+const DIAG_COLORS = { ok: "var(--brd-positive)", warn: "#8a6400", err: "var(--brd-red)" };
+function diagRowHTML(label, val, cls) {
+  const color = cls ? ` color:${DIAG_COLORS[cls]};` : "";
+  return `<div class="integ-row"><div class="name">${label}</div><span class="meta" style="font-weight:700; text-align:right;${color}">${val}</span></div>`;
+}
+let adsHealthData = null; // cacheado pra reusar no botão "Testar anúncio agora"
+async function loadAdsDiagnostics() {
+  const configBox = document.getElementById("adsConfigBox");
+  const adsTxtBox = document.getElementById("adsTxtBox");
+  const cmpBox = document.getElementById("cmpBox");
+
+  try { adsHealthData = await fetchJSON("/api/health"); } catch { adsHealthData = null; }
+  const ads = adsHealthData && adsHealthData.adsense;
+
+  configBox.innerHTML = ads
+    ? diagRowHTML("Status", "✅ configurado", "ok") + diagRowHTML("Client ID", ads.clientId) + diagRowHTML("Slot (modal Freemium)", ads.slotIdFreemiumModal)
+    : diagRowHTML("Status", "❌ não configurado (ADSENSE_CLIENT_ID / ADSENSE_AD_SLOT_FREEMIUM_MODAL)", "err");
+
+  try {
+    const res = await fetch("/ads.txt");
+    const text = await res.text();
+    adsTxtBox.innerHTML = res.ok
+      ? diagRowHTML("Status", "✅ HTTP 200", "ok") + `<pre class="diag-pre">${escHtml(text.trim())}</pre>`
+      : diagRowHTML("Status", `❌ HTTP ${res.status}`, "err");
+  } catch (err) {
+    adsTxtBox.innerHTML = diagRowHTML("Erro", escHtml(err.message), "err");
+  }
+
+  if (!ads) {
+    cmpBox.innerHTML = diagRowHTML("Status", "⚠️ sem client id configurado (ver acima) — não dá pra testar o CMP", "warn");
+    return;
+  }
+  cmpBox.innerHTML = diagRowHTML("Client ID usado no teste", ads.clientId);
+  loadCMPScriptsForDiagnostics(ads.clientId);
+
+  // window.googlefc só existe depois do script do Google carregar de
+  // verdade (não só a tag existir) — espera até 6s, confere de novo.
+  let tries = 0;
+  const poll = setInterval(() => {
+    tries++;
+    const loaded = typeof window.googlefc !== "undefined";
+    const iframePresent = !!window.frames["googlefcPresent"];
+    if (loaded || tries >= 12) {
+      clearInterval(poll);
+      cmpBox.innerHTML +=
+        diagRowHTML("window.googlefc carregou", loaded ? "✅ sim" : "⚠️ não respondeu a tempo", loaded ? "ok" : "warn") +
+        diagRowHTML("Iframe de presença (stub)", iframePresent ? "✅ criado" : "❌ não criado", iframePresent ? "ok" : "err");
+      if (!loaded) {
+        cmpBox.innerHTML += `<div class="integ-row"><span class="meta" style="color:#8a6400;">Sem resposta do Google — confira se não tem bloqueador de anúncio ativo, e se a mensagem está "Ativa" com a região certa no painel (Privacidade e mensagens).</span></div>`;
+      }
+    }
+  }, 500);
+}
+// Injeta os 2 scripts do CMP (mesmos de public/index.html) só depois
+// de saber o client id — sem isso essa seção em si nunca carregaria o
+// CMP e não teria como testar nada. Mesmo espírito do
+// ensureAdsenseScriptLoaded em app.js.
+function loadCMPScriptsForDiagnostics(clientId) {
+  const pubId = clientId.replace(/^ca-/, "");
+  const s = document.createElement("script");
+  s.async = true;
+  s.src = `https://fundingchoicesmessages.google.com/i/${encodeURIComponent(pubId)}?ers=1`;
+  document.head.appendChild(s);
+
+  (function signalGooglefcPresent() {
+    if (!window.frames["googlefcPresent"]) {
+      if (document.body) {
+        const iframe = document.createElement("iframe");
+        iframe.style.cssText = "width:0; height:0; border:none; z-index:-1000; left:-1000px; top:-1000px; display:none;";
+        iframe.name = "googlefcPresent";
+        document.body.appendChild(iframe);
+      } else {
+        setTimeout(signalGooglefcPresent, 0);
+      }
+    }
+  })();
+}
+let adsenseAdScriptLoaded = false;
+function loadAdsenseScriptIfNeeded(clientId) {
+  return new Promise((resolve) => {
+    if (adsenseAdScriptLoaded) return resolve();
+    adsenseAdScriptLoaded = true;
+    const s = document.createElement("script");
+    s.async = true;
+    s.crossOrigin = "anonymous";
+    s.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(clientId)}`;
+    s.onload = () => resolve();
+    s.onerror = () => resolve(); // segue mesmo se falhar -- o teste abaixo já mostra o erro
+    document.head.appendChild(s);
+  });
+}
+async function onTestAd() {
+  const btn = document.getElementById("btnTestAd");
+  const statusVal = document.getElementById("adStatusVal");
+  const slotBox = document.getElementById("adSlotBox");
+  btn.disabled = true;
+  statusVal.textContent = "buscando configuração...";
+
+  const ads = adsHealthData && adsHealthData.adsense;
+  if (!ads) {
+    statusVal.textContent = "❌ adsense não configurado (ver cards acima)";
+    btn.disabled = false;
+    return;
+  }
+
+  statusVal.textContent = "carregando script do Google...";
+  await loadAdsenseScriptIfNeeded(ads.clientId);
+
+  slotBox.innerHTML = "";
+  const ins = document.createElement("ins");
+  ins.className = "adsbygoogle";
+  ins.style.display = "block";
+  ins.style.width = "100%";
+  ins.style.minHeight = "90px";
+  ins.setAttribute("data-ad-client", ads.clientId);
+  ins.setAttribute("data-ad-slot", ads.slotIdFreemiumModal);
+  ins.setAttribute("data-ad-format", "auto");
+  ins.setAttribute("data-full-width-responsive", "true");
+  slotBox.appendChild(ins);
+
+  statusVal.textContent = "pedindo anúncio...";
+  try {
+    (window.adsbygoogle = window.adsbygoogle || []).push({});
+  } catch (err) {
+    statusVal.textContent = "❌ erro ao pedir: " + err.message;
+    btn.disabled = false;
+    return;
+  }
+
+  let resolved = false;
+  const observer = new MutationObserver(() => {
+    const status = ins.getAttribute("data-ad-status");
+    if (status && !resolved) {
+      resolved = true;
+      observer.disconnect();
+      statusVal.textContent = status === "filled" ? "✅ filled (anúncio de verdade carregou)" : "⚠️ unfilled (Google não tinha anúncio pra mostrar agora)";
+      btn.disabled = false;
+    }
+  });
+  observer.observe(ins, { attributes: true, attributeFilter: ["data-ad-status"] });
+  setTimeout(() => {
+    if (!resolved) {
+      observer.disconnect();
+      statusVal.textContent = "⚠️ sem resposta em 8s (confira o bloqueador de anúncio, ou a conta ainda em análise)";
+      btn.disabled = false;
+    }
+  }, 8000);
 }
 
 /* ---------- Comportamento (funil de login + páginas mais navegadas) ---------- */

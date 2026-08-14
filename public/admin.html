@@ -70,6 +70,9 @@
   .admin-btn-sm.danger{ color:var(--brd-red); border-color:rgba(217,45,32,.35); }
   .admin-badge{ font-size:10px; font-weight:700; padding:2px 8px; border-radius:100px; background:rgba(0,87,184,.12); color:var(--brd-blue); }
   .table-scroll-x{ overflow-x:auto; }
+  .diag-pre{ background:var(--bg-app); border:1px solid var(--border); border-radius:8px; padding:10px 12px; font-size:11.5px; overflow-x:auto; white-space:pre-wrap; word-break:break-all; margin-top:8px; color:var(--text-1); }
+  .ads-warning{ background:rgba(255,193,7,.12); border:1px solid rgba(255,193,7,.35); border-radius:10px; padding:12px 14px; font-size:12.5px; color:#8a6400; line-height:1.5; }
+  .ads-slot-box{ min-height:90px; background:var(--bg-app); border:1px dashed var(--border); border-radius:8px; margin-top:10px; display:flex; align-items:center; justify-content:center; padding:8px; }
   @media (max-width:900px){
     .admin-shell{ flex-direction:column; }
     .admin-nav{ width:100%; flex-direction:row; overflow-x:auto; padding:12px; }
@@ -210,6 +213,30 @@
         <div class="kpi-grid" id="epgDownloadKpis" style="margin-bottom:14px;"></div>
         <div id="epgDownloadMeta" style="font-size:12px; color:var(--text-2); margin-bottom:14px;"></div>
         <div class="kpi-grid" id="epgLookupKpis"></div>
+      </div>
+
+      <div class="admin-card">
+        <h3>AdSense / CMP</h3>
+        <p class="sub" style="margin-bottom:10px;">Configuração do anúncio Freemium e do aviso de consentimento (CMP) — conferível na hora, sem precisar logar no app nem esperar o timer de 1 minuto do modal.</p>
+        <div id="adsConfigBox"></div>
+      </div>
+
+      <div class="admin-card">
+        <h3>ads.txt</h3>
+        <div id="adsTxtBox"></div>
+      </div>
+
+      <div class="admin-card">
+        <h3>CMP (Privacidade e mensagens)</h3>
+        <div id="cmpBox"></div>
+      </div>
+
+      <div class="admin-card">
+        <h3>Testar anúncio ao vivo</h3>
+        <div class="ads-warning">⚠️ Não clique no anúncio que aparecer aqui embaixo — clique próprio é contra as políticas do AdSense e pode até suspender a conta. Use "Testar anúncio agora" só umas poucas vezes pra confirmar que carrega, não fique recarregando repetidamente — cada clique gera uma impressão de anúncio de verdade, tráfego demais numa página de teste pode ser sinalizado como inválido pelo Google.</div>
+        <button type="button" class="btn btn-accent full" id="btnTestAd" style="margin-top:10px;">▶ Testar anúncio agora</button>
+        <div id="adSlotBox" class="ads-slot-box"><span class="sub" style="margin:0;">Clique acima pra pedir um anúncio de verdade</span></div>
+        <div class="integ-row" style="margin-top:6px;"><div class="name">Status</div><span class="meta" id="adStatusVal">—</span></div>
       </div>
     </section>
 
