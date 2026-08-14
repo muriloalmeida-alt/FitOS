@@ -1997,49 +1997,58 @@ function renderFavoritosPage() {
    clube, que substitui o líder do campeonato no destaque do Dashboard.
    Sem seleção, volta a mostrar o líder normalmente.
 
-   AJUSTE: vinculado à CONTA logada (currentUser.favoriteClubs, vindo
-   do backend — ver GET /api/auth/me e POST /api/account/favorite-club),
-   não mais ao navegador — antes usava localStorage e cada navegador/
-   celular tinha sua própria escolha mesmo logando na mesma conta.
-   currentUser.favoriteClubs é um mapa por competição, igual ao antigo
-   esquema de chave "brdata_favorite_club_<competição>". */
-// Migração 1x: usuários que já tinham escolhido um clube favorito
-// ANTES dessa mudança (só existia no navegador) continuam com a mesma
-// escolha, agora vinculada à conta — só lê o localStorage quando o
-// servidor ainda não tem NENHUMA entrada (nem null) salva pra essa
-// competição/conta; depois da 1ª leitura o servidor sempre tem uma
-// entrada explícita (ver setFavoriteClub em server/src/users.js), então
-// isso nunca mais volta a rodar pra essa conta, mesmo se o usuário
-// remover o favorito depois.
+   AJUSTE: vinculado à CONTA logada quando existe conta
+   (currentUser.favoriteClubs, vindo do backend — ver GET /api/auth/me
+   e POST /api/account/favorite-club) — antes usava só localStorage e
+   cada navegador/celular tinha sua própria escolha mesmo logando na
+   mesma conta. currentUser.favoriteClubs é um mapa por competição,
+   igual ao antigo esquema de chave "brdata_favorite_club_<competição>".
+
+   AJUSTE (Fase 4, "Freemium sem login"): visitante sem conta volta a
+   usar só o navegador (localStorage) — não tem onde vincular à conta
+   que não existe. Ao logar/cadastrar depois, esse favorito migra pra
+   conta sozinho (ver migração 1x abaixo) — não perde a escolha feita
+   como visitante. */
 function favoriteClubStorageKey() { return `brdata_favorite_club_${state.competitionId}`; }
+function readLocalFavoriteClub() {
+  try {
+    const v = localStorage.getItem(favoriteClubStorageKey());
+    if (v !== null) return v;
+    if (state.competitionId === "brasileirao") return localStorage.getItem("brdata_favorite_club"); // chave bem antiga, de antes de ter mais de 1 competição
+  } catch {}
+  return null;
+}
 function loadFavoriteClub() {
-  const clubs = (currentUser && currentUser.favoriteClubs) || {};
+  if (!currentUser) {
+    // Visitante: o navegador é a única fonte que existe.
+    state.favoriteClubId = readLocalFavoriteClub() || null;
+    return;
+  }
+  const clubs = currentUser.favoriteClubs || {};
   if (Object.prototype.hasOwnProperty.call(clubs, state.competitionId)) {
     state.favoriteClubId = clubs[state.competitionId] || null;
     return;
   }
-  let legacy = null;
-  try {
-    legacy = localStorage.getItem(favoriteClubStorageKey());
-    if (legacy === null && state.competitionId === "brasileirao") legacy = localStorage.getItem("brdata_favorite_club");
-  } catch {}
+  // Migração 1x: favorito escolhido ANTES de ter conta (como
+  // visitante, ou versão antiga do app, antes dessa mudança) continua
+  // valendo, agora vinculado à conta — só lê o localStorage quando o
+  // servidor ainda não tem NENHUMA entrada (nem null) salva pra essa
+  // competição/conta; depois da 1ª leitura o servidor sempre tem uma
+  // entrada explícita (ver setFavoriteClub em server/src/users.js),
+  // então isso nunca mais volta a rodar pra essa conta, mesmo se o
+  // usuário remover o favorito depois.
+  const legacy = readLocalFavoriteClub();
   state.favoriteClubId = legacy || null;
-  // Migra pro servidor só se tiver conta pra vincular -- visitante
-  // ainda mostra o favorito antigo salvo no navegador (leitura acima
-  // já cobre isso), mas não faz sentido tentar salvar numa conta que
-  // não existe (POST /api/account/favorite-club exige sessão, ver
-  // Fase 1 do backend -- daria 401 à toa).
-  if (legacy && currentUser) saveFavoriteClub(); // já sobe pro servidor -- próxima leitura não passa mais por aqui
+  if (legacy) saveFavoriteClub(); // já sobe pro servidor -- próxima leitura não passa mais por aqui
 }
-// Fire-and-forget (mesmo espírito das gravações no localStorage que
-// substituiu: a UI já atualizou otimisticamente em applyFavoriteClub,
-// isso só persiste em segundo plano). Falha de rede não trava nada —
-// só fica sem persistir entre dispositivos até a próxima tentativa.
+// Fire-and-forget (a UI já atualizou otimisticamente em
+// applyFavoriteClub, isso só persiste em segundo plano). Falha de rede
+// não trava nada — só fica sem persistir entre dispositivos até a
+// próxima tentativa. Só chamado com conta (ver applyFavoriteClub) —
+// visitante usa saveFavoriteClubLocal em vez disso.
 async function saveFavoriteClub() {
-  if (currentUser) {
-    if (!currentUser.favoriteClubs) currentUser.favoriteClubs = {};
-    currentUser.favoriteClubs[state.competitionId] = state.favoriteClubId;
-  }
+  if (!currentUser.favoriteClubs) currentUser.favoriteClubs = {};
+  currentUser.favoriteClubs[state.competitionId] = state.favoriteClubId;
   try {
     const res = await fetch("/api/account/favorite-club", {
       method: "POST",
@@ -2054,9 +2063,18 @@ async function saveFavoriteClub() {
     console.error("[favoriteClub] falha de rede ao salvar:", err.message);
   }
 }
+// Visitante sem conta -- salva só no navegador (ver AJUSTE Fase 4
+// acima). Sem chamada de rede nenhuma, não tem pra onde persistir além
+// disso mesmo.
+function saveFavoriteClubLocal() {
+  try {
+    if (state.favoriteClubId) localStorage.setItem(favoriteClubStorageKey(), state.favoriteClubId);
+    else localStorage.removeItem(favoriteClubStorageKey());
+  } catch {}
+}
 function applyFavoriteClub(newId) {
   state.favoriteClubId = newId || null;
-  saveFavoriteClub();
+  if (currentUser) saveFavoriteClub(); else saveFavoriteClubLocal();
   renderDashboard();
 }
 // Qualquer escolha no <select> — um time OU a opção "Nenhum" (value="")
@@ -2071,13 +2089,9 @@ function onFavoriteClubChange(e) {
 // "Trocar time" já abre o seletor direto (sem passar pelo card do
 // líder de novo) — é exatamente o que quem clicou nesse botão quer.
 function clearFavoriteClub() { state.favoriteClubEditing = true; applyFavoriteClub(null); }
-// Clube favorito é vinculado à CONTA (ver AJUSTE em loadFavoriteClub) —
-// visitante sem conta não tem onde guardar a escolha, então essa ação
-// pede login em vez de abrir o seletor. Fica pra "Fase 4" do plano
-// combinado com o usuário oferecer isso por navegador (localStorage)
-// pra quem ainda não tem conta.
+// Funciona pra visitante também agora (Fase 4, ver AJUSTE acima) — não
+// exige mais login, só a página do time.
 function startFavoriteClubEdit() {
-  if (!currentUser) { requireLogin(); return; }
   state.favoriteClubEditing = true;
   renderFavoriteClubCard(currentStandings());
 }
