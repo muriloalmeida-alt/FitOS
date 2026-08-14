@@ -1667,6 +1667,25 @@ function renderTabela() {
 }
 
 /* ================= PÁGINA: ESTATÍSTICAS ================= */
+// BUG CORRIGIDO (14/08/2026): "Desempenho ofensivo" aqui (radarChart2)
+// aparecia praticamente vazio/quebrado em modo ao vivo — reportado
+// pelo usuário como "com erro". Causa: finalizações/posse/escanteios
+// só existem depois que m.stats é preenchido (ver aviso grande em
+// ensureTeamMatchStats acima), e a página do Time (renderTeamPage) já
+// buscava isso pro time visitado, mas ESSA página (a aba Estatísticas
+// geral) nunca chamava ensureTeamMatchStats pra nenhum time — só
+// funcionava OS eixos que dependem de gols (sempre disponível) e por
+// coincidência mostrava dado de verdade se o usuário já tivesse
+// visitado a página daquele time específico antes. Correção: mesmo
+// padrão fire-and-forget de renderTeamPage — busca os jogos do time
+// selecionado no seletor do radar (aqui e a cada troca no <select>,
+// ver o listener de "change" mais abaixo) e redesenha só o radar
+// quando chegar.
+function ensureRadarStatsAndRerender(teamId) {
+  ensureTeamMatchStats(teamId).then((changed) => {
+    if (changed && document.getElementById("radarTeamSelect2").value === teamId) renderRadarInto("radarChart2", teamId);
+  });
+}
 function renderEstatisticasPage() {
   renderEstatisticasConsolidadas("statTiles2", "leaderAtaque2", "leaderDefesa2", "leaderCartoes2");
   const comparadorLiberado = planAllowsAdvanced();
@@ -1680,7 +1699,9 @@ function renderEstatisticasPage() {
       "Compare o desempenho entre dois times lado a lado — desbloqueie fazendo upgrade do seu plano."
     );
   }
-  renderRadarInto("radarChart2", document.getElementById("radarTeamSelect2").value);
+  const radarTeamId = document.getElementById("radarTeamSelect2").value;
+  renderRadarInto("radarChart2", radarTeamId);
+  ensureRadarStatsAndRerender(radarTeamId);
   if (state.estatisticasSub === "jogadores") renderJogadoresPage();
 }
 
@@ -1688,11 +1709,23 @@ function renderEstatisticasPage() {
 // Modo demo: elenco fictício de data.js, já pronto. Modo ao vivo:
 // busca uma vez só (lazy) os rankings da API-Sports e guarda em
 // memória — reabrir a sub-aba depois não gera novas chamadas.
+//
+// BUG CORRIGIDO (14/08/2026): mesmo bug de cache "vazio = já tentei,
+// não tenta de novo" descrito em loadPlayersLeaders (liveData.js), só
+// que numa camada acima — mesmo já corrigido lá, essa função também
+// gravava `[]` em playersListCache (array vazio é truthy em JS) se a
+// 1ª chamada falhasse, then nunca mais chamava loadPlayersLeaders de
+// novo pro resto da sessão. Era a causa raiz de "Cartões" ficar
+// zerado em Estatísticas (renderEstatisticasConsolidadas depende
+// dessa função pra achar o total de cartão por time, ver mais abaixo)
+// — só corrigir liveData.js não bastava enquanto essa também travasse
+// no vazio. Mesma correção: só cacheia um resultado não-vazio.
 let playersListCache = null;
 async function ensurePlayersLoaded() {
-  if (playersListCache) return playersListCache;
-  playersListCache = LIVE_MODE ? await loadPlayersLeaders(LIVE_SEASON, state.competitionId) : activeDemoPlayers;
-  return playersListCache;
+  if (playersListCache && playersListCache.length) return playersListCache;
+  const result = LIVE_MODE ? await loadPlayersLeaders(LIVE_SEASON, state.competitionId) : activeDemoPlayers;
+  if (result && result.length) playersListCache = result;
+  return result;
 }
 function playerCardsValue(p) { return p.yellow + p.red * 2; }
 // Linha compacta pro card de cada categoria — mesmo visual das
@@ -3009,7 +3042,10 @@ function setupEventListeners() {
   }));
 
   // Estatísticas: seletores
-  document.getElementById("radarTeamSelect2").addEventListener("change", e => renderRadarInto("radarChart2", e.target.value));
+  document.getElementById("radarTeamSelect2").addEventListener("change", e => {
+    renderRadarInto("radarChart2", e.target.value);
+    ensureRadarStatsAndRerender(e.target.value); // ver aviso em renderEstatisticasPage
+  });
   document.getElementById("compareTeamA2").addEventListener("change", () => renderCompareInto("compareBody2", document.getElementById("compareTeamA2").value, document.getElementById("compareTeamB2").value));
   document.getElementById("compareTeamB2").addEventListener("change", () => renderCompareInto("compareBody2", document.getElementById("compareTeamA2").value, document.getElementById("compareTeamB2").value));
 

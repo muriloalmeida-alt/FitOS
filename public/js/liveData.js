@@ -186,13 +186,27 @@ async function loadOddsHistory(fixtureId, range) {
 // só busca quando o usuário abre a sub-aba "Jogadores" em
 // Estatísticas (ver app.js). Cacheado em memória: a lista não muda
 // dentro de uma mesma sessão de navegação.
+//
+// BUG CORRIGIDO (14/08/2026): "Mais cartões" (Estatísticas) e o card
+// "Cartões" da sub-aba Jogadores ficavam zerados/vazios pro resto da
+// sessão inteira mesmo em modo ao vivo, relatado pelo usuário. Causa:
+// `if (playersLeadersCache) return ...` tratava um array VAZIO como
+// "já carreguei, não precisa buscar de novo" (em JS, [] é truthy) —
+// então se a 1ª tentativa falhasse ou voltasse vazia (instabilidade
+// pontual da Sportmonks, timeout, etc.), o resultado vazio ficava
+// gravado em cache PERMANENTEMENTE, e nenhuma tentativa nova acontecia
+// depois, nem trocando de página/aba. Correção: só entra no cache um
+// resultado que realmente veio com jogador — resultado vazio (erro OU
+// resposta genuinamente sem dados) NÃO é gravado, então a próxima
+// tentativa de usar essa função tenta buscar de novo.
 let playersLeadersCache = null;
 async function loadPlayersLeaders(season = LIVE_SEASON, competitionId = "brasileirao") {
-  if (playersLeadersCache) return playersLeadersCache;
+  if (playersLeadersCache && playersLeadersCache.length) return playersLeadersCache;
   try {
     const data = await safeFetchJSON(`/api/players/leaders?season=${season}&competition=${encodeURIComponent(competitionId)}`);
-    playersLeadersCache = data.players || [];
-    return playersLeadersCache;
+    const players = data.players || [];
+    if (players.length) playersLeadersCache = players;
+    return players;
   } catch (err) {
     console.warn("[liveData] Não foi possível carregar estatísticas de jogadores:", err.message);
     return [];
