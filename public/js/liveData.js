@@ -160,6 +160,16 @@ async function loadFixtureDetails(fixtureId, homeId, awayId) {
   return promise;
 }
 
+// Versão mais leve de loadFixtureDetails: só a estatística (sem
+// eventos/escalação) — usada no preenchimento em massa de m.stats pra
+// VÁRIOS jogos de uma vez (ver ensureLeagueCardStats em app.js), onde
+// só interessa cartão/posse/finalizações/escanteios, não vale a pena
+// pagar as 2 chamadas extra (eventos + escalação) por jogo.
+async function loadFixtureStatisticsOnly(fixtureId, homeId, awayId) {
+  const res = await safeFetchJSON(`/api/fixtures/${fixtureId}/statistics?home=${homeId}&away=${awayId}`);
+  return res.stats;
+}
+
 // Busca odds (1X2) de UM jogo específico ainda não realizado — lazy,
 // só quando o card daquela partida é renderizado na tela.
 const fixtureOddsCache = new Map();

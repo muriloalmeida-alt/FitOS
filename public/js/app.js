@@ -1162,35 +1162,29 @@ function compareRow(label, a, b, unit = "") {
     <div class="compare-label">${label}</div>
   </div>`;
 }
-// cardTotals (opcional): totais de cartão por time vindos de
-// getPlayersLeaders (ver renderEstatisticasConsolidadas) — mais
-// confiável em modo ao vivo que agg.amarelos/vermelhos, que só existe
-// quando m.stats já foi buscado (visita à página do time ou jogo
-// expandido em Jogos). Sem isso, "Cartões/jogo" no comparativo também
-// ficava sempre zerado — mesmo bug relatado pelo usuário, mesma
-// correção da Estatísticas.
-function renderCompareInto(containerId, teamAId, teamBId, cardTotals) {
+// BUG CORRIGIDO (14/08/2026): "Cartões/jogo" aqui usava o mesmo
+// fallback enganoso já removido de renderEstatisticasConsolidadas (ver
+// aviso grande lá) — completava com getPlayersLeaders (top-25 mais
+// amarelados da LIGA, não a lista completa) quando agg.amarelos/
+// vermelhos ainda não tinha m.stats de nenhum dos 2 times. Removido:
+// "Cartões/jogo" agora só usa agg (estatística real por partida) —
+// pode aparecer 0 até m.stats chegar (ensureLeagueCardStats/
+// ensureTeamMatchStats completam isso em segundo plano, ver quem
+// chama renderCompareInto), mas nunca mais um número ERRADO.
+function renderCompareInto(containerId, teamAId, teamBId) {
   const el = document.getElementById(containerId);
   if (!teamAId || !teamBId) { el.innerHTML = `<div class="empty">Selecione dois times.</div>`; return; }
   const agg = aggregateTeamStats(allDecidedMatches());
   const A = agg[teamAId], B = agg[teamBId];
   if (!A || !B) { el.innerHTML = `<div class="empty">Sem dados suficientes.</div>`; return; }
   const jA = A.j || 1, jB = B.j || 1;
-  const cartoesA = cardTotals && cardTotals[teamAId] != null ? cardTotals[teamAId] : (A.amarelos + A.vermelhos);
-  const cartoesB = cardTotals && cardTotals[teamBId] != null ? cardTotals[teamBId] : (B.amarelos + B.vermelhos);
   el.innerHTML =
     compareRow("Gols marcados/jogo", A.gp / jA, B.gp / jB) +
     compareRow("Gols sofridos/jogo", A.gc / jA, B.gc / jB) +
     compareRow("Posse de bola", A.j ? A.posseSum / jA : 0, B.j ? B.posseSum / jB : 0, "%") +
     compareRow("Finalizações/jogo", A.finalizacoes / jA, B.finalizacoes / jB) +
     compareRow("Escanteios/jogo", A.escanteios / jA, B.escanteios / jB) +
-    compareRow("Cartões/jogo", cartoesA / jA, cartoesB / jB);
-  if (LIVE_MODE && !cardTotals) {
-    ensurePlayersLoaded().then((players) => {
-      const totals = teamCardTotalsFromPlayers(players);
-      if (Object.keys(totals).length) renderCompareInto(containerId, teamAId, teamBId, totals);
-    }).catch(() => { /* mantém o valor via agg -- melhor que nada */ });
-  }
+    compareRow("Cartões/jogo", (A.amarelos + A.vermelhos) / jA, (B.amarelos + B.vermelhos) / jB);
 }
 
 /* ---------- Odds — próximo jogo + afiliados ---------- */
@@ -1578,6 +1572,12 @@ function renderJogos() {
   document.getElementById("roundSubLabel").textContent = isRoundDecided(state.jogosRound) ? "encerrada" : (state.jogosRound === firstUndecidedRound() ? "em andamento" : "a definir");
   document.getElementById("matchesList").innerHTML = getRoundMatches(state.jogosRound).map(fullMatchCardHTML).join("");
   renderEstatisticasConsolidadas("statTiles", "leaderAtaque", "leaderDefesa");
+  // ver aviso grande em ensureLeagueCardStats (mais abaixo) -- completa
+  // o total de cartões em segundo plano, redesenha só o tile quando
+  // chegar mais dado.
+  ensureLeagueCardStats().then((changed) => {
+    if (changed && state.page === "jogos") renderEstatisticasConsolidadas("statTiles", "leaderAtaque", "leaderDefesa");
+  });
 }
 
 function aggregateTeamStats(matches) {
@@ -1598,30 +1598,30 @@ function aggregateTeamStats(matches) {
   return agg;
 }
 const leaderRow = (id, value) => { const t = TEAM_MAP[id]; return `<tr><td>${teamLinkHTML(t, 22)}</td><td class="num" style="font-weight:700;">${value}</td></tr>`; };
-// BUG CORRIGIDO: "Cartões" (tile + "Mais cartões") ficava zerado ou
-// bem incompleto em modo ao vivo, relatado pelo usuário como "não tem
-// informações sobre cartões" — diferente de gols (que vem de graça no
-// resultado de qualquer jogo decidido), cartão só existe dentro de
-// m.stats, que só é buscado SOB DEMANDA (ver aggregateTeamStats) —
-// quando o usuário expande aquele jogo específico em Jogos, ou visita
-// a página daquele time (ensureTeamMatchStats). Em quem ainda não fez
-// nenhuma das duas coisas, m.stats fica undefined pra TODOS os jogos e
-// o total sai 0, mesmo com a temporada cheia de cartões de verdade.
-// Correção: em modo ao vivo, além do valor instantâneo (via agg, que
-// serve de fallback rápido), busca em paralelo getPlayersLeaders (a
-// mesma fonte já usada em Estatísticas > Jogadores — 1 chamada só pra
-// liga inteira, sem depender de visita nenhuma) e substitui o total/
-// ranking assim que chegar. "yellow" ali já vem como o total
-// combinado de cartões por jogador (a Sportmonks não separa amarelo
-// de vermelho nesse endpoint — ver getPlayersLeaders no backend).
-function teamCardTotalsFromPlayers(players) {
-  const totals = {};
-  players.forEach((p) => {
-    if (p.teamId == null || !Number.isFinite(p.yellow)) return;
-    totals[p.teamId] = (totals[p.teamId] || 0) + p.yellow;
-  });
-  return totals;
-}
+// BUG CORRIGIDO (14/08/2026): "Cartões" (tile) e "Mais cartões" davam
+// número ERRADO/enganoso em modo ao vivo, relatado pelo usuário como
+// "um clube com 47 cartões aparece em 2º com só 7" — não é mais o bug
+// antigo de ficar zerado (ver git blame desse comentário pra aquele),
+// é um bug diferente introduzido pela CORREÇÃO daquele: a fonte usada
+// pra completar o total (getPlayersLeaders, o mesmo ranking da sub-aba
+// Jogadores > Cartões) só traz os 25 jogadores MAIS AMARELADOS DA LIGA
+// INTEIRA — não é a lista completa de jogadores (documentado no
+// backend, ver AJUSTE 4 em sportmonks.js: "só os 25 primeiros de cada
+// categoria vêm nessa resposta"). Somar "yellow" só desses 25 por time
+// é uma conta enganosa: um time com cartões espalhados entre muitos
+// jogadores (nenhum deles amarelado o bastante pra entrar no top-25
+// individual) aparece com total baixíssimo, mesmo tendo mais cartões
+// de verdade no total do que outro time cujo 1 jogador concentrou
+// tudo e entrou no ranking. Ótimo pra "quem são os jogadores mais
+// amarelados" (uso correto, continua em playersCards/renderJogadoresPage
+// mais abaixo) — péssimo pra total de TIME. Correção: total de time
+// SÓ vem de m.stats (estatística REAL por partida, já corrigida e
+// confirmada certa no AJUSTE 6 de sportmonks.js) — sem fallback nenhum
+// pra fonte enganosa. Pra não voltar a ficar incompleto igual antes
+// (m.stats só existia pra quem já tinha visitado aquele jogo/time
+// específico), ver ensureLeagueCardStats logo abaixo: completa m.stats
+// de VÁRIOS jogos da liga em segundo plano quando a aba Estatísticas
+// (ou Jogos) abre, não só do time que o usuário visitar.
 function renderEstatisticasConsolidadas(tilesId, ataqueId, defesaId, cartoesId) {
   const matches = allDecidedMatches();
   const agg = aggregateTeamStats(matches);
@@ -1639,24 +1639,39 @@ function renderEstatisticasConsolidadas(tilesId, ataqueId, defesaId, cartoesId) 
   document.getElementById(ataqueId).innerHTML = byAtaque.length ? byAtaque.map(([id, v]) => leaderRow(id, `${v.gp} gols`)).join("") : `<tr><td class="empty">Sem dados.</td></tr>`;
   document.getElementById(defesaId).innerHTML = byDefesa.length ? byDefesa.map(([id, v]) => leaderRow(id, `${v.gc} sofridos`)).join("") : `<tr><td class="empty">Sem dados.</td></tr>`;
   if (cartoesId) {
-    const byCartoes = Object.entries(agg).filter(([,v]) => v.j > 0).sort((a, b) => (b[1].amarelos + b[1].vermelhos * 2) - (a[1].amarelos + a[1].vermelhos * 2)).slice(0, 5);
-    document.getElementById(cartoesId).innerHTML = byCartoes.length ? byCartoes.map(([id, v]) => leaderRow(id, `${v.amarelos + v.vermelhos} cartões`)).join("") : `<tr><td class="empty">Sem dados.</td></tr>`;
+    const withCardStats = Object.entries(agg).filter(([,v]) => v.j > 0 && (v.amarelos > 0 || v.vermelhos > 0));
+    const byCartoes = withCardStats.sort((a, b) => (b[1].amarelos + b[1].vermelhos * 2) - (a[1].amarelos + a[1].vermelhos * 2)).slice(0, 5);
+    document.getElementById(cartoesId).innerHTML = byCartoes.length
+      ? byCartoes.map(([id, v]) => leaderRow(id, `${v.amarelos + v.vermelhos} cartões`)).join("")
+      : `<tr><td class="empty">${LIVE_MODE ? "Carregando estatística dos jogos..." : "Sem dados."}</td></tr>`;
   }
-  if (LIVE_MODE) {
-    ensurePlayersLoaded().then((players) => {
-      const totals = teamCardTotalsFromPlayers(players);
-      if (!Object.keys(totals).length) return; // fonte também não achou nada -- mantém o que já tinha (agg) em vez de zerar
-      const valEl = document.getElementById(`${tilesId}CartoesVal`);
-      if (valEl) valEl.textContent = Object.values(totals).reduce((s, v) => s + v, 0);
-      if (cartoesId) {
-        const el = document.getElementById(cartoesId);
-        if (el) {
-          const byCartoesReal = Object.entries(totals).filter(([id]) => TEAM_MAP[id]).sort((a, b) => b[1] - a[1]).slice(0, 5);
-          el.innerHTML = byCartoesReal.map(([id, total]) => leaderRow(id, `${total} cartões`)).join("");
-        }
-      }
-    }).catch(() => { /* mantém o valor via agg -- melhor que nada */ });
+}
+// Completa m.stats (estatística real por partida — posse/finalizações/
+// escanteios/cartões) em segundo plano pra VÁRIOS jogos decididos da
+// liga de uma vez, não só o time que o usuário visitar (esse já era o
+// comportamento de ensureTeamMatchStats, mais acima). Limitado a
+// LEAGUE_STATS_FILL_CAP jogos por chamada (o resto completa em
+// visitas seguintes — o servidor já cacheia cada jogo por 7 dias, ver
+// TTL.fixtureDetail em server.js, então esse custo só acontece 1x por
+// jogo pra toda a base de usuários, não 1x por visita) e no máximo
+// LEAGUE_STATS_FILL_CONCURRENCY chamadas em paralelo por vez (não
+// estoura limite de taxa da Sportmonks de uma vez só).
+const LEAGUE_STATS_FILL_CAP = 40;
+const LEAGUE_STATS_FILL_CONCURRENCY = 6;
+async function ensureLeagueCardStats() {
+  if (!LIVE_MODE) return false;
+  const pending = allDecidedMatches().filter(m => !m.stats && m.fixtureId).slice(0, LEAGUE_STATS_FILL_CAP);
+  if (!pending.length) return false;
+  let idx = 0;
+  async function worker() {
+    while (idx < pending.length) {
+      const m = pending[idx++];
+      try { m.stats = await loadFixtureStatisticsOnly(m.fixtureId, m.home, m.away); }
+      catch { /* esse jogo específico fica sem estatística — não trava o resto */ }
+    }
   }
+  await Promise.all(Array.from({ length: LEAGUE_STATS_FILL_CONCURRENCY }, worker));
+  return true;
 }
 
 /* ================= PÁGINA: TABELA ================= */
@@ -1703,6 +1718,15 @@ function renderEstatisticasPage() {
   renderRadarInto("radarChart2", radarTeamId);
   ensureRadarStatsAndRerender(radarTeamId);
   if (state.estatisticasSub === "jogadores") renderJogadoresPage();
+  // ver aviso grande em ensureLeagueCardStats (mais abaixo) -- completa
+  // o total/ranking de cartões (e "Cartões/jogo" do comparativo) em
+  // segundo plano, redesenha só o que depende disso quando chegar mais
+  // dado (não trava o resto da página esperando).
+  ensureLeagueCardStats().then((changed) => {
+    if (!changed || state.page !== "estatisticas") return;
+    renderEstatisticasConsolidadas("statTiles2", "leaderAtaque2", "leaderDefesa2", "leaderCartoes2");
+    if (comparadorLiberado) renderCompareInto("compareBody2", document.getElementById("compareTeamA2").value, document.getElementById("compareTeamB2").value);
+  });
 }
 
 /* ---------- Jogadores (sub-aba de Estatísticas) ---------- */
