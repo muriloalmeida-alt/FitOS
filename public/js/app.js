@@ -1013,19 +1013,35 @@ function compareRow(label, a, b, unit = "") {
     <div class="compare-label">${label}</div>
   </div>`;
 }
-function renderCompareInto(containerId, teamAId, teamBId) {
+// cardTotals (opcional): totais de cartão por time vindos de
+// getPlayersLeaders (ver renderEstatisticasConsolidadas) — mais
+// confiável em modo ao vivo que agg.amarelos/vermelhos, que só existe
+// quando m.stats já foi buscado (visita à página do time ou jogo
+// expandido em Jogos). Sem isso, "Cartões/jogo" no comparativo também
+// ficava sempre zerado — mesmo bug relatado pelo usuário, mesma
+// correção da Estatísticas.
+function renderCompareInto(containerId, teamAId, teamBId, cardTotals) {
   const el = document.getElementById(containerId);
   if (!teamAId || !teamBId) { el.innerHTML = `<div class="empty">Selecione dois times.</div>`; return; }
   const agg = aggregateTeamStats(allDecidedMatches());
   const A = agg[teamAId], B = agg[teamBId];
   if (!A || !B) { el.innerHTML = `<div class="empty">Sem dados suficientes.</div>`; return; }
   const jA = A.j || 1, jB = B.j || 1;
+  const cartoesA = cardTotals && cardTotals[teamAId] != null ? cardTotals[teamAId] : (A.amarelos + A.vermelhos);
+  const cartoesB = cardTotals && cardTotals[teamBId] != null ? cardTotals[teamBId] : (B.amarelos + B.vermelhos);
   el.innerHTML =
     compareRow("Gols marcados/jogo", A.gp / jA, B.gp / jB) +
     compareRow("Gols sofridos/jogo", A.gc / jA, B.gc / jB) +
     compareRow("Posse de bola", A.j ? A.posseSum / jA : 0, B.j ? B.posseSum / jB : 0, "%") +
     compareRow("Finalizações/jogo", A.finalizacoes / jA, B.finalizacoes / jB) +
-    compareRow("Escanteios/jogo", A.escanteios / jA, B.escanteios / jB);
+    compareRow("Escanteios/jogo", A.escanteios / jA, B.escanteios / jB) +
+    compareRow("Cartões/jogo", cartoesA / jA, cartoesB / jB);
+  if (LIVE_MODE && !cardTotals) {
+    ensurePlayersLoaded().then((players) => {
+      const totals = teamCardTotalsFromPlayers(players);
+      if (Object.keys(totals).length) renderCompareInto(containerId, teamAId, teamBId, totals);
+    }).catch(() => { /* mantém o valor via agg -- melhor que nada */ });
+  }
 }
 
 /* ---------- Odds — próximo jogo + afiliados ---------- */
@@ -1406,6 +1422,31 @@ function aggregateTeamStats(matches) {
   });
   return agg;
 }
+const leaderRow = (id, value) => { const t = TEAM_MAP[id]; return `<tr><td>${teamLinkHTML(t, 22)}</td><td class="num" style="font-weight:700;">${value}</td></tr>`; };
+// BUG CORRIGIDO: "Cartões" (tile + "Mais cartões") ficava zerado ou
+// bem incompleto em modo ao vivo, relatado pelo usuário como "não tem
+// informações sobre cartões" — diferente de gols (que vem de graça no
+// resultado de qualquer jogo decidido), cartão só existe dentro de
+// m.stats, que só é buscado SOB DEMANDA (ver aggregateTeamStats) —
+// quando o usuário expande aquele jogo específico em Jogos, ou visita
+// a página daquele time (ensureTeamMatchStats). Em quem ainda não fez
+// nenhuma das duas coisas, m.stats fica undefined pra TODOS os jogos e
+// o total sai 0, mesmo com a temporada cheia de cartões de verdade.
+// Correção: em modo ao vivo, além do valor instantâneo (via agg, que
+// serve de fallback rápido), busca em paralelo getPlayersLeaders (a
+// mesma fonte já usada em Estatísticas > Jogadores — 1 chamada só pra
+// liga inteira, sem depender de visita nenhuma) e substitui o total/
+// ranking assim que chegar. "yellow" ali já vem como o total
+// combinado de cartões por jogador (a Sportmonks não separa amarelo
+// de vermelho nesse endpoint — ver getPlayersLeaders no backend).
+function teamCardTotalsFromPlayers(players) {
+  const totals = {};
+  players.forEach((p) => {
+    if (p.teamId == null || !Number.isFinite(p.yellow)) return;
+    totals[p.teamId] = (totals[p.teamId] || 0) + p.yellow;
+  });
+  return totals;
+}
 function renderEstatisticasConsolidadas(tilesId, ataqueId, defesaId, cartoesId) {
   const matches = allDecidedMatches();
   const agg = aggregateTeamStats(matches);
@@ -1417,8 +1458,7 @@ function renderEstatisticasConsolidadas(tilesId, ataqueId, defesaId, cartoesId) 
     <div class="card kpi"><div class="ico blue">⚽</div><div><div class="lbl">Jogos</div><div class="val">${matches.length}</div></div></div>
     <div class="card kpi"><div class="ico green">🥅</div><div><div class="lbl">Gols marcados</div><div class="val">${totalGols}</div></div></div>
     <div class="card kpi"><div class="ico yellow">📊</div><div><div class="lbl">Média de gols</div><div class="val">${mediaGols}</div></div></div>
-    <div class="card kpi"><div class="ico navy">🟨</div><div><div class="lbl">Cartões</div><div class="val">${totalCartoes}</div></div></div>`;
-  const leaderRow = (id, value) => { const t = TEAM_MAP[id]; return `<tr><td>${teamLinkHTML(t, 22)}</td><td class="num" style="font-weight:700;">${value}</td></tr>`; };
+    <div class="card kpi"><div class="ico navy">🟨</div><div><div class="lbl">Cartões</div><div class="val" id="${tilesId}CartoesVal">${totalCartoes}</div></div></div>`;
   const byAtaque = Object.entries(agg).filter(([,v]) => v.j > 0).sort((a, b) => b[1].gp - a[1].gp).slice(0, 5);
   const byDefesa = Object.entries(agg).filter(([,v]) => v.j > 0).sort((a, b) => a[1].gc - b[1].gc).slice(0, 5);
   document.getElementById(ataqueId).innerHTML = byAtaque.length ? byAtaque.map(([id, v]) => leaderRow(id, `${v.gp} gols`)).join("") : `<tr><td class="empty">Sem dados.</td></tr>`;
@@ -1426,6 +1466,21 @@ function renderEstatisticasConsolidadas(tilesId, ataqueId, defesaId, cartoesId) 
   if (cartoesId) {
     const byCartoes = Object.entries(agg).filter(([,v]) => v.j > 0).sort((a, b) => (b[1].amarelos + b[1].vermelhos * 2) - (a[1].amarelos + a[1].vermelhos * 2)).slice(0, 5);
     document.getElementById(cartoesId).innerHTML = byCartoes.length ? byCartoes.map(([id, v]) => leaderRow(id, `${v.amarelos + v.vermelhos} cartões`)).join("") : `<tr><td class="empty">Sem dados.</td></tr>`;
+  }
+  if (LIVE_MODE) {
+    ensurePlayersLoaded().then((players) => {
+      const totals = teamCardTotalsFromPlayers(players);
+      if (!Object.keys(totals).length) return; // fonte também não achou nada -- mantém o que já tinha (agg) em vez de zerar
+      const valEl = document.getElementById(`${tilesId}CartoesVal`);
+      if (valEl) valEl.textContent = Object.values(totals).reduce((s, v) => s + v, 0);
+      if (cartoesId) {
+        const el = document.getElementById(cartoesId);
+        if (el) {
+          const byCartoesReal = Object.entries(totals).filter(([id]) => TEAM_MAP[id]).sort((a, b) => b[1] - a[1]).slice(0, 5);
+          el.innerHTML = byCartoesReal.map(([id, total]) => leaderRow(id, `${total} cartões`)).join("");
+        }
+      }
+    }).catch(() => { /* mantém o valor via agg -- melhor que nada */ });
   }
 }
 
@@ -2319,8 +2374,18 @@ async function resolveTeamRoster(teamId) {
   return loadTeamRoster(teamId, LIVE_SEASON, state.competitionId);
 }
 // Lista (não mais grade de cards): nome + posição + partidas
-// jogadas/gols/assistências, uma linha por jogador — mesmo padrão visual
-// das outras tabelas do app (.table-std).
+// jogadas/gols/assistências/cartões, uma linha por jogador — mesmo
+// padrão visual das outras tabelas do app (.table-std).
+// BUG CORRIGIDO: relatado pelo usuário como "não tem informações
+// sobre cartões" — o dado (p.yellow/p.red) já vinha certinho desde a
+// correção do include aninhado statistics.details (ver AJUSTE em
+// getPlayerSeasonStats, sportmonks.js), só nunca tinha coluna nenhuma
+// pra mostrar isso aqui — cabeçalho da tabela só tinha PJ/Gols/Assist.
+function playerCardsCellHTML(p) {
+  const yellow = p.yellow ?? 0, red = p.red ?? 0;
+  if (!yellow && !red) return "—";
+  return red > 0 ? `${yellow} <span style="color:var(--brd-red); font-weight:700;">+${red}V</span>` : `${yellow}`;
+}
 function playerRosterRowHTML(p) {
   const avatar = p.photo ? `<img src="${escAttr(p.photo)}" alt="">` : initialsOf(p.name);
   return `
@@ -2329,6 +2394,7 @@ function playerRosterRowHTML(p) {
     <td class="num">${p.games ?? "—"}</td>
     <td class="num">${p.goals ?? 0}</td>
     <td class="num">${p.assists ?? 0}</td>
+    <td class="num">${playerCardsCellHTML(p)}</td>
   </tr>`;
 }
 const ROSTER_POSITION_ORDER = { Goalkeeper: 0, Defender: 1, Midfielder: 2, Attacker: 3 };
@@ -2337,7 +2403,7 @@ let currentRosterSorted = []; // elenco (já ordenado) do time aberto no momento
 async function renderTeamRoster(teamId) {
   const box = document.getElementById("teamPageRoster");
   if (!box) return;
-  box.innerHTML = `<tr><td colspan="4" class="empty">Carregando elenco...</td></tr>`;
+  box.innerHTML = `<tr><td colspan="5" class="empty">Carregando elenco...</td></tr>`;
   state.rosterExpanded = false;
   const roster = await resolveTeamRoster(teamId);
   if (state.selectedTeamId !== teamId) return; // usuário já trocou de time enquanto carregava
@@ -2358,7 +2424,7 @@ function renderRosterRows() {
   const visible = showAll ? sorted : sorted.slice(0, ROSTER_PREVIEW_COUNT);
   box.innerHTML = visible.length
     ? visible.map(playerRosterRowHTML).join("")
-    : `<tr><td colspan="4" class="empty">Elenco não disponível.</td></tr>`;
+    : `<tr><td colspan="5" class="empty">Elenco não disponível.</td></tr>`;
   if (hint) hint.textContent = `${sorted.length} jogador${sorted.length === 1 ? "" : "es"} · ${LIVE_MODE ? "dados ao vivo" : "dados de exemplo"}`;
   if (toggleBox) {
     toggleBox.innerHTML = sorted.length > ROSTER_PREVIEW_COUNT
