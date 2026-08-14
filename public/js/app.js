@@ -1212,13 +1212,37 @@ function dashOddsFixture() {
   }
   return nextFixtureWithId();
 }
+// Logo do parceiro (public/img/partners/<id>.png, ver README nessa
+// pasta) no lugar do nome em texto dentro do chip — se o arquivo ainda
+// não existir (operadora sem logo cadastrado ainda), volta pro nome em
+// texto sozinho, nunca fica com o ícone de imagem quebrada do
+// navegador. Mesmo espírito do fallback de brasão de time
+// (crestFallbackHandler) — imagem e nome como elementos irmãos, o
+// onerror só troca qual dos dois fica visível.
+function affiliateLogoFallbackHandler(img) {
+  img.style.display = "none";
+  if (img.nextElementSibling) img.nextElementSibling.style.display = "inline";
+}
+function affiliateChipHTML(op) {
+  const isConfigured = !!op.url && op.url !== "#";
+  // rel="sponsored" é a recomendação do Google pra link patrocinado/
+  // monetizado (afiliado de verdade) — só faz sentido quando
+  // op.affiliate for true; hoje (ainda sem comissão nenhuma nesses
+  // links, ver aviso no topo de affiliates.js) seria impreciso marcar
+  // como patrocinado.
+  const rel = op.affiliate ? "sponsored noopener" : "noopener";
+  return `
+    <a class="affiliate-chip${isConfigured ? "" : " disabled"}" style="background:${op.color}" href="${op.url}" target="_blank" rel="${rel}"
+       ${isConfigured ? "" : 'onclick="return false;" title="Configure em js/affiliates.js"'}>
+      <img class="affiliate-chip-logo" src="img/partners/${op.id}.png" alt="${escAttr(op.name)}" onerror="affiliateLogoFallbackHandler(this)">
+      <span class="affiliate-chip-name" style="display:none;">${op.name}</span>
+    </a>`;
+}
 // Tira de afiliados + aviso legal — compartilhada entre o card de odds
 // do Dashboard (1 jogo) e o board de odds por rodada em Jogos (vários
 // jogos). Nunca duplicar essa lista/aviso em mais de um lugar.
 function affiliateComplianceHTML(extraNote = "") {
-  const affiliateStrip = AFFILIATE_OPERATORS.map(op => `
-    <a class="affiliate-chip ${op.url === "#" ? "disabled" : ""}" style="background:${op.color}" href="${op.url}" target="_blank" rel="sponsored noopener"
-       ${op.url === "#" ? 'onclick="return false;" title="Configure em js/affiliates.js"' : ""}>${op.name}</a>`).join("");
+  const affiliateStrip = AFFILIATE_OPERATORS.map(affiliateChipHTML).join("");
   return `
     <div class="affiliate-strip">${affiliateStrip}</div>
     <div class="compliance-line">🔞 Publicidade${extraNote}. Proibido para menores de 18 anos. Jogue com responsabilidade — aposta não é investimento.

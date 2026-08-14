@@ -536,9 +536,12 @@ h1,h2,h3{ margin:0; }
 .odds-pill3 b{ font-size:15px; font-weight:800; color:var(--brd-blue); }
 .affiliate-strip{ display:flex; gap:8px; overflow-x:auto; margin-top:4px; }
 .affiliate-chip{
-  flex:none; padding:7px 13px; border-radius:100px; font-size:11px; font-weight:700; color:#fff;
+  flex:none; display:flex; align-items:center; justify-content:center; min-height:18px;
+  padding:7px 16px; border-radius:100px; font-size:11px; font-weight:700; color:#fff;
   opacity:.95; box-shadow:0 4px 10px -4px rgba(0,0,0,.35);
 }
+.affiliate-chip-logo{ display:block; height:18px; max-width:70px; width:auto; object-fit:contain; }
+.affiliate-chip-name{ white-space:nowrap; }
 .affiliate-chip.disabled{ opacity:.35; cursor:not-allowed; }
 .compliance-line{ font-size:9.5px; color:var(--text-2); margin-top:10px; line-height:1.5; text-align:center; }
 .compliance-line a{ color:var(--brd-blue); font-weight:600; }
