@@ -75,13 +75,32 @@
    preenchido — vem de um include separado (fixtures?include=formations).
    Ver LINEUP_TYPE/LINEUP_POSITION acima.
 
-   IMPORTANTE — o que ainda não foi testado contra uma resposta real:
-   ESTATÍSTICA DE PARTIDA (getFixtureStatistics): não tenho os type_id
-   numéricos exatos da Sportmonks pra "posse de bola"/"escanteios"
-   confirmados (ao contrário de tabela, eventos, artilharia e
-   escalação, que já estão confirmados) — a extração tenta múltiplas
-   formas de ler o tipo (campo "type" direto, ou nome, com fallback)
-   mas pode precisar de ajuste. Se vier tudo zerado, esse é o lugar.
+   AJUSTE 6 (14/08/2026): getFixtureStatistics (card "Desempenho" —
+   radar ofensivo — na página do Time) vinha com posse/finalizações/
+   escanteios/cartões sempre zerados, relatado pelo usuário como
+   "Desempenho ofensivo não está ok". Era exatamente o ponto já
+   sinalizado como não confirmado no AJUSTE anterior: a extração tinha
+   2 problemas ao mesmo tempo — (1) tentava casar o TIPO de cada
+   estatística pelo NOME (campo "type"), mas com include:"statistics"
+   (sem o nested "statistics.type", que a gente nunca pediu) a API só
+   devolve type_id numérico, nenhum nome — então nunca batia com
+   nenhuma keyword; e (2) o valor de cada estatística não vem solto em
+   "value", vem aninhado em "data.value" (formato confirmado via
+   pesquisa pública: {id, fixture_id, type_id, participant_id, data:
+   {value}, location}) — mesmo se o nome tivesse batido, o valor lido
+   seria sempre undefined. Corrigido usando type_id numérico direto
+   (mesmo padrão de STANDING_TYPE/EVENT_TYPE/PLAYER_STAT_TYPE acima —
+   ver FIXTURE_STAT_TYPE) + lendo data.value. POSSESSION (45),
+   SHOTS_TOTAL (42) e CORNERS (34) confirmados via pesquisa pública;
+   YELLOWCARDS (84) e REDCARDS (83) reaproveitam os mesmos ids já
+   confirmados contra uma resposta REAL no contexto de jogador (ver
+   PLAYER_STAT_TYPE/AJUSTE 4) — tipos são globais na Sportmonks, o id
+   de "cartão amarelo" é o mesmo não importa se é estatística de time,
+   de jogador ou evento de partida. Ainda não testado contra uma
+   resposta real de getFixtureStatistics especificamente (docs.
+   sportmonks.com bloqueado nesse sandbox) — se posse/finalizações/
+   escanteios ainda vierem errados (não necessariamente zerados dessa
+   vez, já que a estrutura agora bate), esse é o lugar de novo.
 
    Cobertura: qualquer liga/temporada que o SEU plano na Sportmonks
    incluir (ver server/src/competitions.js). */
@@ -485,37 +504,45 @@ async function getPlayer({ playerId }) {
   };
 }
 
-// Ver aviso (1) no topo do arquivo — sem type_id confirmado pra
-// estatística de partida ainda, tenta ler o nome do tipo de qualquer
-// jeito que a Sportmonks devolver (campo "type" direto como string,
-// ou objeto {name}) e casa por palavra-chave.
-const STAT_TYPE_KEYWORDS = {
-  posse: ["possession"],
-  finalizacoes: ["shots total", "total shots"],
-  escanteios: ["corners"],
-  amarelos: ["yellowcards", "yellow cards"],
-  vermelhos: ["redcards", "red cards"],
-  passesCertos: ["passes %", "accurate passes"],
+// Ver AJUSTE 6 no topo do arquivo — type_id numérico direto (não
+// precisa do include aninhado "statistics.type" só pra saber o nome
+// de um tipo que a gente já sabe o id), valor lido de "data.value"
+// (não "value" solto). YELLOWCARDS/REDCARDS reaproveitam os mesmos
+// ids de PLAYER_STAT_TYPE (tipos são globais na Sportmonks).
+const FIXTURE_STAT_TYPE = {
+  POSSESSION: 45, SHOTS_TOTAL: 42, CORNERS: 34,
+  YELLOWCARDS: PLAYER_STAT_TYPE.YELLOWCARDS, REDCARDS: PLAYER_STAT_TYPE.REDCARDS,
 };
-function statTypeName(s) {
-  if (typeof s.type === "string") return s.type.toLowerCase();
-  return (s.type?.name || "").toLowerCase();
-}
 
 async function getFixtureStatistics({ fixtureId, homeId, awayId }) {
   const fx = await sportmonksGet(`/fixtures/${fixtureId}`, { include: "statistics" });
   const stats = fx?.statistics || [];
-  const statsFor = (teamId, keywords) => {
+  const statFor = (teamId, typeId) => {
     const found = stats.find((s) =>
-      (s.participant_id === teamId || s.location === (teamId === homeId ? "home" : "away"))
-      && keywords.some((k) => statTypeName(s).includes(k))
+      s.type_id === typeId && (s.participant_id === teamId || s.location === (teamId === homeId ? "home" : "away"))
     );
-    return found?.value != null ? Number(found.value) : 0;
+    return found?.data?.value != null ? Number(found.data.value) : 0;
   };
-  const out = {};
-  Object.entries(STAT_TYPE_KEYWORDS).forEach(([key, keywords]) => {
-    out[key] = [statsFor(homeId, keywords), statsFor(awayId, keywords)];
-  });
+  const out = {
+    posse: [statFor(homeId, FIXTURE_STAT_TYPE.POSSESSION), statFor(awayId, FIXTURE_STAT_TYPE.POSSESSION)],
+    finalizacoes: [statFor(homeId, FIXTURE_STAT_TYPE.SHOTS_TOTAL), statFor(awayId, FIXTURE_STAT_TYPE.SHOTS_TOTAL)],
+    escanteios: [statFor(homeId, FIXTURE_STAT_TYPE.CORNERS), statFor(awayId, FIXTURE_STAT_TYPE.CORNERS)],
+    amarelos: [statFor(homeId, FIXTURE_STAT_TYPE.YELLOWCARDS), statFor(awayId, FIXTURE_STAT_TYPE.YELLOWCARDS)],
+    vermelhos: [statFor(homeId, FIXTURE_STAT_TYPE.REDCARDS), statFor(awayId, FIXTURE_STAT_TYPE.REDCARDS)],
+  };
+  // Diagnóstico (só loga quando dá zero em tudo E a Sportmonks devolveu
+  // pelo menos 1 estatística pra esse jogo — ou seja, o problema não é
+  // "esse jogo não tem estatística", é "nenhum type_id conhecido bateu")
+  // — mesmo espírito do log de getPlayerSeasonStats (AJUSTE 4): se o
+  // FIXTURE_STAT_TYPE ainda estiver errado, o próximo relato do usuário
+  // já vem com a forma real da resposta, sem precisar adivinhar de novo.
+  const allZero = Object.values(out).every(([h, a]) => h === 0 && a === 0);
+  if (allZero && stats.length) {
+    const typeIdsFound = [...new Set(stats.map((s) => s.type_id))];
+    console.error(`[sportmonks] estatística do jogo ${fixtureId} não bateu com nenhum FIXTURE_STAT_TYPE conhecido. ` +
+      `statistics.length=${stats.length}, type_id encontrados=${JSON.stringify(typeIdsFound)}, ` +
+      `raw (1º item)=${JSON.stringify(stats[0])}`);
+  }
   return out;
 }
 
