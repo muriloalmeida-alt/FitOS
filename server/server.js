@@ -47,6 +47,7 @@ const { fetchBroadcastFromEPG, getStats: getEpgStats } = require("./src/epgSourc
 // verdade até sportmonksGet/sportmonksGetAll serem chamados, então
 // não faz chamada nenhuma nem exige token só por ser importado aqui.
 const sportmonksClient = require("./src/sportmonksClient");
+const analytics = require("./src/analytics");
 const { fetchNews } = require("./src/newsSource");
 const mercadoPago = require("./src/mercadoPago");
 const supportPlans = require("./src/supportPlans");
@@ -413,6 +414,28 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
         res.end(data);
       });
+    }
+
+    // Beacon de analytics de produto (funil de login + páginas mais
+    // navegadas — pedido do usuário, ver server/src/analytics.js e
+    // GET /api/adminpanel/analytics mais abaixo) — colocado CEDO de
+    // propósito, ANTES do gate de login obrigatório: precisa funcionar
+    // pra visitante SEM sessão nenhuma (é literalmente o evento "viu a
+    // tela de login" que dispara daqui). userId vem da sessão (se
+    // tiver uma válida), nunca do que o corpo da requisição manda —
+    // mesma regra de sempre nesse arquivo. Sempre responde 200 rápido,
+    // mesmo em evento inválido (recordEvent ignora silenciosamente) —
+    // o cliente dispara isso best-effort (fetch com keepalive, sem
+    // esperar nem tratar a resposta), não faz sentido devolver erro
+    // pra um beacon que ninguém do outro lado vai ler.
+    if (pathname === "/api/track" && req.method === "POST") {
+      try {
+        const body = await readBody(req);
+        const cookies = parseCookies(req);
+        const session = sessions.getSession(cookies[SESSION_COOKIE]);
+        analytics.recordEvent({ type: body.type, page: body.page, userId: session?.userId || null });
+      } catch { /* nunca deixa isso quebrar a experiência de quem só tá navegando */ }
+      return sendJSON(res, 200, { ok: true });
     }
 
     // ================= Login obrigatório =================
@@ -1008,6 +1031,18 @@ const server = http.createServer(async (req, res) => {
         activeProvider: dataProvider.ACTIVE_PROVIDER_NAME,
         sportmonks: sportmonksClient.getStats(),
         epg: getEpgStats(),
+      });
+    }
+
+    // Comportamento do cliente — funil de login (% que passa da tela
+    // de login/cadastro pra dentro do app de verdade) + páginas mais
+    // navegadas nos últimos 30 dias — pedido pelo usuário. Ver
+    // server/src/analytics.js pra como os eventos são gravados
+    // (POST /api/track, disparado pelo front-end).
+    if (pathname === "/api/adminpanel/analytics") {
+      return sendJSON(res, 200, {
+        funnel: analytics.funnel(),
+        pageViews: analytics.pageViews(30 * 24 * 60 * 60 * 1000),
       });
     }
 

@@ -438,11 +438,31 @@ async function boot() {
   await startAuthFlow();
 }
 
+// Beacon de analytics interno (funil de login + páginas mais
+// navegadas — ver /admin > Comportamento e server/src/analytics.js).
+// Fire-and-forget de propósito: nunca atrasa nem trava a navegação, e
+// uma falha de rede aqui nunca deveria aparecer pro usuário (por isso
+// o catch vazio, diferente de praticamente toda outra chamada desse
+// app). Sem keepalive: essa SPA nunca navega de página de verdade entre
+// eventos rastreados (troca de página é só estado interno), então o
+// benefício do keepalive (sobreviver a um unload) não se aplica aqui —
+// e mantê-lo estava confundindo a detecção de "network idle" de
+// ferramentas automatizadas (pego durante os testes desta feature).
+function trackEvent(type, page) {
+  try {
+    fetch("/api/track", {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type, page }),
+    }).catch(() => {});
+  } catch {}
+}
+
 async function startAuthFlow() {
   appBooted = true;
   const authState = await checkAuth();
 
   if (!authState.authenticated) {
+    trackEvent("gate_shown"); // denominador do funil "% que passa do login" — ver submitGateLogin
     await renderAuthGate();
     setGateVisible(true);
     return;
@@ -2315,6 +2335,7 @@ async function submitGateLogin(e) {
       renderGatePending(data.user);
     } else {
       await startApp(data.user);
+      trackEvent("login_success"); // numerador do funil "% que passa do login" -- ver gate_shown em startAuthFlow
     }
   } catch (err) {
     gateShowMsg("gateLoginError", err.message || "Não foi possível entrar agora.");
@@ -2783,6 +2804,7 @@ function populateAllSelects() {
 const PAGES = ["dashboard", "jogos", "tabela", "estatisticas", "simulador", "favoritos", "noticias", "apoie", "time", "jogador", "mais"];
 function setActivePage(name, opts = {}) {
   state.page = name;
+  trackEvent("page_view", name); // "páginas mais navegadas" em /admin > Comportamento -- toda troca de página passa por aqui, inclusive a 1ª (dashboard) depois do login/boot
   PAGES.forEach(p => document.getElementById(`page-${p}`)?.classList.toggle("active", p === name));
   document.querySelectorAll(".top-tab").forEach(t => t.classList.toggle("active", t.dataset.page === name));
   document.querySelectorAll(".side-link[data-page]").forEach(t => t.classList.toggle("active", t.dataset.page === name && !t.dataset.jsub));

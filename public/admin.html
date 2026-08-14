@@ -53,6 +53,12 @@
   .pill.neutral{ background:rgba(139,146,160,.16); color:var(--text-1); }
   .funnel-row{ display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:1px solid var(--border); font-size:13px; }
   .funnel-row:last-child{ border-bottom:none; }
+  .pageview-row{ margin-bottom:12px; }
+  .pageview-row:last-child{ margin-bottom:0; }
+  .pageview-row .pageview-head{ display:flex; justify-content:space-between; font-size:13px; margin-bottom:4px; }
+  .pageview-row .pageview-head b{ color:var(--text-0); }
+  .pageview-track{ height:8px; border-radius:100px; background:var(--bg-app); overflow:hidden; }
+  .pageview-fill{ height:100%; background:var(--brd-blue); border-radius:100px; }
   .admin-table{ width:100%; border-collapse:collapse; font-size:12.5px; }
   .admin-table th{ text-align:left; padding:8px 10px; font-size:10.5px; text-transform:uppercase; letter-spacing:.3px; color:var(--text-2); border-bottom:1px solid var(--border); }
   .admin-table td{ padding:9px 10px; border-bottom:1px solid var(--border); color:var(--text-1); vertical-align:middle; }
@@ -113,6 +119,7 @@
     <button class="nav-item" data-section="users">👥 Usuários</button>
     <button class="nav-item" data-section="revenue">💰 Receita</button>
     <button class="nav-item" data-section="integrations">🔌 Integrações</button>
+    <button class="nav-item" data-section="behavior">🧭 Comportamento</button>
     <button class="nav-item" data-section="content">📝 Conteúdo</button>
     <div class="admin-nav-spacer"></div>
     <div class="admin-nav-user" id="adminNavUser"></div>
@@ -203,6 +210,28 @@
         <div class="kpi-grid" id="epgDownloadKpis" style="margin-bottom:14px;"></div>
         <div id="epgDownloadMeta" style="font-size:12px; color:var(--text-2); margin-bottom:14px;"></div>
         <div class="kpi-grid" id="epgLookupKpis"></div>
+      </div>
+    </section>
+
+    <section class="admin-section" id="admin-behavior">
+      <h1>Comportamento</h1>
+      <p class="sub">Funil de login e páginas mais navegadas — eventos disparados pelo próprio app (POST /api/track), zero de configuração adicional.</p>
+
+      <div class="admin-card">
+        <h3>Funil de login</h3>
+        <p class="sub" style="margin-bottom:10px;">De quem viu a tela de login/cadastro (sem sessão válida), quantos conseguiram entrar de verdade no app.</p>
+        <div class="table-scroll-x">
+          <table class="admin-table">
+            <thead><tr><th>Período</th><th>Viu o login</th><th>Entrou</th><th>Conversão</th></tr></thead>
+            <tbody id="funnelTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="admin-card">
+        <h3>Páginas mais navegadas</h3>
+        <p class="sub" style="margin-bottom:10px;">Últimos 30 dias, por número de visitas (cada troca de página conta 1, incluindo o Dashboard logo após o login).</p>
+        <div id="pageViewsBox"></div>
       </div>
     </section>
 
