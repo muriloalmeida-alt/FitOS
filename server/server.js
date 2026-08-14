@@ -56,6 +56,7 @@ const sessions = require("./src/sessions");
 const competitions = require("./src/competitions");
 const paymentsLedger = require("./src/paymentsLedger");
 const contentStore = require("./src/contentStore");
+const publicRateLimit = require("./src/publicRateLimit");
 
 const PORT = process.env.PORT || 8787;
 const LEAGUE_ID = process.env.LEAGUE_ID || "71"; // 71 = Brasileirão Série A na API-Sports (confirme no /api/leagues/search)
@@ -222,6 +223,21 @@ function setSessionCookie(res, token, secure) {
   const parts = [`${SESSION_COOKIE}=${encodeURIComponent(token)}`, "Path=/", "HttpOnly", "SameSite=Lax", `Max-Age=${Math.floor(sessions.SESSION_TTL_MS / 1000)}`];
   if (secure) parts.push("Secure");
   res.setHeader("Set-Cookie", parts.join("; "));
+}
+
+// IP de verdade do visitante — atrás de proxy/CDN (Railway inclusive)
+// o socket sempre mostra o IP do proxy, não do cliente; X-Forwarded-For
+// é quem carrega o IP real (primeiro da lista, se houver mais de um
+// proxy no meio). Usado só pro rate-limit das rotas públicas (ver
+// PUBLIC_READ_EXACT/PUBLIC_READ_PATTERNS mais abaixo) — não é uma
+// verificação de segurança forte (X-Forwarded-For pode ser forjado por
+// quem fala direto com o processo Node, sem passar pelo proxy), só
+// precisa ser bom o bastante pra distinguir visitantes normais de um
+// scraper insistindo no mesmo IP.
+function getClientIp(req) {
+  const xff = req.headers["x-forwarded-for"];
+  if (xff) return String(xff).split(",")[0].trim();
+  return req.socket.remoteAddress || "unknown";
 }
 
 function clearSessionCookie(res, secure) {
@@ -475,15 +491,45 @@ const server = http.createServer(async (req, res) => {
       return sendJSON(res, 200, { ok: true });
     }
 
+    // ================= Leitura pública (Freemium sem login) =================
+    // AJUSTE (14/08/2026): decisão de produto de abrir o conteúdo do
+    // plano Freemium pra qualquer visitante, sem exigir conta — pensando
+    // em divulgação/crescimento (link compartilhado, crawler de busca,
+    // preview de rede social não passam por login). Cobre só LEITURA de
+    // dado esportivo básico (o que já é Freemium hoje); toda ESCRITA
+    // (favoritar, checkout) e toda feature paga continuam exigindo
+    // sessão — ver bloco "Login obrigatório" logo abaixo, que usa isso.
+    // "/api/leagues/search" fica de FORA de propósito (não é rota usada
+    // pelo front-end, é utilidade manual de configuração — ver
+    // server/.env.example — não faz sentido pra visitante nenhum).
+    const PUBLIC_READ_EXACT = new Set([
+      "/api/competitions", "/api/teams", "/api/standings", "/api/fixtures",
+      "/api/players/leaders", "/api/broadcast", "/api/news",
+    ]);
+    const PUBLIC_READ_PATTERNS = [
+      /^\/api\/teams\/\d+\/players$/,
+      /^\/api\/players\/\d+$/,
+      /^\/api\/fixtures\/\d+\/statistics$/,
+      /^\/api\/fixtures\/\d+\/events$/,
+      /^\/api\/fixtures\/\d+\/lineups$/,
+      /^\/api\/fixtures\/\d+\/odds$/,
+      /^\/api\/fixtures\/\d+\/odds\/history$/,
+    ];
+    function isPublicReadPath(p) {
+      return PUBLIC_READ_EXACT.has(p) || PUBLIC_READ_PATTERNS.some((re) => re.test(p));
+    }
+
     // ================= Login obrigatório =================
     // Toda rota /api/* a partir daqui exige sessão válida (cookie),
     // EXCETO as que precisam funcionar antes/sem estar logado: as
     // próprias rotas de auth, a lista de planos (mostrada na tela de
-    // cadastro), e o webhook/status do Mercado Pago (chamados pelo
+    // cadastro), o webhook/status do Mercado Pago (chamados pelo
     // próprio Mercado Pago, ou consultados durante o retorno do
-    // checkout — ainda sem sessão). /api/support/checkout FICA de fora
-    // dessa lista de propósito: exige login (é usado tanto durante o
-    // cadastro com plano pago quanto pra trocar de plano depois).
+    // checkout — ainda sem sessão), e agora também as rotas de leitura
+    // pública (PUBLIC_READ_EXACT/PATTERNS acima). /api/support/checkout
+    // FICA de fora dessa lista de propósito: exige login (é usado tanto
+    // durante o cadastro com plano pago quanto pra trocar de plano
+    // depois).
     const AUTH_EXEMPT_PATHS = new Set([
       "/api/auth/signup", "/api/auth/login", "/api/auth/logout", "/api/auth/me",
       "/api/support/plans", "/api/support/webhook", "/api/support/status",
@@ -494,12 +540,25 @@ const server = http.createServer(async (req, res) => {
       const cookies = parseCookies(req);
       const session = sessions.getSession(cookies[SESSION_COOKIE]);
       const authUser = session ? users.findById(session.userId) : null;
-      if (!authUser) return sendJSON(res, 401, { error: "Login necessário.", code: "AUTH_REQUIRED" });
-      req.authUser = authUser;
-      // /api/support/checkout é a única rota autenticada que não exige
-      // plano ativo — é exatamente o endpoint que ativa/retenta o
-      // pagamento de quem ainda está com planStatus pendente.
-      if (pathname !== "/api/support/checkout" && authUser.planStatus !== "active") {
+      req.authUser = authUser; // fica null em rota pública sem sessão — ver isPublicReadPath acima
+
+      if (isPublicReadPath(pathname)) {
+        // Funciona com ou sem sessão (inclusive sessão de plano
+        // pendente — não faz sentido bloquear leitura básica de quem
+        // já tem conta mas ainda não pagou, se um visitante completo
+        // sem conta nenhuma já lê de graça). Sem sessão nenhuma,
+        // rate-limit por IP no lugar da identificação por conta que a
+        // sessão dava de graça (ver server/src/publicRateLimit.js).
+        if (!authUser && !publicRateLimit.checkLimit(getClientIp(req))) {
+          return sendJSON(res, 429, { error: "Muitas requisições — tente de novo em instantes." });
+        }
+      } else if (!authUser) {
+        return sendJSON(res, 401, { error: "Login necessário.", code: "AUTH_REQUIRED" });
+      } else if (pathname !== "/api/support/checkout" && authUser.planStatus !== "active") {
+        // /api/support/checkout é a única rota autenticada que não
+        // exige plano ativo — é exatamente o endpoint que ativa/
+        // retenta o pagamento de quem ainda está com planStatus
+        // pendente.
         return sendJSON(res, 402, {
           error: "Pagamento pendente — finalize o pagamento pra liberar o acesso.",
           code: "PAYMENT_REQUIRED", plan: authUser.plan, planStatus: authUser.planStatus,
@@ -545,9 +604,12 @@ const server = http.createServer(async (req, res) => {
     // "em breve") e temporadas de histórico (Enterprise, "em breve"),
     // já anotados com o que o plano do usuário logado libera — ver
     // server/src/competitions.js. Front-end usa isso pra montar o
-    // seletor de campeonato.
+    // seletor de campeonato. Rota pública agora (ver PUBLIC_READ_EXACT
+    // acima) — req.authUser fica null pra visitante sem sessão, trata
+    // como "freemium" (mesmo padrão do resto do app: sem conta = vê o
+    // que o Freemium vê, ver planAllowsAdvanced em app.js).
     if (pathname === "/api/competitions") {
-      return sendJSON(res, 200, competitions.listForPlan(req.authUser.plan));
+      return sendJSON(res, 200, competitions.listForPlan(req.authUser?.plan || "freemium"));
     }
 
     if (pathname === "/api/leagues/search") {
