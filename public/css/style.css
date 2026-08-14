@@ -931,7 +931,16 @@ h1,h2,h3{ margin:0; }
   padding:40px 16px 60px; background:linear-gradient(160deg, var(--brd-navy), #030d1e);
   overflow-y:auto;
 }
-.auth-gate-inner{ width:100%; max-width:920px; }
+.auth-gate-inner{ width:100%; max-width:920px; position:relative; }
+/* Fecha o gate sob demanda (ver comentário no HTML) — some quando é
+   #gatePendingView (mostrado via showGateView em app.js), esse não é
+   dispensável. */
+.auth-gate-close{
+  position:absolute; top:0; right:0; background:none; border:none; color:rgba(255,255,255,.55);
+  font-size:26px; line-height:1; cursor:pointer; padding:4px 8px; font-family:inherit;
+}
+.auth-gate-close:hover{ color:#fff; }
+@media (max-width:640px){ .auth-gate-close{ top:-8px; right:-4px; } }
 /* Instalado como app (PWA): centraliza verticalmente. Usa margin:auto
    em vez de justify-content:center de propósito — com
    justify-content:center, conteúdo mais alto que a tela (a view de

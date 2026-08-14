@@ -448,13 +448,25 @@ function trackEvent(type, page) {
   } catch {}
 }
 
+// AJUSTE (14/08/2026): "Freemium sem login" — decisão de produto de
+// abrir o app pra qualquer visitante, sem exigir conta (pensando em
+// divulgação/crescimento — ver Fase 1, backend, já em produção).
+// Antes, visitante sem sessão SEMPRE via o gate de login aqui, sem
+// exceção. Agora só em 2 casos: (a) voltando de um checkout de
+// verdade do Mercado Pago (precisa ver o resultado do pagamento na
+// hora, mesmo sem sessão — ver hasApoieReturnParams/
+// captureApoieReturnParams) e (b) conta já existe mas o plano ainda
+// não foi confirmado (gatePendingView, continua obrigatório — é
+// problema de uma conta de verdade). Fora isso, visitante cai direto
+// em startApp(null) — app funciona igual ao de um Freemium logado,
+// exceto pelas ações que exigem conta de verdade (ver requireLogin,
+// chamado sob demanda nelas).
 async function startAuthFlow() {
   const authState = await checkAuth();
 
   if (!authState.authenticated) {
-    trackEvent("gate_shown"); // denominador do funil "% que passa do login" — ver submitGateLogin
-    await renderAuthGate();
-    setGateVisible(true);
+    if (hasApoieReturnParams()) { await requireLogin(); return; }
+    await startApp(null);
     return;
   }
   if (authState.user.planStatus !== "active") {
@@ -468,8 +480,33 @@ async function startAuthFlow() {
   await startApp(authState.user);
 }
 
-// Chamado (a) no boot normal, já logado, e (b) logo depois de um login
-// bem-sucedido dentro do gate — sem precisar recarregar a página.
+// Abre o gate de login/cadastro SOB DEMANDA — chamado por qualquer
+// ação que exige conta de verdade (favoritar time, avatar/"Entrar" do
+// visitante, tentar assinar um plano). Sempre dispensável (ver "×" em
+// #authGateClose) — diferente de renderGatePending, que é pra uma
+// conta que JÁ existe com pagamento pendente (aí sim obrigatório).
+async function requireLogin() {
+  trackEvent("gate_shown"); // denominador do funil "% que passa do login" — ver submitGateLogin
+  await renderAuthGate();
+  setGateVisible(true);
+}
+
+// Mesma coisa, mas já abre direto na tela de cadastro com um plano
+// pré-selecionado — usado quando o visitante clica num plano
+// específico na página "Apoie o BR Data" (ver renderApoiePage).
+async function requireLoginWithPlan(planId) {
+  gateSelectedPlan = planId;
+  trackEvent("gate_shown");
+  const plans = await loadSupportPlans();
+  await renderAuthGate(); // já pinta o grid com gateSelectedPlan certo
+  gateSelectPlan(planId, plans); // libera o botão de enviar com esse plano
+  showGateView("signup");
+  setGateVisible(true);
+}
+
+// Chamado (a) no boot normal (logado OU visitante), (b) logo depois de
+// um login bem-sucedido dentro do gate — sem precisar recarregar a
+// página. user=null é o caso visitante (ver AJUSTE acima).
 async function startApp(user) {
   currentUser = user;
   setGateVisible(false);
@@ -484,7 +521,10 @@ async function startApp(user) {
   renderMyTeamsSidebar();
   setActivePage("dashboard");
 
-  if (user.plan === "freemium") { loadAdsenseConfig(); startAdTimer(); } else { stopAdTimer(); }
+  // Anúncio Freemium continua só pra quem tem conta de verdade nesse
+  // plano por enquanto — visitante entra na próxima fase (ver plano
+  // combinado com o usuário, "Fase 3").
+  if (user && user.plan === "freemium") { loadAdsenseConfig(); startAdTimer(); } else { stopAdTimer(); }
   loadCompetitionsInfo().then(applyCompetitionsSidebar);
 }
 
@@ -1984,7 +2024,12 @@ function loadFavoriteClub() {
     if (legacy === null && state.competitionId === "brasileirao") legacy = localStorage.getItem("brdata_favorite_club");
   } catch {}
   state.favoriteClubId = legacy || null;
-  if (legacy) saveFavoriteClub(); // já sobe pro servidor -- próxima leitura não passa mais por aqui
+  // Migra pro servidor só se tiver conta pra vincular -- visitante
+  // ainda mostra o favorito antigo salvo no navegador (leitura acima
+  // já cobre isso), mas não faz sentido tentar salvar numa conta que
+  // não existe (POST /api/account/favorite-club exige sessão, ver
+  // Fase 1 do backend -- daria 401 à toa).
+  if (legacy && currentUser) saveFavoriteClub(); // já sobe pro servidor -- próxima leitura não passa mais por aqui
 }
 // Fire-and-forget (mesmo espírito das gravações no localStorage que
 // substituiu: a UI já atualizou otimisticamente em applyFavoriteClub,
@@ -2026,7 +2071,16 @@ function onFavoriteClubChange(e) {
 // "Trocar time" já abre o seletor direto (sem passar pelo card do
 // líder de novo) — é exatamente o que quem clicou nesse botão quer.
 function clearFavoriteClub() { state.favoriteClubEditing = true; applyFavoriteClub(null); }
-function startFavoriteClubEdit() { state.favoriteClubEditing = true; renderFavoriteClubCard(currentStandings()); }
+// Clube favorito é vinculado à CONTA (ver AJUSTE em loadFavoriteClub) —
+// visitante sem conta não tem onde guardar a escolha, então essa ação
+// pede login em vez de abrir o seletor. Fica pra "Fase 4" do plano
+// combinado com o usuário oferecer isso por navegador (localStorage)
+// pra quem ainda não tem conta.
+function startFavoriteClubEdit() {
+  if (!currentUser) { requireLogin(); return; }
+  state.favoriteClubEditing = true;
+  renderFavoriteClubCard(currentStandings());
+}
 function cancelFavoriteClubEdit() { state.favoriteClubEditing = false; renderFavoriteClubCard(currentStandings()); }
 
 // Camada escura semi-transparente sobre o degradê nas cores do time
@@ -2262,6 +2316,10 @@ function showGateView(view) {
   document.getElementById("gateSignupView").style.display = view === "signup" ? "block" : "none";
   document.getElementById("gateLoginView").style.display = view === "login" ? "block" : "none";
   document.getElementById("gatePendingView").style.display = view === "pending" ? "block" : "none";
+  // "×" só nas views de login/cadastro (sob demanda, dispensável) —
+  // some em "pending" (conta já existe, pagamento pendente, ver
+  // comentário no HTML/renderGatePending).
+  document.getElementById("authGateClose").style.display = view === "pending" ? "none" : "flex";
 }
 
 function gateShowMsg(elId, msg, cls = "error") {
@@ -2422,8 +2480,23 @@ async function logout() {
   location.reload();
 }
 
+// user=null é o visitante (ver AJUSTE "Freemium sem login" em
+// startAuthFlow) — avatar vira um convite pra entrar/cadastrar em vez
+// de nome/plano de conta nenhuma. Clique no avatar/"Entrar" e no botão
+// "Sair"↔"Entrar" da página Mais reagem a isso (ver setupEventListeners).
 function renderAvatar(user) {
-  if (!user) return;
+  const logoutBtn = document.getElementById("btnLogoutMobile");
+  if (!user) {
+    document.getElementById("avatarInitial").textContent = "👤";
+    document.getElementById("avatarName").textContent = "Entrar";
+    document.getElementById("avatarEmail").textContent = "";
+    document.getElementById("avatarPlan").textContent = "";
+    document.getElementById("maisAvatarInitial").textContent = "👤";
+    document.getElementById("maisAvatarName").textContent = "Visitante";
+    document.getElementById("maisAvatarPlan").textContent = "Entre ou cadastre-se pra favoritar times e mais";
+    if (logoutBtn) logoutBtn.textContent = "Entrar";
+    return;
+  }
   const planNames = { freemium: "Freemium", lite: "Lite", pro: "Pro", enterprise: "Enterprise" };
   const initial = (user.name || "?").trim()[0]?.toUpperCase() || "?";
   const firstName = (user.name || "").split(" ")[0] || "Conta";
@@ -2435,17 +2508,33 @@ function renderAvatar(user) {
   document.getElementById("maisAvatarInitial").textContent = initial;
   document.getElementById("maisAvatarName").textContent = user.name || "";
   document.getElementById("maisAvatarPlan").textContent = planLabel;
+  if (logoutBtn) logoutBtn.textContent = "Sair";
 }
 
-/* ---- Página "Apoie o BR Data" já logado (upgrade de plano) ---- */
+/* ---- Página "Apoie o BR Data" ---- */
+// Visitante (sem conta) vê os mesmos 4 planos com preço/recursos —
+// clicar em qualquer um abre o gate já na tela de cadastro com aquele
+// plano pré-selecionado (ver requireLoginWithPlan), em vez de chamar
+// upgradeToPlan (que exige sessão pra saber DE QUAL plano pra QUAL
+// plano é o upgrade).
 async function renderApoiePage() {
-  if (!currentUser) return;
   const grid = document.getElementById("plansGrid");
   grid.innerHTML = `<div class="empty">Carregando planos...</div>`;
   const plans = await loadSupportPlans();
   grid.innerHTML = plans.length
-    ? plans.map(p => planCardHTML(p, null, currentUser.plan)).join("")
+    ? plans.map(p => planCardHTML(p, null, currentUser?.plan)).join("")
     : `<div class="empty">Não foi possível carregar os planos agora. Recarregue a página.</div>`;
+
+  if (!currentUser) {
+    document.getElementById("apoieStatusBanner").innerHTML = "";
+    document.getElementById("apoieCurrentPlanCard").style.display = "none"; // "seu plano atual" não existe sem conta
+    grid.querySelectorAll(".plan-card").forEach(card => {
+      card.addEventListener("click", () => requireLoginWithPlan(card.dataset.plan));
+    });
+    return;
+  }
+
+  document.getElementById("apoieCurrentPlanCard").style.display = "";
   grid.querySelectorAll(".plan-card").forEach(card => {
     if (card.classList.contains("current")) return;
     card.addEventListener("click", () => upgradeToPlan(card.dataset.plan, plans));
@@ -2483,6 +2572,16 @@ async function upgradeToPlan(planId, plans) {
 }
 
 /* ---- Retorno do checkout do Mercado Pago (compartilhado gate + upgrade) ---- */
+
+// Só espia a URL (não consome/limpa — quem faz isso de verdade é
+// captureApoieReturnParams, chamado de dentro de renderAuthGate).
+// Usado em startAuthFlow pra decidir se um visitante sem sessão deve
+// ver o gate na hora (voltando de pagamento de verdade) em vez do modo
+// visitante normal.
+function hasApoieReturnParams() {
+  const params = new URLSearchParams(location.search);
+  return !!(params.get("collection_status") || params.get("status") || params.get("external_reference"));
+}
 
 // Lido 1x, a partir da URL de retorno do Mercado Pago (?status=...&
 // external_reference=... — anexados por eles no back_url configurado).
@@ -2973,14 +3072,20 @@ function setupEventListeners() {
   document.getElementById("gateGoSignup").addEventListener("click", (e) => { e.preventDefault(); showGateView("signup"); });
   document.getElementById("gatePendingLogoutBtn").addEventListener("click", logout);
 
-  // ---- Avatar (topbar desktop) e "Sair" (mobile, página Mais) ----
+  // ---- Avatar (topbar desktop) e "Sair"/"Entrar" (mobile, página Mais) ----
+  // Visitante (currentUser null): clique abre o gate direto, sem o
+  // menu suspenso (não tem "Sair"/e-mail/plano nenhum pra mostrar ali
+  // — ver renderAvatar).
   document.getElementById("avatarBtn").addEventListener("click", (e) => {
     e.stopPropagation();
+    if (!currentUser) { requireLogin(); return; }
     document.getElementById("avatarMenu").classList.toggle("open");
   });
   document.addEventListener("click", () => document.getElementById("avatarMenu")?.classList.remove("open"));
-  document.getElementById("btnLogout").addEventListener("click", logout);
-  document.getElementById("btnLogoutMobile").addEventListener("click", logout);
+  const onLogoutOrLogin = () => { currentUser ? logout() : requireLogin(); };
+  document.getElementById("btnLogout").addEventListener("click", onLogoutOrLogin);
+  document.getElementById("btnLogoutMobile").addEventListener("click", onLogoutOrLogin);
+  document.getElementById("authGateClose").addEventListener("click", () => setGateVisible(false));
   document.getElementById("btnForceRefresh").addEventListener("click", forceRefreshApp);
   // Faixa de instalação (desktop) — "Ver como instalar" só expande/
   // recolhe o QR code (não dispensa a faixa); "×" dispensa de vez.

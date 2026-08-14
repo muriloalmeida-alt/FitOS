@@ -102,12 +102,18 @@
 </div>
 
 <!-- ================= GATE DE LOGIN/CADASTRO =================
-     Cobre a tela inteira pra visitante sem sessão válida — controlado
-     por JS (gate.js/app.js: renderAuthGate). Cadastro é obrigatório:
-     enquanto #authGate estiver visível, .shell fica escondido (ver
-     setGateVisible em app.js) e nenhum dado da API é carregado. -->
+     AJUSTE (14/08/2026): desde a mudança "Freemium sem login", visitante
+     sem sessão usa o app normal (ver startAuthFlow/startApp em app.js)
+     — isso aqui só aparece SOB DEMANDA, quando uma ação específica
+     exige conta (favoritar time, assinar um plano, etc. — ver
+     requireLogin/requireLoginWithPlan). Por isso o "×" (authGateClose):
+     visitante pode fechar e continuar navegando à vontade. Exceção:
+     #gatePendingView (conta já existe, plano ainda não confirmado) —
+     esse continua obrigatório (ver showGateView escondendo o "×" só
+     nesse caso), é problema de uma conta de verdade, não um convite. -->
 <div id="authGate" class="auth-gate">
   <div class="auth-gate-inner">
+    <button type="button" class="auth-gate-close" id="authGateClose" aria-label="Fechar" style="display:none;">×</button>
     <div class="auth-gate-brand">
       <img src="img/logo.png" alt="BR Data" class="auth-gate-logo">
     </div>
