@@ -61,14 +61,27 @@
    agregando por jogador e só preenchendo o campo certo (goals/
    assists/yellow/rating) conforme o type_id de cada item.
 
+   AJUSTE 5 (14/08/2026): getFixtureLineups (card "Escalação titular"
+   na página do Time) tinha 3 problemas ao mesmo tempo, relatados pelo
+   usuário como "está incorreto" + pedido de mostrar as posições reais
+   no campinho: (1) titular vs banco usava formation_position
+   preenchido como sinal — errado, o certo é type_id (11=titular,
+   12=banco, confirmado via documentação pública); (2) "pos" de cada
+   jogador (usada pra agrupar as linhas do campinho — goleiro/zaga/
+   meio/ataque) nunca era lida, sempre null — o certo é position_id
+   (24/25/26/27); (3) sem ordem nenhuma dentro de cada linha — agora
+   usa formation_field ("linha:posição", ex.: "4:1") pra ordenar da
+   esquerda pra direita. "formation" (ex.: "4-3-3") também nunca era
+   preenchido — vem de um include separado (fixtures?include=formations).
+   Ver LINEUP_TYPE/LINEUP_POSITION acima.
+
    IMPORTANTE — o que ainda não foi testado contra uma resposta real:
-   ESTATÍSTICA DE PARTIDA (getFixtureStatistics) e ESCALAÇÃO
-   (getFixtureLineups): não tenho os type_id numéricos exatos da
-   Sportmonks pra "posse de bola"/"escanteios"/"titular vs banco"
-   confirmados (ao contrário dos de tabela, eventos e artilharia, que
-   já estão confirmados) — a extração tenta múltiplas formas de ler o
-   tipo (campo "type" direto, ou nome, com fallback) mas pode precisar
-   de ajuste. Se vier tudo zerado, esse é o lugar.
+   ESTATÍSTICA DE PARTIDA (getFixtureStatistics): não tenho os type_id
+   numéricos exatos da Sportmonks pra "posse de bola"/"escanteios"
+   confirmados (ao contrário de tabela, eventos, artilharia e
+   escalação, que já estão confirmados) — a extração tenta múltiplas
+   formas de ler o tipo (campo "type" direto, ou nome, com fallback)
+   mas pode precisar de ajuste. Se vier tudo zerado, esse é o lugar.
 
    Cobertura: qualquer liga/temporada que o SEU plano na Sportmonks
    incluir (ver server/src/competitions.js). */
@@ -520,18 +533,67 @@ async function getFixtureEvents({ fixtureId }) {
   return { goals, substitutions };
 }
 
+// BUG CORRIGIDO (14/08/2026): titular vs banco era um chute
+// (formation_position preenchido = titular) — confirmado via
+// documentação pública que o certo é type_id (11 = titular, 12 =
+// banco). "pos" (posição do jogador — goleiro/zagueiro/meia/atacante,
+// usada pra agrupar as linhas do campinho em formationPitchHTML no
+// front-end) SEMPRE vinha null — também nunca lido de verdade; o
+// campo certo é position_id (24=goleiro, 25=zagueiro, 26=meia,
+// 27=atacante). formation_field (formato "linha:posição", ex.: "4:1")
+// dá a ordem de esquerda pra direita dentro de cada linha — sem isso,
+// os jogadores apareciam em qualquer ordem dentro da posição.
+// "formation" (ex.: "4-3-3") vem de um include separado
+// (fixtures?include=formations, por participant_id) — também nunca
+// preenchido antes.
+const LINEUP_TYPE = { STARTING: 11, BENCH: 12 };
+const LINEUP_POSITION = { GOALKEEPER: 24, DEFENDER: 25, MIDFIELDER: 26, ATTACKER: 27 };
+function mapLineupPosition(positionId) {
+  switch (positionId) {
+    case LINEUP_POSITION.GOALKEEPER: return "G";
+    case LINEUP_POSITION.DEFENDER: return "D";
+    case LINEUP_POSITION.MIDFIELDER: return "M";
+    case LINEUP_POSITION.ATTACKER: return "F";
+    default: return null;
+  }
+}
+// "4:1" -> 1 (posição dentro da linha, usada só pra ordenar da
+// esquerda pra direita) — null se não vier no formato esperado.
+function formationFieldOrder(raw) {
+  if (!raw) return null;
+  const n = Number(String(raw).split(":").pop());
+  return Number.isFinite(n) ? n : null;
+}
 async function getFixtureLineups({ fixtureId }) {
-  const fx = await sportmonksGet(`/fixtures/${fixtureId}`, { include: "lineups" });
+  const fx = await sportmonksGet(`/fixtures/${fixtureId}`, { include: "lineups;formations" });
+  const formationByTeam = new Map();
+  (fx?.formations || []).forEach((f) => {
+    if (f.participant_id != null) formationByTeam.set(f.participant_id, f.formation || null);
+  });
+
   const out = {};
   (fx?.lineups || []).forEach((entry) => {
     const teamId = entry.team_id;
     if (!teamId) return;
-    if (!out[teamId]) out[teamId] = { formation: null, coach: null, startXI: [], substitutes: [] };
-    const player = { id: entry.player_id ?? null, name: entry.player_name || "Desconhecido", number: entry.jersey_number ?? null, pos: null };
-    // formation_position preenchido = titular; null/0 costuma ser banco
-    // na Sportmonks — sem type_id confirmado, ver aviso (1) no topo.
-    if (entry.formation_position) out[teamId].startXI.push(player);
-    else out[teamId].substitutes.push(player);
+    if (!out[teamId]) out[teamId] = { formation: formationByTeam.get(teamId) || null, coach: null, startXI: [], substitutes: [] };
+    const player = {
+      id: entry.player_id ?? null,
+      name: entry.player_name || "Desconhecido",
+      number: entry.jersey_number ?? null,
+      pos: mapLineupPosition(entry.position_id),
+      _order: formationFieldOrder(entry.formation_field),
+    };
+    if (entry.type_id === LINEUP_TYPE.STARTING) out[teamId].startXI.push(player);
+    else if (entry.type_id === LINEUP_TYPE.BENCH) out[teamId].substitutes.push(player);
+  });
+  // Ordena cada linha (mesma posição) da esquerda pra direita — quem
+  // não tem formation_field (não deveria acontecer pra titular, mas
+  // degrada bem) fica no fim. "_order" é só um campo interno de
+  // ordenação, não faz parte do formato público — removido antes de
+  // devolver.
+  Object.values(out).forEach((t) => {
+    t.startXI.sort((a, b) => (a._order ?? 99) - (b._order ?? 99));
+    [...t.startXI, ...t.substitutes].forEach((p) => { delete p._order; });
   });
   return out;
 }

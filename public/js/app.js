@@ -2313,8 +2313,17 @@ async function renderTeamLastLineup(teamId, lastMatch) {
     if (hint) hint.textContent = "";
     return;
   }
-  const opp = TEAM_MAP[lastMatch.home === teamId ? lastMatch.away : lastMatch.home];
-  if (hint) hint.textContent = opp ? `${team.short} ${lastMatch.gh}×${lastMatch.ga} ${opp.short} · rodada ${lastMatch.round}` : "";
+  // BUG CORRIGIDO (14/08/2026): sempre mostrava gh×ga (gols do
+  // mandante × visitante) na ordem crua, sem checar se ESSE time era
+  // o mandante ou o visitante — quando o time da página jogava fora
+  // de casa, o placar aparecia invertido (o resultado do adversário
+  // em vez do próprio). Corrigido pra sempre mostrar "esse time ×
+  // adversário", na ordem certa dos gols de cada um.
+  const isHome = lastMatch.home === teamId;
+  const opp = TEAM_MAP[isHome ? lastMatch.away : lastMatch.home];
+  const teamGoals = isHome ? lastMatch.gh : lastMatch.ga;
+  const oppGoals = isHome ? lastMatch.ga : lastMatch.gh;
+  if (hint) hint.textContent = opp ? `${team.short} ${teamGoals}×${oppGoals} ${opp.short} · rodada ${lastMatch.round}` : "";
 
   if (!LIVE_MODE) {
     ensureDemoLineups(lastMatch); // mesma escalação fictícia já usada no card do jogo em "Jogos"
