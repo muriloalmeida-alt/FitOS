@@ -1221,7 +1221,9 @@ function dashOddsFixture() {
 // onerror só troca qual dos dois fica visível.
 function affiliateLogoFallbackHandler(img) {
   img.style.display = "none";
-  if (img.nextElementSibling) img.nextElementSibling.style.display = "inline";
+  // "flex" (não "inline") porque .affiliate-chip-name centraliza o
+  // texto via display:flex — ver .affiliate-chip-btn em style.css.
+  if (img.nextElementSibling) img.nextElementSibling.style.display = "flex";
 }
 function affiliateChipHTML(op) {
   const isConfigured = !!op.url && op.url !== "#";
@@ -1234,8 +1236,8 @@ function affiliateChipHTML(op) {
   return `
     <a class="affiliate-chip${isConfigured ? "" : " disabled"}" href="${op.url}" target="_blank" rel="${rel}"
        ${isConfigured ? "" : 'onclick="return false;" title="Configure em js/affiliates.js"'}>
-      <img class="affiliate-chip-logo" src="img/partners/${op.id}.png" alt="${escAttr(op.name)}" onerror="affiliateLogoFallbackHandler(this)">
-      <span class="affiliate-chip-name" style="background:${op.color};">${op.name}</span>
+      <img class="affiliate-chip-btn affiliate-chip-logo" src="img/partners/${op.id}.png" alt="${escAttr(op.name)}" onerror="affiliateLogoFallbackHandler(this)">
+      <span class="affiliate-chip-btn affiliate-chip-name" style="background:${op.color};">${op.name}</span>
     </a>`;
 }
 // Tira de afiliados + aviso legal — compartilhada entre o card de odds
