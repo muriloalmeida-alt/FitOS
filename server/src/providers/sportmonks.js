@@ -49,17 +49,26 @@
    pedaço e junta tudo (dedupe por id, embora não devesse haver
    sobreposição já que os pedaços são contíguos sem overlap).
 
+   AJUSTE 4 (14/08/2026): getPlayersLeaders (Estatísticas > Jogadores)
+   mostrava um "artilheiro" errado — /topscorers/seasons/{id} devolve
+   VÁRIOS rankings misturados na mesma resposta (gols, assistências,
+   cartões, nota), cada item com um type_id diferente (confirmado via
+   documentação pública: GOALS=208, ASSISTS=209, CARDS=210,
+   RATING=211 — ver TOPSCORER_TYPE abaixo), e o código tratava
+   qualquer item como se fosse gol. Relatado pelo usuário ("o
+   artilheiro real é outro", confirmado batendo com o Elenco, que usa
+   getTeamPlayers — fonte diferente, sem esse problema). Corrigido
+   agregando por jogador e só preenchendo o campo certo (goals/
+   assists/yellow/rating) conforme o type_id de cada item.
+
    IMPORTANTE — o que ainda não foi testado contra uma resposta real:
-   1) ESTATÍSTICA DE PARTIDA (getFixtureStatistics) e ESCALAÇÃO
-      (getFixtureLineups): não tenho os type_id numéricos exatos da
-      Sportmonks pra "posse de bola"/"escanteios"/"titular vs banco"
-      confirmados (ao contrário dos de tabela e eventos, que estão
-      confirmados abaixo) — a extração tenta múltiplas formas de ler o
-      tipo (campo "type" direto, ou nome, com fallback) mas pode
-      precisar de ajuste. Se vier tudo zerado, esse é o lugar.
-   2) LÍDERES DE ARTILHARIA (getPlayersLeaders): só o endpoint de
-      artilheiros — pode não trazer assistências/cartões/nota; nesse
-      caso ficam null (degradação graciosa).
+   ESTATÍSTICA DE PARTIDA (getFixtureStatistics) e ESCALAÇÃO
+   (getFixtureLineups): não tenho os type_id numéricos exatos da
+   Sportmonks pra "posse de bola"/"escanteios"/"titular vs banco"
+   confirmados (ao contrário dos de tabela, eventos e artilharia, que
+   já estão confirmados) — a extração tenta múltiplas formas de ler o
+   tipo (campo "type" direto, ou nome, com fallback) mas pode precisar
+   de ajuste. Se vier tudo zerado, esse é o lugar.
 
    Cobertura: qualquer liga/temporada que o SEU plano na Sportmonks
    incluir (ver server/src/competitions.js). */
@@ -166,26 +175,20 @@ function mapFixture(fx) {
   };
 }
 
-// Ver aviso (3) no topo do arquivo — só o que o endpoint de
-// artilheiros devolve, sem include aninhado (então sem nome de
-// posição resolvido — fica null).
-function mapPlayerFromTopscorer(item) {
-  const p = item.player;
-  if (!p) return null;
-  return {
-    id: p.id,
-    name: p.display_name || p.name,
-    photo: p.image_path || null,
-    teamId: item.participant_id ?? null,
-    position: null,
-    games: null,
-    goals: item.total ?? null,
-    assists: null,
-    yellow: null,
-    red: null,
-    rating: null,
-  };
-}
+// BUG CORRIGIDO (14/08/2026): /topscorers/seasons/{id} NÃO devolve só
+// artilheiros — devolve VÁRIOS rankings misturados na mesma resposta
+// (artilharia, assistências, cartões, nota), cada item marcado com um
+// type_id diferente (confirmado via documentação pública — sem isso
+// não tinha como saber, a resposta não separa por endpoint nenhum).
+// mapPlayerFromTopscorer tratava TODO item como se fosse artilheiro
+// (usava item.total direto como "goals", não importa o type_id de
+// verdade) — resultado: o "artilheiro" que aparecia em Estatísticas >
+// Jogadores podia ser, na real, o líder de cartão ou assistência,
+// dependendo da ordem em que os itens vieram. Relatado pelo usuário
+// ("o artilheiro real é outro") e confirmado batendo com o Elenco
+// (que usa uma fonte diferente, getTeamPlayers, e não tinha esse
+// problema).
+const TOPSCORER_TYPE = { GOALS: 208, ASSISTS: 209, CARDS: 210, RATING: 211 };
 
 // AJUSTE (13/08/2026): item.appearances/goals/assists/yellowcards/
 // redcards NUNCA vêm preenchidos aqui — o endpoint de elenco
@@ -368,16 +371,37 @@ async function getFixtures({ leagueId, season }) {
   return Array.from(byId.values()).map(mapFixture);
 }
 
-// sportmonksGetAll (paginado) — artilharia pode ter mais de 25
-// jogadores com gol na temporada, que é o per_page padrão da
-// Sportmonks.
+// Ver TOPSCORER_TYPE acima — a resposta mistura vários rankings
+// (artilharia/assistência/cartão/nota), cada um top-25, então
+// acumula por jogador em vez de mapear 1 item = 1 jogador: um mesmo
+// player_id pode aparecer em mais de um ranking (ex.: no top 25 de
+// gols E no top 25 de assistências), e cada aparição só preenche o
+// campo daquele type_id específico — os campos que esse jogador não
+// aparece em nenhum top-25 ficam null (não é "zero", é "não sabemos",
+// já que só os 25 primeiros de cada categoria vêm nessa resposta).
+// sportmonksGetAll (paginado) — top 25 de ~4 categorias facilmente
+// passa dos 25 itens por página padrão da Sportmonks.
 async function getPlayersLeaders({ leagueId, season }) {
   const seasonId = await resolveSeasonId(leagueId, season);
-  const topscorers = await sportmonksGetAll(`/topscorers/seasons/${seasonId}`, { include: "player" });
+  const entries = await sportmonksGetAll(`/topscorers/seasons/${seasonId}`, { include: "player" });
   const byId = new Map();
-  topscorers.forEach((item) => {
-    const p = mapPlayerFromTopscorer(item);
-    if (p) byId.set(p.id, p);
+  entries.forEach((item) => {
+    const p = item.player;
+    if (!p) return;
+    if (!byId.has(p.id)) {
+      byId.set(p.id, {
+        id: p.id, name: p.display_name || p.name, photo: p.image_path || null,
+        teamId: item.participant_id ?? null, position: null,
+        games: null, goals: null, assists: null, yellow: null, red: null, rating: null,
+      });
+    }
+    const entry = byId.get(p.id);
+    const total = Number(item.total);
+    if (!Number.isFinite(total)) return;
+    if (item.type_id === TOPSCORER_TYPE.GOALS) entry.goals = total;
+    else if (item.type_id === TOPSCORER_TYPE.ASSISTS) entry.assists = total;
+    else if (item.type_id === TOPSCORER_TYPE.CARDS) entry.yellow = total; // agregado (não separa amarelo/vermelho) — melhor aproximação disponível dessa fonte
+    else if (item.type_id === TOPSCORER_TYPE.RATING) entry.rating = total;
   });
   return Array.from(byId.values());
 }
