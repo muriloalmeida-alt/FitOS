@@ -138,7 +138,7 @@ async function onLogout() {
 }
 
 /* ---------- Navegação entre seções ---------- */
-const SECTION_LOADERS = { overview: loadOverview, users: loadUsers, revenue: loadRevenue, integrations: loadIntegrations, behavior: loadBehavior, content: null };
+const SECTION_LOADERS = { overview: loadOverview, users: loadUsers, revenue: loadRevenue, integrations: loadIntegrations, behavior: loadBehavior, content: loadContent };
 let sectionsLoaded = {};
 function setupNav() {
   document.querySelectorAll(".admin-nav .nav-item[data-section]").forEach((btn) => {
@@ -585,6 +585,94 @@ async function loadBehavior() {
     funnelBody.innerHTML = `<tr><td colspan="4">Falha ao carregar: ${err.message}</td></tr>`;
     pageViewsBox.innerHTML = `Falha ao carregar.`;
   }
+}
+
+/* ---------- Conteúdo (títulos/tagline/recursos/imagem dos planos) ----------
+   Escopo v1: só os cards de plano da página "Apoie o BR Data" — ver
+   server/src/contentStore.js pro porquê. Cada campo vazio no formulário
+   = "sem override nesse campo", volta pro texto padrão do código
+   sozinho (mostrado como placeholder cinza no próprio campo, pra dar a
+   dica de "é isso que aparece se você deixar em branco"). */
+function planContentCardHTML(plan) {
+  const ov = plan.override || {};
+  return `<div class="admin-card" data-plan-card="${plan.id}">
+    <div class="content-card-head">
+      <h3>${escHtml(plan.defaults.title)}</h3>
+      <span class="price-tag">${fmtCurrency(plan.price)}</span>
+    </div>
+    <div class="content-field">
+      <label>Título</label>
+      <input type="text" data-field="title" placeholder="${escHtml(plan.defaults.title)}" value="${escHtml(ov.title || "")}">
+    </div>
+    <div class="content-field">
+      <label>Tagline</label>
+      <input type="text" data-field="tagline" placeholder="${escHtml(plan.defaults.tagline || "")}" value="${escHtml(ov.tagline || "")}">
+    </div>
+    <div class="content-field">
+      <label>Recursos (um por linha)</label>
+      <textarea data-field="features" rows="4" placeholder="${escHtml((plan.defaults.features || []).join("\n"))}">${escHtml((ov.features || []).join("\n"))}</textarea>
+    </div>
+    <div class="content-field">
+      <label>Imagem (URL, opcional)</label>
+      <input type="url" data-field="imageUrl" placeholder="https://..." value="${escHtml(ov.imageUrl || "")}">
+      <div class="hint">Link de uma imagem já hospedada em algum lugar (esse formulário não faz upload de arquivo). Deixe em branco pra não mostrar imagem nenhuma no card.</div>
+    </div>
+    <div class="content-card-actions">
+      <button class="admin-btn-sm" data-action="save-content" data-id="${plan.id}">Salvar</button>
+      <button class="admin-btn-sm" data-action="reset-content" data-id="${plan.id}">Restaurar padrão</button>
+    </div>
+    <div class="hint" id="contentStatus-${plan.id}" style="margin-top:8px;"></div>
+  </div>`;
+}
+async function loadContent() {
+  const box = document.getElementById("contentPlansBox");
+  box.innerHTML = `Carregando...`;
+  try {
+    const data = await fetchJSON("/api/adminpanel/content/plans");
+    box.innerHTML = data.plans.map(planContentCardHTML).join("");
+    box.querySelectorAll('[data-action="save-content"]').forEach((btn) => btn.addEventListener("click", () => onSavePlanContent(btn.dataset.id)));
+    box.querySelectorAll('[data-action="reset-content"]').forEach((btn) => btn.addEventListener("click", () => onResetPlanContent(btn.dataset.id)));
+  } catch (err) {
+    box.innerHTML = `Falha ao carregar: ${err.message}`;
+  }
+}
+async function onSavePlanContent(id) {
+  const card = document.querySelector(`[data-plan-card="${id}"]`);
+  const btn = card.querySelector('[data-action="save-content"]');
+  const statusEl = document.getElementById(`contentStatus-${id}`);
+  const payload = {
+    title: card.querySelector('[data-field="title"]').value,
+    tagline: card.querySelector('[data-field="tagline"]').value,
+    features: card.querySelector('[data-field="features"]').value,
+    imageUrl: card.querySelector('[data-field="imageUrl"]').value,
+  };
+  btn.disabled = true; btn.textContent = "Salvando...";
+  statusEl.textContent = "";
+  try {
+    await fetchJSON(`/api/adminpanel/content/plans/${encodeURIComponent(id)}`, {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+    });
+    statusEl.textContent = "✅ Salvo — já vale pra quem acessar a partir de agora.";
+    statusEl.style.color = "var(--brd-positive)";
+    // Atualiza o cache de nomes de plano usado em Usuários/Receita, pra
+    // essas telas refletirem o novo título sem precisar recarregar a
+    // página inteira.
+    try {
+      const plans = await fetchJSON("/api/support/plans");
+      (plans.plans || []).forEach((p) => { plansById[p.id] = p; });
+    } catch {}
+  } catch (err) {
+    statusEl.textContent = "❌ Falha ao salvar: " + err.message;
+    statusEl.style.color = "var(--brd-red)";
+  } finally {
+    btn.disabled = false; btn.textContent = "Salvar";
+  }
+}
+async function onResetPlanContent(id) {
+  if (!confirm("Limpar todos os campos e voltar pro texto/imagem padrão desse plano?")) return;
+  const card = document.querySelector(`[data-plan-card="${id}"]`);
+  card.querySelectorAll("input, textarea").forEach((el) => { el.value = ""; });
+  await onSavePlanContent(id);
 }
 
 boot();

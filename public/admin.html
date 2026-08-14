@@ -73,6 +73,18 @@
   .diag-pre{ background:var(--bg-app); border:1px solid var(--border); border-radius:8px; padding:10px 12px; font-size:11.5px; overflow-x:auto; white-space:pre-wrap; word-break:break-all; margin-top:8px; color:var(--text-1); }
   .ads-warning{ background:rgba(255,193,7,.12); border:1px solid rgba(255,193,7,.35); border-radius:10px; padding:12px 14px; font-size:12.5px; color:#8a6400; line-height:1.5; }
   .ads-slot-box{ min-height:90px; background:var(--bg-app); border:1px dashed var(--border); border-radius:8px; margin-top:10px; display:flex; align-items:center; justify-content:center; padding:8px; }
+  .content-warning{ background:rgba(255,193,7,.12); border:1px solid rgba(255,193,7,.35); border-radius:10px; padding:12px 14px; font-size:12.5px; color:#8a6400; line-height:1.5; margin-bottom:16px; }
+  .content-field{ margin-bottom:12px; }
+  .content-field label{ display:block; font-size:11.5px; font-weight:700; color:var(--text-1); margin-bottom:5px; }
+  .content-field input, .content-field textarea{
+    width:100%; padding:9px 12px; border-radius:8px; border:1px solid var(--border); background:var(--bg-app);
+    color:var(--text-0); font-size:13px; font-family:inherit;
+  }
+  .content-field textarea{ resize:vertical; min-height:76px; line-height:1.5; }
+  .content-field .hint{ font-size:11px; color:var(--text-2); margin-top:4px; }
+  .content-card-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:12px; }
+  .content-card-head .price-tag{ font-size:11.5px; font-weight:700; color:var(--text-2); }
+  .content-card-actions{ display:flex; gap:8px; margin-top:4px; }
   @media (max-width:900px){
     .admin-shell{ flex-direction:column; }
     .admin-nav{ width:100%; flex-direction:row; overflow-x:auto; padding:12px; }
@@ -264,12 +276,9 @@
 
     <section class="admin-section" id="admin-content">
       <h1>Conteúdo</h1>
-      <p class="sub">Edição de títulos, textos e imagens estáticas do site.</p>
-      <div class="locked-feature">
-        <div class="locked-feature-icon">🚧</div>
-        <h3>Em breve</h3>
-        <p>Editar conteúdo estático das páginas (títulos, textos, imagens) direto por aqui está planejado, mas ainda não foi construído.</p>
-      </div>
+      <p class="sub">Título, tagline, recursos e imagem dos cards de plano (página "Apoie o BR Data") — sem precisar mexer em código. Preço não entra aqui, continua só por variável de ambiente. Deixe um campo em branco e salve pra voltar ao texto padrão daquele campo.</p>
+      <div class="content-warning">⚠️ Se este servidor não tiver um disco persistente (Volume) configurado, essas edições somem no próximo deploy e o site volta pros textos padrão do código — não é um bug, é como a persistência local funciona aqui (mesmo aviso de Receita/Comportamento).</div>
+      <div id="contentPlansBox"></div>
     </section>
 
   </main>

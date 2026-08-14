@@ -55,6 +55,7 @@ const users = require("./src/users");
 const sessions = require("./src/sessions");
 const competitions = require("./src/competitions");
 const paymentsLedger = require("./src/paymentsLedger");
+const contentStore = require("./src/contentStore");
 
 const PORT = process.env.PORT || 8787;
 const LEAGUE_ID = process.env.LEAGUE_ID || "71"; // 71 = Brasileirão Série A na API-Sports (confirme no /api/leagues/search)
@@ -1044,6 +1045,42 @@ const server = http.createServer(async (req, res) => {
         funnel: analytics.funnel(),
         pageViews: analytics.pageViews(30 * 24 * 60 * 60 * 1000),
       });
+    }
+
+    // Edição de conteúdo — /admin > Conteúdo, 1ª versão só dos cards de
+    // plano (ver server/src/contentStore.js pro porquê do escopo e o
+    // aviso de persistência efêmera). Devolve o padrão do código (pra
+    // mostrar como placeholder de "o que aparece se deixar em branco")
+    // junto com o override atual (se tiver algum) — a tela de admin
+    // pré-preenche os campos com o override, nunca com o padrão.
+    if (pathname === "/api/adminpanel/content/plans") {
+      return sendJSON(res, 200, {
+        plans: Object.values(supportPlans.PLANS).map((base) => ({
+          id: base.id,
+          price: base.price,
+          defaults: { title: base.title, tagline: base.tagline, features: base.features },
+          override: contentStore.getPlanOverride(base.id) || {},
+        })),
+      });
+    }
+    // Salva o override de UM plano — o formulário sempre manda os 4
+    // campos (title/tagline/features/imageUrl), campo vazio vira "sem
+    // override nesse campo" (volta pro padrão do código) — ver
+    // setPlanOverride em contentStore.js. NUNCA aceita "price" aqui
+    // (nem o form manda) — preço continua só em supportPlans.js/
+    // variável de ambiente, de propósito.
+    const contentPlanMatch = pathname.match(/^\/api\/adminpanel\/content\/plans\/([^/]+)$/);
+    if (contentPlanMatch && req.method === "POST") {
+      const planId = contentPlanMatch[1];
+      if (!supportPlans.PLANS[planId]) return sendJSON(res, 404, { error: "Plano não encontrado." });
+      const body = await readBody(req);
+      const features = typeof body.features === "string"
+        ? body.features.split("\n").map((s) => s.trim()).filter(Boolean)
+        : (Array.isArray(body.features) ? body.features : []);
+      const saved = contentStore.setPlanOverride(planId, {
+        title: body.title, tagline: body.tagline, features, imageUrl: body.imageUrl,
+      });
+      return sendJSON(res, 200, { ok: true, override: saved || {}, plan: supportPlans.getPlan(planId) });
     }
 
     // Lista completa de usuários (mesmos campos de users.listUsers(),

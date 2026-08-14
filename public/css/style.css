@@ -832,6 +832,7 @@ h1,h2,h3{ margin:0; }
   position:absolute; top:-11px; left:20px; background:var(--brd-blue); color:#fff; font-size:10px; font-weight:700;
   padding:4px 10px; border-radius:100px; text-transform:uppercase; letter-spacing:.4px;
 }
+.plan-image{ display:block; width:100%; max-height:110px; object-fit:cover; border-radius:10px; margin-bottom:12px; }
 .plan-title{ font-size:17px; font-weight:800; color:var(--text-0); }
 .plan-tagline{ font-size:12px; color:var(--text-1); margin:2px 0 14px; min-height:16px; }
 .plan-price{ font-size:26px; font-weight:800; color:var(--brd-blue); margin-bottom:14px; }

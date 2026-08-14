@@ -7,8 +7,18 @@
    (PLAN_LITE_PRICE / PLAN_PRO_PRICE / PLAN_ENTERPRISE_PRICE, ver
    server/.env.example) — pra reajustar valor sem precisar editar
    código nem dar redeploy manual de código, só a variável no
-   Railway/host + reiniciar. Título/descrição/recursos continuam só
-   em código por serem texto livre, não um valor único que se ajusta. */
+   Railway/host + reiniciar.
+
+   Título/tagline/recursos/imagem também podem ser sobrescritos, mas
+   por OUTRO caminho: /admin > Conteúdo (ver
+   server/src/contentStore.js) — pensado pra quem não mexe em código
+   trocar esse texto puro. getPlan()/listPlans() aqui embaixo sempre
+   aplicam esse override antes de devolver o plano; o "price" (e o
+   "id") NUNCA passam por ele de propósito — applyOverride() só troca
+   os campos de texto/imagem, o valor cobrado de verdade continua saindo
+   só daqui de baixo. */
+
+const contentStore = require("./contentStore");
 
 function priceFromEnv(envVar, fallback) {
   const n = Number(process.env[envVar]);
@@ -69,12 +79,28 @@ const PLANS = {
   },
 };
 
+// Aplica o override de conteúdo (se existir) por cima do plano padrão
+// do código — só nos campos de texto/imagem, id/price sempre vêm do
+// PLANS acima, nunca do override (ver comentário no topo do arquivo).
+function applyOverride(base) {
+  const ov = contentStore.getPlanOverride(base.id);
+  if (!ov) return base;
+  return {
+    ...base,
+    title: ov.title || base.title,
+    tagline: ov.tagline || base.tagline,
+    features: (ov.features && ov.features.length) ? ov.features : base.features,
+    imageUrl: ov.imageUrl || null,
+  };
+}
+
 function getPlan(id) {
-  return PLANS[id] || null;
+  const base = PLANS[id];
+  return base ? applyOverride(base) : null;
 }
 
 function listPlans() {
-  return Object.values(PLANS);
+  return Object.values(PLANS).map(applyOverride);
 }
 
 module.exports = { PLANS, getPlan, listPlans };

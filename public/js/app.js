@@ -2161,6 +2161,7 @@ function planCardHTML(plan, selectedId, currentId) {
   return `
     <div class="plan-card${plan.highlight ? " highlight" : ""}${selected ? " selected" : ""}${isCurrent ? " current" : ""}" data-plan="${plan.id}">
       ${plan.highlight ? `<span class="plan-badge">Mais popular</span>` : ""}
+      ${plan.imageUrl ? `<img class="plan-image" src="${plan.imageUrl}" alt="" loading="lazy">` : ""}
       <div class="plan-title">${plan.title}</div>
       <div class="plan-tagline">${plan.tagline || ""}</div>
       <div class="plan-price">${fmtBRL(plan.price)}${plan.price > 0 ? "<small> pagamento único</small>" : ""}</div>
