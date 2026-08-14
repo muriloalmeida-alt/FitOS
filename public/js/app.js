@@ -161,26 +161,81 @@ function lockedFeatureHTML(title, desc) {
 }
 
 /* ================= Modal de anúncio em vídeo (Freemium) =================
-   SIMULADO por enquanto — sem integração com rede de anúncios de
-   verdade (ver comentário em cima de .ad-modal-overlay no style.css
-   pra saber onde plugar isso depois). Só roda pro plano Freemium.
+   Google AdSense de verdade (adsbygoogle.js) no lugar do placeholder
+   simulado que tinha antes — client id + slot vêm do backend (GET
+   /api/health, campo "adsense"; null = ADSENSE_CLIENT_ID/
+   ADSENSE_AD_SLOT_FREEMIUM_MODAL não configurados nesse host — nesse
+   caso o modal simplesmente NUNCA aparece, mesmo pra quem é Freemium,
+   igual qualquer outra integração paga desse app enquanto não tem
+   credencial real, ver ADSENSE_CLIENT_ID em server.js). Só roda pro
+   plano Freemium.
 
-   Regras:
+   LIMITAÇÃO IMPORTANTE (documentada aqui de propósito, pra não
+   reintroduzir a confusão de antes): um bloco de "Display ads" comum
+   do AdSense (o único tipo que dá pra criar sem ter conta no Google
+   Ad Manager — ver decisão registrada na conversa) NÃO avisa o site
+   se o criativo mostrado foi imagem, vídeo ou HTML5, nem quando/se um
+   vídeo terminou de tocar — isso só existe em "rewarded ads" de
+   verdade, que exigem GPT/Ad Manager (outra conta, outro escopo,
+   ver /root ou a conversa). Por isso quem CONTINUA garantindo "olhou
+   o anúncio por pelo menos N segundos" é o NOSSO timer local
+   (AD_DURATION_S), exatamente como no modo simulado — só trocamos o
+   conteúdo mostrado (de um placeholder falso pra um anúncio real,
+   pago de verdade) sem mudar essa regra de negócio.
+
+   Regras (iguais às de antes):
    - 1º anúncio aparece AD_FIRST_DELAY_MS depois do login; os
      seguintes, a cada AD_INTERVAL_MS.
    - Não soma tempo com a aba em segundo plano (document.hidden) — só
      pula aquele ciclo e tenta de novo no próximo, então nunca acumula
      vários anúncios de uma vez pra descarregar quando o usuário volta.
-   - Só fecha depois que o "vídeo" (barra de progresso simulando
-     AD_DURATION_S) termina — sem opção de pular, nem pelo link de
-     upgrade (que também fica inerte até lá). */
+   - Só fecha depois que o tempo mínimo (AD_DURATION_S) passa — sem
+     opção de pular, nem pelo link de upgrade (que também fica inerte
+     até lá).
+   - NOVO: se o AdSense devolver "sem anúncio pra mostrar agora"
+     (data-ad-status="unfilled" — acontece, ex.: inventário esgotado,
+     bloqueador de anúncio no navegador de quem visita, ou a conta
+     ainda em análise) o modal fecha sozinho na hora, sem cobrar
+     nenhum tempo de espera — não faz sentido travar alguém olhando
+     uma caixa vazia. */
 const AD_FIRST_DELAY_MS = 60 * 1000; // 1 minuto depois do login
 const AD_INTERVAL_MS = 5 * 60 * 1000; // depois do 1º, a cada 5 minutos
-const AD_DURATION_S = 15; // duração do "vídeo" simulado
+const AD_DURATION_S = 15; // tempo mínimo de exibição antes de liberar o fechar
+const AD_UNFILLED_TIMEOUT_MS = 4000; // quanto esperar o AdSense responder antes de desistir desse ciclo
 let adFirstTimeoutId = null;
 let adTimerId = null;
 let adProgressIntervalId = null;
-let adModalUnlocked = false; // true só quando a barra de progresso completa
+let adUnfilledObserver = null;
+let adUnfilledTimeoutId = null;
+let adModalUnlocked = false; // true só quando o tempo mínimo passa
+
+// Config vinda do backend (client id + slot do anúncio Freemium) —
+// buscada 1x só no boot (startApp), separado de tryLoadLiveData()
+// (liveData.js) porque aquele sai cedo em modo exemplo (sem chave da
+// API-Sports/Sportmonks) e o anúncio deve funcionar em QUALQUER modo
+// (ao vivo ou exemplo) — é sobre monetização, não sobre dado esportivo.
+let adsenseConfig = null;
+let adsenseScriptRequested = false;
+async function loadAdsenseConfig() {
+  try {
+    const health = await safeFetchJSON("/api/health");
+    adsenseConfig = health.adsense || null;
+  } catch { adsenseConfig = null; }
+  if (adsenseConfig) ensureAdsenseScriptLoaded();
+}
+// Carrega o script oficial do Google 1x só (script async próprio,
+// domínio do Google — nada baixado/hospedado por nós, ao contrário do
+// resto do app que é zero-dependência de propósito: anúncio real só
+// existe carregando o script de quem vende o anúncio).
+function ensureAdsenseScriptLoaded() {
+  if (adsenseScriptRequested || !adsenseConfig) return;
+  adsenseScriptRequested = true;
+  const s = document.createElement("script");
+  s.async = true;
+  s.crossOrigin = "anonymous";
+  s.src = `https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${encodeURIComponent(adsenseConfig.clientId)}`;
+  document.head.appendChild(s);
+}
 
 function startAdTimer() {
   stopAdTimer();
@@ -193,6 +248,7 @@ function startAdTimer() {
 function tryShowAd() {
   if (document.hidden) return; // app em segundo plano, tenta de novo no próximo ciclo
   if (!currentUser || currentUser.plan !== "freemium") { stopAdTimer(); return; }
+  if (!adsenseConfig) return; // AdSense não configurado nesse host -- não tem o que mostrar
   showAdModal();
 }
 function stopAdTimer() {
@@ -200,18 +256,89 @@ function stopAdTimer() {
   if (adTimerId) { clearInterval(adTimerId); adTimerId = null; }
 }
 
+// Cria um <ins class="adsbygoogle"> NOVO a cada exibição — reusar o
+// mesmo elemento entre pedidos de anúncio dá erro no AdSense
+// ("adsbygoogle.push() error: already have ads in this slot") e viola
+// a política deles. innerHTML limpa qualquer <ins> de um ciclo
+// anterior antes de criar o de agora.
+function freshAdInsElement() {
+  const media = document.getElementById("adModalMedia");
+  if (!media) return null;
+  media.innerHTML = "";
+  const ins = document.createElement("ins");
+  ins.className = "adsbygoogle";
+  ins.style.display = "block";
+  ins.style.width = "100%";
+  ins.style.height = "100%";
+  ins.setAttribute("data-ad-client", adsenseConfig.clientId);
+  ins.setAttribute("data-ad-slot", adsenseConfig.slotIdFreemiumModal);
+  ins.setAttribute("data-ad-format", "auto");
+  ins.setAttribute("data-full-width-responsive", "true");
+  media.appendChild(ins);
+  return ins;
+}
+
 function showAdModal() {
   const modal = document.getElementById("adModal");
   if (!modal || modal.style.display === "flex") return; // já tem um aberto, não empilha
+  const ins = freshAdInsElement();
+  if (!ins) return;
   modal.style.display = "flex";
   const closeBtn = document.getElementById("adModalClose");
   const footer = document.getElementById("adModalFooter");
   const fill = document.getElementById("adModalProgressFill");
   adModalUnlocked = false;
   closeBtn.disabled = true;
-  closeBtn.textContent = "Aguarde o fim do vídeo...";
+  closeBtn.textContent = "Aguarde o fim do anúncio...";
   footer.classList.add("locked");
   if (fill) fill.style.width = "0%";
+
+  try {
+    (window.adsbygoogle = window.adsbygoogle || []).push({});
+  } catch (err) {
+    console.error("[adsense] falha ao pedir o anúncio:", err.message);
+    closeAdModal();
+    return;
+  }
+
+  // Detecta "sem anúncio pra mostrar" (data-ad-status="unfilled",
+  // atributo que o próprio script do Google seta no <ins> depois que
+  // o leilão termina) via MutationObserver — não existe callback/
+  // Promise pra isso num bloco de Display ads comum, só esse atributo.
+  // AD_UNFILLED_TIMEOUT_MS cobre o caso do atributo nunca aparecer
+  // (ex.: bloqueador de anúncio impedindo o script de rodar de vez).
+  clearTimeout(adUnfilledTimeoutId);
+  if (adUnfilledObserver) adUnfilledObserver.disconnect();
+  let progressStarted = false;
+  const startProgressIfNeeded = () => {
+    if (progressStarted) return;
+    progressStarted = true;
+    clearTimeout(adUnfilledTimeoutId);
+    if (adUnfilledObserver) adUnfilledObserver.disconnect();
+    runAdProgress();
+  };
+  adUnfilledObserver = new MutationObserver(() => {
+    const status = ins.getAttribute("data-ad-status");
+    if (status === "unfilled") {
+      adUnfilledObserver.disconnect();
+      clearTimeout(adUnfilledTimeoutId);
+      closeAdModal(); // sem anúncio nenhum -- não cobra tempo de espera de ninguém
+    } else if (status === "filled") {
+      startProgressIfNeeded();
+    }
+  });
+  adUnfilledObserver.observe(ins, { attributes: true, attributeFilter: ["data-ad-status"] });
+  // Sem confirmação nenhuma do Google depois desse tempo (script
+  // travou, resposta lenta demais) -- assume que carregou e libera o
+  // fluxo normal, em vez de deixar a pessoa presa num modal sem nunca
+  // liberar o botão de fechar.
+  adUnfilledTimeoutId = setTimeout(startProgressIfNeeded, AD_UNFILLED_TIMEOUT_MS);
+}
+
+function runAdProgress() {
+  const closeBtn = document.getElementById("adModalClose");
+  const footer = document.getElementById("adModalFooter");
+  const fill = document.getElementById("adModalProgressFill");
   let elapsedMs = 0;
   clearInterval(adProgressIntervalId);
   adProgressIntervalId = setInterval(() => {
@@ -232,6 +359,8 @@ function closeAdModal() {
   const modal = document.getElementById("adModal");
   if (modal) modal.style.display = "none";
   clearInterval(adProgressIntervalId);
+  clearTimeout(adUnfilledTimeoutId);
+  if (adUnfilledObserver) { adUnfilledObserver.disconnect(); adUnfilledObserver = null; }
 }
 
 /* ================= Gate de desktop (foco 100% PWA/mobile) =================
@@ -345,7 +474,7 @@ async function startApp(user) {
   renderMyTeamsSidebar();
   setActivePage("dashboard");
 
-  if (user.plan === "freemium") startAdTimer(); else stopAdTimer();
+  if (user.plan === "freemium") { loadAdsenseConfig(); startAdTimer(); } else { stopAdTimer(); }
   loadCompetitionsInfo().then(applyCompetitionsSidebar);
 }
 

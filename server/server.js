@@ -55,6 +55,34 @@ const LEAGUE_ID = process.env.LEAGUE_ID || "71"; // 71 = Brasileirão Série A n
 const LIVE_SEASON = process.env.LIVE_SEASON || "2023";
 const PUBLIC_DIR = path.join(__dirname, "..", "public");
 
+// Anúncio em vídeo do plano Freemium (ver #adModal em index.html e
+// showAdModal()/loadAdSenseScript() em app.js) — engine real do
+// Google AdSense no lugar do placeholder simulado que tinha antes.
+// Sem os 2 valores abaixo configurados, o front-end nem injeta o
+// script do AdSense nem tenta mostrar o modal de anúncio nenhuma vez
+// (nada quebra, a feature só fica "desligada" — ver campo "adsense"
+// em GET /api/health, e o mesmo aviso em README-PAGAMENTOS.md sobre
+// como o app se comporta sem uma credencial paga configurada). Os 2
+// valores vêm do painel da sua conta AdSense (adsense.google.com):
+//   ADSENSE_CLIENT_ID — o "ID do editor" da conta, formato
+//     "ca-pub-XXXXXXXXXXXXXXXX" (aparece em qualquer bloco de anúncio
+//     gerado, e em Conta > Informações da conta).
+//   ADSENSE_AD_SLOT_FREEMIUM_MODAL — o "ID do slot" (só números) do
+//     bloco de anúncio criado especificamente pra esse modal — crie
+//     um bloco de "Display ads" comum em Anúncios > Por unidade de
+//     anúncio (não existe um tipo "vídeo" separado pra criar: o
+//     Google decide sozinho, no leilão de cada impressão, se o
+//     criativo mostrado vai ser imagem, vídeo ou HTML5 — não temos
+//     controle nem confirmação de qual tipo veio numa impressão
+//     específica; ver aviso maior em app.js sobre essa limitação).
+// IMPORTANTE: client ID e slot NÃO são segredo nenhum — qualquer
+// visitante do site já vê os dois no HTML/JS da página (é assim que
+// o AdSense funciona, o anúncio carrega direto no navegador de quem
+// visita, sem passar pelo nosso backend) — não tem problema nenhum
+// esses 2 valores aparecerem numa resposta pública da API.
+const ADSENSE_CLIENT_ID = (process.env.ADSENSE_CLIENT_ID || "").trim() || null;
+const ADSENSE_AD_SLOT_FREEMIUM_MODAL = (process.env.ADSENSE_AD_SLOT_FREEMIUM_MODAL || "").trim() || null;
+
 // Endpoint de admin (GET /api/admin/users) — consulta manual do que
 // está persistido no Volume (usuários/sessões), sem precisar de acesso
 // via terminal/CLI ao container. Fica completamente desativado (404 em
@@ -338,7 +366,30 @@ const server = http.createServer(async (req, res) => {
         leagueId: LEAGUE_ID,
         season: LIVE_SEASON,
         quota: dataProvider.getQuota(),
+        // null = anúncio Freemium desligado (nenhum dos 2 configurados
+        // nesse host ainda) — ver comentário de ADSENSE_CLIENT_ID acima.
+        adsense: (ADSENSE_CLIENT_ID && ADSENSE_AD_SLOT_FREEMIUM_MODAL)
+          ? { clientId: ADSENSE_CLIENT_ID, slotIdFreemiumModal: ADSENSE_AD_SLOT_FREEMIUM_MODAL }
+          : null,
       });
+    }
+
+    // Arquivo exigido pelo AdSense pra confirmar que esse domínio tem
+    // autorização de exibir anúncio da sua conta (padrão IAB
+    // "authorized digital sellers") — sem ele, o Google pode não
+    // preencher anúncio nenhum aqui, mesmo com o resto configurado
+    // certo. Gerado sozinho a partir de ADSENSE_CLIENT_ID (nada pra
+    // editar manualmente); sem essa variável configurada, devolve 404
+    // (não existe fingir um ads.txt de mentira). O "f08c47fec0942fa0"
+    // no fim é a "certification authority ID" fixa e pública do Google
+    // pra revenda direta — não é segredo, é sempre o mesmo valor pra
+    // qualquer site que vende direto com o Google (não via revenda por
+    // terceiro), documentado pelo próprio AdSense.
+    if (pathname === "/ads.txt") {
+      if (!ADSENSE_CLIENT_ID) { res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" }); return res.end("ads.txt não configurado nesse host (ver ADSENSE_CLIENT_ID).\n"); }
+      const pubId = ADSENSE_CLIENT_ID.replace(/^ca-/, ""); // client id do script usa "ca-pub-...", ads.txt espera só "pub-..."
+      res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=3600" });
+      return res.end(`google.com, ${pubId}, DIRECT, f08c47fec0942fa0\n`);
     }
 
     // ================= Login obrigatório =================
