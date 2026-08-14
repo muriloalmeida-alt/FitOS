@@ -44,6 +44,7 @@ const supportPlans = require("./src/supportPlans");
 const users = require("./src/users");
 const sessions = require("./src/sessions");
 const competitions = require("./src/competitions");
+const paymentsLedger = require("./src/paymentsLedger");
 
 const PORT = process.env.PORT || 8787;
 const LEAGUE_ID = process.env.LEAGUE_ID || "71"; // 71 = Brasileirão Série A na API-Sports (confirme no /api/leagues/search)
@@ -392,6 +393,19 @@ const server = http.createServer(async (req, res) => {
       return res.end(`google.com, ${pubId}, DIRECT, f08c47fec0942fa0\n`);
     }
 
+    // URL amigável (sem ".html") pra área administrativa — o resto do
+    // acesso é protegido por login + role "admin" (ver
+    // /api/adminpanel/* acima), não por essa rota em si; ela só serve
+    // o HTML (login form + JS), igual public/admin.html serviria
+    // sozinho se alguém acessasse com a extensão.
+    if (pathname === "/admin") {
+      return fs.readFile(path.join(PUBLIC_DIR, "admin.html"), (err, data) => {
+        if (err) { res.writeHead(404); return res.end("Not found"); }
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        res.end(data);
+      });
+    }
+
     // ================= Login obrigatório =================
     // Toda rota /api/* a partir daqui exige sessão válida (cookie),
     // EXCETO as que precisam funcionar antes/sem estar logado: as
@@ -405,6 +419,7 @@ const server = http.createServer(async (req, res) => {
       "/api/auth/signup", "/api/auth/login", "/api/auth/logout", "/api/auth/me",
       "/api/support/plans", "/api/support/webhook", "/api/support/status",
       "/api/admin/users", // autenticação própria (ADMIN_SECRET), não usa cookie de sessão
+      "/api/adminpanel/promote", // idem — bootstrap de admin, ver rota abaixo
     ]);
     if (pathname.startsWith("/api/") && !AUTH_EXEMPT_PATHS.has(pathname)) {
       const cookies = parseCookies(req);
@@ -423,18 +438,30 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    // ================= Área administrativa (/admin) =================
+    // Toda rota /api/adminpanel/* (exceto /promote, que é bootstrap
+    // via ADMIN_SECRET — ver AUTH_EXEMPT_PATHS acima e a rota mais
+    // abaixo) exige uma conta logada normal (cookie de sessão de
+    // sempre) COM role "admin" (ver users.isAdmin). 404 genérico, não
+    // 403 — mesmo motivo de sempre nesse arquivo: não dar pista pra
+    // quem não é admin de que essas rotas existem.
+    if (pathname.startsWith("/api/adminpanel/") && pathname !== "/api/adminpanel/promote") {
+      if (!users.isAdmin(req.authUser)) return sendJSON(res, 404, { error: "endpoint não encontrado" });
+    }
+
     // Bloqueia cedo qualquer rota que dependa da API-Sports quando o
     // modo ao vivo está desligado (sem chave, ou APP_MODE=demo forçando
     // exemplo mesmo com chave presente) — /api/health, /api/broadcast
-    // (TheSportsDB), /api/news (RSS), /api/support/*, /api/auth/* e
-    // /api/admin/* (independentes da API-Sports) não usam a API-Sports,
-    // /api/competitions só devolve o registro local (server/src/
-    // competitions.js), e /api/account/favorite-club só grava no
-    // arquivo local de usuários (server/src/users.js) — nenhum desses
-    // chama a API-Sports, ficam de fora dessa checagem.
+    // (TheSportsDB), /api/news (RSS), /api/support/*, /api/auth/*,
+    // /api/admin/* e /api/adminpanel/* (independentes da API-Sports)
+    // não usam a API-Sports, /api/competitions só devolve o registro
+    // local (server/src/competitions.js), e /api/account/favorite-club
+    // só grava no arquivo local de usuários (server/src/users.js) —
+    // nenhum desses chama a API-Sports, ficam de fora dessa checagem.
     const LIVE_ONLY = pathname.startsWith("/api/") && pathname !== "/api/broadcast" && pathname !== "/api/news"
       && pathname !== "/api/competitions" && pathname !== "/api/account/favorite-club"
-      && !pathname.startsWith("/api/support/") && !pathname.startsWith("/api/auth/") && !pathname.startsWith("/api/admin/");
+      && !pathname.startsWith("/api/support/") && !pathname.startsWith("/api/auth/")
+      && !pathname.startsWith("/api/admin/") && !pathname.startsWith("/api/adminpanel/");
     if (LIVE_ONLY && !liveModeEnabled()) {
       const err = new Error(
         APP_MODE === "demo"
@@ -843,6 +870,20 @@ const server = http.createServer(async (req, res) => {
               const patch = { planStatus: "active", paymentId: String(payment.id) };
               if (user.pendingPlan) { patch.plan = user.pendingPlan; patch.pendingPlan = null; }
               users.updateUser(user.id, patch);
+              // Registro pra seção "Receita" da área administrativa
+              // (/admin) — ver paymentsLedger.js. Idempotente (checa
+              // paymentId), então reenvio de notificação do Mercado
+              // Pago pro MESMO pagamento não conta receita em dobro.
+              paymentsLedger.recordIfNew({
+                paymentId: payment.id,
+                userId: user.id,
+                email: user.email,
+                plan: patch.plan || user.plan,
+                amount: payment.transaction_amount,
+                currency: payment.currency_id,
+                method: payment.payment_method_id || payment.payment_type_id || null,
+                approvedAt: payment.date_approved ? new Date(payment.date_approved).getTime() : Date.now(),
+              });
             } else {
               users.updateUser(user.id, { lastPaymentStatus: payment.status, paymentId: String(payment.id) });
             }
@@ -880,6 +921,101 @@ const server = http.createServer(async (req, res) => {
         activeSessions: sessions.countActive(),
         users: users.listUsers(),
       });
+    }
+
+    // ================= Área administrativa (/admin) — rotas =================
+    // Bootstrap: promove uma conta JÁ CADASTRADA (login normal, e-mail/
+    // senha de sempre) pro papel de admin. Protegida por ADMIN_SECRET
+    // (não por login — ver AUTH_EXEMPT_PATHS) porque é literalmente a
+    // rota que CRIA o primeiro admin, não dava pra exigir já ser admin
+    // pra chamar ela. Depois de promovida, a conta usa login normal +
+    // o guard de role logo acima em tudo mais — o secret não serve
+    // pra mais nada relacionado a essa conta a partir daí.
+    if (pathname === "/api/adminpanel/promote" && req.method === "POST") {
+      if (!isValidAdminSecret(req, searchParams)) return sendJSON(res, 404, { error: "endpoint não encontrado" });
+      const body = await readBody(req);
+      const email = users.normalizeEmail(body.email);
+      if (!email) return sendJSON(res, 400, { error: "E-mail é obrigatório." });
+      const user = users.findByEmail(email);
+      if (!user) return sendJSON(res, 404, { error: "Não existe conta com esse e-mail — cadastre a conta normal primeiro (mesmo cadastro de sempre), depois promova." });
+      users.updateUser(user.id, { role: "admin" });
+      return sendJSON(res, 200, { ok: true, email: user.email });
+    }
+
+    // Resumo pra tela inicial de /admin: contagem de usuários por
+    // plano, sessões ativas, receita (all-time + mês corrente) e
+    // status de cada integração — tudo num request só, pra tela abrir
+    // rápido.
+    if (pathname === "/api/adminpanel/overview") {
+      const allUsers = users.listUsers();
+      const byPlan = {};
+      allUsers.forEach((u) => { byPlan[u.plan] = (byPlan[u.plan] || 0) + 1; });
+      return sendJSON(res, 200, {
+        users: { total: allUsers.length, byPlan, activeSessions: sessions.countActive() },
+        revenue: paymentsLedger.summary(),
+        integrations: {
+          dataProvider: {
+            name: dataProvider.ACTIVE_PROVIDER_NAME,
+            hasCredential: dataProvider.hasCredential(),
+            mode: APP_MODE,
+            liveModeEnabled: liveModeEnabled(),
+          },
+          mercadoPago: { configured: !!process.env.MERCADOPAGO_ACCESS_TOKEN },
+          adsense: {
+            configured: !!(ADSENSE_CLIENT_ID && ADSENSE_AD_SLOT_FREEMIUM_MODAL),
+            clientId: ADSENSE_CLIENT_ID || null,
+          },
+          epg: { url: (process.env.EPG_URL || "").trim() || "https://www.open-epg.com/files/brazil1.xml (padrão)" },
+          newsRss: { url: (process.env.NEWS_RSS_URL || "").trim() || null },
+        },
+      });
+    }
+
+    // Lista completa de usuários (mesmos campos de users.listUsers(),
+    // já com a contagem de sessões ativas de cada um) — a tabela de
+    // usuários em /admin filtra/busca do lado do cliente, o volume de
+    // contas desse app não justifica paginação/busca no servidor.
+    if (pathname === "/api/adminpanel/users") {
+      const activeByUser = sessions.countActiveByUser();
+      const list = users.listUsers().map((u) => ({ ...u, activeSessions: activeByUser[u.id] || 0 }));
+      return sendJSON(res, 200, { users: list });
+    }
+
+    // Força logout de UM usuário (derruba todas as sessões ativas
+    // dele) — ex.: suspeita de conta comprometida, ou só forçar
+    // re-login depois de uma troca manual de plano feita abaixo.
+    const adminLogoutMatch = pathname.match(/^\/api\/adminpanel\/users\/([^/]+)\/logout$/);
+    if (adminLogoutMatch && req.method === "POST") {
+      const target = users.findById(adminLogoutMatch[1]);
+      if (!target) return sendJSON(res, 404, { error: "Usuário não encontrado." });
+      const n = sessions.destroyAllForUser(target.id);
+      return sendJSON(res, 200, { ok: true, sessionsRevoked: n });
+    }
+
+    // Troca manual de plano/status — pra suporte (ex.: cortesia,
+    // corrigir um pagamento que travou em pending_payment, rebaixar
+    // conta problemática). NÃO passa pelo Mercado Pago nem gera
+    // registro na Receita (só pagamento de verdade, confirmado pelo
+    // webhook, entra no ledger — ver paymentsLedger.js) — é só um
+    // ajuste direto no estado da conta.
+    const adminPlanMatch = pathname.match(/^\/api\/adminpanel\/users\/([^/]+)\/plan$/);
+    if (adminPlanMatch && req.method === "POST") {
+      const target = users.findById(adminPlanMatch[1]);
+      if (!target) return sendJSON(res, 404, { error: "Usuário não encontrado." });
+      const body = await readBody(req);
+      const plan = String(body.plan || "").trim();
+      const planStatus = String(body.planStatus || "").trim();
+      if (!supportPlans.getPlan(plan)) return sendJSON(res, 400, { error: "Plano inválido." });
+      if (!["active", "pending_payment", "checkout_error"].includes(planStatus)) return sendJSON(res, 400, { error: "Status de plano inválido." });
+      const updated = users.updateUser(target.id, { plan, planStatus, pendingPlan: null });
+      return sendJSON(res, 200, { ok: true, user: users.publicUser(updated) });
+    }
+
+    // Receita: lista de pagamentos aprovados + o mesmo resumo já usado
+    // em /overview (repetido aqui pra tela de Receita não depender de
+    // 2 requests).
+    if (pathname === "/api/adminpanel/revenue") {
+      return sendJSON(res, 200, { summary: paymentsLedger.summary(), payments: paymentsLedger.listAll() });
     }
 
     // Diagnóstico do AdSense/CMP (client id/slot configurados, ads.txt,

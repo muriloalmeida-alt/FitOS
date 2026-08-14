@@ -136,24 +136,34 @@ function publicUser(u) {
   return {
     id: u.id, name: u.name, email: u.email, plan: u.plan, planStatus: u.planStatus, pendingPlan: u.pendingPlan || null,
     favoriteClubs: u.favoriteClubs || {},
+    // role: "admin" | null — quem pode entrar em /admin (ver
+    // server.js, POST /api/adminpanel/promote e o guard de
+    // /api/adminpanel/*). Não existe por padrão em conta nenhuma —
+    // precisa ser promovida explicitamente depois de já cadastrada.
+    role: u.role || null,
   };
 }
 
-// Lista todos os usuários cadastrados (sem passwordHash) — só usado
-// pelo endpoint de admin protegido por ADMIN_SECRET (ver server.js),
-// pra dar uma forma de consultar o que está persistido no Volume sem
-// precisar de acesso via terminal/CLI ao container.
+function isAdmin(u) {
+  return !!u && u.role === "admin";
+}
+
+// Lista todos os usuários cadastrados (sem passwordHash) — usado pelo
+// endpoint de admin antigo protegido por ADMIN_SECRET (GET
+// /api/admin/users, ver server.js) e pela área administrativa nova
+// (GET /api/adminpanel/users, protegida por login + role "admin").
 function listUsers() {
   return Array.from(store.values())
     .map((u) => ({
       id: u.id, name: u.name, email: u.email, phone: u.phone,
       plan: u.plan, planStatus: u.planStatus, pendingPlan: u.pendingPlan || null,
+      role: u.role || null,
       createdAt: u.createdAt, updatedAt: u.updatedAt,
     }))
     .sort((a, b) => b.createdAt - a.createdAt);
 }
 
 module.exports = {
-  createUser, updateUser, setFavoriteClub, findByEmail, findById, publicUser, listUsers,
+  createUser, updateUser, setFavoriteClub, findByEmail, findById, publicUser, listUsers, isAdmin,
   hashPassword, verifyPassword, normalizeEmail,
 };

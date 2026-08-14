@@ -53,6 +53,22 @@ function destroySession(token) {
   if (token && store.delete(token)) persist();
 }
 
+// Derruba TODAS as sessões ativas de UM usuário — usado pela área
+// administrativa (botão "Forçar logout" em /admin) pra kickar alguém
+// na hora (ex.: suspeita de conta comprometida, ou só forçar um
+// re-login depois de mudar o plano manualmente). O Map não tem índice
+// por userId (só por token), então precisa varrer tudo — sem
+// problema, o volume de sessões desse app não justifica um índice
+// separado só pra isso.
+function destroyAllForUser(userId) {
+  let n = 0;
+  for (const [token, s] of store.entries()) {
+    if (s.userId === userId) { store.delete(token); n++; }
+  }
+  if (n) persist();
+  return n;
+}
+
 // Quantas sessões ainda válidas (não expiradas) existem agora — só
 // usado pelo endpoint de admin protegido por ADMIN_SECRET (ver
 // server.js), como um número rápido de "quantos logins ativos".
@@ -63,4 +79,15 @@ function countActive() {
   return n;
 }
 
-module.exports = { createSession, getSession, destroySession, countActive, SESSION_TTL_MS };
+// Conta ativa por usuário (por linha na tabela de usuários em /admin)
+// — mesma ideia de countActive, mas por userId em vez do total geral.
+function countActiveByUser() {
+  const now = Date.now();
+  const out = {};
+  for (const s of store.values()) {
+    if (s.expiresAt > now) out[s.userId] = (out[s.userId] || 0) + 1;
+  }
+  return out;
+}
+
+module.exports = { createSession, getSession, destroySession, destroyAllForUser, countActive, countActiveByUser, SESSION_TTL_MS };
