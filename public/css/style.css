@@ -917,6 +917,7 @@ h1,h2,h3{ margin:0; }
 .auth-gate-switch a{ color:var(--brd-blue); font-weight:700; text-decoration:none; cursor:pointer; }
 .auth-gate-switch a:hover{ text-decoration:underline; }
 .auth-gate-disclaimer{ text-align:center; font-size:11px; color:rgba(255,255,255,.55); margin:24px 0 0; }
+.auth-gate-disclaimer a{ color:var(--brd-yellow); text-decoration:underline; }
 
 /* Gate de desktop (foco 100% PWA/mobile) */
 .desktop-gate-qr{ display:flex; justify-content:center; margin:20px 0; }
