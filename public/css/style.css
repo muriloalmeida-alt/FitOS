@@ -961,11 +961,33 @@ h1,h2,h3{ margin:0; }
 .auth-gate-disclaimer{ text-align:center; font-size:11px; color:rgba(255,255,255,.55); margin:24px 0 0; }
 .auth-gate-disclaimer a{ color:var(--brd-yellow); text-decoration:underline; }
 
-/* Gate de desktop (foco 100% PWA/mobile) */
-.desktop-gate-qr{ display:flex; justify-content:center; margin:20px 0; }
-.desktop-gate-qr svg{ width:180px; height:180px; border-radius:12px; display:block; }
-.desktop-gate-url{ text-align:center; font-size:11.5px; color:var(--text-2); word-break:break-all; margin:0 0 20px; }
-.desktop-gate-steps{ display:flex; flex-direction:column; gap:12px; padding:14px 16px; background:var(--bg-app); border-radius:var(--radius-md); margin-bottom:16px; }
+/* Faixa de convite pra instalar no celular (desktop) — ver comentário
+   no HTML (#desktopBanner) e evaluateDesktopBanner em app.js. Fica no
+   fluxo normal da página (sem position:fixed de propósito — mais
+   simples, sem z-index/sobreposição pra gerenciar), empurra o resto
+   do conteúdo pra baixo só enquanto estiver visível. */
+.desktop-banner{ background:var(--brd-navy); border-bottom:1px solid rgba(255,255,255,.08); }
+.desktop-banner-row{ display:flex; align-items:center; gap:12px; max-width:1400px; margin:0 auto; padding:10px 20px; }
+.desktop-banner-icon{ font-size:16px; flex-shrink:0; }
+.desktop-banner-text{ flex:1; font-size:12.5px; color:rgba(255,255,255,.85); }
+.desktop-banner-toggle{
+  flex-shrink:0; background:none; border:1px solid rgba(255,255,255,.25); border-radius:100px; padding:6px 14px;
+  font-size:11.5px; font-weight:700; color:#fff; cursor:pointer; font-family:inherit; white-space:nowrap;
+}
+.desktop-banner-toggle:hover{ background:rgba(255,255,255,.08); }
+.desktop-banner-close{
+  flex-shrink:0; background:none; border:none; color:rgba(255,255,255,.6); font-size:20px; line-height:1;
+  cursor:pointer; padding:2px 6px; font-family:inherit;
+}
+.desktop-banner-close:hover{ color:#fff; }
+.desktop-banner-expand{ max-width:420px; margin:0 auto; padding:0 20px 20px; }
+
+/* Conteúdo dentro da faixa expandida (QR + passo a passo de
+   instalação) — mesmas classes de antes, reaproveitadas aqui dentro. */
+.desktop-gate-qr{ display:flex; justify-content:center; margin:16px 0; }
+.desktop-gate-qr svg{ width:150px; height:150px; border-radius:12px; display:block; }
+.desktop-gate-url{ text-align:center; font-size:11.5px; color:var(--text-2); word-break:break-all; margin:0 0 16px; }
+.desktop-gate-steps{ display:flex; flex-direction:column; gap:12px; padding:14px 16px; background:var(--bg-app); border-radius:var(--radius-md); margin-bottom:12px; }
 .desktop-gate-steps div{ display:flex; flex-direction:column; gap:2px; }
 .desktop-gate-steps b{ font-size:12.5px; color:var(--text-0); }
 .desktop-gate-steps span{ font-size:12px; color:var(--text-1); }

@@ -71,10 +71,6 @@ function setActiveTeams(teams) { TEAMS = teams; setTeamMap(teams); }
 // currentUser com planStatus "active", só o #authGate é mostrado, o
 // resto do app (.shell) fica escondido e nenhum dado é carregado.
 let currentUser = null;
-// true depois que o fluxo de login/app já rodou pelo menos uma vez —
-// evita refazer tudo de novo só porque a janela foi redimensionada
-// (ver evaluateDesktopGate).
-let appBooted = false;
 
 /* ================= Regras de acesso por plano =================
    Freemium e Lite: sem Comparador de times, Probabilidades ou
@@ -363,12 +359,20 @@ function closeAdModal() {
   if (adUnfilledObserver) { adUnfilledObserver.disconnect(); adUnfilledObserver = null; }
 }
 
-/* ================= Gate de desktop (foco 100% PWA/mobile) =================
-   Telas maiores que DESKTOP_BREAKPOINT mostram uma página pra baixar/
-   instalar o app em vez do login — tem prioridade sobre tudo, inclusive
-   sobre quem já está logado. Reavaliado no boot() e a cada resize da
-   janela. "Continuar no navegador" grava um flag em localStorage que
-   pula esse gate dali pra frente, nesse mesmo navegador. */
+/* ================= Faixa de instalação (desktop) =================
+   AJUSTE (14/08/2026): isso ERA um bloqueio de tela cheia (tinha
+   prioridade sobre tudo, inclusive sobre quem já estava logado — nem
+   o login chegava a aparecer em tela > DESKTOP_BREAKPOINT sem clicar
+   "continuar"). Removido de propósito: decisão de produto de abrir o
+   app pra qualquer dispositivo, sem bloqueio nenhum antes do login —
+   pensando em divulgação/crescimento (link compartilhado, crawler de
+   busca, preview de rede social — nenhum desses "clica" num botão de
+   bypass; o bloqueio antigo escondia o produto inteiro deles). Virou
+   uma faixa dispensável (ver #desktopBanner no HTML), só um convite
+   pra instalar no celular, nunca esconde login nem app. Reavaliada no
+   boot() e a cada resize da janela. "×" grava o mesmo flag de antes
+   em localStorage (DESKTOP_BYPASS_KEY) — some pra sempre nesse
+   navegador depois de dispensada. */
 const DESKTOP_BREAKPOINT = 1024; // mesmo breakpoint dos media queries responsivos do resto do CSS
 const DESKTOP_BYPASS_KEY = "brdata_desktop_bypass";
 
@@ -397,26 +401,16 @@ function renderDesktopGateQR() {
     qr.make();
     box.innerHTML = qr.createSvgTag(6, 4);
   } catch (err) {
-    console.warn("[desktop-gate] falha ao gerar QR code:", err);
+    console.warn("[desktop-banner] falha ao gerar QR code:", err);
   }
 }
 
-// Decide se mostra o gate de desktop. Retorna true se mostrou (chamado
-// tanto no boot quanto a cada resize da janela).
-function evaluateDesktopGate() {
-  const shouldGate = isDesktopWidth() && !hasDesktopBypass();
-  document.getElementById("desktopGate").style.display = shouldGate ? "flex" : "none";
-  if (shouldGate) {
-    document.getElementById("authGate").style.display = "none";
-    document.querySelector(".shell").style.display = "none";
-  } else if (appBooted) {
-    // Saiu do gate de desktop (redimensionou pra baixo, ou clicou
-    // "continuar") depois do app já ter carregado 1x — só devolve a
-    // visibilidade certa (logado ou tela de login), sem refazer o
-    // boot inteiro de novo.
-    setGateVisible(!(currentUser && currentUser.planStatus === "active"));
-  }
-  return shouldGate;
+// Mostra/esconde a faixa — nunca bloqueia nada (login e app seguem
+// carregando normal independente do resultado). Chamada no boot e a
+// cada resize da janela.
+function evaluateDesktopBanner() {
+  const shouldShow = isDesktopWidth() && !hasDesktopBypass();
+  document.getElementById("desktopBanner").style.display = shouldShow ? "block" : "none";
 }
 
 async function boot() {
@@ -429,12 +423,9 @@ async function boot() {
   initTheme(); // roda antes do login pra o próprio gate já respeitar o tema salvo
   renderDesktopGateQR();
 
-  window.addEventListener("resize", debounce(() => {
-    const gated = evaluateDesktopGate();
-    if (!gated && !appBooted) startAuthFlow();
-  }, 200));
+  window.addEventListener("resize", debounce(evaluateDesktopBanner, 200));
 
-  if (evaluateDesktopGate()) return; // tela de desktop sem bypass — só a página de download, nada mais carrega
+  evaluateDesktopBanner(); // nunca bloqueia — só decide se mostra a faixa de instalação
   await startAuthFlow();
 }
 
@@ -458,7 +449,6 @@ function trackEvent(type, page) {
 }
 
 async function startAuthFlow() {
-  appBooted = true;
   const authState = await checkAuth();
 
   if (!authState.authenticated) {
@@ -2992,11 +2982,18 @@ function setupEventListeners() {
   document.getElementById("btnLogout").addEventListener("click", logout);
   document.getElementById("btnLogoutMobile").addEventListener("click", logout);
   document.getElementById("btnForceRefresh").addEventListener("click", forceRefreshApp);
-  document.getElementById("desktopGateContinue").addEventListener("click", (e) => {
-    e.preventDefault();
+  // Faixa de instalação (desktop) — "Ver como instalar" só expande/
+  // recolhe o QR code (não dispensa a faixa); "×" dispensa de vez.
+  document.getElementById("desktopBannerToggle").addEventListener("click", () => {
+    const box = document.getElementById("desktopBannerExpand");
+    const btn = document.getElementById("desktopBannerToggle");
+    const open = box.style.display !== "none";
+    box.style.display = open ? "none" : "block";
+    btn.textContent = open ? "Ver como instalar ▾" : "Esconder ▴";
+  });
+  document.getElementById("desktopBannerClose").addEventListener("click", () => {
     setDesktopBypass();
-    const gated = evaluateDesktopGate();
-    if (!gated && !appBooted) startAuthFlow();
+    document.getElementById("desktopBanner").style.display = "none";
   });
 
   // ---- Modal de anúncio (Freemium) ----

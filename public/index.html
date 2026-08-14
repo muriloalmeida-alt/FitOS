@@ -73,30 +73,31 @@
 </head>
 <body>
 
-<!-- ================= GATE DE DESKTOP =================
-     Foco 100% PWA/mobile: em telas maiores que o breakpoint mobile
-     (ver DESKTOP_BREAKPOINT em app.js), isso substitui TUDO — nem o
-     login chega a aparecer. Sempre reavaliado (boot + resize da
-     janela, ver evaluateDesktopGate). "Continuar no navegador" grava
-     um flag em localStorage (DESKTOP_BYPASS_KEY) que pula esse gate
-     nas próximas vezes, nesse mesmo navegador. -->
-<div id="desktopGate" class="auth-gate" style="display:none;">
-  <div class="auth-gate-inner">
-    <div class="auth-gate-brand">
-      <img src="img/logo.png" alt="BR Data" class="auth-gate-logo">
+<!-- ================= FAIXA DE INSTALAÇÃO (desktop) =================
+     Antes disso era um bloqueio de tela cheia ("Continuar no navegador
+     mesmo assim") que escondia até o login em qualquer tela maior que
+     o breakpoint mobile — removido de propósito: o produto passou a
+     ficar aberto pra qualquer dispositivo (decisão de crescimento/
+     divulgação). Isso aqui é só um convite dispensável pra instalar no
+     celular, nunca trava nada — ver DESKTOP_BREAKPOINT/
+     evaluateDesktopBanner em app.js, reavaliado no boot + resize. "×"
+     grava o mesmo flag de antes em localStorage (DESKTOP_BYPASS_KEY) —
+     some pra sempre nesse navegador depois de dispensada. -->
+<div id="desktopBanner" class="desktop-banner" style="display:none;">
+  <div class="desktop-banner-row">
+    <span class="desktop-banner-icon">📱</span>
+    <span class="desktop-banner-text">O BR Data também funciona como app no seu celular — instale e acesse de qualquer lugar.</span>
+    <button type="button" class="desktop-banner-toggle" id="desktopBannerToggle">Ver como instalar ▾</button>
+    <button type="button" class="desktop-banner-close" id="desktopBannerClose" aria-label="Fechar">×</button>
+  </div>
+  <div class="desktop-banner-expand" id="desktopBannerExpand" style="display:none;">
+    <div class="desktop-gate-qr" id="desktopGateQr"></div>
+    <p class="desktop-gate-url" id="desktopGateUrl"></p>
+    <div class="desktop-gate-steps">
+      <div><b>Android (Chrome)</b><span>Menu ⋮ → "Instalar app" (ou "Adicionar à tela inicial")</span></div>
+      <div><b>iPhone (Safari)</b><span>Botão Compartilhar → "Adicionar à Tela de Início"</span></div>
     </div>
-    <div class="auth-gate-card">
-      <h2>O BR Data é feito pro seu celular</h2>
-      <p class="auth-gate-sub">Aponte a câmera do celular pro QR code abaixo pra abrir o app e instalar na tela inicial.</p>
-      <div class="desktop-gate-qr" id="desktopGateQr"></div>
-      <p class="desktop-gate-url" id="desktopGateUrl"></p>
-      <div class="desktop-gate-steps">
-        <div><b>Android (Chrome)</b><span>Menu ⋮ → "Instalar app" (ou "Adicionar à tela inicial")</span></div>
-        <div><b>iPhone (Safari)</b><span>Botão Compartilhar → "Adicionar à Tela de Início"</span></div>
-      </div>
-      <p class="desktop-gate-soon">📱 Em breve também na App Store e no Google Play.</p>
-    </div>
-    <p class="auth-gate-switch"><a href="#" id="desktopGateContinue">Continuar no navegador mesmo assim</a></p>
+    <p class="desktop-gate-soon">📱 Em breve também na App Store e no Google Play.</p>
   </div>
 </div>
 
