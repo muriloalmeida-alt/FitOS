@@ -5,6 +5,47 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>BRDATA · Brasileirão 2026</title>
 
+<!-- ===== CMP do Google (Privacy & messaging / Funding Choices) =====
+     Precisa ser o(s) PRIMEIRO(S) script(s) do <head>, antes de
+     qualquer outro script de anúncio/analytics — é assim que o
+     Google recomenda oficialmente, pra dar tempo do consentimento ser
+     coletado/lido antes de qualquer chamada de anúncio acontecer.
+     Roda pra QUALQUER visitante (mesmo sem login, mesmo em plano
+     pago) — consentimento de cookie/dado é uma coisa do site inteiro,
+     não só de quem vê anúncio; diferente do adsbygoogle.js em si
+     (esse sim só carrega depois, via JS, e só pra contas Freemium —
+     ver ensureAdsenseScriptLoaded em app.js).
+
+     IMPORTANTE — isso aqui é só o lado do SITE (os 2 scripts que
+     fazem a mensagem configurada no Google aparecer aqui). A
+     MENSAGEM em si (texto, idioma, regiões/leis cobertas, opções que
+     aparecem pro usuário) é criada e editada inteiramente no painel
+     da conta AdSense, em Privacidade e mensagens — não tem como criar
+     isso por código, é 100% configuração na conta do Google. O
+     "pub-2446755125547563" abaixo é o mesmo Client ID já usado no
+     resto da integração (ver meta "google-adsense-account" logo
+     abaixo) — só troca o prefixo de "ca-pub-" pra "pub-", igual já
+     acontece no /ads.txt gerado pelo servidor (ver server.js). -->
+<script async src="https://fundingchoicesmessages.google.com/i/pub-2446755125547563?ers=1"></script>
+<script>
+  (function() {
+    function signalGooglefcPresent() {
+      if (!window.frames["googlefcPresent"]) {
+        if (document.body) {
+          const iframe = document.createElement("iframe");
+          iframe.style = "width: 0; height: 0; border: none; z-index: -1000; left: -1000px; top: -1000px;";
+          iframe.style.display = "none";
+          iframe.name = "googlefcPresent";
+          document.body.appendChild(iframe);
+        } else {
+          setTimeout(signalGooglefcPresent, 0);
+        }
+      }
+    }
+    signalGooglefcPresent();
+  })();
+</script>
+
 <!-- Verificação de propriedade do site pro Google AdSense (painel:
      Conta > Informações da conta) — precisa ficar no <head> de toda
      página carregada na raiz do domínio pro Google conseguir
