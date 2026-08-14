@@ -37,7 +37,16 @@ const dataProvider = require("./src/providers");
 const cache = require("./src/cache");
 const oddsHistory = require("./src/oddsHistory");
 const { fetchBroadcastStation } = require("./src/broadcastSource");
-const { fetchBroadcastFromEPG } = require("./src/epgSource");
+const { fetchBroadcastFromEPG, getStats: getEpgStats } = require("./src/epgSource");
+// Requerido direto (não só através de providers/sportmonks.js) pra
+// expor métricas de tráfego na área administrativa (ver
+// GET /api/adminpanel/integrations) mesmo quando o fornecedor ativo
+// hoje é outro (api-sports) — nesse caso as métricas simplesmente
+// ficam zeradas (nenhuma chamada foi feita), o que já é a resposta
+// certa. Seguro de exigir sempre: nenhum código desse módulo roda de
+// verdade até sportmonksGet/sportmonksGetAll serem chamados, então
+// não faz chamada nenhuma nem exige token só por ser importado aqui.
+const sportmonksClient = require("./src/sportmonksClient");
 const { fetchNews } = require("./src/newsSource");
 const mercadoPago = require("./src/mercadoPago");
 const supportPlans = require("./src/supportPlans");
@@ -980,6 +989,25 @@ const server = http.createServer(async (req, res) => {
           epg: { url: (process.env.EPG_URL || "").trim() || "https://www.open-epg.com/files/brazil1.xml (padrão)" },
           newsRss: { url: (process.env.NEWS_RSS_URL || "").trim() || null },
         },
+      });
+    }
+
+    // Tráfego/sucesso/falha da Sportmonks e do EPG — pedido pelo
+    // usuário pra acompanhar as 2 integrações que mais dependem de
+    // fonte externa instável (Sportmonks é comercial mas ainda assim
+    // cai às vezes; EPG é fonte comunitária best-effort de propósito,
+    // ver aviso no topo de epgSource.js). Métricas SÓ EM MEMÓRIA
+    // (zeram a cada restart/deploy do Railway) — não é histórico
+    // permanente tipo Receita, é "o que está acontecendo agora/desde
+    // o último boot", que já é o que interessa pra diagnosticar
+    // tráfego ao vivo. dataProvider ativo diferente de "sportmonks"
+    // não é erro nenhum aqui — as métricas simplesmente ficam
+    // zeradas, porque nenhuma chamada foi feita mesmo.
+    if (pathname === "/api/adminpanel/integrations") {
+      return sendJSON(res, 200, {
+        activeProvider: dataProvider.ACTIVE_PROVIDER_NAME,
+        sportmonks: sportmonksClient.getStats(),
+        epg: getEpgStats(),
       });
     }
 

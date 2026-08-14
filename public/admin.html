@@ -112,6 +112,7 @@
     <button class="nav-item active" data-section="overview">📊 Visão geral</button>
     <button class="nav-item" data-section="users">👥 Usuários</button>
     <button class="nav-item" data-section="revenue">💰 Receita</button>
+    <button class="nav-item" data-section="integrations">🔌 Integrações</button>
     <button class="nav-item" data-section="content">📝 Conteúdo</button>
     <div class="admin-nav-spacer"></div>
     <div class="admin-nav-user" id="adminNavUser"></div>
@@ -177,6 +178,31 @@
           <thead><tr><th>Usuário</th><th>Plano</th><th>Cadastrado em</th><th>Última atividade</th></tr></thead>
           <tbody id="abandonedTableBody"></tbody>
         </table>
+      </div>
+    </section>
+
+    <section class="admin-section" id="admin-integrations">
+      <h1>Integrações</h1>
+      <p class="sub" id="integSub">Tráfego, sucesso e falha das fontes de dados externas — só em memória, zera a cada reinício/deploy do servidor (não é histórico permanente, é "o que está acontecendo agora").</p>
+
+      <div class="admin-card">
+        <h3>Sportmonks (dados esportivos)</h3>
+        <div class="kpi-grid" id="smKpis" style="margin-bottom:14px;"></div>
+        <div id="smMeta" style="font-size:12px; color:var(--text-2); margin-bottom:12px;"></div>
+        <div class="table-scroll-x">
+          <table class="admin-table">
+            <thead><tr><th>Quando</th><th>Endpoint</th><th>Status</th><th>Tempo</th><th>Erro</th></tr></thead>
+            <tbody id="smRecentTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="admin-card">
+        <h3>EPG · onde assistir</h3>
+        <p class="sub" style="margin-bottom:10px;">2 métricas separadas: <b>downloads</b> é buscar o arquivo de grade em si (a cada ~12h); <b>consultas</b> é cada tentativa de achar um jogo específico nessa grade já baixada.</p>
+        <div class="kpi-grid" id="epgDownloadKpis" style="margin-bottom:14px;"></div>
+        <div id="epgDownloadMeta" style="font-size:12px; color:var(--text-2); margin-bottom:14px;"></div>
+        <div class="kpi-grid" id="epgLookupKpis"></div>
       </div>
     </section>
 

@@ -119,6 +119,34 @@ function parseXMLTV(xml) {
 let cache = { channels: new Map(), programmes: [], fetchedAt: null };
 let refreshPromise = null;
 
+// Métricas de tráfego (pedido pelo usuário: acompanhar tráfego/
+// sucesso/falha do EPG na área administrativa, ver GET
+// /api/adminpanel/integrations em server.js) — só em memória, zera a
+// cada restart/deploy, mesmo espírito de sportmonksClient.js. 2
+// camadas separadas de propósito: "downloads" é a busca do arquivo em
+// si (1x a cada REFRESH_INTERVAL_MS, ou quando falha e tenta nas
+// próximas), "lookups" é cada CONSULTA (fetchBroadcastFromEPG, 1 por
+// jogo pendente que alguém abriu na tela) — dá pra ter download
+// sempre com sucesso mas taxa de "achou" baixa (fonte comunitária sem
+// aquele canal específico), então separar os 2 importa pra entender
+// onde está o problema.
+let stats = {
+  downloads: { total: 0, success: 0, failures: 0, lastAt: null, lastSuccessAt: null, lastFailureAt: null, lastFailureMessage: null },
+  lookups: { total: 0, found: 0, notFound: 0, lastAt: null },
+};
+function trackDownload(ok, errMsg) {
+  stats.downloads.total++;
+  stats.downloads.lastAt = Date.now();
+  if (ok) { stats.downloads.success++; stats.downloads.lastSuccessAt = Date.now(); }
+  else { stats.downloads.failures++; stats.downloads.lastFailureAt = Date.now(); stats.downloads.lastFailureMessage = errMsg || null; }
+}
+function trackLookup(found) {
+  stats.lookups.total++;
+  stats.lookups.lastAt = Date.now();
+  if (found) stats.lookups.found++; else stats.lookups.notFound++;
+}
+function getStats() { return JSON.parse(JSON.stringify(stats)); } // cópia defensiva, mesmo espírito de sportmonksClient.getStats()
+
 async function refreshCache() {
   const res = await fetch(EPG_URL);
   if (!res.ok) throw new Error(`EPG (${EPG_URL}) respondeu ${res.status}`);
@@ -145,7 +173,8 @@ function ensureFreshCache() {
   if (!stale) return Promise.resolve();
   if (!refreshPromise) {
     refreshPromise = refreshCache()
-      .catch((err) => console.error("[epg] falha ao atualizar o feed:", err.message))
+      .then(() => trackDownload(true))
+      .catch((err) => { trackDownload(false, err.message); console.error("[epg] falha ao atualizar o feed:", err.message); })
       .finally(() => { refreshPromise = null; });
   }
   return refreshPromise;
@@ -162,10 +191,10 @@ function ensureFreshCache() {
 // Retorna o nome do canal (string) ou null se não achou nada.
 async function fetchBroadcastFromEPG(dateISO, homeName, awayName) {
   const day = String(dateISO || "").slice(0, 10);
-  if (!day || !homeName || !awayName) return null;
+  if (!day || !homeName || !awayName) return null; // parâmetro faltando -- não é uma tentativa de busca de verdade, não conta como lookup
 
   await ensureFreshCache();
-  if (!cache.programmes.length) return null;
+  if (!cache.programmes.length) { trackLookup(false); return null; }
 
   const hn = normalizeName(homeName);
   const an = normalizeName(awayName);
@@ -174,8 +203,9 @@ async function fetchBroadcastFromEPG(dateISO, homeName, awayName) {
     const t = normalizeName(p.title);
     return t.includes(hn) && t.includes(an);
   });
+  trackLookup(!!match);
   if (!match) return null;
   return cache.channels.get(match.channelId) || null;
 }
 
-module.exports = { fetchBroadcastFromEPG };
+module.exports = { fetchBroadcastFromEPG, getStats };

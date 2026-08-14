@@ -21,6 +21,31 @@ function logFailure(path, params, msg) {
   console.error(`[sportmonks] ${path}?${new URLSearchParams(params).toString()} -> ${msg}`);
 }
 
+// Métricas de tráfego (pedido pelo usuário: acompanhar tráfego/
+// sucesso/falha da Sportmonks na área administrativa, ver GET
+// /api/adminpanel/integrations em server.js) — só em memória, ZERA a
+// cada restart/deploy (não é um histórico persistido tipo
+// paymentsLedger; é "o que está acontecendo agora/desde o último
+// boot", suficiente pro objetivo de diagnosticar tráfego ao vivo).
+let stats = {
+  totalRequests: 0, totalSuccess: 0, totalFailures: 0,
+  lastRequestAt: null, lastSuccessAt: null,
+  lastFailureAt: null, lastFailureMessage: null,
+  recent: [], // últimas RECENT_LIMIT chamadas: { path, ok, status, ms, at, error }
+};
+const RECENT_LIMIT = 30;
+function trackCall({ path, ok, status, ms, error }) {
+  stats.totalRequests++;
+  stats.lastRequestAt = Date.now();
+  if (ok) { stats.totalSuccess++; stats.lastSuccessAt = Date.now(); }
+  else { stats.totalFailures++; stats.lastFailureAt = Date.now(); stats.lastFailureMessage = error || null; }
+  stats.recent.unshift({ path, ok, status: status ?? null, ms, at: Date.now(), error: ok ? null : (error || null) });
+  if (stats.recent.length > RECENT_LIMIT) stats.recent.length = RECENT_LIMIT;
+}
+// Cópia defensiva (recent é um array mutável) — quem consome isso não
+// deve acidentalmente segurar/alterar o array interno de verdade.
+function getStats() { return { ...stats, recent: [...stats.recent] }; }
+
 // Chamada crua — devolve o corpo INTEIRO já decodificado (data +
 // pagination + rate_limit etc.), não só o campo "data". Uso interno;
 // sportmonksGet/sportmonksGetAll abaixo são o que o resto do provider
@@ -30,7 +55,7 @@ async function sportmonksRequest(path, params = {}) {
   if (!token) {
     const err = new Error("SPORTMONKS_API_TOKEN não configurado no .env");
     err.code = "NO_API_KEY";
-    throw err;
+    throw err; // nem chegou a tentar chamar a API -- não é tráfego de verdade, não entra nas métricas
   }
   const url = new URL(BASE_URL + path);
   url.searchParams.set("api_token", token);
@@ -38,12 +63,25 @@ async function sportmonksRequest(path, params = {}) {
     if (v !== undefined && v !== null && v !== "") url.searchParams.set(k, v);
   });
 
-  const res = await fetch(url);
-  const json = await res.json().catch(() => null);
+  const startedAt = Date.now();
+  let res, json;
+  try {
+    res = await fetch(url);
+    json = await res.json().catch(() => null);
+  } catch (networkErr) {
+    // Falha ANTES de qualquer resposta chegar (DNS, timeout, conexão
+    // recusada) — ainda assim é uma tentativa de tráfego de verdade,
+    // diferente do caso "sem token" acima.
+    trackCall({ path, ok: false, status: null, ms: Date.now() - startedAt, error: networkErr.message });
+    logFailure(path, params, `falha de rede: ${networkErr.message}`);
+    throw networkErr;
+  }
+  const ms = Date.now() - startedAt;
 
   if (!res.ok) {
     const msg = json?.message || `Sportmonks respondeu ${res.status}`;
     logFailure(path, params, `HTTP ${res.status}: ${msg}`);
+    trackCall({ path, ok: false, status: res.status, ms, error: msg });
     const err = new Error(`Sportmonks: ${msg}`);
     err.status = res.status;
     throw err;
@@ -63,10 +101,12 @@ async function sportmonksRequest(path, params = {}) {
     // Erro "de negócio" (ex.: token sem acesso àquela liga) que ainda
     // assim vem com status 200 em alguns endpoints da Sportmonks.
     logFailure(path, params, `200 com erro no corpo: ${json.message}`);
+    trackCall({ path, ok: false, status: res.status, ms, error: json.message });
     const err = new Error(`Sportmonks: ${json.message}`);
     throw err;
   }
 
+  trackCall({ path, ok: true, status: res.status, ms });
   return json;
 }
 
@@ -132,4 +172,4 @@ async function sportmonksGetAll(path, params = {}) {
   return all;
 }
 
-module.exports = { sportmonksGet, sportmonksGetAll, getQuota, BASE_URL };
+module.exports = { sportmonksGet, sportmonksGetAll, getQuota, getStats, BASE_URL };

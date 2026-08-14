@@ -19,6 +19,15 @@ function fmtDate(ts) {
   if (!ts) return "—";
   return new Date(ts).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
 }
+function fmtDateTime(ts) {
+  if (!ts) return "—";
+  const d = new Date(ts);
+  return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) + " " + d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+}
+function fmtPct(n, total) {
+  if (!total) return "—";
+  return `${((n / total) * 100).toFixed(1)}%`;
+}
 function planLabel(id) {
   return plansById[id]?.title || id || "—";
 }
@@ -128,7 +137,7 @@ async function onLogout() {
 }
 
 /* ---------- Navegação entre seções ---------- */
-const SECTION_LOADERS = { overview: loadOverview, users: loadUsers, revenue: loadRevenue, content: null };
+const SECTION_LOADERS = { overview: loadOverview, users: loadUsers, revenue: loadRevenue, integrations: loadIntegrations, content: null };
 let sectionsLoaded = {};
 function setupNav() {
   document.querySelectorAll(".admin-nav .nav-item[data-section]").forEach((btn) => {
@@ -325,6 +334,56 @@ async function loadRevenue() {
     body.innerHTML = `<tr><td colspan="5">Falha ao carregar: ${err.message}</td></tr>`;
     attemptsBody.innerHTML = `<tr><td colspan="6">Falha ao carregar.</td></tr>`;
     abandonedBody.innerHTML = `<tr><td colspan="4">Falha ao carregar.</td></tr>`;
+  }
+}
+
+/* ---------- Integrações (tráfego Sportmonks/EPG) ---------- */
+async function loadIntegrations() {
+  const smKpis = document.getElementById("smKpis");
+  const smMeta = document.getElementById("smMeta");
+  const smRecentBody = document.getElementById("smRecentTableBody");
+  const epgDownloadKpis = document.getElementById("epgDownloadKpis");
+  const epgDownloadMeta = document.getElementById("epgDownloadMeta");
+  const epgLookupKpis = document.getElementById("epgLookupKpis");
+  smRecentBody.innerHTML = `<tr><td colspan="5">Carregando...</td></tr>`;
+  try {
+    const data = await fetchJSON("/api/adminpanel/integrations");
+    const sm = data.sportmonks;
+    const epg = data.epg;
+
+    document.getElementById("integSub").textContent =
+      `Fornecedor de dados esportivos ativo agora: ${data.activeProvider}. Métricas só em memória — zeram a cada reinício/deploy do servidor.`;
+
+    smKpis.innerHTML =
+      kpiTileHTML("Requisições", sm.totalRequests) +
+      kpiTileHTML("Sucesso", sm.totalSuccess, fmtPct(sm.totalSuccess, sm.totalRequests)) +
+      kpiTileHTML("Falhas", sm.totalFailures, fmtPct(sm.totalFailures, sm.totalRequests));
+    smMeta.innerHTML =
+      `Última chamada: ${fmtDateTime(sm.lastRequestAt)}` +
+      (sm.lastFailureAt ? ` · Última falha: ${fmtDateTime(sm.lastFailureAt)} — ${escHtml(sm.lastFailureMessage || "")}` : "");
+    smRecentBody.innerHTML = sm.recent.length
+      ? sm.recent.map((r) => `<tr>
+          <td>${fmtDateTime(r.at)}</td>
+          <td style="font-family:monospace; font-size:11px;">${escHtml(r.path)}</td>
+          <td><span class="pill ${r.ok ? "ok" : "off"}">${r.ok ? "OK" : (r.status || "Falha")}</span></td>
+          <td>${r.ms != null ? `${r.ms}ms` : "—"}</td>
+          <td style="font-size:11px; color:var(--brd-red);">${escHtml(r.error || "—")}</td>
+        </tr>`).join("")
+      : `<tr><td colspan="5">Nenhuma chamada registrada desde o último restart.</td></tr>`;
+
+    epgDownloadKpis.innerHTML =
+      kpiTileHTML("Downloads", epg.downloads.total) +
+      kpiTileHTML("Sucesso", epg.downloads.success, fmtPct(epg.downloads.success, epg.downloads.total)) +
+      kpiTileHTML("Falhas", epg.downloads.failures, fmtPct(epg.downloads.failures, epg.downloads.total));
+    epgDownloadMeta.innerHTML =
+      `Última atualização: ${fmtDateTime(epg.downloads.lastSuccessAt)}` +
+      (epg.downloads.lastFailureAt ? ` · Última falha: ${fmtDateTime(epg.downloads.lastFailureAt)} — ${escHtml(epg.downloads.lastFailureMessage || "")}` : "");
+    epgLookupKpis.innerHTML =
+      kpiTileHTML("Consultas (jogos buscados)", epg.lookups.total) +
+      kpiTileHTML("Achou o canal", epg.lookups.found, fmtPct(epg.lookups.found, epg.lookups.total)) +
+      kpiTileHTML("Não achou", epg.lookups.notFound, fmtPct(epg.lookups.notFound, epg.lookups.total));
+  } catch (err) {
+    smRecentBody.innerHTML = `<tr><td colspan="5">Falha ao carregar: ${err.message}</td></tr>`;
   }
 }
 
