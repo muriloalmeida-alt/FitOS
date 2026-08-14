@@ -535,13 +535,27 @@ h1,h2,h3{ margin:0; }
 .odds-pill3 span{ display:block; font-size:9.5px; color:var(--text-2); text-transform:uppercase; }
 .odds-pill3 b{ font-size:15px; font-weight:800; color:var(--brd-blue); }
 .affiliate-strip{ display:flex; gap:8px; overflow-x:auto; margin-top:4px; }
-.affiliate-chip{
-  flex:none; display:flex; align-items:center; justify-content:center; min-height:18px;
-  padding:7px 16px; border-radius:100px; font-size:11px; font-weight:700; color:#fff;
-  opacity:.95; box-shadow:0 4px 10px -4px rgba(0,0,0,.35);
+/* Wrapper em si fica transparente/sem padding — quem desenha o visual
+   é sempre um dos 2 filhos (nunca os dois ao mesmo tempo, ver
+   affiliateLogoFallbackHandler em app.js):
+   - .affiliate-chip-logo: card branco neutro em volta da logo. As
+     logos que os parceiros mandam quase nunca vêm com fundo
+     transparente (cada marca tem a própria cor de fundo — preto,
+     verde, laranja...) — um card branco neutro evita “caixa colorida
+     dentro de pill de outra cor” e funciona bem com qualquer cor de
+     fundo que a logo trouxer.
+   - .affiliate-chip-name: o pill colorido de sempre (cor da marca, ver
+     AFFILIATE_OPERATORS em affiliates.js), só aparece se a logo
+     daquele parceiro ainda não tiver sido cadastrada. */
+.affiliate-chip{ flex:none; display:flex; align-items:center; opacity:.95; }
+.affiliate-chip-logo{
+  display:block; height:30px; max-width:96px; width:auto; object-fit:contain;
+  background:#fff; border-radius:10px; padding:5px 9px; box-shadow:0 4px 10px -4px rgba(0,0,0,.35);
 }
-.affiliate-chip-logo{ display:block; height:18px; max-width:70px; width:auto; object-fit:contain; }
-.affiliate-chip-name{ white-space:nowrap; }
+.affiliate-chip-name{
+  display:none; white-space:nowrap; padding:7px 16px; border-radius:100px;
+  font-size:11px; font-weight:700; color:#fff; box-shadow:0 4px 10px -4px rgba(0,0,0,.35);
+}
 .affiliate-chip.disabled{ opacity:.35; cursor:not-allowed; }
 .compliance-line{ font-size:9.5px; color:var(--text-2); margin-top:10px; line-height:1.5; text-align:center; }
 .compliance-line a{ color:var(--brd-blue); font-weight:600; }

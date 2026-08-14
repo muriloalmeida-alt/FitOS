@@ -1232,10 +1232,10 @@ function affiliateChipHTML(op) {
   // como patrocinado.
   const rel = op.affiliate ? "sponsored noopener" : "noopener";
   return `
-    <a class="affiliate-chip${isConfigured ? "" : " disabled"}" style="background:${op.color}" href="${op.url}" target="_blank" rel="${rel}"
+    <a class="affiliate-chip${isConfigured ? "" : " disabled"}" href="${op.url}" target="_blank" rel="${rel}"
        ${isConfigured ? "" : 'onclick="return false;" title="Configure em js/affiliates.js"'}>
       <img class="affiliate-chip-logo" src="img/partners/${op.id}.png" alt="${escAttr(op.name)}" onerror="affiliateLogoFallbackHandler(this)">
-      <span class="affiliate-chip-name" style="display:none;">${op.name}</span>
+      <span class="affiliate-chip-name" style="background:${op.color};">${op.name}</span>
     </a>`;
 }
 // Tira de afiliados + aviso legal — compartilhada entre o card de odds
