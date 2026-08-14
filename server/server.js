@@ -882,6 +882,29 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
+    // Diagnóstico do AdSense/CMP (client id/slot configurados, ads.txt,
+    // se o script do CMP carregou, testar um anúncio de verdade na
+    // hora) — pedido pelo usuário pra não precisar logar no app nem
+    // esperar o timer de 1 minuto do modal Freemium só pra conferir se
+    // a configuração está certa. Mesma proteção do /api/admin/users
+    // (ADMIN_SECRET via ?secret=... ou header X-Admin-Secret) e mesmo
+    // motivo pro 404 genérico: além de ser uma página de uso interno
+    // (não devia vazar pra ninguém de fora), pedir anúncio de verdade
+    // repetidamente é sensível pra política do AdSense (tráfego
+    // inválido) — não faz sentido deixar aberto pra qualquer um achar.
+    // Arquivo fica FORA de public/ de propósito (server/internalPages/
+    // — não é servido pelo serveStatic de jeito nenhum, só chega aqui
+    // por essa rota, depois de validar a senha).
+    if (pathname === "/adsense-check") {
+      if (!isValidAdminSecret(req, searchParams)) { res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" }); return res.end("Not found"); }
+      const filePath = path.join(__dirname, "internalPages", "adsense-check.html");
+      return fs.readFile(filePath, (err, data) => {
+        if (err) { res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" }); return res.end("Falha ao carregar a página de diagnóstico."); }
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" });
+        res.end(data);
+      });
+    }
+
     if (pathname.startsWith("/api/")) {
       return sendJSON(res, 404, { error: "endpoint não encontrado" });
     }
