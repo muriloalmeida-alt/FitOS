@@ -158,6 +158,16 @@ function listUsers() {
       id: u.id, name: u.name, email: u.email, phone: u.phone,
       plan: u.plan, planStatus: u.planStatus, pendingPlan: u.pendingPlan || null,
       role: u.role || null,
+      // paymentId/lastPaymentStatus só existem depois do 1º evento de
+      // pagamento (ver webhook em server.js); preferenceId existe
+      // desde que o checkout foi criado (cadastro pago, ou upgrade),
+      // mesmo que a pessoa nunca tenha chegado a tentar pagar de
+      // verdade — é exatamente esse cruzamento (tem preference, nunca
+      // teve payment) que identifica abandono de checkout, ver GET
+      // /api/adminpanel/revenue.
+      preferenceId: u.preferenceId || null,
+      paymentId: u.paymentId || null,
+      lastPaymentStatus: u.lastPaymentStatus || null,
       createdAt: u.createdAt, updatedAt: u.updatedAt,
     }))
     .sort((a, b) => b.createdAt - a.createdAt);

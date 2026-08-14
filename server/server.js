@@ -863,6 +863,7 @@ const server = http.createServer(async (req, res) => {
           const payment = await mercadoPago.getPayment(paymentId);
           const user = payment.external_reference ? users.findById(payment.external_reference) : null;
           if (user) {
+            let planForLedger = user.plan;
             if (payment.status === "approved") {
               // Se tinha uma troca de plano em andamento (upgrade), é
               // ela que vira o plano ativo agora; senão é a própria
@@ -870,23 +871,34 @@ const server = http.createServer(async (req, res) => {
               const patch = { planStatus: "active", paymentId: String(payment.id) };
               if (user.pendingPlan) { patch.plan = user.pendingPlan; patch.pendingPlan = null; }
               users.updateUser(user.id, patch);
-              // Registro pra seção "Receita" da área administrativa
-              // (/admin) — ver paymentsLedger.js. Idempotente (checa
-              // paymentId), então reenvio de notificação do Mercado
-              // Pago pro MESMO pagamento não conta receita em dobro.
-              paymentsLedger.recordIfNew({
-                paymentId: payment.id,
-                userId: user.id,
-                email: user.email,
-                plan: patch.plan || user.plan,
-                amount: payment.transaction_amount,
-                currency: payment.currency_id,
-                method: payment.payment_method_id || payment.payment_type_id || null,
-                approvedAt: payment.date_approved ? new Date(payment.date_approved).getTime() : Date.now(),
-              });
+              planForLedger = patch.plan || user.plan;
             } else {
               users.updateUser(user.id, { lastPaymentStatus: payment.status, paymentId: String(payment.id) });
+              planForLedger = user.pendingPlan || user.plan; // recusa/cancelamento pode ter acontecido numa troca de plano em andamento
             }
+            // Registro pra seção "Receita" da área administrativa
+            // (/admin) — ver paymentsLedger.js. AJUSTE (14/08/2026):
+            // registra QUALQUER status (não só aprovado) — pedido do
+            // usuário pra entender recusas/cancelamentos/abandonos, não
+            // só receita confirmada. Idempotente por (paymentId+status)
+            // — reenvio de notificação do Mercado Pago pro MESMO evento
+            // não conta em dobro, mas o MESMO paymentId pode gerar mais
+            // de 1 entrada se passar por status diferentes com o tempo
+            // (ex.: pending -> rejected).
+            paymentsLedger.recordIfNew({
+              paymentId: payment.id,
+              status: payment.status,
+              statusDetail: payment.status_detail || null,
+              userId: user.id,
+              email: user.email,
+              plan: planForLedger,
+              amount: payment.transaction_amount,
+              currency: payment.currency_id,
+              method: payment.payment_method_id || payment.payment_type_id || null,
+              eventAt: payment.date_approved
+                ? new Date(payment.date_approved).getTime()
+                : (payment.date_created ? new Date(payment.date_created).getTime() : Date.now()),
+            });
           }
         }
       } catch (err) {
@@ -1011,11 +1023,24 @@ const server = http.createServer(async (req, res) => {
       return sendJSON(res, 200, { ok: true, user: users.publicUser(updated) });
     }
 
-    // Receita: lista de pagamentos aprovados + o mesmo resumo já usado
-    // em /overview (repetido aqui pra tela de Receita não depender de
-    // 2 requests).
+    // Receita: pagamentos aprovados, tentativas NÃO aprovadas (recusa/
+    // cancelamento/pendente/etc. — ver AJUSTE em paymentsLedger.js) e
+    // abandono de checkout (conta paga que nunca chegou a tentar pagar
+    // nenhuma vez — o Mercado Pago não avisa isso, é inferido aqui:
+    // plano pago + ainda não ativa + nunca teve payment nenhum, só o
+    // link de checkout criado no cadastro). Não cobre abandono de
+    // UPGRADE (troca de plano de quem já é assinante ativo) —
+    // pendingPreferenceId existe pra isso mas ainda não tem essa
+    // mineração aqui, é um caso bem mais raro/de menor risco que
+    // abandono no cadastro pago em si.
     if (pathname === "/api/adminpanel/revenue") {
-      return sendJSON(res, 200, { summary: paymentsLedger.summary(), payments: paymentsLedger.listAll() });
+      const allEvents = paymentsLedger.listAll();
+      const payments = allEvents.filter((e) => (e.status || "approved") === "approved");
+      const attempts = allEvents.filter((e) => (e.status || "approved") !== "approved");
+      const abandoned = users.listUsers()
+        .filter((u) => u.plan !== "freemium" && u.planStatus !== "active" && !u.paymentId && u.preferenceId)
+        .map((u) => ({ id: u.id, name: u.name, email: u.email, plan: u.plan, planStatus: u.planStatus, createdAt: u.createdAt, updatedAt: u.updatedAt }));
+      return sendJSON(res, 200, { summary: paymentsLedger.summary(), payments, attempts, abandoned });
     }
 
     // Diagnóstico do AdSense/CMP (client id/slot configurados, ads.txt,

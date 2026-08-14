@@ -22,6 +22,44 @@ function fmtDate(ts) {
 function planLabel(id) {
   return plansById[id]?.title || id || "—";
 }
+
+// Tradução dos status/motivos que o Mercado Pago manda — cobre os
+// mais comuns (documentados publicamente); qualquer código que não
+// estiver aqui aparece cru mesmo (melhor mostrar o código real do que
+// esconder um motivo que ainda não traduzimos).
+const STATUS_LABELS = {
+  approved: "Aprovado", pending: "Pendente", in_process: "Em análise",
+  rejected: "Recusado", cancelled: "Cancelado", refunded: "Reembolsado",
+  charged_back: "Estornado", authorized: "Autorizado", in_mediation: "Em mediação",
+};
+const STATUS_PILL_CLASS = {
+  approved: "ok", rejected: "off", cancelled: "off", charged_back: "off",
+  pending: "warn", in_process: "warn", in_mediation: "warn", authorized: "warn", refunded: "neutral",
+};
+const STATUS_DETAIL_LABELS = {
+  cc_rejected_insufficient_amount: "Saldo/limite insuficiente",
+  cc_rejected_bad_filled_card_number: "Número do cartão incorreto",
+  cc_rejected_bad_filled_date: "Validade incorreta",
+  cc_rejected_bad_filled_security_code: "CVV incorreto",
+  cc_rejected_bad_filled_other: "Dados do cartão incorretos",
+  cc_rejected_call_for_authorize: "Cartão pediu autorização manual",
+  cc_rejected_card_disabled: "Cartão desabilitado",
+  cc_rejected_duplicated_payment: "Pagamento duplicado",
+  cc_rejected_high_risk: "Recusado por suspeita de fraude",
+  cc_rejected_max_attempts: "Excedeu tentativas",
+  cc_rejected_invalid_installments: "Parcelamento inválido",
+  cc_rejected_card_error: "Erro ao processar o cartão",
+  cc_rejected_blacklist: "Cartão/comprador bloqueado",
+  cc_rejected_other_reason: "Outro motivo (sem detalhe)",
+  pending_contingency: "Aguardando validação",
+  pending_review_manual: "Em análise manual",
+  expired: "Expirado",
+};
+function statusLabel(status) { return STATUS_LABELS[status] || status || "—"; }
+function statusDetailLabel(detail) { return detail ? (STATUS_DETAIL_LABELS[detail] || detail) : "—"; }
+function statusPillHTML(status) {
+  return `<span class="pill ${STATUS_PILL_CLASS[status] || "neutral"}">${statusLabel(status)}</span>`;
+}
 async function fetchJSON(url, opts) {
   const res = await fetch(url, opts);
   const data = await res.json().catch(() => null);
@@ -219,27 +257,74 @@ async function onForceLogout(id) {
 }
 
 /* ---------- Receita ---------- */
+function eventDate(e) { return e.eventAt || e.approvedAt || e.recordedAt; } // approvedAt = campo antigo, antes do funil completo
+function funnelRowHTML(status, count, extra) {
+  return `<div class="funnel-row"><div>${statusPillHTML(status)} ${extra ? `<span style="color:var(--text-2); font-size:11.5px;">${extra}</span>` : ""}</div><b>${count}</b></div>`;
+}
 async function loadRevenue() {
   const kpis = document.getElementById("revKpis");
+  const funnelBox = document.getElementById("revFunnel");
   const body = document.getElementById("revenueTableBody");
+  const attemptsBody = document.getElementById("attemptsTableBody");
+  const abandonedBody = document.getElementById("abandonedTableBody");
   body.innerHTML = `<tr><td colspan="5">Carregando...</td></tr>`;
+  attemptsBody.innerHTML = `<tr><td colspan="6">Carregando...</td></tr>`;
+  abandonedBody.innerHTML = `<tr><td colspan="4">Carregando...</td></tr>`;
   try {
     const data = await fetchJSON("/api/adminpanel/revenue");
+
     kpis.innerHTML =
       kpiTileHTML("Total histórico", fmtCurrency(data.summary.totalAllTime), `${data.summary.countAllTime} pagto${data.summary.countAllTime === 1 ? "" : "s"}`) +
       kpiTileHTML("Esse mês", fmtCurrency(data.summary.totalThisMonth), `${data.summary.countThisMonth} pagto${data.summary.countThisMonth === 1 ? "" : "s"}`) +
       Object.entries(data.summary.byPlan).map(([id, v]) => kpiTileHTML(planLabel(id), fmtCurrency(v))).join("");
+
+    // Funil: status de todo evento já visto + motivos de recusa mais
+    // comuns, se houver algum.
+    const byStatus = data.summary.byStatus || {};
+    const statusEntries = Object.entries(byStatus).sort((a, b) => b[1] - a[1]);
+    let funnelHTML = statusEntries.length
+      ? statusEntries.map(([st, n]) => funnelRowHTML(st, n)).join("")
+      : `<div class="funnel-row">Nenhum evento de pagamento registrado ainda.</div>`;
+    const reasons = Object.entries(data.summary.rejectionReasons || {}).sort((a, b) => b[1] - a[1]);
+    if (reasons.length) {
+      funnelHTML += `<div class="funnel-row" style="border-top:2px solid var(--border); margin-top:6px; padding-top:10px; font-weight:700; color:var(--text-0);">Motivos de recusa mais comuns</div>` +
+        reasons.map(([detail, n]) => `<div class="funnel-row"><span>${statusDetailLabel(detail)}</span><b>${n}</b></div>`).join("");
+    }
+    funnelBox.innerHTML = funnelHTML;
+
     body.innerHTML = data.payments.length
       ? data.payments.map((p) => `<tr>
-          <td>${fmtDate(p.approvedAt)}</td>
+          <td>${fmtDate(eventDate(p))}</td>
           <td>${escHtml(p.email)}</td>
           <td>${planLabel(p.plan)}</td>
           <td>${fmtCurrency(p.amount)}</td>
           <td>${escHtml(p.method || "—")}</td>
         </tr>`).join("")
-      : `<tr><td colspan="5">Nenhum pagamento registrado ainda.</td></tr>`;
+      : `<tr><td colspan="5">Nenhum pagamento aprovado ainda.</td></tr>`;
+
+    attemptsBody.innerHTML = data.attempts.length
+      ? data.attempts.map((a) => `<tr>
+          <td>${fmtDate(eventDate(a))}</td>
+          <td>${escHtml(a.email)}</td>
+          <td>${planLabel(a.plan)}</td>
+          <td>${statusPillHTML(a.status)}</td>
+          <td>${statusDetailLabel(a.statusDetail)}</td>
+          <td>${fmtCurrency(a.amount)}</td>
+        </tr>`).join("")
+      : `<tr><td colspan="6">Nenhuma recusa/cancelamento registrado ainda.</td></tr>`;
+
+    abandonedBody.innerHTML = data.abandoned.length
+      ? data.abandoned.map((u) => `<tr>
+          <td><div style="font-weight:700; color:var(--text-0);">${escHtml(u.name)}</div><div style="font-size:11px; color:var(--text-2);">${escHtml(u.email)}</div></td>
+          <td>${planLabel(u.plan)}</td>
+          <td>${fmtDate(u.createdAt)}</td>
+          <td>${fmtDate(u.updatedAt)}</td>
+        </tr>`).join("")
+      : `<tr><td colspan="4">Nenhum abandono de checkout no momento.</td></tr>`;
   } catch (err) {
     body.innerHTML = `<tr><td colspan="5">Falha ao carregar: ${err.message}</td></tr>`;
+    attemptsBody.innerHTML = `<tr><td colspan="6">Falha ao carregar.</td></tr>`;
+    abandonedBody.innerHTML = `<tr><td colspan="4">Falha ao carregar.</td></tr>`;
   }
 }
 
