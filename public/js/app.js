@@ -625,19 +625,21 @@ function dashRowHTML(row, pos, favId, pinned = false) {
     <td class="num">${row.sg > 0 ? "+" + row.sg : row.sg}</td>
   </tr>`;
 }
-// Colunas reduzidas de propósito (#, Time, Pontos, Jogos, Saldo de
-// Gols) — com nomes de time longos (ex: "Athletico Paranaense",
-// "Vasco da Gama") e mais colunas, o nome quebrava em duas linhas e
-// deixava as linhas da tabela com alturas diferentes.
+// Tabela completa (página "Tabela") — todas as colunas de classificação
+// (Pts, J, V, E, D, GP, GC, SG). A versão reduzida da home (dashRowHTML,
+// só Pts/J/SG) continua enxuta de propósito. O coração de favoritar foi
+// tirado daqui — favoritar agora só acontece pela página Favoritos/seletor
+// de clube favorito, não fazia sentido duplicado numa tabela de dados.
 function fullRowHTML(row, pos) {
   const team = TEAM_MAP[row.id];
-  const isFav = state.favorites.includes(team.id);
   const zone = zoneOfPosition(pos);
   return `<tr data-zone="${zone}">
     <td><span class="pos">${pos}</span></td>
     <td class="clickable-team" onclick="goToTeam('${team.id}')">${crestEl(team, 24)}</td>
-    <td><div class="team-cell clickable-team" onclick="goToTeam('${team.id}')"><span class="tname-ellipsis">${team.name}</span><span class="fav-heart ${isFav ? "active" : ""}" data-team="${team.id}" title="Favoritar">${isFav ? "♥" : "♡"}</span></div></td>
+    <td><div class="team-cell clickable-team" onclick="goToTeam('${team.id}')"><span class="tname-ellipsis">${team.name}</span></div></td>
     <td class="num">${row.pts}</td><td class="num">${row.j}</td>
+    <td class="num">${row.v}</td><td class="num">${row.e}</td><td class="num">${row.d}</td>
+    <td class="num">${row.gp}</td><td class="num">${row.gc}</td>
     <td class="num">${row.sg > 0 ? "+" + row.sg : row.sg}</td>
   </tr>`;
 }
@@ -1396,8 +1398,7 @@ function renderEstatisticasConsolidadas(tilesId, ataqueId, defesaId, cartoesId) 
 function renderTabela() {
   const standings = currentStandings();
   document.getElementById("tabelaHint").textContent = LIVE_MODE ? "dados ao vivo" : `${firstUndecidedRound() - 1}ª rodada`;
-  document.getElementById("fullStandings").innerHTML = standings.map((r, i) => fullRowHTML(r, i + 1)).join("") || `<tr><td colspan="6" class="empty">Sem jogos decididos ainda.</td></tr>`;
-  document.querySelectorAll("#fullStandings .fav-heart").forEach(h => h.addEventListener("click", onToggleFavoriteClick));
+  document.getElementById("fullStandings").innerHTML = standings.map((r, i) => fullRowHTML(r, i + 1)).join("") || `<tr><td colspan="11" class="empty">Sem jogos decididos ainda.</td></tr>`;
 }
 
 /* ================= PÁGINA: ESTATÍSTICAS ================= */
@@ -1613,7 +1614,6 @@ function toggleFavorite(teamId) {
   if (state.page === "tabela") renderTabela();
   if (state.page === "favoritos") renderFavoritosPage();
 }
-function onToggleFavoriteClick(e) { e.stopPropagation(); toggleFavorite(e.currentTarget.dataset.team); }
 
 function renderMyTeamsSidebar() {
   const box = document.getElementById("myTeamsList");

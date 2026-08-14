@@ -386,11 +386,23 @@ h1,h2,h3{ margin:0; }
 .table-standings th:nth-child(4), .table-standings td:nth-child(4){ width:46px; }
 .table-standings th:nth-child(5), .table-standings td:nth-child(5){ width:34px; }
 .table-standings th:nth-child(6), .table-standings td:nth-child(6){ width:50px; }
-/* dashStandings: .team-cell é o próprio <td> (texto puro, sem coração
-   de favorito) — dá pra truncar direto nele.
-   fullStandings: .team-cell é um <div style="display:flex"> (nome +
-   coração de favorito) — flex não trunca com ellipsis sozinho, então
-   o nome fica num <span> à parte (.tname-ellipsis) que recebe o corte. */
+/* Tabela completa da página "Tabela" (#fullStandings) — colunas extras
+   (V/E/D/GP/GC) além de Pts/J/SG da versão reduzida da home acima.
+   min-width dá uma largura mínima decente pra cada coluna numérica e
+   deixa o nome do time (única coluna sem width fixo) ocupar o resto;
+   com tantas colunas a tabela passa a rolar horizontalmente no celular
+   (.table-scroll já cuida disso). */
+.table-standings-full{ table-layout:fixed; min-width:560px; }
+.table-standings-full th:nth-child(1), .table-standings-full td:nth-child(1){ width:22px; }
+.table-standings-full th:nth-child(2), .table-standings-full td:nth-child(2){ width:34px; }
+.table-standings-full th:nth-child(n+4), .table-standings-full td:nth-child(n+4){ width:38px; }
+.table-standings-full th:nth-child(4), .table-standings-full td:nth-child(4){ width:44px; }
+/* dashStandings: .team-cell é o próprio <td> (texto puro) — dá pra
+   truncar direto nele.
+   fullStandings: .team-cell é um <div style="display:flex"> (só o
+   nome agora, sem coração de favorito) — flex não trunca com ellipsis
+   sozinho, então o nome fica num <span> à parte (.tname-ellipsis) que
+   recebe o corte. */
 #dashStandings .team-cell{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:block; }
 #fullStandings .team-cell{ min-width:0; }
 #fullStandings .tname-ellipsis{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
