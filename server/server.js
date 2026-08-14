@@ -377,11 +377,12 @@ const server = http.createServer(async (req, res) => {
     // exemplo mesmo com chave presente) — /api/health, /api/broadcast
     // (TheSportsDB), /api/news (RSS), /api/support/*, /api/auth/* e
     // /api/admin/* (independentes da API-Sports) não usam a API-Sports,
-    // e /api/competitions só devolve o registro local (server/src/
-    // competitions.js), também sem chamar a API-Sports — ficam de fora
-    // dessa checagem.
+    // /api/competitions só devolve o registro local (server/src/
+    // competitions.js), e /api/account/favorite-club só grava no
+    // arquivo local de usuários (server/src/users.js) — nenhum desses
+    // chama a API-Sports, ficam de fora dessa checagem.
     const LIVE_ONLY = pathname.startsWith("/api/") && pathname !== "/api/broadcast" && pathname !== "/api/news"
-      && pathname !== "/api/competitions"
+      && pathname !== "/api/competitions" && pathname !== "/api/account/favorite-club"
       && !pathname.startsWith("/api/support/") && !pathname.startsWith("/api/auth/") && !pathname.startsWith("/api/admin/");
     if (LIVE_ONLY && !liveModeEnabled()) {
       const err = new Error(
@@ -712,6 +713,23 @@ const server = http.createServer(async (req, res) => {
       const session = sessions.getSession(parseCookies(req)[SESSION_COOKIE]);
       const user = session ? users.findById(session.userId) : null;
       return sendJSON(res, 200, user ? { authenticated: true, user: users.publicUser(user) } : { authenticated: false });
+    }
+
+    // Clube favorito do Dashboard (card "⭐ Clube Favorito"/"🏆 Líder")
+    // — vinculado à CONTA logada (req.authUser, setado pelo guard de
+    // login lá em cima), não mais só ao navegador (era localStorage
+    // antes). teamId null/vazio = removeu o favorito (volta a mostrar
+    // o líder do campeonato pra essa competição). Não valida teamId
+    // contra a lista de times porque o backend não conhece o registro
+    // de times de cada competição (isso é dado estático do front-end,
+    // ver public/js/data.js) — só limita tamanho pra não guardar lixo.
+    if (pathname === "/api/account/favorite-club" && req.method === "POST") {
+      const body = await readBody(req);
+      const competitionId = String(body.competitionId || "").trim();
+      const teamId = String(body.teamId || "").trim().slice(0, 40) || null;
+      if (!competitions.getCompetition(competitionId)) return sendJSON(res, 400, { error: "Competição inválida." });
+      const updated = users.setFavoriteClub(req.authUser.id, competitionId, teamId);
+      return sendJSON(res, 200, { favoriteClubs: updated.favoriteClubs || {} });
     }
 
     // Cria um novo checkout pra quem já está logado — cobre 2 casos:

@@ -1641,24 +1641,61 @@ function renderFavoritosPage() {
 
 /* ================= CLUBE FAVORITO (destaque da página inicial) =========
    Diferente de FAVORITOS acima (lista de vários times, pra acompanhar na
-   barra lateral) — aqui é NO MÁXIMO 1 clube, que substitui o líder do
-   campeonato no destaque do Dashboard. Sem seleção, volta a mostrar o
-   líder normalmente. */
-// Mesma lógica de escopo por competição (+ migração) dos favoritos
-// acima, pro clube favorito único do Dashboard.
+   barra lateral, essa continua só no navegador) — aqui é NO MÁXIMO 1
+   clube, que substitui o líder do campeonato no destaque do Dashboard.
+   Sem seleção, volta a mostrar o líder normalmente.
+
+   AJUSTE: vinculado à CONTA logada (currentUser.favoriteClubs, vindo
+   do backend — ver GET /api/auth/me e POST /api/account/favorite-club),
+   não mais ao navegador — antes usava localStorage e cada navegador/
+   celular tinha sua própria escolha mesmo logando na mesma conta.
+   currentUser.favoriteClubs é um mapa por competição, igual ao antigo
+   esquema de chave "brdata_favorite_club_<competição>". */
+// Migração 1x: usuários que já tinham escolhido um clube favorito
+// ANTES dessa mudança (só existia no navegador) continuam com a mesma
+// escolha, agora vinculada à conta — só lê o localStorage quando o
+// servidor ainda não tem NENHUMA entrada (nem null) salva pra essa
+// competição/conta; depois da 1ª leitura o servidor sempre tem uma
+// entrada explícita (ver setFavoriteClub em server/src/users.js), então
+// isso nunca mais volta a rodar pra essa conta, mesmo se o usuário
+// remover o favorito depois.
 function favoriteClubStorageKey() { return `brdata_favorite_club_${state.competitionId}`; }
 function loadFavoriteClub() {
+  const clubs = (currentUser && currentUser.favoriteClubs) || {};
+  if (Object.prototype.hasOwnProperty.call(clubs, state.competitionId)) {
+    state.favoriteClubId = clubs[state.competitionId] || null;
+    return;
+  }
+  let legacy = null;
   try {
-    let v = localStorage.getItem(favoriteClubStorageKey());
-    if (v === null && state.competitionId === "brasileirao") v = localStorage.getItem("brdata_favorite_club");
-    state.favoriteClubId = v || null;
-  } catch { state.favoriteClubId = null; }
-}
-function saveFavoriteClub() {
-  try {
-    if (state.favoriteClubId) localStorage.setItem(favoriteClubStorageKey(), state.favoriteClubId);
-    else localStorage.removeItem(favoriteClubStorageKey());
+    legacy = localStorage.getItem(favoriteClubStorageKey());
+    if (legacy === null && state.competitionId === "brasileirao") legacy = localStorage.getItem("brdata_favorite_club");
   } catch {}
+  state.favoriteClubId = legacy || null;
+  if (legacy) saveFavoriteClub(); // já sobe pro servidor -- próxima leitura não passa mais por aqui
+}
+// Fire-and-forget (mesmo espírito das gravações no localStorage que
+// substituiu: a UI já atualizou otimisticamente em applyFavoriteClub,
+// isso só persiste em segundo plano). Falha de rede não trava nada —
+// só fica sem persistir entre dispositivos até a próxima tentativa.
+async function saveFavoriteClub() {
+  if (currentUser) {
+    if (!currentUser.favoriteClubs) currentUser.favoriteClubs = {};
+    currentUser.favoriteClubs[state.competitionId] = state.favoriteClubId;
+  }
+  try {
+    const res = await fetch("/api/account/favorite-club", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ competitionId: state.competitionId, teamId: state.favoriteClubId }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      console.error("[favoriteClub] servidor recusou salvar:", data.error || res.status);
+    }
+  } catch (err) {
+    console.error("[favoriteClub] falha de rede ao salvar:", err.message);
+  }
 }
 function applyFavoriteClub(newId) {
   state.favoriteClubId = newId || null;

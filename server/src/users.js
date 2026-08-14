@@ -94,6 +94,7 @@ async function createUser({ name, email, phone, password, plan, planStatus }) {
     passwordHash,
     plan, planStatus,       // planStatus: "active" | "pending_payment" | "checkout_error"
     pendingPlan: null,      // setado quando um usuário ATIVO troca de plano (upgrade) — só vira `plan` quando o pagamento confirma, pra não perder acesso no meio da troca
+    favoriteClubs: {},      // clube favorito (card em destaque no Dashboard), por competição — { [competitionId]: teamId | null } — ver setFavoriteClub
     createdAt: Date.now(), updatedAt: Date.now(),
   };
   store.set(rec.id, rec);
@@ -109,10 +110,33 @@ function updateUser(id, patch) {
   return u;
 }
 
+// Clube favorito é vinculado à CONTA (não ao navegador) — grava sempre
+// uma entrada explícita pra essa competição, mesmo quando o usuário
+// remove o favorito (teamId null), em vez de apagar a chave. Isso
+// importa pro front-end: ele usa "a competição já tem uma entrada
+// aqui, mesmo que null" pra decidir se ainda vale migrar um valor
+// antigo salvo no localStorage (de antes dessa mudança) — ver
+// loadFavoriteClub() em app.js. Contas criadas antes desse campo
+// existir não têm favoriteClubs no arquivo em disco; tratamos como
+// {} nesse caso (sem checagem de undefined) em vez de exigir migração
+// de esquema no arquivo.
+function setFavoriteClub(id, competitionId, teamId) {
+  const u = store.get(id);
+  if (!u) return null;
+  if (!u.favoriteClubs) u.favoriteClubs = {};
+  u.favoriteClubs[competitionId] = teamId || null;
+  u.updatedAt = Date.now();
+  persist();
+  return u;
+}
+
 // Campos seguros pra devolver ao front-end — nunca o passwordHash.
 function publicUser(u) {
   if (!u) return null;
-  return { id: u.id, name: u.name, email: u.email, plan: u.plan, planStatus: u.planStatus, pendingPlan: u.pendingPlan || null };
+  return {
+    id: u.id, name: u.name, email: u.email, plan: u.plan, planStatus: u.planStatus, pendingPlan: u.pendingPlan || null,
+    favoriteClubs: u.favoriteClubs || {},
+  };
 }
 
 // Lista todos os usuários cadastrados (sem passwordHash) — só usado
@@ -130,6 +154,6 @@ function listUsers() {
 }
 
 module.exports = {
-  createUser, updateUser, findByEmail, findById, publicUser, listUsers,
+  createUser, updateUser, setFavoriteClub, findByEmail, findById, publicUser, listUsers,
   hashPassword, verifyPassword, normalizeEmail,
 };
