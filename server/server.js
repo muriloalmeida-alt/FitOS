@@ -166,6 +166,42 @@ function isHomologHost(req) {
   return String(req.headers.host || "").toLowerCase().startsWith("hml");
 }
 
+// Bootstrap opcional de admin via variável de ambiente — alternativa ao
+// fluxo normal (POST /api/adminpanel/promote?secret=..., ver rota mais
+// abaixo), pra quando não dá pra rodar curl/console contra o host de
+// produção (proxy/firewall bloqueando esse tipo de chamada, sem acesso
+// a shell externo, etc.). Só faz alguma coisa se as 2 variáveis abaixo
+// estiverem preenchidas no host (Railway/etc.) — sem elas, não roda
+// nada, comportamento de sempre (ninguém vira admin sozinho por
+// acidente). Roda 1x a cada boot do processo: cria a conta se ainda não
+// existir, ou só garante a role "admin" se a conta já existir mas não
+// for admin ainda — idempotente, então também serve pra RECUPERAR o
+// acesso admin se esse campo se perder por algum motivo, sem precisar
+// de mais nada além da env var já configurada. Diferente do login
+// admin/admin de homologação (isHomologHost acima), esse funciona em
+// QUALQUER host, inclusive produção — de propósito: é o usuário quem
+// escolhe e-mail/senha reais (nunca hardcoded no código/commitado no
+// git) preenchendo a env var, exatamente como ADMIN_SECRET.
+async function bootstrapDefaultAdmin() {
+  const email = (process.env.DEFAULT_ADMIN_EMAIL || "").trim();
+  const password = process.env.DEFAULT_ADMIN_PASSWORD || "";
+  if (!email || !password) return;
+
+  const normalized = users.normalizeEmail(email);
+  let admin = users.findByEmail(normalized);
+  if (!admin) {
+    admin = await users.createUser({
+      name: "Administrador", email: normalized, phone: "00000000000",
+      password, plan: "enterprise", planStatus: "active",
+    });
+    console.log(`[bootstrap] usuário admin padrão criado a partir de DEFAULT_ADMIN_EMAIL (${normalized}).`);
+  }
+  if (admin.role !== "admin") {
+    users.updateUser(admin.id, { role: "admin" });
+    console.log(`[bootstrap] conta ${normalized} promovida a admin (via DEFAULT_ADMIN_EMAIL/DEFAULT_ADMIN_PASSWORD).`);
+  }
+}
+
 // ---- Login (cookie de sessão) ----
 const SESSION_COOKIE = "brdata_session";
 
@@ -1153,15 +1189,19 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(PORT, () => {
-  console.log(`\n⚽  Brasileirão 2026 rodando em http://localhost:${PORT}`);
-  console.log(`   Fornecedor de dados ativo: ${dataProvider.ACTIVE_PROVIDER_NAME}`);
-  console.log(dataProvider.hasCredential()
-    ? `   Credencial configurada — modo ao vivo disponível.`
-    : `   Sem credencial configurada pra esse fornecedor — o site usará dados de exemplo.\n   Copie .env.example para .env e configure a credencial (se esse fornecedor precisar de uma) para ativar dados reais.`);
-  // Log explícito do que a variável de ambiente realmente chegou (ou
-  // não) no processo — se o valor configurado no host não bater com o
-  // que aparece aqui, o problema é no nome/escopo da variável no
-  // painel do host (Railway etc.), não no código.
-  console.log(`   APP_MODE recebido: ${JSON.stringify(process.env.APP_MODE ?? null)} → modo efetivo: "${APP_MODE}"`);
-});
+bootstrapDefaultAdmin()
+  .catch((err) => console.error("[bootstrap] falha ao criar/promover admin padrão:", err.message))
+  .finally(() => {
+    server.listen(PORT, () => {
+      console.log(`\n⚽  Brasileirão 2026 rodando em http://localhost:${PORT}`);
+      console.log(`   Fornecedor de dados ativo: ${dataProvider.ACTIVE_PROVIDER_NAME}`);
+      console.log(dataProvider.hasCredential()
+        ? `   Credencial configurada — modo ao vivo disponível.`
+        : `   Sem credencial configurada pra esse fornecedor — o site usará dados de exemplo.\n   Copie .env.example para .env e configure a credencial (se esse fornecedor precisar de uma) para ativar dados reais.`);
+      // Log explícito do que a variável de ambiente realmente chegou (ou
+      // não) no processo — se o valor configurado no host não bater com o
+      // que aparece aqui, o problema é no nome/escopo da variável no
+      // painel do host (Railway etc.), não no código.
+      console.log(`   APP_MODE recebido: ${JSON.stringify(process.env.APP_MODE ?? null)} → modo efetivo: "${APP_MODE}"`);
+    });
+  });
