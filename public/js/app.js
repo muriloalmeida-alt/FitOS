@@ -2634,35 +2634,51 @@ function playerRosterRowHTML(p) {
 const ROSTER_POSITION_ORDER = { Goalkeeper: 0, Defender: 1, Midfielder: 2, Attacker: 3 };
 const ROSTER_PREVIEW_COUNT = 8;
 let currentRosterSorted = []; // elenco (já ordenado) do time aberto no momento — evita re-buscar ao expandir/recolher
+// AJUSTE (14/08/2026): ordem padrão passou de posição+nome pra gols
+// (decrescente) — pedido do usuário. Mantém posição+nome como
+// desempate pra quem tem 0 gols (maioria do elenco) não ficar numa
+// ordem aleatória.
 async function renderTeamRoster(teamId) {
   const box = document.getElementById("teamPageRoster");
   if (!box) return;
   box.innerHTML = `<tr><td colspan="5" class="empty">Carregando elenco...</td></tr>`;
   state.rosterExpanded = false;
+  state.rosterSearch = "";
+  const searchInput = document.getElementById("teamPageRosterSearch");
+  if (searchInput) searchInput.value = "";
   const roster = await resolveTeamRoster(teamId);
   if (state.selectedTeamId !== teamId) return; // usuário já trocou de time enquanto carregava
   currentRosterSorted = [...roster].sort((a, b) =>
-    (ROSTER_POSITION_ORDER[a.position] ?? 9) - (ROSTER_POSITION_ORDER[b.position] ?? 9) || a.name.localeCompare(b.name)
+    (b.goals ?? 0) - (a.goals ?? 0)
+    || (ROSTER_POSITION_ORDER[a.position] ?? 9) - (ROSTER_POSITION_ORDER[b.position] ?? 9)
+    || a.name.localeCompare(b.name)
   );
   renderRosterRows();
 }
 // Só redesenha a lista (linhas + botão) a partir do elenco já
-// carregado — usado tanto no primeiro render quanto ao expandir/recolher.
+// carregado — usado no primeiro render, ao expandir/recolher, e a
+// cada tecla digitada na busca por nome (ver listener em
+// setupEventListeners). Com busca ativa, ignora o teto de preview
+// (ROSTER_PREVIEW_COUNT) — mostra todos os jogadores que baterem com o
+// nome, por mais raro que seja passar de 8 resultados.
 function renderRosterRows() {
   const box = document.getElementById("teamPageRoster");
   const hint = document.getElementById("teamPageRosterHint");
   const toggleBox = document.getElementById("teamPageRosterToggle");
   if (!box) return;
-  const sorted = currentRosterSorted;
-  const showAll = state.rosterExpanded || sorted.length <= ROSTER_PREVIEW_COUNT;
-  const visible = showAll ? sorted : sorted.slice(0, ROSTER_PREVIEW_COUNT);
+  const q = normalizeTeamName(state.rosterSearch || "");
+  const filtered = q ? currentRosterSorted.filter(p => normalizeTeamName(p.name).includes(q)) : currentRosterSorted;
+  const showAll = q || state.rosterExpanded || filtered.length <= ROSTER_PREVIEW_COUNT;
+  const visible = showAll ? filtered : filtered.slice(0, ROSTER_PREVIEW_COUNT);
   box.innerHTML = visible.length
     ? visible.map(playerRosterRowHTML).join("")
-    : `<tr><td colspan="5" class="empty">Elenco não disponível.</td></tr>`;
-  if (hint) hint.textContent = `${sorted.length} jogador${sorted.length === 1 ? "" : "es"} · ${LIVE_MODE ? "dados ao vivo" : "dados de exemplo"}`;
+    : `<tr><td colspan="5" class="empty">${q ? "Nenhum jogador encontrado com esse nome." : "Elenco não disponível."}</td></tr>`;
+  if (hint) hint.textContent = q
+    ? `${filtered.length} de ${currentRosterSorted.length} jogadores`
+    : `${currentRosterSorted.length} jogador${currentRosterSorted.length === 1 ? "" : "es"} · ${LIVE_MODE ? "dados ao vivo" : "dados de exemplo"}`;
   if (toggleBox) {
-    toggleBox.innerHTML = sorted.length > ROSTER_PREVIEW_COUNT
-      ? `<button class="btn-sm roster-toggle-btn" onclick="toggleRosterExpand()">${showAll ? "Mostrar menos ▴" : `Ver todos os ${sorted.length} jogadores ▾`}</button>`
+    toggleBox.innerHTML = (!q && filtered.length > ROSTER_PREVIEW_COUNT)
+      ? `<button class="btn-sm roster-toggle-btn" onclick="toggleRosterExpand()">${showAll ? "Mostrar menos ▴" : `Ver todos os ${filtered.length} jogadores ▾`}</button>`
       : "";
   }
 }
@@ -3107,6 +3123,12 @@ function setupEventListeners() {
     }));
   });
   document.addEventListener("click", e => { if (!e.target.closest(".top-search") && !e.target.closest(".search-results")) searchResults.classList.remove("open"); });
+
+  // Busca por nome dentro do Elenco (página do Time) — ver renderRosterRows.
+  document.getElementById("teamPageRosterSearch").addEventListener("input", (e) => {
+    state.rosterSearch = e.target.value;
+    renderRosterRows();
+  });
 }
 
 /* ================= Refresh geral após qualquer simulação ================= */

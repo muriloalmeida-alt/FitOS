@@ -353,6 +353,18 @@ h1,h2,h3{ margin:0; }
 }
 .fav-club-remove:hover{ background:rgba(0,0,0,.48); }
 
+/* Elenco: campo de busca por nome (ver renderRosterRows em app.js) --
+   mesmo visual de .top-search (busca de time na barra superior), mas
+   classe própria de propósito: .top-search fica display:none no
+   mobile (ver @media max-width:1024px), e essa busca deve continuar
+   visível lá — é onde a maioria dos usuários deste app está. */
+.roster-search{
+  display:flex; align-items:center; gap:8px; background:var(--bg-app); border:1px solid var(--border);
+  border-radius:100px; padding:7px 12px; margin-bottom:12px;
+}
+.roster-search input{ border:none; background:none; outline:none; font-size:12.5px; color:var(--text-0); width:100%; font-family:inherit; }
+.roster-search svg{ width:15px; height:15px; color:var(--text-2); flex-shrink:0; }
+
 /* Elenco: botão "ver todos" (ver renderRosterRows em app.js) */
 .roster-toggle-wrap{ text-align:center; margin-top:12px; }
 .roster-toggle-btn{ display:inline-block; padding:8px 16px; font-size:11.5px; font-weight:700; border-radius:9px; border:1px solid var(--border); background:var(--bg-app); color:var(--brd-blue); cursor:pointer; font-family:inherit; }
@@ -906,6 +918,7 @@ h1,h2,h3{ margin:0; }
 @media (max-width:1024px){
   .field input,
   .top-search input,
+  .roster-search input,
   .compare-select,
   .input{
     font-size:16px;

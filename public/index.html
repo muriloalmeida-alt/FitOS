@@ -495,6 +495,18 @@
           <div class="card"><div class="card-head"><h3>Próximos jogos</h3></div><div id="teamPageNextFixtures"></div></div>
         </div>
         <div class="card" style="margin-bottom:16px;">
+          <div class="card-head"><h3>Elenco</h3><span style="font-size:11px; color:var(--text-2); font-weight:600;" id="teamPageRosterHint"></span></div>
+          <div class="roster-search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+            <input type="text" id="teamPageRosterSearch" placeholder="Buscar jogador pelo nome...">
+          </div>
+          <div class="table-scroll"><table class="table-std">
+            <thead><tr><th>Jogador</th><th class="num">PJ</th><th class="num">Gols</th><th class="num">Assist.</th><th class="num">Cartões</th></tr></thead>
+            <tbody id="teamPageRoster"></tbody>
+          </table></div>
+          <div id="teamPageRosterToggle" class="roster-toggle-wrap"></div>
+        </div>
+        <div class="card" style="margin-bottom:16px;">
           <div class="card-head" id="teamPageCompareHead">
             <h3>Comparar com outro time</h3>
             <select class="compare-select compare-select-fit" id="teamPageCompareSelect"></select>
@@ -521,14 +533,6 @@
             <div id="whatifResults"></div>
             <div class="card-link" data-page="simulador" style="margin-top:12px;">Acessar simulador completo →</div>
           </div>
-        </div>
-        <div class="card" style="margin-bottom:16px;">
-          <div class="card-head"><h3>Elenco</h3><span style="font-size:11px; color:var(--text-2); font-weight:600;" id="teamPageRosterHint"></span></div>
-          <div class="table-scroll"><table class="table-std">
-            <thead><tr><th>Jogador</th><th class="num">PJ</th><th class="num">Gols</th><th class="num">Assist.</th><th class="num">Cartões</th></tr></thead>
-            <tbody id="teamPageRoster"></tbody>
-          </table></div>
-          <div id="teamPageRosterToggle" class="roster-toggle-wrap"></div>
         </div>
         <div class="card" style="margin-bottom:16px;">
           <div class="card-head"><h3>⚽ Escalação titular</h3><span style="font-size:11px; color:var(--text-2); font-weight:600;" id="teamPageLineupHint"></span></div>
