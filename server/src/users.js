@@ -1,4 +1,4 @@
-/* Contas de usuário da área "Apoie o BR Data" — cadastro, senha
+/* Contas de usuário da área "Assine o BR Data" — cadastro, senha
    (hash com scrypt nativo do Node, sem dependência externa) e o
    estado do plano de cada um. Persistido num arquivo JSON simples em
    disco, no mesmo espírito "zero dependências" do resto do backend.

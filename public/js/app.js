@@ -91,7 +91,7 @@ function planAllowsAdvanced() {
 // ou "em breve + precisa de upgrade".
 // Cache do último GET /api/competitions — consultado no clique de
 // Série B/C (ver onCompetitionNavClick) pra decidir na hora "troca de
-// campeonato" ou "manda pra Apoie o BR Data".
+// campeonato" ou "manda pra Assine o BR Data".
 let competitionsInfo = null;
 
 // Copa do Brasil NÃO entra aqui de propósito — ver aviso grande em
@@ -120,7 +120,7 @@ function applyCompetitionsSidebar(data) {
       if (c.locked) {
         // Fora do plano: continua com a cara de "em breve/bloqueado" já
         // usada pelas outras competições ainda não implementadas — clicar
-        // manda pra Apoie o BR Data (ver onCompetitionNavClick).
+        // manda pra Assine o BR Data (ver onCompetitionNavClick).
         el.classList.add("disabled");
         el.title = `${c.flag} ${c.name} — disponível a partir do plano Pro`;
         if (badge) badge.style.display = "inline-block";
@@ -140,7 +140,7 @@ function applyCompetitionsSidebar(data) {
 }
 
 // Clique em Série B/C na barra lateral — troca de campeonato se o
-// plano libera, ou manda pra Apoie o BR Data se não.
+// plano libera, ou manda pra Assine o BR Data se não.
 function onCompetitionNavClick(compId) {
   const info = competitionsInfo?.competitions?.find((c) => c.id === compId);
   if (info && info.locked) { setActivePage("apoie"); return; }
@@ -493,7 +493,7 @@ async function requireLogin() {
 
 // Mesma coisa, mas já abre direto na tela de cadastro com um plano
 // pré-selecionado — usado quando o visitante clica num plano
-// específico na página "Apoie o BR Data" (ver renderApoiePage).
+// específico na página "Assine o BR Data" (ver renderApoiePage).
 async function requireLoginWithPlan(planId) {
   gateSelectedPlan = planId;
   trackEvent("gate_shown");
@@ -2253,7 +2253,7 @@ async function renderNews() {
       (planStatus != "active"), mostra a view "pending" — permite
       retomar o pagamento (POST /api/support/checkout, agora
       autenticado) ou sair.
-   Depois de logado, a página "Apoie o BR Data" (renderApoiePage) vira
+   Depois de logado, a página "Assine o BR Data" (renderApoiePage) vira
    tela de UPGRADE de plano — mesmos cards, sem formulário (já temos
    nome/telefone/e-mail da conta). */
 
@@ -2511,7 +2511,7 @@ function renderAvatar(user) {
   if (logoutBtn) logoutBtn.textContent = "Sair";
 }
 
-/* ---- Página "Apoie o BR Data" ---- */
+/* ---- Página "Assine o BR Data" ---- */
 // Visitante (sem conta) vê os mesmos 4 planos com preço/recursos —
 // clicar em qualquer um abre o gate já na tela de cadastro com aquele
 // plano pré-selecionado (ver requireLoginWithPlan), em vez de chamar
@@ -3061,7 +3061,7 @@ function setupEventListeners() {
   document.getElementById("btnHamburger").addEventListener("click", () => document.getElementById("sidebar").classList.toggle("open"));
   document.getElementById("themeSwitch").addEventListener("click", toggleTheme);
   // Os 3 botões "Seja Premium"/"Assinar agora" navegam pra página
-  // "Apoie o BR Data" (data-page="apoie" no HTML) — já cobertos pelo
+  // "Assine o BR Data" (data-page="apoie" no HTML) — já cobertos pelo
   // listener genérico de [data-page] logo acima, nada extra aqui.
   document.getElementById("themeSwitchMobile")?.addEventListener("click", () => { toggleTheme(); document.getElementById("themeSwitchMobile").classList.toggle("on", document.documentElement.getAttribute("data-theme") === "dark"); });
 

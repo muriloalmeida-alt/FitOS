@@ -2,7 +2,7 @@
    — pedido do usuário: ter liberdade pra trocar título/texto/imagem de
    partes do site sem precisar mexer em código nem esperar redeploy.
 
-   Escopo desta 1ª versão: só os cards de plano da página "Apoie o BR
+   Escopo desta 1ª versão: só os cards de plano da página "Assine o BR
    Data" (título, tagline, lista de recursos e uma imagem opcional por
    plano) — é o conteúdo que mais muda na prática (preço e recurso de
    plano evoluem com frequência) e já vivia centralizado num arquivo só

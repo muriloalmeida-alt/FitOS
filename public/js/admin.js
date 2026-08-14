@@ -547,7 +547,7 @@ async function onTestAd() {
 /* ---------- Comportamento (funil de login + páginas mais navegadas) ---------- */
 const PAGE_LABELS = {
   dashboard: "Dashboard", jogos: "Jogos", tabela: "Tabela", estatisticas: "Estatísticas",
-  simulador: "Simulador", favoritos: "Favoritos", noticias: "Notícias", apoie: "Apoie o BR Data",
+  simulador: "Simulador", favoritos: "Favoritos", noticias: "Notícias", apoie: "Assine o BR Data",
   time: "Página do Time", jogador: "Página do Jogador", mais: "Mais (menu)",
 };
 const FUNNEL_WINDOW_LABELS = { last7d: "Últimos 7 dias", last30d: "Últimos 30 dias", allTime: "Total (desde sempre)" };
@@ -588,7 +588,7 @@ async function loadBehavior() {
 }
 
 /* ---------- Conteúdo (títulos/tagline/recursos/imagem dos planos) ----------
-   Escopo v1: só os cards de plano da página "Apoie o BR Data" — ver
+   Escopo v1: só os cards de plano da página "Assine o BR Data" — ver
    server/src/contentStore.js pro porquê. Cada campo vazio no formulário
    = "sem override nesse campo", volta pro texto padrão do código
    sozinho (mostrado como placeholder cinza no próprio campo, pra dar a

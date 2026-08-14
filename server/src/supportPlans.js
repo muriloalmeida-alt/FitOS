@@ -1,4 +1,4 @@
-/* Planos da área "Apoie o BR Data" — fonte única de verdade dos
+/* Planos da área "Assine o BR Data" — fonte única de verdade dos
    preços. O front-end só EXIBE esses dados (via GET /api/support/plans);
    o valor cobrado de verdade na hora de criar a preference do Mercado
    Pago sempre vem daqui, nunca do que o navegador manda.
