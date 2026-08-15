@@ -35,7 +35,7 @@
    precisa bumpar esse número — é o único jeito de forçar quem já tinha
    o site aberto a pegar a versão nova certinha, sem mistura.
 =================================================================== */
-const CACHE_NAME = "brdata-shell-v21";
+const CACHE_NAME = "brdata-shell-v22";
 const API_CACHE_NAME = "brdata-api-v1";
 
 const APP_SHELL = [
