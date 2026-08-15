@@ -3080,7 +3080,13 @@ function applyRouteFromLocation() {
 // Páginas fixas com URL própria (sem entidade/id pra resolver) --
 // mesma lista usada nos 2 sentidos, ver applyRouteFromLocation acima
 // e syncUrlForPage logo abaixo.
-const FIXED_PAGE_PATHS = { tabela: "/tabela", estatisticas: "/estatisticas", noticias: "/noticias", apoie: "/apoie" };
+// "apoie" (nome interno do estado/página, inalterado -- ver
+// renderApoiePage/PAGES) ganhou uma URL pública melhor (pedido do
+// usuário: "apoie ficaria melhor como seja-premium") -- o próprio
+// site já usa "★ Seja Premium" como texto do botão em vários
+// lugares, bem mais on-brand que "apoie". Só a URL muda aqui; nada
+// mais no app precisa saber disso.
+const FIXED_PAGE_PATHS = { tabela: "/tabela", estatisticas: "/estatisticas", noticias: "/noticias", apoie: "/seja-premium" };
 function syncUrlForPage(name) {
   if (name === "time" && state.selectedTeamId) {
     const team = TEAM_MAP[state.selectedTeamId];

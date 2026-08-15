@@ -940,7 +940,7 @@ const server = http.createServer(async (req, res) => {
         { loc: `${base}/tabela`, changefreq: "daily", priority: "0.9" },
         { loc: `${base}/estatisticas`, changefreq: "daily", priority: "0.7" },
         { loc: `${base}/noticias`, changefreq: "hourly", priority: "0.6" },
-        { loc: `${base}/apoie`, changefreq: "weekly", priority: "0.5" },
+        { loc: `${base}/seja-premium`, changefreq: "weekly", priority: "0.5" },
         { loc: `${base}/privacidade.html`, changefreq: "yearly", priority: "0.3" },
       ];
       if (liveModeEnabled()) {
@@ -1099,7 +1099,7 @@ const server = http.createServer(async (req, res) => {
   </table>
   <p><a href="/tabela">Ver tabela completa (V/E/D, saldo de gols e zonas de classificação)</a></p>
   ${upcoming.length ? `<h2>Próximos jogos</h2>\n  <ul>\n    ${upcomingHTML}\n  </ul>` : ""}
-  <p><a href="/estatisticas">Artilheiros e estatísticas</a> · <a href="/noticias">Notícias</a> · <a href="/apoie">Planos e preços</a></p>
+  <p><a href="/estatisticas">Artilheiros e estatísticas</a> · <a href="/noticias">Notícias</a> · <a href="/seja-premium">Seja Premium</a></p>
 </div>`;
 
         const html = await renderShellWithSeo(req, {
@@ -1323,15 +1323,31 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
-    // ================= Página de Planos/Apoie (pedido do usuário, 15/08/2026: =================
-    // "vamos concluir o SEO") -- não depende do fornecedor de dados
-    // esportivos nem de liveModeEnabled (supportPlans.listPlans() é
-    // síncrono, mesma fonte de verdade usada em GET /api/support/
+    // ================= Página de Planos/Seja Premium (pedido do usuário, 15/08/2026: =================
+    // "vamos concluir o SEO" + "apoie ficaria melhor como seja-
+    // premium") -- URL trocada de /apoie pra /seja-premium: o próprio
+    // site já usa "★ Seja Premium" como texto do botão em vários
+    // lugares (sidebar, mobile), bem mais natural/on-brand que "apoie"
+    // -- /apoie redireciona 301 pra cá (só por precaução -- a página
+    // foi ao ar há poucos minutos, risco baixo de já estar indexada,
+    // mas não custa nada tratar direito). Não depende do fornecedor de
+    // dados esportivos nem de liveModeEnabled (supportPlans.listPlans()
+    // é síncrono, mesma fonte de verdade usada em GET /api/support/
     // plans) -- funciona igual em modo ao vivo ou Exemplo. JSON-LD usa
     // Product/Offer (não só WebPage) pros planos pagos -- é o jeito
     // documentado pelo schema.org de declarar preço, mesmo espírito
     // do SportsEvent/BroadcastEvent já usado em /jogos/:fixtureId.
     if (pathname === "/apoie") {
+      // Preserva a query string (url.search) de propósito -- é pra cá
+      // que o Mercado Pago traz o usuário de volta depois do
+      // pagamento (?status=...&external_reference=..., ver backUrl
+      // logo abaixo/em /api/auth/signup) -- um redirect sem a query
+      // quebraria captureApoieReturnParams() (app.js), que lê esses
+      // parâmetros pra mostrar o resultado do pagamento.
+      res.writeHead(301, { Location: `/seja-premium${url.search}` });
+      return res.end();
+    }
+    if (pathname === "/seja-premium") {
       try {
         const plans = supportPlans.listPlans();
         const plansHTML = plans.map((p) => `<div>
@@ -1342,20 +1358,20 @@ const server = http.createServer(async (req, res) => {
         const description = "Conheça os planos do BR Data: Freemium grátis, Lite, Pro e Enterprise — tabela, jogos, estatísticas, comparador de times, probabilidades e simulador do Brasileirão.";
 
         const bodySnapshotHtml = `<div id="seoSnapshot" style="max-width:680px;margin:32px auto;padding:0 20px;font:15px/1.6 system-ui,sans-serif;color:#0A1424;">
-  <h1>Planos e Preços — Assine o BR Data</h1>
+  <h1>Seja Premium — Planos e Preços do BR Data</h1>
   <p>${escapeHtml(description)}</p>
   ${plansHTML}
 </div>`;
 
         const html = await renderShellWithSeo(req, {
-          title: "Planos e Preços · Assine o BR Data",
+          title: "Seja Premium — Planos e Preços · BR Data",
           description,
-          canonicalPath: "/apoie",
+          canonicalPath: "/seja-premium",
           bodySnapshotHtml,
           jsonLd: {
             "@context": "https://schema.org", "@type": "WebPage",
-            name: "Planos BR Data", description, inLanguage: "pt-BR",
-            url: `${CANONICAL_SITE_URL}/apoie`,
+            name: "Seja Premium — Planos BR Data", description, inLanguage: "pt-BR",
+            url: `${CANONICAL_SITE_URL}/seja-premium`,
             mainEntity: plans.filter((p) => p.price > 0).map((p) => ({
               "@type": "Product",
               name: `BR Data ${p.title}`,
@@ -1367,7 +1383,7 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=600" });
         return res.end(html);
       } catch (err) {
-        console.error("[apoie] falha ao montar a página, servindo o shell padrão:", err.message);
+        console.error("[seja-premium] falha ao montar a página, servindo o shell padrão:", err.message);
         return serveStatic(req, res);
       }
     }
@@ -1908,7 +1924,7 @@ const server = http.createServer(async (req, res) => {
         const pref = await mercadoPago.createPreference({
           plan, name, email, phone,
           externalReference: user.id,
-          backUrl: `${base}/apoie`,
+          backUrl: `${base}/seja-premium`,
           notificationUrl: `${base}/api/support/webhook`,
         });
         users.updateUser(user.id, { preferenceId: pref.id });
@@ -2017,7 +2033,7 @@ const server = http.createServer(async (req, res) => {
         const pref = await mercadoPago.createPreference({
           plan, name: user.name, email: user.email, phone: user.phone,
           externalReference: user.id,
-          backUrl: `${base}/apoie`,
+          backUrl: `${base}/seja-premium`,
           notificationUrl: `${base}/api/support/webhook`,
         });
         if (user.planStatus === "active" && user.plan !== plan.id) {
