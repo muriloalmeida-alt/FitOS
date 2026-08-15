@@ -57,6 +57,7 @@ const competitions = require("./src/competitions");
 const paymentsLedger = require("./src/paymentsLedger");
 const contentStore = require("./src/contentStore");
 const publicRateLimit = require("./src/publicRateLimit");
+const { slugify } = require("./src/slug");
 
 const PORT = process.env.PORT || 8787;
 const LEAGUE_ID = process.env.LEAGUE_ID || "71"; // 71 = Brasileirão Série A na API-Sports (confirme no /api/leagues/search)
@@ -385,6 +386,67 @@ const MIME = {
   ".png": "image/png",
 };
 
+// Sem framework de HTML nenhum nesse projeto (zero-dependência de
+// propósito) — até agora nunca precisou escapar HTML dinâmico porque o
+// servidor só devolvia JSON. As rotas por entidade (Fase B) são as
+// primeiras a interpolar dado (nome de time, vindo do fornecedor
+// externo) direto num HTML de verdade — escapa por segurança (nunca
+// confia em dado de fornecedor externo cru dentro de HTML, mesmo sendo
+// um fornecedor confiável).
+function escapeHtml(s) {
+  return String(s ?? "").replace(/[&<>"']/g, (c) => (
+    { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
+  ));
+}
+
+// ================= SEO: shell + conteúdo por entidade (Fase B) =================
+// Lê index.html do disco (igual serveStatic faz — sempre fresco, sem
+// cache em memória, arquivo é pequeno) e troca 2 blocos marcados nele
+// (ver comentários grandes no próprio index.html):
+//   SEO:START..SEO:END   -> title/description/OG/Twitter/canonical/JSON-LD
+//   SEO:BODY_SNAPSHOT    -> resumo em HTML puro da entidade (ou "" na
+//                           raiz/páginas sem entidade — some o
+//                           marcador sem deixar nada no lugar)
+// canonicalPath já vem tipo "/times/flamengo" (sem domínio) — essa
+// função completa com publicBaseUrl(req), igual o resto do arquivo já
+// faz pros links do Mercado Pago.
+async function renderShellWithSeo(req, { title, description, canonicalPath, bodySnapshotHtml, jsonLd }) {
+  const html = await fs.promises.readFile(path.join(PUBLIC_DIR, "index.html"), "utf8");
+  const base = publicBaseUrl(req);
+  const canonicalUrl = `${base}${canonicalPath}`;
+  const ogImage = `${base}/img/logo.png`;
+  const ld = jsonLd || {
+    "@context": "https://schema.org", "@type": "WebSite",
+    name: "BR Data", description, inLanguage: "pt-BR",
+  };
+  const seoBlock =
+    `<title>${escapeHtml(title)}</title>\n` +
+    `<meta name="description" content="${escapeHtml(description)}">\n` +
+    `<link rel="canonical" href="${escapeHtml(canonicalUrl)}">\n` +
+    `<meta property="og:type" content="website">\n` +
+    `<meta property="og:site_name" content="BR Data">\n` +
+    `<meta property="og:title" content="${escapeHtml(title)}">\n` +
+    `<meta property="og:description" content="${escapeHtml(description)}">\n` +
+    `<meta property="og:image" content="${escapeHtml(ogImage)}">\n` +
+    `<meta property="og:url" content="${escapeHtml(canonicalUrl)}">\n` +
+    `<meta property="og:locale" content="pt_BR">\n` +
+    `<meta name="twitter:card" content="summary_large_image">\n` +
+    `<meta name="twitter:title" content="${escapeHtml(title)}">\n` +
+    `<meta name="twitter:description" content="${escapeHtml(description)}">\n` +
+    `<meta name="twitter:image" content="${escapeHtml(ogImage)}">\n` +
+    `<script type="application/ld+json">\n${JSON.stringify(ld, null, 2)}\n</script>`;
+
+  const startMarker = "<!-- SEO:START -->";
+  const endMarker = "<!-- SEO:END -->";
+  const startIdx = html.indexOf(startMarker);
+  const endIdx = html.indexOf(endMarker);
+  let out = html;
+  if (startIdx !== -1 && endIdx !== -1) {
+    out = html.slice(0, startIdx + startMarker.length) + "\n" + seoBlock + "\n" + html.slice(endIdx);
+  }
+  return out.replace("<!-- SEO:BODY_SNAPSHOT -->", bodySnapshotHtml || "");
+}
+
 function serveStatic(req, res) {
   let filePath = path.join(PUBLIC_DIR, decodeURIComponent(req.url.split("?")[0]));
   if (req.url === "/" || req.url === "") filePath = path.join(PUBLIC_DIR, "index.html");
@@ -491,11 +553,13 @@ const server = http.createServer(async (req, res) => {
       );
     }
 
-    // Sitemap — v1 (Fase A do "Plano de Indexação"): só as URLs que já
-    // são conteúdo de verdade hoje. Cresce sozinho quando as páginas
-    // por entidade (time/jogador/jogo — Fase B) existirem: dá pra virar
-    // uma lista montada a partir de TEAMS/players/competitions em vez
-    // desse array fixo, sem precisar mudar a rota em si.
+    // Sitemap — v2 (Fase C do "Plano de Indexação", encadeada direto
+    // depois da Fase B): além das URLs estáticas de sempre, agora lista
+    // 1 <url> por time de verdade, buscado ao vivo (mesma chave de
+    // cache de /api/teams e da própria página /times/:slug — não custa
+    // nada extra na cota da Sportmonks). Sem credencial configurada
+    // nesse host, cai pra v1 (só as URLs estáticas) — não tem time
+    // nenhum pra listar sem dado ao vivo.
     if (pathname === "/sitemap.xml") {
       const base = publicBaseUrl(req);
       const today = new Date().toISOString().slice(0, 10);
@@ -503,11 +567,130 @@ const server = http.createServer(async (req, res) => {
         { loc: `${base}/`, changefreq: "daily", priority: "1.0" },
         { loc: `${base}/privacidade.html`, changefreq: "yearly", priority: "0.3" },
       ];
+      if (liveModeEnabled()) {
+        try {
+          const comp = competitions.getCompetition("brasileirao");
+          const leagueId = competitions.providerLeagueId(comp, dataProvider.ACTIVE_PROVIDER_NAME);
+          const teams = await withCache(`teams:${comp.id}:${LIVE_SEASON}`, TTL.teams, () =>
+            dataProvider.getTeams({ leagueId, season: LIVE_SEASON })
+          );
+          teams.forEach((t) => urls.push({ loc: `${base}/times/${slugify(t.name)}`, changefreq: "daily", priority: "0.7" }));
+        } catch (err) {
+          // Sitemap nunca deveria quebrar por causa de uma falha
+          // pontual do fornecedor -- pior caso, sai só com as URLs
+          // estáticas de sempre (v1), não com erro 500.
+          console.error("[sitemap] falha ao listar times:", err.message);
+        }
+      }
       const body = urls.map((u) =>
         `  <url>\n    <loc>${u.loc}</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>${u.changefreq}</changefreq>\n    <priority>${u.priority}</priority>\n  </url>`
       ).join("\n");
       res.writeHead(200, { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=3600" });
       return res.end(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</urlset>\n`);
+    }
+
+    // ================= Página do Time (Fase B, "Plano de Indexação") =================
+    // /times/:slug — 1ª URL por entidade do plano de SEO (ver Fase A
+    // já em produção). Sempre do Brasileirão Série A por enquanto (é a
+    // única competição habilitada de verdade hoje, ver
+    // server/src/competitions.js) — quando Série B/C saírem de "em
+    // breve", essa rota precisa de um jeito de indicar competição
+    // (prefixo tipo /serie-b/times/:slug, por exemplo) pra não colidir
+    // slug de times com nome parecido entre competições diferentes.
+    //
+    // Reusa EXATAMENTE as mesmas chaves de cache de /api/teams,
+    // /api/standings e /api/fixtures (mesmo dataProvider, mesmo
+    // leagueId, mesma season) — um crawler batendo aqui não custa
+    // NADA a mais na cota da Sportmonks além do que o tráfego normal
+    // do app já paga.
+    const timeRouteMatch = pathname.match(/^\/times\/([a-z0-9-]+)\/?$/);
+    if (timeRouteMatch) {
+      const slug = timeRouteMatch[1];
+      // Sem credencial configurada nesse host, não tem dado nenhum pra
+      // pré-renderizar (o app cliente, em modo Exemplo, ainda sabe
+      // resolver /times/:slug sozinho via JS — só não tem conteúdo
+      // pronto pra um crawler que não roda JS, até esse host ganhar
+      // uma chave de API de verdade).
+      if (!liveModeEnabled()) return serveStatic(req, res);
+
+      // Qualquer falha do fornecedor aqui (Sportmonks fora do ar,
+      // token inválido, etc.) cai pro shell normal em vez de 500 --
+      // mesmo espírito do "sem credencial" acima: o app cliente ainda
+      // sabe se virar sozinho (cai pro modo Exemplo), só não tem
+      // conteúdo pronto pra um crawler nesse instante específico.
+      try {
+        const comp = competitions.getCompetition("brasileirao");
+        const leagueId = competitions.providerLeagueId(comp, dataProvider.ACTIVE_PROVIDER_NAME);
+        const season = LIVE_SEASON;
+        const teams = await withCache(`teams:${comp.id}:${season}`, TTL.teams, () =>
+          dataProvider.getTeams({ leagueId, season })
+        );
+        const team = teams.find((t) => slugify(t.name) === slug);
+
+        if (!team) {
+          // Slug desconhecido -- 404 de verdade (não soft-404): status
+          // errado aqui confundiria o Google sobre o que é conteúdo real.
+          const html = await renderShellWithSeo(req, {
+            title: "Time não encontrado · BR Data",
+            description: "Não encontramos esse time no Brasileirão. Veja a tabela completa e todos os times na página inicial do BR Data.",
+            canonicalPath: "/times/" + slug,
+            bodySnapshotHtml: "",
+          });
+          res.writeHead(404, { "Content-Type": "text/html; charset=utf-8" });
+          return res.end(html);
+        }
+
+        const [standings, fixtures] = await Promise.all([
+          withCache(`standings:${comp.id}:${season}`, TTL.standings, () => dataProvider.getStandings({ leagueId, season })),
+          withCache(`fixtures:${comp.id}:${season}`, TTL.fixtures, () => dataProvider.getFixtures({ leagueId, season })),
+        ]);
+
+        const teamById = new Map(teams.map((t) => [t.id, t]));
+        const row = standings.find((r) => String(r.id) === String(team.id));
+        const teamFixtures = fixtures.filter((f) => f.home === team.id || f.away === team.id);
+        const FINISHED_STATUS = ["FT", "AET", "PEN"]; // mesma lista usada no cliente, ver tryLoadLiveData em liveData.js
+        const finished = teamFixtures
+          .filter((f) => FINISHED_STATUS.includes(f.status))
+          .sort((a, b) => new Date(b.date) - new Date(a.date))
+          .slice(0, 5);
+        const nextMatch = teamFixtures
+          .filter((f) => !FINISHED_STATUS.includes(f.status))
+          .sort((a, b) => new Date(a.date) - new Date(b.date))[0];
+        const oppName = (f) => teamById.get(f.home === team.id ? f.away : f.home)?.name || "adversário a definir";
+
+        const title = `${team.name} — Tabela, Elenco e Próximos Jogos do Brasileirão · BR Data`;
+        const description = row
+          ? `${team.name} está em ${row.rank}º lugar no Brasileirão, com ${row.pts} pontos em ${row.j} jogos. Veja elenco, últimos resultados e próximos jogos.`
+          : `Elenco, tabela e próximos jogos do ${team.name} no Brasileirão.`;
+
+        const resultLineHTML = (f) => {
+          const isHome = f.home === team.id;
+          const gf = isHome ? f.gh : f.ga, ga = isHome ? f.ga : f.gh;
+          return `<li>${escapeHtml(team.name)} ${gf} x ${ga} ${escapeHtml(oppName(f))}</li>`;
+        };
+
+        const bodySnapshotHtml = `<div id="seoSnapshot" style="max-width:680px;margin:32px auto;padding:0 20px;font:15px/1.6 system-ui,sans-serif;color:#0A1424;">
+  <h1>${escapeHtml(team.name)}</h1>
+  <p>${escapeHtml(description)}</p>
+  ${finished.length ? `<h2>Últimos jogos</h2>\n  <ul>\n    ${finished.map(resultLineHTML).join("\n    ")}\n  </ul>` : ""}
+  ${nextMatch ? `<h2>Próximo jogo</h2>\n  <p>${escapeHtml(team.name)} x ${escapeHtml(oppName(nextMatch))}</p>` : ""}
+</div>`;
+
+        const html = await renderShellWithSeo(req, {
+          title, description, canonicalPath: `/times/${slug}`, bodySnapshotHtml,
+          jsonLd: {
+            "@context": "https://schema.org", "@type": "SportsTeam",
+            name: team.name, sport: "Soccer",
+            url: `${publicBaseUrl(req)}/times/${slug}`,
+            ...(team.logo ? { logo: team.logo } : {}),
+          },
+        });
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=600" });
+        return res.end(html);
+      } catch (err) {
+        console.error("[times/:slug] falha ao montar a página, servindo o shell padrão:", err.message);
+        return serveStatic(req, res);
+      }
     }
 
     // URL amigável (sem ".html") pra área administrativa — o resto do

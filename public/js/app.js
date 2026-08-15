@@ -418,7 +418,21 @@ function evaluateDesktopBanner() {
   document.getElementById("desktopBanner").style.display = shouldShow ? "block" : "none";
 }
 
+// Some com o resumo pré-renderizado pro robô (ver GET /times/:slug em
+// server.js e o marcador SEO:BODY_SNAPSHOT em index.html) assim que o
+// JS termina de carregar — a partir daqui o app de verdade (mais
+// interativo, com dado sempre atualizado) é a única coisa que deveria
+// aparecer. Na raiz ("/") e em qualquer visita sem esse bloco, é um
+// no-op (elemento não existe). Chamada bem cedo no boot() de propósito
+// — antes até do <head> resistir, esse bloco já cumpriu seu papel (o
+// crawler já leu o HTML cru; quem está vendo isso agora tem JS
+// rodando, não precisa mais dele).
+function removeSeoSnapshot() {
+  document.getElementById("seoSnapshot")?.remove();
+}
+
 async function boot() {
+  removeSeoSnapshot();
   // Liga os listeners 1x só, logo de cara — os elementos do gate (login/
   // cadastro) e do shell (app "de verdade") já existem os dois no DOM
   // desde o carregamento, só um dos dois fica visível por vez (display
@@ -524,7 +538,14 @@ async function startApp(user) {
 
   populateAllSelects();
   renderMyTeamsSidebar();
-  setActivePage("dashboard");
+  // AJUSTE (Fase B, "Plano de Indexação"): se a URL já aponta pra uma
+  // página de time (ex.: /times/flamengo — alguém clicou num link
+  // direto, ou o servidor já tinha renderizado essa URL pra um
+  // crawler/visitante, ver GET /times/:slug em server.js), abre
+  // direto nela em vez de sempre cair no Dashboard. applyRouteFromLocation
+  // devolve false pra qualquer URL que não reconhece (inclusive "/"),
+  // aí cai no comportamento de sempre.
+  if (!applyRouteFromLocation()) setActivePage("dashboard");
 
   // AJUSTE (Fase 3, "Freemium sem login"): anúncio roda igual pra
   // visitante sem conta E pra Freemium logado (decisão explícita do
@@ -2689,11 +2710,59 @@ function activeFavoriteTeam() {
 // Correção: resolve pro id de fato usado em TEAMS (mesmo tipo, número
 // ou string, dependendo do fornecedor) em vez de guardar o que veio
 // cru do HTML.
-function goToTeam(teamId) {
+// ================= Roteamento por URL (Fase B, "Plano de Indexação") =================
+// Só a página do Time tem URL própria por enquanto (/times/:slug) —
+// Jogador e Jogo ficam pra continuação natural dessa mesma fase, mesma
+// mecânica. slugifyTeamName precisa gerar EXATAMENTE o mesmo resultado
+// que server/src/slug.js (slugify) — ver aviso lá.
+function slugifyTeamName(name) {
+  return String(name || "")
+    .normalize("NFD").replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+function teamSlug(team) { return slugifyTeamName(team.name); }
+function findTeamBySlug(slug) { return TEAMS.find((t) => teamSlug(t) === slug) || null; }
+
+// Lê a URL atual e navega pra página de time correspondente, se
+// reconhecida — devolve true se navegou, false se a URL não bateu com
+// nada (inclusive "/", que cai no Dashboard normalmente). Chamada (a)
+// uma vez no boot (ver startApp) e (b) a cada voltar/avançar do
+// navegador (ver popstate em setupEventListeners).
+function applyRouteFromLocation() {
+  const m = location.pathname.match(/^\/times\/([a-z0-9-]+)\/?$/);
+  if (!m) return false;
+  const team = findTeamBySlug(m[1]);
+  if (!team) return false; // slug desconhecido (time que não existe, ou de outra competição) -- não força nada, segue pro Dashboard
+  goToTeam(team.id, { pushUrl: false }); // URL já é a certa (veio dela mesma) -- não empurra de novo
+  return true;
+}
+
+// Mantém a URL do navegador em sincronia com a página de time aberta
+// -- só entra em ação pra "time" (as outras páginas ainda não têm URL
+// própria); saindo de uma /times/xxx pra qualquer outra página, volta
+// a URL pra "/" (nunca deixa uma URL de time "grudada" mostrando outra
+// coisa na tela).
+function syncUrlForPage(name) {
+  if (name === "time" && state.selectedTeamId) {
+    const team = TEAM_MAP[state.selectedTeamId];
+    if (team) {
+      const path = `/times/${teamSlug(team)}`;
+      if (location.pathname !== path) history.pushState(null, "", path);
+      return;
+    }
+  }
+  if (location.pathname.startsWith("/times/")) history.pushState(null, "", "/");
+}
+
+// opts.pushUrl=false: URL já está certa (veio de applyRouteFromLocation,
+// ela mesma lendo a URL) -- não sincroniza de novo, só troca a página.
+function goToTeam(teamId, opts = {}) {
   if (state.page !== "time" && state.page !== "jogador") state.pageBeforeDetail = state.page;
   const match = TEAMS.find((t) => String(t.id) === String(teamId));
   state.selectedTeamId = match ? match.id : teamId;
-  setActivePage("time");
+  setActivePage("time", { skipUrlSync: opts.pushUrl === false });
 }
 function goToPlayer(playerId) {
   if (state.page !== "time" && state.page !== "jogador") state.pageBeforeDetail = state.page;
@@ -3026,6 +3095,11 @@ const PAGES = ["dashboard", "jogos", "tabela", "estatisticas", "simulador", "fav
 function setActivePage(name, opts = {}) {
   state.page = name;
   trackEvent("page_view", name); // "páginas mais navegadas" em /admin > Comportamento -- toda troca de página passa por aqui, inclusive a 1ª (dashboard) depois do login/boot
+  // opts.skipUrlSync: usado só por quem já leu a URL de partida (boot,
+  // popstate) -- URL já está certa, não sincroniza de novo (ver
+  // syncUrlForPage/goToTeam/applyRouteFromLocation, Fase B do "Plano
+  // de Indexação").
+  if (!opts.skipUrlSync) syncUrlForPage(name);
   PAGES.forEach(p => document.getElementById(`page-${p}`)?.classList.toggle("active", p === name));
   document.querySelectorAll(".top-tab").forEach(t => t.classList.toggle("active", t.dataset.page === name));
   document.querySelectorAll(".side-link[data-page]").forEach(t => t.classList.toggle("active", t.dataset.page === name && !t.dataset.jsub));
@@ -3088,6 +3162,16 @@ function setupEventListeners() {
       setActivePage(el.dataset.page, { scrollTo: el.dataset.scroll });
       if (el.dataset.jsub) setJogosSub(el.dataset.jsub);
     });
+  });
+
+  // Voltar/avançar do navegador (Fase B, "Plano de Indexação") -- só
+  // existe URL própria pra /times/:slug por enquanto. Sem match
+  // nenhum (inclusive "/"), volta pra pageBeforeDetail (ou Dashboard,
+  // se não tiver) -- skipUrlSync:true nos dois casos porque a URL já
+  // é a que o navegador acabou de aplicar sozinho, não precisa
+  // (nem deveria) empurrar de novo.
+  window.addEventListener("popstate", () => {
+    if (!applyRouteFromLocation()) setActivePage(state.pageBeforeDetail || "dashboard", { skipUrlSync: true });
   });
 
   document.getElementById("btnHamburger").addEventListener("click", () => document.getElementById("sidebar").classList.toggle("open"));
