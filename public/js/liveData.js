@@ -44,6 +44,34 @@ function calibrateStrengths(standings) {
 const PALETTE = ["#20D08A", "#3E7BFF", "#FFC93C", "#FF4D5E", "#8A2432", "#1E90CE", "#DC2626", "#0B6E33"];
 function colorForId(id) { return PALETTE[id % PALETTE.length]; }
 
+// BUG CORRIGIDO (pedido do usuário: "Os heros não estão nas cores dos
+// times... Flamengo deve ser vermelho com degrade preto... Palmeiras
+// deve ser verde e branco. Sempre respeitando as cores do clube") --
+// em modo ao vivo, todo time usava colorForId(t.id) acima: um hash
+// (id % paleta de 8 cores) sem NENHUMA relação com a cor de verdade
+// do clube -- Flamengo podia sair azul, Palmeiras amarelo, dependendo
+// só do id numérico que a Sportmonks/API-Sports desse a ele, e c2
+// era sempre o mesmo #12121A fixo pra todo mundo. Corrigido
+// reaproveitando o MESMO catálogo de cores já curado em data.js pro
+// modo Exemplo (DEMO_DATA_BY_COMPETITION) -- casando por NOME
+// normalizado (sem acento/maiúscula, mesma técnica de
+// normalizeTeamName em app.js, mas duplicada aqui pra não depender de
+// app.js, que carrega DEPOIS deste arquivo), pra não duplicar a lista
+// de cores em 2 lugares -- Flamengo em modo ao vivo passa a usar
+// exatamente o mesmo vermelho/preto que já usa no modo Exemplo. Time
+// que não bate com nenhum nome do catálogo (só aconteceria pra um
+// time de fora da lista curada dessa competição) cai pro hash antigo
+// (colorForId), só pra nunca ficar sem degradê nenhum no hero.
+function normalizeNameForColor(s) {
+  return String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+}
+function realTeamColor(name, competitionId) {
+  const demoTeams = DEMO_DATA_BY_COMPETITION[competitionId]?.teams || [];
+  const norm = normalizeNameForColor(name);
+  const match = demoTeams.find(t => normalizeNameForColor(t.name) === norm);
+  return match ? { c1: match.c1, c2: match.c2 } : null;
+}
+
 async function tryLoadLiveData(season = LIVE_SEASON, competitionId = "brasileirao") {
   try {
     const health = await safeFetchJSON("/api/health");
@@ -72,12 +100,16 @@ async function tryLoadLiveData(season = LIVE_SEASON, competitionId = "brasileira
     }
 
     const strengths = calibrateStrengths(standingsData.standings || []);
-    const teams = teamsData.teams.map(t => ({
-      ...t,
-      atk: strengths[t.id]?.atk ?? 1.3,
-      def: strengths[t.id]?.def ?? 1.05,
-      c1: colorForId(t.id), c2: "#12121A",
-    }));
+    const teams = teamsData.teams.map(t => {
+      const realColor = realTeamColor(t.name, competitionId);
+      return {
+        ...t,
+        atk: strengths[t.id]?.atk ?? 1.3,
+        def: strengths[t.id]?.def ?? 1.05,
+        c1: realColor?.c1 || colorForId(t.id),
+        c2: realColor?.c2 || "#12121A",
+      };
+    });
 
     const allRounds = {};
     const results = {};
