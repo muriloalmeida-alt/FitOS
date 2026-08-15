@@ -762,6 +762,18 @@ function localCrestFor(team) {
   }
   return null;
 }
+// AJUSTE (pedido do usuário: "Os cinco times são tricolores" -- São
+// Paulo, Bahia, Grêmio, Fortaleza, Bragantino) -- clube com 3 cores
+// de verdade (c3 preenchido em data.js) ganha um degradê de 3 cores
+// de verdade em vez de só 2 (perdia sempre 1 das 3 cores antes).
+// Time comum (2 cores) continua com o degradê de sempre -- c3 só
+// entra na lista se existir. Função central usada em todo lugar que
+// monta degradê nas cores do time (escudo de fallback, hero, card
+// "Clube Favorito", disco do "jogo de botão") -- corrigir aqui
+// corrige todos de uma vez.
+function teamGradientStops(team) {
+  return [team.c1 || "#0057B8", team.c2 || "#062B5C", team.c3].filter(Boolean).join(", ");
+}
 function crestEl(team, size) {
   const localSrc = localCrestFor(team);
   const primarySrc = team.logo || localSrc;
@@ -776,7 +788,7 @@ function crestEl(team, size) {
   // quebrada do navegador aparecer no lugar do brasão/iniciais.
   return `<img class="crest" src="${escAttr(primarySrc)}" alt="${escAttr(team.short || "")}" width="${size}" height="${size}"
     style="width:${size}px;height:${size}px;background:#fff;border:1px solid var(--border);padding:2px;"
-    data-short="${escAttr(team.short || team.name || "?")}" data-c1="${escAttr(team.c1 || "#0057B8")}" data-c2="${escAttr(team.c2 || "#062B5C")}" data-size="${size}"
+    data-short="${escAttr(team.short || team.name || "?")}" data-c1="${escAttr(team.c1 || "#0057B8")}" data-c2="${escAttr(team.c2 || "#062B5C")}" data-c3="${escAttr(team.c3 || "")}" data-size="${size}"
     data-retry="${escAttr(retrySrc)}"
     onerror="crestFallbackHandler(this)">`;
 }
@@ -790,12 +802,12 @@ function crestFallbackHandler(img) {
     return;
   }
   img.outerHTML = crestFallback(
-    { short: img.dataset.short, c1: img.dataset.c1, c2: img.dataset.c2 },
+    { short: img.dataset.short, c1: img.dataset.c1, c2: img.dataset.c2, c3: img.dataset.c3 },
     parseInt(img.dataset.size, 10) || 24
   );
 }
 function crestFallback(team, size) {
-  return `<div class="crest" style="width:${size}px;height:${size}px;font-size:${Math.round(size * 0.34)}px;background:linear-gradient(135deg, ${team.c1 || "#0057B8"}, ${team.c2 || "#062B5C"})">${(team.short || team.name || "?").slice(0, 3)}</div>`;
+  return `<div class="crest" style="width:${size}px;height:${size}px;font-size:${Math.round(size * 0.34)}px;background:linear-gradient(135deg, ${teamGradientStops(team)})">${(team.short || team.name || "?").slice(0, 3)}</div>`;
 }
 function zoneColor(zone) {
   return { campeao: "var(--brd-yellow)", libertadores: "var(--brd-blue)", sulamericana: "var(--brd-info)", rebaixamento: "var(--brd-red)", meio: "var(--brd-gray-600)" }[zone];
@@ -2137,7 +2149,7 @@ function cancelFavoriteClubEdit() { state.favoriteClubEditing = false; renderFav
 // brancos ilegíveis do lado claro do degradê.
 function favClubGradientCSS(team) {
   return `margin-bottom:16px; border:none; color:#fff;
-    background:linear-gradient(135deg, rgba(0,0,0,.4), rgba(0,0,0,.12)), linear-gradient(135deg, ${team.c1 || "#0057B8"}, ${team.c2 || "#062B5C"});`;
+    background:linear-gradient(135deg, rgba(0,0,0,.4), rgba(0,0,0,.12)), linear-gradient(135deg, ${teamGradientStops(team)});`;
 }
 function favClubBrandedHTML(team, label, rank, pts, buttonHTML) {
   const metaHTML = rank != null ? `<div class="fav-club-active-meta">${rank}º colocado · ${pts} pts</div>` : "";
@@ -2960,7 +2972,7 @@ function buttonPieceHTML(p, team) {
     : `<span class="btn-name">${lastNameOf(p.name)}</span>`;
   return `
   <div class="button-piece" title="${escAttr(p.name)}">
-    <div class="button-disc" style="background:linear-gradient(160deg, ${team.c1 || "#0057B8"}, ${team.c2 || "#062B5C"});">${p.number ?? "-"}</div>
+    <div class="button-disc" style="background:linear-gradient(160deg, ${teamGradientStops(team)});">${p.number ?? "-"}</div>
     ${nameHTML}
   </div>`;
 }

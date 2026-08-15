@@ -69,7 +69,12 @@ function realTeamColor(name, competitionId) {
   const demoTeams = DEMO_DATA_BY_COMPETITION[competitionId]?.teams || [];
   const norm = normalizeNameForColor(name);
   const match = demoTeams.find(t => normalizeNameForColor(t.name) === norm);
-  return match ? { c1: match.c1, c2: match.c2 } : null;
+  // c3 é OPCIONAL (só clube tricolor de verdade tem, ver AJUSTE em
+  // data.js) -- sem incluir aqui, o degradê de 3 cores do modo
+  // Exemplo virava 2 cores de novo assim que passava pro modo ao
+  // vivo (mesmo bug de fundo do time-Cuiabá-azul, dessa vez perdendo
+  // a 3ª cor em vez da cor toda).
+  return match ? { c1: match.c1, c2: match.c2, c3: match.c3 } : null;
 }
 
 async function tryLoadLiveData(season = LIVE_SEASON, competitionId = "brasileirao") {
@@ -108,6 +113,7 @@ async function tryLoadLiveData(season = LIVE_SEASON, competitionId = "brasileira
         def: strengths[t.id]?.def ?? 1.05,
         c1: realColor?.c1 || colorForId(t.id),
         c2: realColor?.c2 || "#12121A",
+        c3: realColor?.c3, // opcional -- undefined pra time comum (2 cores), preenchido só pro tricolor de verdade
       };
     });
 

@@ -35,23 +35,36 @@ function poissonSample(lambda, rng) {
    pelos times e força real calculados a partir da tabela atual. */
 // venue = estádio-sede real de cada clube (dado público estável — não
 // é estatística fictícia, só contexto de local do jogo).
+//
+// AJUSTE (pedido do usuário: "Esse esquema das cores é muito
+// importante pois envolve a paixão dos torcedores") — c1/c2 sempre
+// existiram (degradê de 2 cores no escudo/hero/card "Clube Favorito"/
+// disco do "jogo de botão", ver teamGradientStops em app.js), mas
+// clube TRICOLOR de verdade (São Paulo, Bahia, Grêmio, Fortaleza,
+// Bragantino) precisava forçar 1 das 3 cores reais de fora pra caber
+// no degradê de 2 pontas. c3 (opcional -- só esses 5 têm) faz o
+// degradê ganhar a 3ª cor de verdade em vez de descartar uma; ordem
+// de c1/c2/c3 bate com a ordem de prioridade que o usuário deu pra
+// cada um (ex.: Bahia é "azul primeiro", Fortaleza é "vermelho
+// primeiro" -- mesmas 2 cores principais, ordem diferente, times
+// diferentes).
 const DEMO_TEAMS = [
   { id: "fla", name: "Flamengo",             short: "FLA", uf: "RJ", c1: "#E30613", c2: "#1A1A1A", atk: 1.85, def: 0.78, venue: { name: "Maracanã", city: "Rio de Janeiro" } },
   { id: "pal", name: "Palmeiras",             short: "PAL", uf: "SP", c1: "#0B6E33", c2: "#F5F5F5", atk: 1.80, def: 0.75, venue: { name: "Allianz Parque", city: "São Paulo" } },
   { id: "bot", name: "Botafogo",              short: "BOT", uf: "RJ", c1: "#1A1A1A", c2: "#FFFFFF", atk: 1.72, def: 0.82, venue: { name: "Nilton Santos", city: "Rio de Janeiro" } },
-  { id: "for", name: "Fortaleza",             short: "FOR", uf: "CE", c1: "#1E3A8A", c2: "#DC2626", atk: 1.55, def: 0.92, venue: { name: "Arena Castelão", city: "Fortaleza" } },
+  { id: "for", name: "Fortaleza",             short: "FOR", uf: "CE", c1: "#DC2626", c2: "#FFFFFF", c3: "#1E3A8A", atk: 1.55, def: 0.92, venue: { name: "Arena Castelão", city: "Fortaleza" } },
   { id: "int", name: "Internacional",         short: "INT", uf: "RS", c1: "#C8102E", c2: "#FFFFFF", atk: 1.60, def: 0.90, venue: { name: "Beira-Rio", city: "Porto Alegre" } },
-  { id: "sao", name: "São Paulo",             short: "SAO", uf: "SP", c1: "#C8102E", c2: "#1A1A1A", atk: 1.58, def: 0.88, venue: { name: "Morumbis", city: "São Paulo" } },
+  { id: "sao", name: "São Paulo",             short: "SAO", uf: "SP", c1: "#C8102E", c2: "#FFFFFF", c3: "#1A1A1A", atk: 1.58, def: 0.88, venue: { name: "Morumbis", city: "São Paulo" } },
   { id: "cor", name: "Corinthians",           short: "COR", uf: "SP", c1: "#1A1A1A", c2: "#FFFFFF", atk: 1.50, def: 0.95, venue: { name: "Neo Química Arena", city: "São Paulo" } },
-  { id: "gre", name: "Grêmio",                short: "GRE", uf: "RS", c1: "#1E90CE", c2: "#1A1A1A", atk: 1.48, def: 0.97, venue: { name: "Arena do Grêmio", city: "Porto Alegre" } },
+  { id: "gre", name: "Grêmio",                short: "GRE", uf: "RS", c1: "#1E90CE", c2: "#FFFFFF", c3: "#1A1A1A", atk: 1.48, def: 0.97, venue: { name: "Arena do Grêmio", city: "Porto Alegre" } },
   { id: "cap", name: "Athletico Paranaense",  short: "CAP", uf: "PR", c1: "#C8102E", c2: "#1A1A1A", atk: 1.52, def: 0.94, venue: { name: "Ligga Arena", city: "Curitiba" } },
   { id: "cru", name: "Cruzeiro",              short: "CRU", uf: "MG", c1: "#003399", c2: "#FFFFFF", atk: 1.46, def: 0.98, venue: { name: "Mineirão", city: "Belo Horizonte" } },
   { id: "cam", name: "Atlético-MG",           short: "CAM", uf: "MG", c1: "#1A1A1A", c2: "#FFFFFF", atk: 1.51, def: 0.99, venue: { name: "Arena MRV", city: "Belo Horizonte" } },
-  { id: "bah", name: "Bahia",                 short: "BAH", uf: "BA", c1: "#1E3A8A", c2: "#DC2626", atk: 1.44, def: 1.02, venue: { name: "Arena Fonte Nova", city: "Salvador" } },
+  { id: "bah", name: "Bahia",                 short: "BAH", uf: "BA", c1: "#1E3A8A", c2: "#FFFFFF", c3: "#DC2626", atk: 1.44, def: 1.02, venue: { name: "Arena Fonte Nova", city: "Salvador" } },
   { id: "vas", name: "Vasco da Gama",         short: "VAS", uf: "RJ", c1: "#1A1A1A", c2: "#FFFFFF", atk: 1.40, def: 1.05, venue: { name: "São Januário", city: "Rio de Janeiro" } },
   { id: "flu", name: "Fluminense",            short: "FLU", uf: "RJ", c1: "#8A2432", c2: "#1E7A3D", atk: 1.38, def: 1.08, venue: { name: "Maracanã", city: "Rio de Janeiro" } },
   { id: "san", name: "Santos",                short: "SAN", uf: "SP", c1: "#1A1A1A", c2: "#FFFFFF", atk: 1.35, def: 1.10, venue: { name: "Vila Belmiro", city: "Santos" } },
-  { id: "bra", name: "Bragantino",            short: "BRA", uf: "SP", c1: "#DC2626", c2: "#FFFFFF", atk: 1.33, def: 1.12, venue: { name: "Nabi Abi Chedid", city: "Bragança Paulista" } },
+  { id: "bra", name: "Bragantino",            short: "BRA", uf: "SP", c1: "#DC2626", c2: "#FFC93C", c3: "#1A1A1A", atk: 1.33, def: 1.12, venue: { name: "Nabi Abi Chedid", city: "Bragança Paulista" } },
   { id: "vit", name: "Vitória",               short: "VIT", uf: "BA", c1: "#DC2626", c2: "#1A1A1A", atk: 1.20, def: 1.22, venue: { name: "Barradão", city: "Salvador" } },
   { id: "juv", name: "Juventude",             short: "JUV", uf: "RS", c1: "#1E7A3D", c2: "#FFFFFF", atk: 1.15, def: 1.28, venue: { name: "Alfredo Jaconi", city: "Caxias do Sul" } },
   { id: "mir", name: "Mirassol",              short: "MIR", uf: "SP", c1: "#FFC93C", c2: "#1E7A3D", atk: 1.10, def: 1.30, venue: { name: "Campos Maia", city: "Mirassol" } },
