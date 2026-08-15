@@ -82,15 +82,27 @@ h1,h2,h3{ margin:0; }
 }
 /* AJUSTE (pedido do usuário): logo era pequena demais (34px) pro
    espaço que tinha — sidebar de 248px de largura sobrava espaço de
-   sobra. Header da marca ganhou mais destaque: logo bem maior (56px,
-   ~60% maior) + borda inferior separando visualmente do menu (era só
-   um espaço em branco antes, sem nenhuma âncora visual de "isso aqui
-   é o cabeçalho"). */
+   sobra. Header da marca ganhou mais destaque + borda inferior
+   separando visualmente do menu (era só um espaço em branco antes,
+   sem nenhuma âncora visual de "isso aqui é o cabeçalho").
+
+   AJUSTE 2 (pedido do usuário): lockup HORIZONTALIZADO — ícone e
+   "BR DATA" lado a lado numa linha só, em vez do logo.png empilhado
+   (ícone em cima, texto embaixo) que sobrava largura sem usar.
+   .brand-icon é só o ícone (img/brand-mark.png, recortado sem fundo
+   de img/icons/icon-512.png) — "BR DATA" é texto de verdade agora
+   (.brand-word), não faz parte da imagem: mesma fonte do resto do
+   app (Sora), nítido em qualquer tamanho de tela. */
 .sidebar-brand{
-  display:flex; flex-direction:column; align-items:flex-start; gap:8px;
-  padding:10px 8px 20px; margin-bottom:6px; border-bottom:1px solid rgba(255,255,255,.08);
+  display:flex; flex-direction:column; align-items:flex-start; gap:10px;
+  padding:14px 8px 20px; margin-bottom:6px; border-bottom:1px solid rgba(255,255,255,.08);
 }
-.sidebar-brand .brand-logo{ height:56px; width:auto; }
+.brand-lockup{ display:flex; align-items:center; gap:10px; }
+.brand-icon{ height:38px; width:auto; flex-shrink:0; }
+.brand-word{
+  font-family:var(--font); font-weight:800; font-size:21px; letter-spacing:.2px;
+  color:#fff; line-height:1;
+}
 .brand-tagline{ font-size:9.5px; color:#8FA3C7; letter-spacing:.8px; text-transform:uppercase; font-weight:600; white-space:nowrap; }
 
 .side-label{ font-size:10.5px; text-transform:uppercase; letter-spacing:.8px; color:#7E90B3; font-weight:600; margin:16px 10px 8px; }
@@ -162,8 +174,11 @@ h1,h2,h3{ margin:0; }
 .avatar .circ{ width:32px; height:32px; border-radius:50%; background:linear-gradient(135deg, var(--brd-blue), var(--brd-navy)); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; }
 .avatar span{ font-size:13px; font-weight:600; }
 .mobile-only{ display:none; }
+/* Mesmo lockup horizontalizado do sidebar (ver AJUSTE 2 lá) — ícone
+   (img/brand-mark.png) + "BR DATA" em texto de verdade, lado a lado. */
 .topbar-brand{ align-items:center; gap:8px; margin-right:auto; }
-.topbar-brand .brand-logo{ height:40px; width:auto; } /* era 28px — pedido do usuário, logo pequena demais */
+.topbar-brand .brand-icon{ height:32px; width:auto; flex-shrink:0; }
+.topbar-brand .brand-word{ font-family:var(--font); font-weight:800; font-size:17px; letter-spacing:.2px; color:#fff; line-height:1; }
 
 .search-results{
   position:absolute; top:56px; right:220px; width:260px; background:var(--bg-surface); border:1px solid var(--border);

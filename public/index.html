@@ -258,7 +258,23 @@
   <!-- ================= SIDEBAR ================= -->
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-brand">
-      <img class="brand-logo" src="img/logo.png" alt="BR Data">
+      <!-- AJUSTE (pedido do usuário): lockup horizontalizado (ícone +
+           texto lado a lado numa linha só) em vez da img/logo.png
+           empilhada (ícone em cima, "BR"/"DATA" embaixo) — ocupava
+           mais altura do que largura, sobrando espaço horizontal não
+           usado no cabeçalho. img/brand-mark.png é só o ÍCONE
+           (recortado de img/icons/icon-512.png, fundo removido) —
+           "BR DATA" agora é texto de verdade (não faz parte da
+           imagem), mesma fonte do resto do app (Sora), nítido em
+           qualquer tamanho de tela e sem precisar recriar o
+           wordmark original em cada tamanho. logo.png (a versão
+           empilhada original) continua sendo usada como está na
+           tela de login e no rodapé da política de privacidade —
+           só o cabeçalho horizontal mudou. -->
+      <div class="brand-lockup">
+        <img class="brand-icon" src="img/brand-mark.png" alt="">
+        <span class="brand-word">BR DATA</span>
+      </div>
       <span class="brand-tagline">Estatísticas · Odds · Simulações</span>
     </div>
 
@@ -299,7 +315,8 @@
   <div class="main">
     <header class="topbar">
       <div class="topbar-brand mobile-only">
-        <img class="brand-logo" src="img/logo.png" alt="BR Data">
+        <img class="brand-icon" src="img/brand-mark.png" alt="">
+        <span class="brand-word">BR DATA</span>
       </div>
       <button class="hamburger" id="btnHamburger">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
