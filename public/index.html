@@ -258,23 +258,23 @@
   <!-- ================= SIDEBAR ================= -->
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-brand">
-      <!-- AJUSTE (pedido do usuário): lockup horizontalizado (ícone +
-           texto lado a lado numa linha só) em vez da img/logo.png
-           empilhada (ícone em cima, "BR"/"DATA" embaixo) — ocupava
-           mais altura do que largura, sobrando espaço horizontal não
-           usado no cabeçalho. img/brand-mark.png é só o ÍCONE
-           (recortado de img/icons/icon-512.png, fundo removido) —
-           "BR DATA" agora é texto de verdade (não faz parte da
-           imagem), mesma fonte do resto do app (Sora), nítido em
-           qualquer tamanho de tela e sem precisar recriar o
-           wordmark original em cada tamanho. logo.png (a versão
-           empilhada original) continua sendo usada como está na
-           tela de login e no rodapé da política de privacidade —
-           só o cabeçalho horizontal mudou. -->
-      <div class="brand-lockup">
-        <img class="brand-icon" src="img/brand-mark.png" alt="">
-        <span class="brand-word">BR DATA</span>
-      </div>
+      <!-- AJUSTE (pedido do usuário): lockup HORIZONTAL de verdade
+           (ícone + "BR DATA" já desenhados juntos numa peça só,
+           imagem fornecida pelo usuário) — substituiu tanto a
+           img/logo.png empilhada (ícone em cima, texto embaixo,
+           desperdiçava largura no cabeçalho) quanto a 1ª tentativa
+           daqui (ícone recortado + texto em CSS por cima, ver
+           histórico) — o usuário mandou o lockup horizontal já
+           pronto com o efeito/fonte definitivos, então usar a imagem
+           direto (só recortada, removendo o excesso de fundo/uma
+           faísca decorativa no canto que vinha na imagem original)
+           bate exatamente com o pedido, sem tentar recriar em CSS.
+           Fundo navy sólido da imagem também foi removido via
+           chroma-key (PNG transparente) pra combinar com os dois
+           temas (o navy original só batia com o --bg-sidebar do
+           tema claro; no escuro sobrava uma "caixa" visível ao
+           redor da logo — ver CSS pra detalhe). -->
+      <img class="brand-logo-h" src="img/brand-horizontal.png" alt="BR Data">
       <span class="brand-tagline">Estatísticas · Odds · Simulações</span>
     </div>
 
@@ -315,8 +315,7 @@
   <div class="main">
     <header class="topbar">
       <div class="topbar-brand mobile-only">
-        <img class="brand-icon" src="img/brand-mark.png" alt="">
-        <span class="brand-word">BR DATA</span>
+        <img class="brand-logo-h" src="img/brand-horizontal.png" alt="BR Data">
       </div>
       <button class="hamburger" id="btnHamburger">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
