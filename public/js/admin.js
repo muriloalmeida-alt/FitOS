@@ -551,18 +551,24 @@ const PAGE_LABELS = {
   time: "Página do Time", jogador: "Página do Jogador", mais: "Mais (menu)",
 };
 const FUNNEL_WINDOW_LABELS = { last7d: "Últimos 7 dias", last30d: "Últimos 30 dias", allTime: "Total (desde sempre)" };
+// AJUSTE (Fase 5, "Freemium sem login"): coluna de conversão passou a
+// ser sobre signupSuccess (cadastro novo) em vez de loginSuccess (login
+// em geral, mistura cadastro novo com quem só voltou) — ver funnel()
+// em analytics.js. loginSuccess continua exibido, só numa coluna extra
+// informativa, fora da conta do %.
 function funnelRowUiHTML(label, w) {
   return `<tr>
     <td>${label}</td>
     <td>${w.gateShown}</td>
-    <td>${w.loginSuccess}</td>
+    <td>${w.signupSuccess}</td>
     <td>${w.conversionPct != null ? `<b>${w.conversionPct}%</b>` : "—"}</td>
+    <td>${w.loginSuccess}</td>
   </tr>`;
 }
 async function loadBehavior() {
   const funnelBody = document.getElementById("funnelTableBody");
   const pageViewsBox = document.getElementById("pageViewsBox");
-  funnelBody.innerHTML = `<tr><td colspan="4">Carregando...</td></tr>`;
+  funnelBody.innerHTML = `<tr><td colspan="5">Carregando...</td></tr>`;
   pageViewsBox.innerHTML = `Carregando...`;
   try {
     const data = await fetchJSON("/api/adminpanel/analytics");
@@ -582,7 +588,7 @@ async function loadBehavior() {
         </div>`).join("");
     }
   } catch (err) {
-    funnelBody.innerHTML = `<tr><td colspan="4">Falha ao carregar: ${err.message}</td></tr>`;
+    funnelBody.innerHTML = `<tr><td colspan="5">Falha ao carregar: ${err.message}</td></tr>`;
     pageViewsBox.innerHTML = `Falha ao carregar.`;
   }
 }

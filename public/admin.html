@@ -254,14 +254,22 @@
 
     <section class="admin-section" id="admin-behavior">
       <h1>Comportamento</h1>
-      <p class="sub">Funil de login e páginas mais navegadas — eventos disparados pelo próprio app (POST /api/track), zero de configuração adicional.</p>
+      <p class="sub">Funil de cadastro e páginas mais navegadas — eventos disparados pelo próprio app (POST /api/track), zero de configuração adicional.</p>
 
       <div class="admin-card">
-        <h3>Funil de login</h3>
-        <p class="sub" style="margin-bottom:10px;">De quem viu a tela de login/cadastro (sem sessão válida), quantos conseguiram entrar de verdade no app.</p>
+        <h3>Funil de cadastro (visitante → cliente)</h3>
+        <!-- AJUSTE (Fase 5, "Freemium sem login", 15/08/2026): desde
+             que o app abriu pra visitante sem conta, "viu o login" não
+             é mais toda visita — só quem tentou algo que precisa de
+             conta (ver requireLogin em app.js). Por isso a % agora é
+             sobre CADASTRO NOVO (signup_success), não sobre login em
+             geral (que mistura cadastro novo com quem só voltou a
+             entrar numa conta já existente — esse fica só como
+             informação extra na última coluna). -->
+        <p class="sub" style="margin-bottom:10px;">De quem viu a tela de login/cadastro (só aparece quando o visitante tenta algo que precisa de conta — favoritar não conta mais, assinar um plano conta), quantos criaram conta nova de verdade. "Logins (todos)" é informativo: inclui cadastro novo + quem só voltou a entrar, não faz parte da conversão.</p>
         <div class="table-scroll-x">
           <table class="admin-table">
-            <thead><tr><th>Período</th><th>Viu o login</th><th>Entrou</th><th>Conversão</th></tr></thead>
+            <thead><tr><th>Período</th><th>Viu o gate</th><th>Cadastrou</th><th>Conversão</th><th>Logins (todos)</th></tr></thead>
             <tbody id="funnelTableBody"></tbody>
           </table>
         </div>

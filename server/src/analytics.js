@@ -1,21 +1,44 @@
-/* Log de eventos de analytics de PRODUTO (funil de login + páginas
+/* Log de eventos de analytics de PRODUTO (funil de cadastro + páginas
    mais navegadas) — pedido do usuário: entender comportamento do
-   cliente, % que passa do login, páginas mais navegadas. Alimenta
+   cliente, % que vira cliente, páginas mais navegadas. Alimenta
    /admin > Comportamento (GET /api/adminpanel/analytics). Ver POST
    /api/track em server.js pra como cada evento chega aqui, e
    trackEvent() em public/js/app.js pro lado do cliente que dispara.
 
+   AJUSTE (Fase 5, "Freemium sem login", 15/08/2026): antes da mudança
+   de produto que abriu o app pra visitante sem conta, gate_shown
+   disparava pra TODO visitante sem sessão, sempre — era literalmente
+   "quantas visitas o site teve". Hoje (ver requireLogin/
+   requireLoginWithPlan em app.js) o gate só aparece SOB DEMANDA,
+   quando o próprio visitante tenta algo que precisa de conta
+   (favoritar time só até a Fase 4 — hoje funciona sem conta —,
+   assinar um plano, etc.). Ou seja, gate_shown deixou de ser
+   "visitou o site" e virou "topou fazer alguma coisa que pede conta"
+   — sinal de intenção, não de alcance. Por isso o funil abaixo mudou
+   de "% que passa do login" (login_success, que mistura cadastro novo
+   com gente só voltando a entrar) pra "% que vira CADASTRO NOVO"
+   (signup_success) — é a pergunta de crescimento de verdade por trás
+   da mudança "Freemium sem login": visitante virou cliente, ou não?
+   login_success continua registrado (é útil saber quantos logins
+   acontecem no total, novos + retornando), só não é mais o numerador
+   do funil de conversão.
+
    Tipos de evento aceitos (whitelist — qualquer outro é ignorado
    silenciosamente, ver recordEvent):
-     gate_shown    — visitante SEM sessão válida viu a tela de
-       login/cadastro (startAuthFlow em app.js). É o denominador do
-       funil "% que passa do login".
-     login_success — login concluído com sucesso, entrou no app de
-       verdade (mesmo se a conta acabou de ser criada segundos antes
-       — cadastro sozinho não solta na aplicação, sempre passa por
-       login depois, ver submitGateLogin em app.js). Numerador do
-       funil.
-     page_view     — troca de página dentro do app (setActivePage em
+     gate_shown     — visitante viu a tela de login/cadastro depois de
+       tentar algo que precisa de conta (SOB DEMANDA — ver AJUSTE
+       acima). Denominador do funil "visitante → cadastrou".
+     signup_success — conta criada com sucesso (POST /api/auth/signup
+       respondeu ok — ver submitGateSignup em app.js), independente de
+       o plano escolhido ter pagamento pendente ou não. Numerador do
+       funil "visitante → cadastrou" — é o sinal de crescimento real.
+     login_success  — login concluído com sucesso, entrou no app de
+       verdade (inclui login logo depois de um cadastro novo — todo
+       cadastro sempre passa por login em seguida, ver submitGateLogin
+       em app.js — e também quem só está voltando numa conta já
+       existente). Reportado à parte, não é mais o numerador do funil
+       (ver AJUSTE acima).
+     page_view      — troca de página dentro do app (setActivePage em
        app.js), toda vez, incluindo a 1ª renderização (dashboard)
        depois do login/boot.
 
@@ -57,7 +80,7 @@ function persist() {
 
 load();
 
-const VALID_TYPES = new Set(["gate_shown", "login_success", "page_view"]);
+const VALID_TYPES = new Set(["gate_shown", "signup_success", "login_success", "page_view"]);
 // Mesma lista de PAGES do front-end (ver app.js) — mantida em duplicata
 // de propósito (esse módulo não importa nada do front-end); qualquer
 // página nova precisa ser adicionada aqui também, senão os eventos
@@ -88,20 +111,25 @@ function countSince(type, sinceMs) {
   return n;
 }
 
-// Funil "% que passa do login" em 3 janelas (últimos 7 dias, últimos
+// Funil "visitante → cadastrou" em 3 janelas (últimos 7 dias, últimos
 // 30 dias, desde sempre — desde que esse recurso entrou no ar, sem
 // histórico anterior). conversionPct null quando gateShown é 0 (sem
 // base pra calcular % nenhuma, melhor não mostrar 0% que parece "todo
-// mundo desistiu" quando na real é só "sem visita nenhuma ainda").
+// mundo desistiu" quando na real é só "sem ninguém precisando de
+// conta ainda"). Ver AJUSTE (Fase 5) no topo do arquivo: numerador
+// passou de loginSuccess (mistura cadastro novo com quem só voltou a
+// entrar) pra signupSuccess (cadastro novo de verdade) — loginSuccess
+// continua no retorno, só não entra mais na conta do %.
 function funnel() {
   const windows = { last7d: 7 * DAY_MS, last30d: 30 * DAY_MS, allTime: null };
   const out = {};
   Object.entries(windows).forEach(([key, ms]) => {
     const gateShown = countSince("gate_shown", ms);
+    const signupSuccess = countSince("signup_success", ms);
     const loginSuccess = countSince("login_success", ms);
     out[key] = {
-      gateShown, loginSuccess,
-      conversionPct: gateShown ? Math.round((loginSuccess / gateShown) * 1000) / 10 : null,
+      gateShown, signupSuccess, loginSuccess,
+      conversionPct: gateShown ? Math.round((signupSuccess / gateShown) * 1000) / 10 : null,
     };
   });
   return out;

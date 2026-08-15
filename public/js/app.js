@@ -2445,6 +2445,17 @@ async function submitGateSignup(e) {
     const data = await res.json().catch(() => null);
     if (!res.ok) throw new Error(data?.error || "Não foi possível criar sua conta agora.");
 
+    // Conta criada de verdade nesse momento — numerador do funil
+    // "visitante → cadastrou" (ver Fase 5 em analytics.js). sendBeacon
+    // (não trackEvent) só aqui: o caso "requiresPayment" logo abaixo
+    // navega pra FORA do site na sequência imediata (checkout hospedado
+    // do Mercado Pago) — um fetch normal sem keepalive corre risco de
+    // ser cancelado pela navegação antes de completar; sendBeacon
+    // existe exatamente pra sobreviver a isso.
+    try {
+      navigator.sendBeacon("/api/track", new Blob([JSON.stringify({ type: "signup_success" })], { type: "application/json" }));
+    } catch {}
+
     if (data.requiresPayment && data.checkoutUrl) {
       window.location.href = data.checkoutUrl; // sai do site — checkout hospedado do Mercado Pago
       return;
