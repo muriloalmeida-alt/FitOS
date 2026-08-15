@@ -292,7 +292,20 @@ function resolveCompetition(req, searchParams) {
     err.status = 400;
     throw err;
   }
-  if (!competitions.planAllowsCompetition(req.authUser.plan, comp)) {
+  // req.authUser vem null em rota de leitura pública sem sessão (ver
+  // PUBLIC_READ_EXACT/PATTERNS acima) — desde a Fase 1 do "Freemium sem
+  // login" isso passou a ser o caso NORMAL pra visitante, não exceção.
+  // BUG CORRIGIDO: aqui ainda lia req.authUser.plan direto, sem
+  // fallback — pra qualquer visitante sem conta, isso estourava
+  // TypeError ("Cannot read properties of null") em toda chamada de
+  // /api/teams, /api/standings, /api/fixtures, /api/players/leaders
+  // etc. (as próprias rotas que carregam o dado AO VIVO do dashboard).
+  // O erro 500 fazia tryLoadLiveData() cair silenciosamente pro modo
+  // Exemplo no front-end (ver liveData.js) — visitante (inclusive
+  // crawler de busca) via sempre dado de mentira, mesmo com a API
+  // funcionando normalmente. Mesmo fallback já usado em /api/competitions
+  // logo acima: sem conta = trata como Freemium.
+  if (!competitions.planAllowsCompetition(req.authUser?.plan || "freemium", comp)) {
     const err = new Error("Esse campeonato não está disponível no seu plano — faça upgrade pra Pro ou Enterprise.");
     err.status = 403; err.code = "PLAN_UPGRADE_REQUIRED";
     throw err;

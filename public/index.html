@@ -110,8 +110,21 @@
      visitante pode fechar e continuar navegando à vontade. Exceção:
      #gatePendingView (conta já existe, plano ainda não confirmado) —
      esse continua obrigatório (ver showGateView escondendo o "×" só
-     nesse caso), é problema de uma conta de verdade, não um convite. -->
-<div id="authGate" class="auth-gate">
+     nesse caso), é problema de uma conta de verdade, não um convite.
+
+     BUG CORRIGIDO: essa div nunca tinha "display:none" nem no HTML nem
+     no CSS (.auth-gate é "display:flex" por padrão) — só ficava
+     escondida depois que setGateVisible(false) rodava, lá no fim de
+     startApp(), que por sua vez só roda depois do round-trip de rede
+     de checkAuth() (GET /api/auth/me). Resultado: TODA visita piscava
+     a tela de login por um instante antes do app de verdade aparecer
+     — ruim pra qualquer visitante, e principalmente ruim pra SEO (é a
+     porta de entrada vinda de busca/link compartilhado). "display:none"
+     inline aqui faz o gate nascer escondido — setGateVisible(true)
+     continua funcionando normal pros 2 casos que ainda precisam dele
+     de cara (retorno de checkout do Mercado Pago e conta com
+     pagamento pendente, ver startAuthFlow em app.js). -->
+<div id="authGate" class="auth-gate" style="display:none;">
   <div class="auth-gate-inner">
     <button type="button" class="auth-gate-close" id="authGateClose" aria-label="Fechar" style="display:none;">×</button>
     <div class="auth-gate-brand">
