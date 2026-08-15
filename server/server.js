@@ -938,6 +938,9 @@ const server = http.createServer(async (req, res) => {
       const urls = [
         { loc: `${base}/`, changefreq: "daily", priority: "1.0" },
         { loc: `${base}/tabela`, changefreq: "daily", priority: "0.9" },
+        { loc: `${base}/estatisticas`, changefreq: "daily", priority: "0.7" },
+        { loc: `${base}/noticias`, changefreq: "hourly", priority: "0.6" },
+        { loc: `${base}/apoie`, changefreq: "weekly", priority: "0.5" },
         { loc: `${base}/privacidade.html`, changefreq: "yearly", priority: "0.3" },
       ];
       if (liveModeEnabled()) {
@@ -1096,6 +1099,7 @@ const server = http.createServer(async (req, res) => {
   </table>
   <p><a href="/tabela">Ver tabela completa (V/E/D, saldo de gols e zonas de classificação)</a></p>
   ${upcoming.length ? `<h2>Próximos jogos</h2>\n  <ul>\n    ${upcomingHTML}\n  </ul>` : ""}
+  <p><a href="/estatisticas">Artilheiros e estatísticas</a> · <a href="/noticias">Notícias</a> · <a href="/apoie">Planos e preços</a></p>
 </div>`;
 
         const html = await renderShellWithSeo(req, {
@@ -1195,6 +1199,175 @@ const server = http.createServer(async (req, res) => {
         return res.end(html);
       } catch (err) {
         console.error("[tabela] falha ao montar a página, servindo o shell padrão:", err.message);
+        return serveStatic(req, res);
+      }
+    }
+
+    // ================= Página de Estatísticas (pedido do usuário, 15/08/2026: =================
+    // "vamos concluir o SEO") -- "artilheiros brasileirão" é outro
+    // termo de busca de alto volume, igual "tabela do brasileirão" já
+    // era. Reaproveita a MESMA chave de cache de GET /api/players/
+    // leaders -- zero custo extra de fornecedor. Cada artilheiro/
+    // garçom/cartão linkado pra própria página do jogador -- reforça
+    // o funil de descoberta desses milhares de páginas (sitemap já
+    // lista todas, mas link interno de uma página de conteúdo
+    // carrega mais peso de rastreio que só sitemap, mesmo raciocínio
+    // já aplicado nas outras páginas na revisão do funil).
+    if (pathname === "/estatisticas") {
+      if (!liveModeEnabled()) return serveStatic(req, res);
+      try {
+        const comp = competitions.getCompetition("brasileirao");
+        const leagueId = competitions.providerLeagueId(comp, dataProvider.ACTIVE_PROVIDER_NAME);
+        const season = LIVE_SEASON;
+        const [teams, players] = await Promise.all([
+          withCache(`teams:${comp.id}:${season}`, TTL.teams, () => dataProvider.getTeams({ leagueId, season })),
+          withCache(`players:${comp.id}:${season}`, TTL.playersLeaders, () => dataProvider.getPlayersLeaders({ leagueId, season })),
+        ]);
+        const teamById = new Map(teams.map((t) => [t.id, t]));
+        const playerHref = (p) => {
+          const t = teamById.get(p.teamId);
+          const pSlug = slugify(p.name);
+          return t ? `/times/${slugify(t.name)}/jogadores/${p.id}-${pSlug}` : `/jogadores/${p.id}-${pSlug}`;
+        };
+        const playerRowHTML = (p, valueLabel) => {
+          const t = teamById.get(p.teamId);
+          return `<li><a href="${escapeHtml(playerHref(p))}">${escapeHtml(p.name)}</a>${t ? ` (${escapeHtml(t.name)})` : ""} — ${escapeHtml(valueLabel)}</li>`;
+        };
+        const byGoals = [...players].sort((a, b) => (b.goals || 0) - (a.goals || 0)).slice(0, 5);
+        const byAssists = [...players].sort((a, b) => (b.assists || 0) - (a.assists || 0)).slice(0, 5);
+        const cardsValue = (p) => (p.yellow || 0) + (p.red || 0) * 2; // mesmo critério usado na tela real, ver playerCardsValue em app.js
+        const byCards = [...players].sort((a, b) => cardsValue(b) - cardsValue(a)).slice(0, 5);
+
+        const leader = byGoals[0];
+        const description = leader
+          ? `Artilheiros, garçons e estatísticas do Brasileirão 2026: ${leader.name} lidera a artilharia com ${leader.goals} gols. Veja o ranking completo e o comparador de times no BR Data.`
+          : "Artilheiros, assistências, cartões e estatísticas completas de cada time do Brasileirão 2026.";
+
+        const bodySnapshotHtml = `<div id="seoSnapshot" style="max-width:680px;margin:32px auto;padding:0 20px;font:15px/1.6 system-ui,sans-serif;color:#0A1424;">
+  <h1>Artilheiros e Estatísticas do Brasileirão 2026</h1>
+  <p>${escapeHtml(description)}</p>
+  ${byGoals.length ? `<h2>Artilheiros</h2>\n  <ul>\n    ${byGoals.map((p) => playerRowHTML(p, `${p.goals} gols`)).join("\n    ")}\n  </ul>` : ""}
+  ${byAssists.length ? `<h2>Assistências</h2>\n  <ul>\n    ${byAssists.map((p) => playerRowHTML(p, `${p.assists} assistências`)).join("\n    ")}\n  </ul>` : ""}
+  ${byCards.length ? `<h2>Cartões</h2>\n  <ul>\n    ${byCards.map((p) => playerRowHTML(p, `${p.yellow || 0} amarelos${p.red ? `, ${p.red} vermelhos` : ""}`)).join("\n    ")}\n  </ul>` : ""}
+</div>`;
+
+        const html = await renderShellWithSeo(req, {
+          title: "Artilheiros e Estatísticas do Brasileirão 2026 · BR Data",
+          description,
+          canonicalPath: "/estatisticas",
+          bodySnapshotHtml,
+          jsonLd: {
+            "@context": "https://schema.org", "@type": "WebPage",
+            name: "Artilheiros e Estatísticas do Brasileirão 2026",
+            description, inLanguage: "pt-BR",
+            url: `${CANONICAL_SITE_URL}/estatisticas`,
+          },
+        });
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=600" });
+        return res.end(html);
+      } catch (err) {
+        console.error("[estatisticas] falha ao montar a página, servindo o shell padrão:", err.message);
+        return serveStatic(req, res);
+      }
+    }
+
+    // ================= Página de Notícias (pedido do usuário, 15/08/2026: =================
+    // "vamos concluir o SEO") -- feed independente da API-Sports (não
+    // exige liveModeEnabled, mesma fonte usada em GET /api/news, ver
+    // aviso lá). Conteúdo é AGREGADO (título + link pra fonte externa,
+    // não texto original nosso) -- valor de SEO real aqui é mais
+    // frescor/descoberta que ranking por palavra-chave; por isso os
+    // links de cada notícia levam rel="nofollow" (não repassa
+    // relevância pra um site de fora que a gente não pode vouch).
+    if (pathname === "/noticias") {
+      try {
+        const data = await withCache("news:brasileirao", TTL.news, async () => {
+          try {
+            return { items: await fetchNews(20, null) };
+          } catch (err) {
+            console.error("[noticias] falha ao buscar RSS:", err.message);
+            return { items: [] };
+          }
+        });
+        const items = data.items || [];
+        const itemsHTML = items.slice(0, 20).map((n) =>
+          `<li><a href="${escapeHtml(n.link)}" rel="nofollow noopener" target="_blank">${escapeHtml(n.title)}</a>${n.source ? ` — ${escapeHtml(n.source)}` : ""}</li>`
+        ).join("\n    ");
+        const description = items.length
+          ? `Últimas notícias do Brasileirão 2026 — ${items.length} manchetes atualizadas das principais fontes esportivas, direto no BR Data.`
+          : "Últimas notícias e manchetes do Brasileirão 2026.";
+
+        const bodySnapshotHtml = `<div id="seoSnapshot" style="max-width:680px;margin:32px auto;padding:0 20px;font:15px/1.6 system-ui,sans-serif;color:#0A1424;">
+  <h1>Notícias do Brasileirão 2026</h1>
+  <p>${escapeHtml(description)}</p>
+  ${items.length ? `<ul>\n    ${itemsHTML}\n  </ul>` : `<p>Não foi possível carregar notícias agora — tente novamente mais tarde.</p>`}
+</div>`;
+
+        const html = await renderShellWithSeo(req, {
+          title: "Notícias do Brasileirão 2026 · BR Data",
+          description,
+          canonicalPath: "/noticias",
+          bodySnapshotHtml,
+          jsonLd: {
+            "@context": "https://schema.org", "@type": "WebPage",
+            name: "Notícias do Brasileirão 2026",
+            description, inLanguage: "pt-BR",
+            url: `${CANONICAL_SITE_URL}/noticias`,
+          },
+        });
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=600" });
+        return res.end(html);
+      } catch (err) {
+        console.error("[noticias] falha ao montar a página, servindo o shell padrão:", err.message);
+        return serveStatic(req, res);
+      }
+    }
+
+    // ================= Página de Planos/Apoie (pedido do usuário, 15/08/2026: =================
+    // "vamos concluir o SEO") -- não depende do fornecedor de dados
+    // esportivos nem de liveModeEnabled (supportPlans.listPlans() é
+    // síncrono, mesma fonte de verdade usada em GET /api/support/
+    // plans) -- funciona igual em modo ao vivo ou Exemplo. JSON-LD usa
+    // Product/Offer (não só WebPage) pros planos pagos -- é o jeito
+    // documentado pelo schema.org de declarar preço, mesmo espírito
+    // do SportsEvent/BroadcastEvent já usado em /jogos/:fixtureId.
+    if (pathname === "/apoie") {
+      try {
+        const plans = supportPlans.listPlans();
+        const plansHTML = plans.map((p) => `<div>
+    <h2>${escapeHtml(p.title)} — ${p.price > 0 ? escapeHtml(p.price.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })) + "/mês" : "Grátis"}</h2>
+    <p>${escapeHtml(p.tagline || "")}</p>
+    <ul>${(p.features || []).map((f) => `<li>${escapeHtml(f)}</li>`).join("")}</ul>
+  </div>`).join("\n  ");
+        const description = "Conheça os planos do BR Data: Freemium grátis, Lite, Pro e Enterprise — tabela, jogos, estatísticas, comparador de times, probabilidades e simulador do Brasileirão.";
+
+        const bodySnapshotHtml = `<div id="seoSnapshot" style="max-width:680px;margin:32px auto;padding:0 20px;font:15px/1.6 system-ui,sans-serif;color:#0A1424;">
+  <h1>Planos e Preços — Assine o BR Data</h1>
+  <p>${escapeHtml(description)}</p>
+  ${plansHTML}
+</div>`;
+
+        const html = await renderShellWithSeo(req, {
+          title: "Planos e Preços · Assine o BR Data",
+          description,
+          canonicalPath: "/apoie",
+          bodySnapshotHtml,
+          jsonLd: {
+            "@context": "https://schema.org", "@type": "WebPage",
+            name: "Planos BR Data", description, inLanguage: "pt-BR",
+            url: `${CANONICAL_SITE_URL}/apoie`,
+            mainEntity: plans.filter((p) => p.price > 0).map((p) => ({
+              "@type": "Product",
+              name: `BR Data ${p.title}`,
+              description: p.tagline || "",
+              offers: { "@type": "Offer", price: p.price, priceCurrency: "BRL", availability: "https://schema.org/InStock" },
+            })),
+          },
+        });
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=600" });
+        return res.end(html);
+      } catch (err) {
+        console.error("[apoie] falha ao montar a página, servindo o shell padrão:", err.message);
         return serveStatic(req, res);
       }
     }

@@ -3047,14 +3047,17 @@ function applyRouteFromLocation() {
     return true;
   }
 
-  // Tabela (/tabela, pedido do usuário 15/08/2026: "revisa o funil
-  // pra garantir que todas as páginas estão mapeadas") -- diferente
-  // de time/jogador/partida, não é uma página de DETALHE (não tem
-  // "voltar", é uma aba de navegação igual Dashboard/Jogos/
-  // Estatísticas), por isso não passa por goToTeam/goToPlayer/
-  // goToMatch nem por state.pageBeforeDetail.
-  if (location.pathname === "/tabela") {
-    setActivePage("tabela", { skipUrlSync: true });
+  // Páginas "fixas" com URL própria mas sem entidade nenhuma pra
+  // resolver (Tabela, pedido 15/08/2026 "revisa o funil"; Estatísticas/
+  // Notícias/Apoie, pedido 15/08/2026 "vamos concluir o SEO") --
+  // diferente de time/jogador/partida, nenhuma delas é página de
+  // DETALHE (sem "voltar", são abas de navegação igual Dashboard/
+  // Jogos), por isso não passam por goToTeam/goToPlayer/goToMatch nem
+  // por state.pageBeforeDetail -- ver FIXED_PAGE_PATHS (definido perto
+  // de syncUrlForPage) pra essa mesma lista, usada nos dois sentidos.
+  const fixedPageEntry = Object.entries(FIXED_PAGE_PATHS).find(([, path]) => path === location.pathname);
+  if (fixedPageEntry) {
+    setActivePage(fixedPageEntry[0], { skipUrlSync: true });
     return true;
   }
   return false;
@@ -3074,6 +3077,10 @@ function applyRouteFromLocation() {
 // Por isso "jogador" não mexe na URL aqui -- ver syncPlayerUrl (perto
 // de renderPlayerPage) pra quem faz esse ajuste, assim que o time é
 // conhecido.
+// Páginas fixas com URL própria (sem entidade/id pra resolver) --
+// mesma lista usada nos 2 sentidos, ver applyRouteFromLocation acima
+// e syncUrlForPage logo abaixo.
+const FIXED_PAGE_PATHS = { tabela: "/tabela", estatisticas: "/estatisticas", noticias: "/noticias", apoie: "/apoie" };
 function syncUrlForPage(name) {
   if (name === "time" && state.selectedTeamId) {
     const team = TEAM_MAP[state.selectedTeamId];
@@ -3096,14 +3103,16 @@ function syncUrlForPage(name) {
       return;
     }
   }
-  // Tabela: página fixa (sem id nenhum pra resolver), URL simétrica
-  // pros 2 sentidos -- entrar nela empurra "/tabela", sair de "/tabela"
-  // pra qualquer outra aba volta pra "/" (ver reset genérico abaixo).
-  if (name === "tabela") {
-    if (location.pathname !== "/tabela") history.pushState(null, "", "/tabela");
+  // Páginas fixas (Tabela/Estatísticas/Notícias/Apoie): URL simétrica
+  // pros 2 sentidos -- entrar empurra o caminho fixo, sair pra
+  // qualquer outra aba (inclusive pra OUTRA página fixa) volta pra
+  // "/" (ver reset genérico abaixo).
+  if (FIXED_PAGE_PATHS[name]) {
+    const path = FIXED_PAGE_PATHS[name];
+    if (location.pathname !== path) history.pushState(null, "", path);
     return;
   }
-  if (location.pathname.startsWith("/times/") || location.pathname.startsWith("/jogadores/") || location.pathname.startsWith("/jogos/") || location.pathname === "/tabela") {
+  if (location.pathname.startsWith("/times/") || location.pathname.startsWith("/jogadores/") || location.pathname.startsWith("/jogos/") || Object.values(FIXED_PAGE_PATHS).includes(location.pathname)) {
     history.pushState(null, "", "/");
   }
 }
