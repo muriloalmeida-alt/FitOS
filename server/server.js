@@ -693,6 +693,90 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    // ================= Página do Jogador (Fase B, continuação) =================
+    // /jogadores/:id[-slug] — mesma mecânica de /times/:slug, com uma
+    // diferença: o ID vem PRIMEIRO na URL (não só o slug) porque não
+    // tem como montar uma lista de "todos os jogadores" pra resolver
+    // slug->id sem paginar o elenco de cada time (20 chamadas extra só
+    // pra achar 1 jogador). O ID já resolve sozinho via getPlayer() — o
+    // "-slug" no fim é só cosmético (URL legível/melhor pra busca);
+    // qualquer coisa depois do ID é ignorada na resolução, mas o
+    // canonical devolvido sempre usa o slug CERTO (ver mais abaixo),
+    // então o Google converge pra 1 URL só por jogador não importa
+    // como chegou nela.
+    const playerRouteMatch = pathname.match(/^\/jogadores\/(\d+)(?:-[a-z0-9-]+)?\/?$/);
+    if (playerRouteMatch) {
+      const playerId = playerRouteMatch[1];
+      if (!liveModeEnabled()) return serveStatic(req, res);
+
+      try {
+        const season = LIVE_SEASON;
+        const player = await withCache(`player:${playerId}:${season}`, TTL.teams, () =>
+          dataProvider.getPlayer({ playerId, season })
+        );
+
+        if (!player) {
+          const html = await renderShellWithSeo(req, {
+            title: "Jogador não encontrado · BR Data",
+            description: "Não encontramos esse jogador. Veja artilheiros e elenco de cada time do Brasileirão no BR Data.",
+            canonicalPath: `/jogadores/${playerId}`,
+            bodySnapshotHtml: "",
+          });
+          res.writeHead(404, { "Content-Type": "text/html; charset=utf-8" });
+          return res.end(html);
+        }
+
+        const nameSlug = slugify(player.name);
+        const canonicalPath = `/jogadores/${player.id}-${nameSlug}`;
+
+        // Nome do time só pra enriquecer description/JSON-LD -- reusa
+        // a MESMA lista de times já cacheada de /api/teams (zero custo
+        // extra). Falha aqui não é crítica -- segue sem nome de time.
+        let teamName = null;
+        if (player.teamId) {
+          try {
+            const comp = competitions.getCompetition("brasileirao");
+            const leagueId = competitions.providerLeagueId(comp, dataProvider.ACTIVE_PROVIDER_NAME);
+            const teams = await withCache(`teams:${comp.id}:${season}`, TTL.teams, () =>
+              dataProvider.getTeams({ leagueId, season })
+            );
+            teamName = teams.find((t) => String(t.id) === String(player.teamId))?.name || null;
+          } catch { /* segue sem nome de time */ }
+        }
+
+        const title = `${player.name} — Estatísticas no Brasileirão · BR Data`;
+        const description = `${player.name}${teamName ? ` (${teamName})` : ""}: ${player.goals ?? 0} gols e ${player.assists ?? 0} assistências em ${player.games ?? 0} jogos no Brasileirão.`;
+
+        const bodySnapshotHtml = `<div id="seoSnapshot" style="max-width:680px;margin:32px auto;padding:0 20px;font:15px/1.6 system-ui,sans-serif;color:#0A1424;">
+  <h1>${escapeHtml(player.name)}</h1>
+  <p>${escapeHtml(description)}</p>
+  <ul>
+    <li>Jogos: ${Number(player.games) || 0}</li>
+    <li>Gols: ${Number(player.goals) || 0}</li>
+    <li>Assistências: ${Number(player.assists) || 0}</li>
+    <li>Cartões amarelos: ${Number(player.yellow) || 0}</li>
+    <li>Cartões vermelhos: ${Number(player.red) || 0}</li>
+  </ul>
+</div>`;
+
+        const html = await renderShellWithSeo(req, {
+          title, description, canonicalPath, bodySnapshotHtml,
+          jsonLd: {
+            "@context": "https://schema.org", "@type": "Person",
+            name: player.name,
+            url: `${publicBaseUrl(req)}${canonicalPath}`,
+            ...(player.photo ? { image: player.photo } : {}),
+            ...(teamName ? { affiliation: { "@type": "SportsTeam", name: teamName } } : {}),
+          },
+        });
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=600" });
+        return res.end(html);
+      } catch (err) {
+        console.error("[jogadores/:id] falha ao montar a página, servindo o shell padrão:", err.message);
+        return serveStatic(req, res);
+      }
+    }
+
     // URL amigável (sem ".html") pra área administrativa — o resto do
     // acesso é protegido por login + role "admin" (ver
     // /api/adminpanel/* acima), não por essa rota em si; ela só serve

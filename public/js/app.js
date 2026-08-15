@@ -2711,39 +2711,62 @@ function activeFavoriteTeam() {
 // ou string, dependendo do fornecedor) em vez de guardar o que veio
 // cru do HTML.
 // ================= Roteamento por URL (Fase B, "Plano de Indexação") =================
-// Só a página do Time tem URL própria por enquanto (/times/:slug) —
-// Jogador e Jogo ficam pra continuação natural dessa mesma fase, mesma
-// mecânica. slugifyTeamName precisa gerar EXATAMENTE o mesmo resultado
-// que server/src/slug.js (slugify) — ver aviso lá.
-function slugifyTeamName(name) {
+// Time (/times/:slug) e agora Jogador (/jogadores/:id[-slug]) têm URL
+// própria — Jogo (partida) fica pra continuação natural dessa mesma
+// fase, mesma mecânica, mas sem "página" própria hoje (é um card
+// expansível dentro de Jogos, não uma rota separada como Time/Jogador
+// já eram). slugifyName precisa gerar EXATAMENTE o mesmo resultado que
+// server/src/slug.js (slugify) — ver aviso lá.
+function slugifyName(name) {
   return String(name || "")
     .normalize("NFD").replace(/[̀-ͯ]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "");
 }
-function teamSlug(team) { return slugifyTeamName(team.name); }
+function teamSlug(team) { return slugifyName(team.name); }
 function findTeamBySlug(slug) { return TEAMS.find((t) => teamSlug(t) === slug) || null; }
 
-// Lê a URL atual e navega pra página de time correspondente, se
-// reconhecida — devolve true se navegou, false se a URL não bateu com
-// nada (inclusive "/", que cai no Dashboard normalmente). Chamada (a)
-// uma vez no boot (ver startApp) e (b) a cada voltar/avançar do
-// navegador (ver popstate em setupEventListeners).
+// Lê a URL atual e navega pra página correspondente, se reconhecida —
+// devolve true se navegou, false se a URL não bateu com nada
+// (inclusive "/", que cai no Dashboard normalmente). Chamada (a) uma
+// vez no boot (ver startApp) e (b) a cada voltar/avançar do navegador
+// (ver popstate em setupEventListeners).
+//
+// Jogador: só o ID importa pra resolver (o "-slug" no fim é só pra
+// URL ficar legível/melhor pra busca — igual GitHub Gist, YouTube
+// etc. fazem) — não precisa (nem dá: elenco carrega sob demanda, TEAMS
+// carrega tudo de uma vez mas jogador não) de uma lista pré-carregada
+// pra confirmar que existe antes de navegar; renderPlayerPage já trata
+// "não encontrado" direito sozinha (mostra mensagem em vez de travar).
 function applyRouteFromLocation() {
-  const m = location.pathname.match(/^\/times\/([a-z0-9-]+)\/?$/);
-  if (!m) return false;
-  const team = findTeamBySlug(m[1]);
-  if (!team) return false; // slug desconhecido (time que não existe, ou de outra competição) -- não força nada, segue pro Dashboard
-  goToTeam(team.id, { pushUrl: false }); // URL já é a certa (veio dela mesma) -- não empurra de novo
-  return true;
+  const teamMatch = location.pathname.match(/^\/times\/([a-z0-9-]+)\/?$/);
+  if (teamMatch) {
+    const team = findTeamBySlug(teamMatch[1]);
+    if (!team) return false; // slug desconhecido (time que não existe, ou de outra competição) -- não força nada, segue pro Dashboard
+    goToTeam(team.id, { pushUrl: false }); // URL já é a certa (veio dela mesma) -- não empurra de novo
+    return true;
+  }
+  const playerMatch = location.pathname.match(/^\/jogadores\/(\d+)(?:-[a-z0-9-]+)?\/?$/);
+  if (playerMatch) {
+    goToPlayer(playerMatch[1], { pushUrl: false });
+    return true;
+  }
+  return false;
 }
 
-// Mantém a URL do navegador em sincronia com a página de time aberta
-// -- só entra em ação pra "time" (as outras páginas ainda não têm URL
-// própria); saindo de uma /times/xxx pra qualquer outra página, volta
-// a URL pra "/" (nunca deixa uma URL de time "grudada" mostrando outra
+// Mantém a URL do navegador em sincronia com a página de Time/Jogador
+// aberta -- as outras páginas ainda não têm URL própria; saindo de uma
+// /times/xxx ou /jogadores/xxx pra qualquer outra página, volta a URL
+// pra "/" (nunca deixa uma URL de entidade "grudada" mostrando outra
 // coisa na tela).
+//
+// Jogador usa só o ID na URL que o próprio app gera (sem o "-slug" —
+// o nome só é conhecido depois que renderPlayerPage busca o dado,
+// tarde demais pro pushState síncrono daqui) — a URL CANÔNICA com
+// nome (a que o Google indexa de verdade) vem de GET /jogadores/:id
+// no servidor, que sempre resolve por ID de qualquer forma (ver
+// server.js) — o slug no fim é só cosmético/SEO, nunca a chave real.
 function syncUrlForPage(name) {
   if (name === "time" && state.selectedTeamId) {
     const team = TEAM_MAP[state.selectedTeamId];
@@ -2753,7 +2776,14 @@ function syncUrlForPage(name) {
       return;
     }
   }
-  if (location.pathname.startsWith("/times/")) history.pushState(null, "", "/");
+  if (name === "jogador" && state.selectedPlayerId) {
+    const path = `/jogadores/${state.selectedPlayerId}`;
+    if (location.pathname !== path) history.pushState(null, "", path);
+    return;
+  }
+  if (location.pathname.startsWith("/times/") || location.pathname.startsWith("/jogadores/")) {
+    history.pushState(null, "", "/");
+  }
 }
 
 // opts.pushUrl=false: URL já está certa (veio de applyRouteFromLocation,
@@ -2764,10 +2794,10 @@ function goToTeam(teamId, opts = {}) {
   state.selectedTeamId = match ? match.id : teamId;
   setActivePage("time", { skipUrlSync: opts.pushUrl === false });
 }
-function goToPlayer(playerId) {
+function goToPlayer(playerId, opts = {}) {
   if (state.page !== "time" && state.page !== "jogador") state.pageBeforeDetail = state.page;
   state.selectedPlayerId = playerId;
-  setActivePage("jogador");
+  setActivePage("jogador", { skipUrlSync: opts.pushUrl === false });
 }
 function goBackFromDetail() {
   setActivePage(state.pageBeforeDetail || "dashboard");
