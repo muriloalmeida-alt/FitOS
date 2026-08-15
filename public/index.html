@@ -3,7 +3,48 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>BRDATA · Brasileirão 2026</title>
+<title>BR Data · Tabela, Jogos e Estatísticas do Brasileirão 2026</title>
+
+<!-- ================= SEO (Fase A, "Plano de Indexação") =================
+     Description/OG/Twitter/canonical/JSON-LD são hoje só o default da
+     RAIZ do site (a única URL que existe de verdade nesse SPA — ver
+     comentário grande no fallback do servidor, serveStatic()). Cada
+     URL por entidade (time/jogador/jogo) que a Fase B for adicionando
+     precisa gerar essas mesmas tags com valor PRÓPRIO daquela entidade
+     (ex.: "Flamengo — Tabela, Elenco e Próximos Jogos"), não reusar
+     esse bloco genérico — senão toda página indexada aparece igual na
+     busca, o que o Google trata como conteúdo fraco/duplicado.
+
+     og:image/canonical usam caminho RELATIVO de propósito: este é um
+     arquivo estático (servido igual pra qualquer host, sem template
+     no servidor), então não dá pra saber o domínio final aqui embutido
+     sem arriscar hardcodar um domínio de homologação ou um chute
+     errado. Caminho relativo resolve certo na prática (WhatsApp,
+     Twitter e Facebook resolvem contra a URL que buscaram a página) —
+     mas o ideal, assim que o domínio definitivo de produção estiver
+     certo, é confirmar se vale trocar por absoluto (mais robusto,
+     recomendação oficial do protocolo OG). -->
+<meta name="description" content="Tabela, jogos, estatísticas e simulador de probabilidades do Campeonato Brasileiro 2026 — dados atualizados de cada time, artilheiros e próximos jogos.">
+<link rel="canonical" href="/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="BR Data">
+<meta property="og:title" content="BR Data · Tabela, Jogos e Estatísticas do Brasileirão 2026">
+<meta property="og:description" content="Tabela, jogos, estatísticas e simulador de probabilidades do Campeonato Brasileiro 2026 — dados atualizados de cada time, artilheiros e próximos jogos.">
+<meta property="og:image" content="/img/logo.png">
+<meta property="og:locale" content="pt_BR">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="BR Data · Tabela, Jogos e Estatísticas do Brasileirão 2026">
+<meta name="twitter:description" content="Tabela, jogos, estatísticas e simulador de probabilidades do Campeonato Brasileiro 2026 — dados atualizados de cada time, artilheiros e próximos jogos.">
+<meta name="twitter:image" content="/img/logo.png">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "BR Data",
+  "description": "Tabela, jogos, estatísticas e simulador de probabilidades do Campeonato Brasileiro.",
+  "inLanguage": "pt-BR"
+}
+</script>
 
 <!-- ===== CMP do Google (Privacy & messaging / Funding Choices) =====
      Precisa ser o(s) PRIMEIRO(S) script(s) do <head>, antes de

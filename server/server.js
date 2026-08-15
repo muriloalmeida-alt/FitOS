@@ -469,6 +469,47 @@ const server = http.createServer(async (req, res) => {
       return res.end(`google.com, ${pubId}, DIRECT, f08c47fec0942fa0\n`);
     }
 
+    // ================= SEO: robots.txt + sitemap.xml =================
+    // AJUSTE (15/08/2026, "Plano de Indexação" — Fase A): rota dinâmica
+    // (não arquivo estático) pra usar publicBaseUrl(req) — mesma função
+    // já usada pros links do Mercado Pago (ver comentário lá em cima) —
+    // e assim funcionar certo em QUALQUER host sem precisar hardcodar
+    // domínio nenhum: homologação (hml-brdata.up.railway.app),
+    // produção no subdomínio padrão do Railway, ou um domínio próprio
+    // customizado depois — todos automaticamente corretos.
+    if (pathname === "/robots.txt") {
+      const base = publicBaseUrl(req);
+      res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=3600" });
+      return res.end(
+        `User-agent: *\n` +
+        `Allow: /\n` +
+        // /admin e /api/ não são conteúdo pra indexar — só desperdiça
+        // orçamento de rastreio do robô sem ganho nenhum de SEO.
+        `Disallow: /admin\n` +
+        `Disallow: /api/\n\n` +
+        `Sitemap: ${base}/sitemap.xml\n`
+      );
+    }
+
+    // Sitemap — v1 (Fase A do "Plano de Indexação"): só as URLs que já
+    // são conteúdo de verdade hoje. Cresce sozinho quando as páginas
+    // por entidade (time/jogador/jogo — Fase B) existirem: dá pra virar
+    // uma lista montada a partir de TEAMS/players/competitions em vez
+    // desse array fixo, sem precisar mudar a rota em si.
+    if (pathname === "/sitemap.xml") {
+      const base = publicBaseUrl(req);
+      const today = new Date().toISOString().slice(0, 10);
+      const urls = [
+        { loc: `${base}/`, changefreq: "daily", priority: "1.0" },
+        { loc: `${base}/privacidade.html`, changefreq: "yearly", priority: "0.3" },
+      ];
+      const body = urls.map((u) =>
+        `  <url>\n    <loc>${u.loc}</loc>\n    <lastmod>${today}</lastmod>\n    <changefreq>${u.changefreq}</changefreq>\n    <priority>${u.priority}</priority>\n  </url>`
+      ).join("\n");
+      res.writeHead(200, { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=3600" });
+      return res.end(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</urlset>\n`);
+    }
+
     // URL amigável (sem ".html") pra área administrativa — o resto do
     // acesso é protegido por login + role "admin" (ver
     // /api/adminpanel/* acima), não por essa rota em si; ela só serve
