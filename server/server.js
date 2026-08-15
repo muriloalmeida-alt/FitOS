@@ -443,7 +443,19 @@ function escapeHtml(s) {
 // com publicBaseUrl(req) — canonical/OG são sobre SEO, sempre apontam
 // pra produção, diferente dos links funcionais do Mercado Pago (esses
 // sim usam publicBaseUrl(req), precisam refletir o host de verdade).
-async function renderShellWithSeo(req, { title, description, canonicalPath, bodySnapshotHtml, jsonLd }) {
+//
+// `image` é OPCIONAL: quando a página é de uma entidade com foto
+// própria (escudo do time, foto do jogador — ver chamadas em
+// /times/:slug e /jogadores/:id abaixo), usa ela como og:image/
+// twitter:image em vez do banner genérico do site — link
+// compartilhado no WhatsApp/Twitter fica com o escudo/foto certo em
+// vez da logo do BR Data repetida em toda página. Sem imagem própria
+// (raiz, páginas estáticas, jogador/time sem foto cadastrada no
+// fornecedor), cai pro banner padrão (img/og-image.png — 1200x630,
+// tamanho recomendado por Facebook/Twitter; ANTES disso aqui usava
+// img/logo.png, que é só 480x263 — pequena demais, aparecia cortada/
+// espremida em vários previews).
+async function renderShellWithSeo(req, { title, description, canonicalPath, bodySnapshotHtml, jsonLd, image }) {
   const html = await fs.promises.readFile(path.join(PUBLIC_DIR, "index.html"), "utf8");
   // CANONICAL_SITE_URL (não publicBaseUrl(req)) de propósito -- ver
   // comentário grande na constante: canonical/OG sempre apontam pra
@@ -452,7 +464,7 @@ async function renderShellWithSeo(req, { title, description, canonicalPath, body
   // withRobotsMetaIfHomolog mais abaixo).
   const base = CANONICAL_SITE_URL;
   const canonicalUrl = `${base}${canonicalPath}`;
-  const ogImage = `${base}/img/logo.png`;
+  const ogImage = image || `${base}/img/og-image.png`;
   const ld = jsonLd || {
     "@context": "https://schema.org", "@type": "WebSite",
     name: "BR Data", description, inLanguage: "pt-BR",
@@ -599,13 +611,16 @@ const server = http.createServer(async (req, res) => {
       );
     }
 
-    // Sitemap — v2 (Fase C do "Plano de Indexação", encadeada direto
-    // depois da Fase B): além das URLs estáticas de sempre, agora lista
-    // 1 <url> por time de verdade, buscado ao vivo (mesma chave de
-    // cache de /api/teams e da própria página /times/:slug — não custa
-    // nada extra na cota da Sportmonks). Sem credencial configurada
-    // nesse host, cai pra v1 (só as URLs estáticas) — não tem time
-    // nenhum pra listar sem dado ao vivo.
+    // Sitemap — v3 (v2 foi a Fase C do "Plano de Indexação", listando
+    // 1 <url> por time; v3 adicionou 1 <url> por JOGADOR também, ver
+    // comentário mais abaixo no bloco de rosters): além das URLs
+    // estáticas de sempre, lista time e jogador de verdade, buscados
+    // ao vivo (mesma chave de cache de /api/teams, /api/teams/:id/
+    // players e da própria página /times/:slug — não custa nada extra
+    // na cota da Sportmonks além do que o cache já paga). Sem
+    // credencial configurada nesse host, cai pra v1 (só as URLs
+    // estáticas) — não tem time nem jogador nenhum pra listar sem
+    // dado ao vivo.
     if (pathname === "/sitemap.xml") {
       // CANONICAL_SITE_URL (não publicBaseUrl(req)) de propósito: o
       // sitemap é o que se submete pro Google Search Console de
@@ -627,6 +642,30 @@ const server = http.createServer(async (req, res) => {
             dataProvider.getTeams({ leagueId, season: LIVE_SEASON })
           );
           teams.forEach((t) => urls.push({ loc: `${base}/times/${slugify(t.name)}`, changefreq: "daily", priority: "0.7" }));
+
+          // Jogadores (v3, pedido do usuário: sitemap não listava
+          // /jogadores/:id, só time -- o Google ainda achava essas
+          // páginas pelo link interno do time, só demorava mais).
+          // Reaproveita a MESMA chave de cache do elenco usado por
+          // GET /api/teams/:id/players (ver rota mais abaixo): custo
+          // extra real só na 1ª visita ao sitemap depois do cache
+          // expirar (1 chamada por time pra listar o elenco); fica de
+          // graça enquanto TTL.teams não vencer de novo, igual o
+          // resto do sitemap já faz só com a lista de times. Time cujo
+          // elenco falha ao buscar não derruba o sitemap inteiro -- só
+          // fica de fora da lista dessa vez (Promise.all com catch por
+          // time, não um catch só pro Promise.all inteiro).
+          const rosters = await Promise.all(teams.map((t) =>
+            withCache(`teamplayers:${comp.id}:${t.id}:${LIVE_SEASON}`, TTL.teams, () =>
+              dataProvider.getTeamPlayers({ teamId: t.id, season: LIVE_SEASON, leagueId })
+            ).catch((err) => {
+              console.error(`[sitemap] falha ao listar elenco do time ${t.id}:`, err.message);
+              return [];
+            })
+          ));
+          rosters.flat().forEach((p) => {
+            urls.push({ loc: `${base}/jogadores/${p.id}-${slugify(p.name)}`, changefreq: "weekly", priority: "0.5" });
+          });
         } catch (err) {
           // Sitemap nunca deveria quebrar por causa de uma falha
           // pontual do fornecedor -- pior caso, sai só com as URLs
@@ -804,6 +843,7 @@ const server = http.createServer(async (req, res) => {
 
         const html = await renderShellWithSeo(req, {
           title, description, canonicalPath: `/times/${slug}`, bodySnapshotHtml,
+          image: team.logo || null,
           jsonLd: {
             "@context": "https://schema.org", "@type": "SportsTeam",
             name: team.name, sport: "Soccer",
@@ -887,6 +927,7 @@ const server = http.createServer(async (req, res) => {
 
         const html = await renderShellWithSeo(req, {
           title, description, canonicalPath, bodySnapshotHtml,
+          image: player.photo || null,
           jsonLd: {
             "@context": "https://schema.org", "@type": "Person",
             name: player.name,
