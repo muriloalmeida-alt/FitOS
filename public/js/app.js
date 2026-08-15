@@ -2747,6 +2747,26 @@ function applyRouteFromLocation() {
     goToTeam(team.id, { pushUrl: false }); // URL já é a certa (veio dela mesma) -- não empurra de novo
     return true;
   }
+
+  // Jogador aninhado em time (pedido do usuário, 15/08/2026):
+  // /times/:teamSlug/jogadores/:id[-slug]. O :teamSlug na URL é só
+  // contexto de leitura pro visitante/Google -- quem resolve o
+  // jogador de verdade continua sendo só o ID (igual server.js faz em
+  // handlePlayerRoute), então não precisa validar aqui se o slug bate
+  // com o time real do jogador: se estivesse errado, o servidor já
+  // teria dado um 301 pra URL certa antes desse HTML chegar aqui.
+  const nestedPlayerMatch = location.pathname.match(/^\/times\/[a-z0-9-]+\/jogadores\/(\d+)(?:-[a-z0-9-]+)?\/?$/);
+  if (nestedPlayerMatch) {
+    goToPlayer(nestedPlayerMatch[1], { pushUrl: false });
+    return true;
+  }
+
+  // URL achatada antiga (/jogadores/:id, sem o time) -- mantida só
+  // como fallback (link antigo já compartilhado/indexado antes dessa
+  // mudança): continua abrindo o jogador normalmente, e assim que ele
+  // carrega e a gente descobre o time, renderPlayerPage corrige
+  // sozinha a URL na barra de endereço pra forma aninhada nova (ver
+  // syncPlayerUrl) -- sem reload, só troca a URL visível.
   const playerMatch = location.pathname.match(/^\/jogadores\/(\d+)(?:-[a-z0-9-]+)?\/?$/);
   if (playerMatch) {
     goToPlayer(playerMatch[1], { pushUrl: false });
@@ -2761,12 +2781,14 @@ function applyRouteFromLocation() {
 // pra "/" (nunca deixa uma URL de entidade "grudada" mostrando outra
 // coisa na tela).
 //
-// Jogador usa só o ID na URL que o próprio app gera (sem o "-slug" —
-// o nome só é conhecido depois que renderPlayerPage busca o dado,
-// tarde demais pro pushState síncrono daqui) — a URL CANÔNICA com
-// nome (a que o Google indexa de verdade) vem de GET /jogadores/:id
-// no servidor, que sempre resolve por ID de qualquer forma (ver
-// server.js) — o slug no fim é só cosmético/SEO, nunca a chave real.
+// Jogador: URL é ANINHADA em time (pedido do usuário, 15/08/2026) --
+// /times/:teamSlug/jogadores/:id -- então, diferente de Time (que já
+// sabe o slug na hora, TEAM_MAP já está carregado), não dá pra montar
+// essa URL aqui de forma síncrona: o time do jogador só é conhecido
+// depois que renderPlayerPage busca o dado (resolvePlayer é async).
+// Por isso "jogador" não mexe na URL aqui -- ver syncPlayerUrl (perto
+// de renderPlayerPage) pra quem faz esse ajuste, assim que o time é
+// conhecido.
 function syncUrlForPage(name) {
   if (name === "time" && state.selectedTeamId) {
     const team = TEAM_MAP[state.selectedTeamId];
@@ -2776,14 +2798,25 @@ function syncUrlForPage(name) {
       return;
     }
   }
-  if (name === "jogador" && state.selectedPlayerId) {
-    const path = `/jogadores/${state.selectedPlayerId}`;
-    if (location.pathname !== path) history.pushState(null, "", path);
-    return;
-  }
+  if (name === "jogador") return;
   if (location.pathname.startsWith("/times/") || location.pathname.startsWith("/jogadores/")) {
     history.pushState(null, "", "/");
   }
+}
+
+// Ajusta a URL do navegador assim que o jogador termina de carregar e
+// a gente já sabe o time dele -- ver aviso grande em syncUrlForPage
+// sobre por que isso não dá pra fazer de forma síncrona lá. Sem time
+// resolvido (raro -- jogador sem clube na base do fornecedor), cai
+// pra URL achatada /jogadores/:id (mesma que o servidor usa nesse
+// mesmo caso, ver handlePlayerRoute em server.js). pushState só
+// dispara se a URL ainda não for a certa -- landing direto na URL já
+// certa (via applyRouteFromLocation) não deveria empurrar nada de
+// novo no histórico de voltar/avançar.
+function syncPlayerUrl(playerId, team) {
+  if (state.selectedPlayerId !== playerId) return; // usuário já trocou de jogador de novo enquanto isso rodava
+  const path = team ? `/times/${teamSlug(team)}/jogadores/${playerId}` : `/jogadores/${playerId}`;
+  if (location.pathname !== path) history.pushState(null, "", path);
 }
 
 // opts.pushUrl=false: URL já está certa (veio de applyRouteFromLocation,
@@ -3088,6 +3121,7 @@ async function renderPlayerPage() {
   }
 
   const team = TEAM_MAP[player.teamId];
+  syncPlayerUrl(playerId, team); // URL na barra de endereço só fica certa (aninhada em time) depois daqui -- ver aviso em syncUrlForPage
   document.getElementById("playerPageAvatar").innerHTML = `<div class="player-avatar-lg">${player.photo ? `<img src="${player.photo}" alt="">` : initialsOf(player.name)}</div>`;
   document.getElementById("playerPageName").textContent = player.name;
   document.getElementById("playerPageSub").innerHTML = [

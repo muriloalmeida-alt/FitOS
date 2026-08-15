@@ -498,6 +498,111 @@ async function renderShellWithSeo(req, { title, description, canonicalPath, body
   return withRobotsMetaIfHomolog(req, out);
 }
 
+// ================= Página do Jogador — aninhada em Time (pedido do usuário, 15/08/2026) =================
+// Compartilhada pelas 2 rotas que resolvem jogador (ver chamadas mais
+// abaixo): a nova /times/:teamSlug/jogadores/:id[-slug] (estrutura
+// pedida pelo usuário: "faz sentido /times/flamengo/jogadores/:id")
+// e a antiga achatada /jogadores/:id[-slug] (Fase B original) — que
+// continua existindo, mas só como fallback pro caso raro de jogador
+// SEM time resolvido (não tem como montar o segmento :teamSlug sem
+// time) e como REDIRECT 301 pra cá em qualquer outro caso, pra nunca
+// servir o mesmo jogador em 2 URLs diferentes (duplicidade de
+// conteúdo pro Google).
+//
+// requestedTeamSlug: null quando veio da rota achatada; a string do
+// :teamSlug quando veio da aninhada — nos 2 casos, quem RESOLVE o
+// jogador de verdade continua sendo só o ID (igual antes); o slug de
+// time na URL é conferido DEPOIS, só pra decidir se essa é a URL
+// canônica ou se precisa redirecionar pra ela.
+async function handlePlayerRoute(req, res, playerId, requestedTeamSlug) {
+  if (!liveModeEnabled()) return serveStatic(req, res);
+
+  try {
+    const season = LIVE_SEASON;
+    const player = await withCache(`player:${playerId}:${season}`, TTL.teams, () =>
+      dataProvider.getPlayer({ playerId, season })
+    );
+
+    if (!player) {
+      const canonicalPath = requestedTeamSlug ? `/times/${requestedTeamSlug}/jogadores/${playerId}` : `/jogadores/${playerId}`;
+      const html = await renderShellWithSeo(req, {
+        title: "Jogador não encontrado · BR Data",
+        description: "Não encontramos esse jogador. Veja artilheiros e elenco de cada time do Brasileirão no BR Data.",
+        canonicalPath,
+        bodySnapshotHtml: "",
+      });
+      res.writeHead(404, { "Content-Type": "text/html; charset=utf-8" });
+      return res.end(html);
+    }
+
+    const nameSlug = slugify(player.name);
+
+    // Nome/slug do time só pra enriquecer description/JSON-LD/URL --
+    // reusa a MESMA lista de times já cacheada de /api/teams (zero
+    // custo extra). Falha aqui não é crítica -- segue sem time (cai
+    // pra URL achatada, ver canonicalPath abaixo).
+    let teamName = null, correctTeamSlug = null;
+    if (player.teamId != null) {
+      try {
+        const comp = competitions.getCompetition("brasileirao");
+        const leagueId = competitions.providerLeagueId(comp, dataProvider.ACTIVE_PROVIDER_NAME);
+        const teams = await withCache(`teams:${comp.id}:${season}`, TTL.teams, () =>
+          dataProvider.getTeams({ leagueId, season })
+        );
+        const team = teams.find((t) => String(t.id) === String(player.teamId));
+        if (team) { teamName = team.name; correctTeamSlug = slugify(team.name); }
+      } catch { /* segue sem time */ }
+    }
+
+    const canonicalPath = correctTeamSlug
+      ? `/times/${correctTeamSlug}/jogadores/${player.id}-${nameSlug}`
+      : `/jogadores/${player.id}-${nameSlug}`;
+
+    // A URL que bateu aqui não é a canônica -- veio da rota achatada
+    // mas o jogador TEM time (devia estar em /times/:slug/jogadores/:id),
+    // ou veio da aninhada com :teamSlug errado/desatualizado (time
+    // mudou de nome, ou alguém digitou torto). Redireciona 301 em vez
+    // de servir o mesmo conteúdo debaixo de 2 URLs diferentes.
+    const onCanonicalRoute = correctTeamSlug ? (requestedTeamSlug === correctTeamSlug) : (requestedTeamSlug == null);
+    if (!onCanonicalRoute) {
+      res.writeHead(301, { Location: canonicalPath });
+      return res.end();
+    }
+
+    const title = `${player.name} — Estatísticas no Brasileirão · BR Data`;
+    const description = `${player.name}${teamName ? ` (${teamName})` : ""}: ${player.goals ?? 0} gols e ${player.assists ?? 0} assistências em ${player.games ?? 0} jogos no Brasileirão.`;
+
+    const bodySnapshotHtml = `<div id="seoSnapshot" style="max-width:680px;margin:32px auto;padding:0 20px;font:15px/1.6 system-ui,sans-serif;color:#0A1424;">
+  <h1>${escapeHtml(player.name)}</h1>
+  <p>${escapeHtml(description)}</p>
+  <ul>
+    <li>Jogos: ${Number(player.games) || 0}</li>
+    <li>Gols: ${Number(player.goals) || 0}</li>
+    <li>Assistências: ${Number(player.assists) || 0}</li>
+    <li>Cartões amarelos: ${Number(player.yellow) || 0}</li>
+    <li>Cartões vermelhos: ${Number(player.red) || 0}</li>
+  </ul>
+</div>`;
+
+    const html = await renderShellWithSeo(req, {
+      title, description, canonicalPath, bodySnapshotHtml,
+      image: player.photo || null,
+      jsonLd: {
+        "@context": "https://schema.org", "@type": "Person",
+        name: player.name,
+        url: `${CANONICAL_SITE_URL}${canonicalPath}`,
+        ...(player.photo ? { image: player.photo } : {}),
+        ...(teamName ? { affiliation: { "@type": "SportsTeam", name: teamName } } : {}),
+      },
+    });
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=600" });
+    return res.end(html);
+  } catch (err) {
+    console.error("[jogador] falha ao montar a página, servindo o shell padrão:", err.message);
+    return serveStatic(req, res);
+  }
+}
+
 function serveStatic(req, res) {
   let filePath = path.join(PUBLIC_DIR, decodeURIComponent(req.url.split("?")[0]));
   if (req.url === "/" || req.url === "") filePath = path.join(PUBLIC_DIR, "index.html");
@@ -611,8 +716,9 @@ const server = http.createServer(async (req, res) => {
       );
     }
 
-    // Sitemap — v3 (v2 foi a Fase C do "Plano de Indexação", listando
-    // 1 <url> por time; v3 adicionou 1 <url> por JOGADOR também, ver
+    // Sitemap — v4 (v2 foi a Fase C do "Plano de Indexação", listando
+    // 1 <url> por time; v3 adicionou 1 <url> por JOGADOR também; v4
+    // trocou a URL de jogador de achatada pra ANINHADA em time, ver
     // comentário mais abaixo no bloco de rosters): além das URLs
     // estáticas de sempre, lista time e jogador de verdade, buscados
     // ao vivo (mesma chave de cache de /api/teams, /api/teams/:id/
@@ -645,7 +751,10 @@ const server = http.createServer(async (req, res) => {
 
           // Jogadores (v3, pedido do usuário: sitemap não listava
           // /jogadores/:id, só time -- o Google ainda achava essas
-          // páginas pelo link interno do time, só demorava mais).
+          // páginas pelo link interno do time, só demorava mais; v4,
+          // pedido do usuário: URL de jogador passou a ser ANINHADA em
+          // time -- /times/:teamSlug/jogadores/:id, ver handlePlayerRoute
+          // -- então o sitemap lista a forma nova aqui também).
           // Reaproveita a MESMA chave de cache do elenco usado por
           // GET /api/teams/:id/players (ver rota mais abaixo): custo
           // extra real só na 1ª visita ao sitemap depois do cache
@@ -655,6 +764,13 @@ const server = http.createServer(async (req, res) => {
           // elenco falha ao buscar não derruba o sitemap inteiro -- só
           // fica de fora da lista dessa vez (Promise.all com catch por
           // time, não um catch só pro Promise.all inteiro).
+          //
+          // Time de cada jogador vem da PRÓPRIA busca (rosters[i] é o
+          // elenco QUE A GENTE PEDIU pro time teams[i]), não do campo
+          // player.teamId devolvido pelo fornecedor -- mais confiável
+          // (não depende desse campo vir preenchido certo) e já bate
+          // exatamente com o slug usado no <url> do time alguns passos
+          // acima.
           const rosters = await Promise.all(teams.map((t) =>
             withCache(`teamplayers:${comp.id}:${t.id}:${LIVE_SEASON}`, TTL.teams, () =>
               dataProvider.getTeamPlayers({ teamId: t.id, season: LIVE_SEASON, leagueId })
@@ -663,8 +779,11 @@ const server = http.createServer(async (req, res) => {
               return [];
             })
           ));
-          rosters.flat().forEach((p) => {
-            urls.push({ loc: `${base}/jogadores/${p.id}-${slugify(p.name)}`, changefreq: "weekly", priority: "0.5" });
+          teams.forEach((t, i) => {
+            const teamSlugStr = slugify(t.name);
+            (rosters[i] || []).forEach((p) => {
+              urls.push({ loc: `${base}/times/${teamSlugStr}/jogadores/${p.id}-${slugify(p.name)}`, changefreq: "weekly", priority: "0.5" });
+            });
           });
         } catch (err) {
           // Sitemap nunca deveria quebrar por causa de uma falha
@@ -859,89 +978,24 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
-    // ================= Página do Jogador (Fase B, continuação) =================
-    // /jogadores/:id[-slug] — mesma mecânica de /times/:slug, com uma
-    // diferença: o ID vem PRIMEIRO na URL (não só o slug) porque não
-    // tem como montar uma lista de "todos os jogadores" pra resolver
-    // slug->id sem paginar o elenco de cada time (20 chamadas extra só
-    // pra achar 1 jogador). O ID já resolve sozinho via getPlayer() — o
-    // "-slug" no fim é só cosmético (URL legível/melhor pra busca);
-    // qualquer coisa depois do ID é ignorada na resolução, mas o
-    // canonical devolvido sempre usa o slug CERTO (ver mais abaixo),
-    // então o Google converge pra 1 URL só por jogador não importa
-    // como chegou nela.
+    // ================= Página do Jogador (Fase B original + pedido do usuário 15/08/2026) =================
+    // /times/:teamSlug/jogadores/:id[-slug] é a URL CANÔNICA hoje
+    // (pedido do usuário: "faz sentido /times/flamengo/jogadores/:id");
+    // /jogadores/:id[-slug] continua existindo (link antigo já pode
+    // ter sido compartilhado/indexado) mas agora só redireciona 301
+    // pra cá quando o jogador tem time resolvido -- ver
+    // handlePlayerRoute() (definida perto de renderShellWithSeo) pra
+    // toda a lógica de fato, compartilhada pelas 2 rotas. Em ambas, o
+    // ID sozinho já resolve o jogador (getPlayer()) -- :teamSlug/
+    // "-slug" no fim são só pra URL ficar legível/canônica, nunca a
+    // chave de busca de verdade.
+    const nestedPlayerMatch = pathname.match(/^\/times\/([a-z0-9-]+)\/jogadores\/(\d+)(?:-[a-z0-9-]+)?\/?$/);
+    if (nestedPlayerMatch) {
+      return handlePlayerRoute(req, res, nestedPlayerMatch[2], nestedPlayerMatch[1]);
+    }
     const playerRouteMatch = pathname.match(/^\/jogadores\/(\d+)(?:-[a-z0-9-]+)?\/?$/);
     if (playerRouteMatch) {
-      const playerId = playerRouteMatch[1];
-      if (!liveModeEnabled()) return serveStatic(req, res);
-
-      try {
-        const season = LIVE_SEASON;
-        const player = await withCache(`player:${playerId}:${season}`, TTL.teams, () =>
-          dataProvider.getPlayer({ playerId, season })
-        );
-
-        if (!player) {
-          const html = await renderShellWithSeo(req, {
-            title: "Jogador não encontrado · BR Data",
-            description: "Não encontramos esse jogador. Veja artilheiros e elenco de cada time do Brasileirão no BR Data.",
-            canonicalPath: `/jogadores/${playerId}`,
-            bodySnapshotHtml: "",
-          });
-          res.writeHead(404, { "Content-Type": "text/html; charset=utf-8" });
-          return res.end(html);
-        }
-
-        const nameSlug = slugify(player.name);
-        const canonicalPath = `/jogadores/${player.id}-${nameSlug}`;
-
-        // Nome do time só pra enriquecer description/JSON-LD -- reusa
-        // a MESMA lista de times já cacheada de /api/teams (zero custo
-        // extra). Falha aqui não é crítica -- segue sem nome de time.
-        let teamName = null;
-        if (player.teamId) {
-          try {
-            const comp = competitions.getCompetition("brasileirao");
-            const leagueId = competitions.providerLeagueId(comp, dataProvider.ACTIVE_PROVIDER_NAME);
-            const teams = await withCache(`teams:${comp.id}:${season}`, TTL.teams, () =>
-              dataProvider.getTeams({ leagueId, season })
-            );
-            teamName = teams.find((t) => String(t.id) === String(player.teamId))?.name || null;
-          } catch { /* segue sem nome de time */ }
-        }
-
-        const title = `${player.name} — Estatísticas no Brasileirão · BR Data`;
-        const description = `${player.name}${teamName ? ` (${teamName})` : ""}: ${player.goals ?? 0} gols e ${player.assists ?? 0} assistências em ${player.games ?? 0} jogos no Brasileirão.`;
-
-        const bodySnapshotHtml = `<div id="seoSnapshot" style="max-width:680px;margin:32px auto;padding:0 20px;font:15px/1.6 system-ui,sans-serif;color:#0A1424;">
-  <h1>${escapeHtml(player.name)}</h1>
-  <p>${escapeHtml(description)}</p>
-  <ul>
-    <li>Jogos: ${Number(player.games) || 0}</li>
-    <li>Gols: ${Number(player.goals) || 0}</li>
-    <li>Assistências: ${Number(player.assists) || 0}</li>
-    <li>Cartões amarelos: ${Number(player.yellow) || 0}</li>
-    <li>Cartões vermelhos: ${Number(player.red) || 0}</li>
-  </ul>
-</div>`;
-
-        const html = await renderShellWithSeo(req, {
-          title, description, canonicalPath, bodySnapshotHtml,
-          image: player.photo || null,
-          jsonLd: {
-            "@context": "https://schema.org", "@type": "Person",
-            name: player.name,
-            url: `${CANONICAL_SITE_URL}${canonicalPath}`,
-            ...(player.photo ? { image: player.photo } : {}),
-            ...(teamName ? { affiliation: { "@type": "SportsTeam", name: teamName } } : {}),
-          },
-        });
-        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=600" });
-        return res.end(html);
-      } catch (err) {
-        console.error("[jogadores/:id] falha ao montar a página, servindo o shell padrão:", err.message);
-        return serveStatic(req, res);
-      }
+      return handlePlayerRoute(req, res, playerRouteMatch[1], null);
     }
 
     // URL amigável (sem ".html") pra área administrativa — o resto do
