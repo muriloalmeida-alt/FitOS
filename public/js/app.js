@@ -3046,6 +3046,17 @@ function applyRouteFromLocation() {
     goToMatch(matchRouteMatch[1], { pushUrl: false });
     return true;
   }
+
+  // Tabela (/tabela, pedido do usuário 15/08/2026: "revisa o funil
+  // pra garantir que todas as páginas estão mapeadas") -- diferente
+  // de time/jogador/partida, não é uma página de DETALHE (não tem
+  // "voltar", é uma aba de navegação igual Dashboard/Jogos/
+  // Estatísticas), por isso não passa por goToTeam/goToPlayer/
+  // goToMatch nem por state.pageBeforeDetail.
+  if (location.pathname === "/tabela") {
+    setActivePage("tabela", { skipUrlSync: true });
+    return true;
+  }
   return false;
 }
 
@@ -3085,7 +3096,14 @@ function syncUrlForPage(name) {
       return;
     }
   }
-  if (location.pathname.startsWith("/times/") || location.pathname.startsWith("/jogadores/") || location.pathname.startsWith("/jogos/")) {
+  // Tabela: página fixa (sem id nenhum pra resolver), URL simétrica
+  // pros 2 sentidos -- entrar nela empurra "/tabela", sair de "/tabela"
+  // pra qualquer outra aba volta pra "/" (ver reset genérico abaixo).
+  if (name === "tabela") {
+    if (location.pathname !== "/tabela") history.pushState(null, "", "/tabela");
+    return;
+  }
+  if (location.pathname.startsWith("/times/") || location.pathname.startsWith("/jogadores/") || location.pathname.startsWith("/jogos/") || location.pathname === "/tabela") {
     history.pushState(null, "", "/");
   }
 }

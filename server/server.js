@@ -937,6 +937,7 @@ const server = http.createServer(async (req, res) => {
       const today = new Date().toISOString().slice(0, 10);
       const urls = [
         { loc: `${base}/`, changefreq: "daily", priority: "1.0" },
+        { loc: `${base}/tabela`, changefreq: "daily", priority: "0.9" },
         { loc: `${base}/privacidade.html`, changefreq: "yearly", priority: "0.3" },
       ];
       if (liveModeEnabled()) {
@@ -1093,6 +1094,7 @@ const server = http.createServer(async (req, res) => {
     ${standingsRowsHTML}
     </tbody>
   </table>
+  <p><a href="/tabela">Ver tabela completa (V/E/D, saldo de gols e zonas de classificação)</a></p>
   ${upcoming.length ? `<h2>Próximos jogos</h2>\n  <ul>\n    ${upcomingHTML}\n  </ul>` : ""}
 </div>`;
 
@@ -1112,6 +1114,87 @@ const server = http.createServer(async (req, res) => {
         return res.end(html);
       } catch (err) {
         console.error("[raiz] falha ao montar o resumo pré-renderizado, servindo o shell padrão:", err.message);
+        return serveStatic(req, res);
+      }
+    }
+
+    // ================= Página da Tabela (pedido do usuário, 15/08/2026: =================
+    // "revisa o funil pra garantir que todas as páginas estão
+    // mapeadas") -- "tabela do brasileirão" é um dos termos mais
+    // buscados do futebol brasileiro; a raiz ("/") já tem uma tabela
+    // resumida (Pos/Time/Pts/Jogos) no snapshot dela, mas com
+    // título/descrição genéricos do site inteiro -- uma URL e um
+    // <title> dedicados aqui ("/tabela") capturam essa intenção de
+    // busca específica com muito mais precisão, além de mostrar a
+    // classificação COMPLETA (V/E/D/GP/GC/SG, não só Pts/Jogos) e a
+    // zona de classificação de cada time (Libertadores/Sul-Americana/
+    // Rebaixamento), igual a tela real do app mostra.
+    if (pathname === "/tabela") {
+      if (!liveModeEnabled()) return serveStatic(req, res);
+      try {
+        const comp = competitions.getCompetition("brasileirao");
+        const leagueId = competitions.providerLeagueId(comp, dataProvider.ACTIVE_PROVIDER_NAME);
+        const season = LIVE_SEASON;
+        const [teams, standings] = await Promise.all([
+          withCache(`teams:${comp.id}:${season}`, TTL.teams, () => dataProvider.getTeams({ leagueId, season })),
+          withCache(`standings:${comp.id}:${season}`, TTL.standings, () => dataProvider.getStandings({ leagueId, season })),
+        ]);
+        const teamById = new Map(teams.map((t) => [t.id, t]));
+        const sorted = [...standings].sort((a, b) => a.rank - b.rank);
+
+        // Mesmas 4 zonas e os mesmos números de vagas usados na tela
+        // real (ver zoneOfPosition/CONFIG em public/js/engine.js) --
+        // duplicado aqui de propósito (mesmo espírito de slugify/
+        // matchSlug, ver aviso em server/src/slug.js): servidor não
+        // importa nada do front-end e vice-versa nesse projeto.
+        const zoneLabel = (pos) => {
+          if (pos === 1) return "Campeão";
+          if (pos <= 6) return "Libertadores";
+          if (pos <= 12) return "Sul-Americana";
+          if (pos > sorted.length - 4) return "Rebaixamento";
+          return "";
+        };
+
+        const rowsHTML = sorted.map((r) => {
+          const t = teamById.get(r.id);
+          const nameHTML = t ? `<a href="/times/${escapeHtml(slugify(t.name))}">${escapeHtml(t.name)}</a>` : "?";
+          const zone = zoneLabel(r.rank);
+          return `<tr><td>${r.rank}º</td><td>${nameHTML}</td><td>${r.pts}</td><td>${r.j}</td><td>${r.v}</td><td>${r.e}</td><td>${r.d}</td><td>${r.gp}</td><td>${r.gc}</td><td>${r.sg > 0 ? "+" + r.sg : r.sg}</td><td>${zone}</td></tr>`;
+        }).join("\n    ");
+
+        const leader = teamById.get(sorted[0]?.id);
+        const description = leader
+          ? `Classificação completa e atualizada do Brasileirão 2026: ${leader.name} lidera com ${sorted[0].pts} pontos. Veja pontos, vitórias, saldo de gols e zonas de Libertadores, Sul-Americana e rebaixamento de cada time.`
+          : "Classificação completa e atualizada do Brasileirão 2026 — pontos, vitórias, saldo de gols e zonas de Libertadores, Sul-Americana e rebaixamento de cada time.";
+
+        const bodySnapshotHtml = `<div id="seoSnapshot" style="max-width:680px;margin:32px auto;padding:0 20px;font:15px/1.6 system-ui,sans-serif;color:#0A1424;">
+  <h1>Tabela do Brasileirão 2026</h1>
+  <p>${escapeHtml(description)}</p>
+  <table>
+    <thead><tr><th>Pos</th><th>Time</th><th>Pts</th><th>J</th><th>V</th><th>E</th><th>D</th><th>GP</th><th>GC</th><th>SG</th><th>Zona</th></tr></thead>
+    <tbody>
+    ${rowsHTML}
+    </tbody>
+  </table>
+</div>`;
+
+        const html = await renderShellWithSeo(req, {
+          title: "Tabela do Brasileirão 2026 — Classificação Completa e Atualizada · BR Data",
+          description,
+          canonicalPath: "/tabela",
+          bodySnapshotHtml,
+          jsonLd: {
+            "@context": "https://schema.org", "@type": "WebPage",
+            name: "Tabela do Brasileirão 2026",
+            description,
+            inLanguage: "pt-BR",
+            url: `${CANONICAL_SITE_URL}/tabela`,
+          },
+        });
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=600" });
+        return res.end(html);
+      } catch (err) {
+        console.error("[tabela] falha ao montar a página, servindo o shell padrão:", err.message);
         return serveStatic(req, res);
       }
     }
