@@ -241,9 +241,14 @@ function startAdTimer() {
     adTimerId = setInterval(tryShowAd, AD_INTERVAL_MS);
   }, AD_FIRST_DELAY_MS);
 }
+// AJUSTE (Fase 3, "Freemium sem login"): visitante sem conta roda o
+// anúncio igual ao Freemium logado — decisão explícita do usuário
+// (mesmo timer, mesma frequência). Só quem tem conta com plano PAGO
+// (lite/pro/enterprise) fica de fora — currentUser null (visitante) ou
+// plan==="freemium" seguem o mesmo caminho.
 function tryShowAd() {
   if (document.hidden) return; // app em segundo plano, tenta de novo no próximo ciclo
-  if (!currentUser || currentUser.plan !== "freemium") { stopAdTimer(); return; }
+  if (currentUser && currentUser.plan !== "freemium") { stopAdTimer(); return; }
   if (!adsenseConfig) return; // AdSense não configurado nesse host -- não tem o que mostrar
   showAdModal();
 }
@@ -521,10 +526,12 @@ async function startApp(user) {
   renderMyTeamsSidebar();
   setActivePage("dashboard");
 
-  // Anúncio Freemium continua só pra quem tem conta de verdade nesse
-  // plano por enquanto — visitante entra na próxima fase (ver plano
-  // combinado com o usuário, "Fase 3").
-  if (user && user.plan === "freemium") { loadAdsenseConfig(); startAdTimer(); } else { stopAdTimer(); }
+  // AJUSTE (Fase 3, "Freemium sem login"): anúncio roda igual pra
+  // visitante sem conta E pra Freemium logado (decisão explícita do
+  // usuário, ver AskUserQuestion respondida — "roda igual pra
+  // visitante anônimo também") — só quem tem conta com plano PAGO
+  // (lite/pro/enterprise) fica sem anúncio.
+  if (!user || user.plan === "freemium") { loadAdsenseConfig(); startAdTimer(); } else { stopAdTimer(); }
   loadCompetitionsInfo().then(applyCompetitionsSidebar);
 }
 
