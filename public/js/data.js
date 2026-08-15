@@ -57,7 +57,11 @@ const DEMO_TEAMS = [
   { id: "sao", name: "São Paulo",             short: "SAO", uf: "SP", c1: "#C8102E", c2: "#FFFFFF", c3: "#1A1A1A", atk: 1.58, def: 0.88, venue: { name: "Morumbis", city: "São Paulo" } },
   { id: "cor", name: "Corinthians",           short: "COR", uf: "SP", c1: "#1A1A1A", c2: "#FFFFFF", atk: 1.50, def: 0.95, venue: { name: "Neo Química Arena", city: "São Paulo" } },
   { id: "gre", name: "Grêmio",                short: "GRE", uf: "RS", c1: "#1E90CE", c2: "#FFFFFF", c3: "#1A1A1A", atk: 1.48, def: 0.97, venue: { name: "Arena do Grêmio", city: "Porto Alegre" } },
-  { id: "cap", name: "Athletico Paranaense",  short: "CAP", uf: "PR", c1: "#C8102E", c2: "#1A1A1A", atk: 1.52, def: 0.94, venue: { name: "Ligga Arena", city: "Curitiba" } },
+  // AJUSTE (pedido do usuário: "Athletico e Flamengo devem ter as
+  // mesmas cores. Baseie-se no Flamengo") -- c1 alinhado com o
+  // vermelho exato do Flamengo (#E30613, antes era #C8102E -- um
+  // vermelho parecido mas não igual).
+  { id: "cap", name: "Athletico Paranaense",  short: "CAP", uf: "PR", c1: "#E30613", c2: "#1A1A1A", atk: 1.52, def: 0.94, venue: { name: "Ligga Arena", city: "Curitiba" } },
   { id: "cru", name: "Cruzeiro",              short: "CRU", uf: "MG", c1: "#003399", c2: "#FFFFFF", atk: 1.46, def: 0.98, venue: { name: "Mineirão", city: "Belo Horizonte" } },
   { id: "cam", name: "Atlético-MG",           short: "CAM", uf: "MG", c1: "#1A1A1A", c2: "#FFFFFF", atk: 1.51, def: 0.99, venue: { name: "Arena MRV", city: "Belo Horizonte" } },
   { id: "bah", name: "Bahia",                 short: "BAH", uf: "BA", c1: "#1E3A8A", c2: "#FFFFFF", c3: "#DC2626", atk: 1.44, def: 1.02, venue: { name: "Arena Fonte Nova", city: "Salvador" } },
@@ -143,7 +147,9 @@ const DEMO_TEAMS_LA_LIGA = [
    Athletico Paranaense) — cada competição tem seu próprio "elenco" de
    ids, não compartilha com as outras. */
 const DEMO_TEAMS_SERIE_B = [
-  { id: "atp", name: "Athletico Paranaense", short: "CAP", uf: "PR", c1: "#C8102E", c2: "#1A1A1A", atk: 1.55, def: 0.85, venue: { name: "Arena da Baixada", city: "Curitiba" } },
+  // AJUSTE: mesmo motivo da entrada de Athletico em DEMO_TEAMS (Série
+  // A) -- ver comentário lá.
+  { id: "atp", name: "Athletico Paranaense", short: "CAP", uf: "PR", c1: "#E30613", c2: "#1A1A1A", atk: 1.55, def: 0.85, venue: { name: "Arena da Baixada", city: "Curitiba" } },
   { id: "cta", name: "Coritiba",             short: "CTA", uf: "PR", c1: "#0B6E33", c2: "#FFFFFF", atk: 1.50, def: 0.88, venue: { name: "Couto Pereira", city: "Curitiba" } },
   { id: "cha", name: "Chapecoense",          short: "CHA", uf: "SC", c1: "#1E7A3D", c2: "#FFFFFF", atk: 1.46, def: 0.90, venue: { name: "Arena Condá", city: "Chapecó" } },
   { id: "rem", name: "Remo",                 short: "REM", uf: "PA", c1: "#003DA5", c2: "#FFFFFF", atk: 1.44, def: 0.92, venue: { name: "Baenão", city: "Belém" } },
