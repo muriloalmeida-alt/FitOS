@@ -30,28 +30,35 @@
      pra saber onde cortar e colar — ver renderShellWithSeo() em
      server.js; não remova nem renomeie sem atualizar lá também.
 
-     og:image/canonical usam caminho RELATIVO de propósito nesse
-     default (a rota por entidade já manda canonical absoluto, ver
-     server.js): pra raiz, servida como arquivo estático puro sem
-     passar por template nenhum, não dá pra saber o domínio final
-     aqui embutido sem arriscar hardcodar um domínio de homologação ou
-     um chute errado. Caminho relativo resolve certo na prática
-     (WhatsApp, Twitter e Facebook resolvem contra a URL que buscaram
-     a página). -->
+     Domínio de produção decidido pelo usuário: brdata.online — fixo
+     (absoluto) aqui embaixo de propósito, tanto no canonical quanto
+     na imagem OG (recomendação oficial do protocolo OG é sempre URL
+     absoluta). Mesmo valor usado pelo servidor em CANONICAL_SITE_URL
+     (ver server.js) pras rotas por entidade — aqui é só o default
+     estático da raiz, sem template nenhum, então o valor vem
+     hardcoded direto no arquivo em vez de calculado em request-time.
+     Homologação (host começando com "hml") serve esse MESMO arquivo,
+     e portanto também herda canonical/OG apontando pra produção — é o
+     comportamento certo mesmo lá: reforça que o conteúdo "de
+     verdade" está em produção, além do <meta name="robots"
+     content="noindex, nofollow"> que esse host já leva por cima disso
+     (injetado pelo servidor, ver withRobotsMetaIfHomolog em
+     server.js — não aparece aqui no arquivo estático). -->
 <!-- SEO:START -->
 <title>BR Data · Tabela, Jogos e Estatísticas do Brasileirão 2026</title>
 <meta name="description" content="Tabela, jogos, estatísticas e simulador de probabilidades do Campeonato Brasileiro 2026 — dados atualizados de cada time, artilheiros e próximos jogos.">
-<link rel="canonical" href="/">
+<link rel="canonical" href="https://brdata.online/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="BR Data">
 <meta property="og:title" content="BR Data · Tabela, Jogos e Estatísticas do Brasileirão 2026">
 <meta property="og:description" content="Tabela, jogos, estatísticas e simulador de probabilidades do Campeonato Brasileiro 2026 — dados atualizados de cada time, artilheiros e próximos jogos.">
-<meta property="og:image" content="/img/logo.png">
+<meta property="og:image" content="https://brdata.online/img/logo.png">
+<meta property="og:url" content="https://brdata.online/">
 <meta property="og:locale" content="pt_BR">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="BR Data · Tabela, Jogos e Estatísticas do Brasileirão 2026">
 <meta name="twitter:description" content="Tabela, jogos, estatísticas e simulador de probabilidades do Campeonato Brasileiro 2026 — dados atualizados de cada time, artilheiros e próximos jogos.">
-<meta name="twitter:image" content="/img/logo.png">
+<meta name="twitter:image" content="https://brdata.online/img/logo.png">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",

@@ -160,12 +160,43 @@ function isHttps(req) {
 }
 
 // Ambiente de homologação: qualquer host cujo nome comece com "hml"
-// (ex.: hml.seusite.com, hml-brdata.up.railway.app). Usado só pra
-// liberar o login padrão admin/admin (ver /api/auth/login) — nunca
-// bate em produção contanto que o domínio de produção não comece com
-// "hml".
+// (ex.: hml.seusite.com, hml-brdata.up.railway.app). Usado pra liberar
+// o login padrão admin/admin (ver /api/auth/login) e — pedido do
+// usuário — pra bloquear indexação/rastreio nesse host (ver
+// withRobotsMetaIfHomolog e /robots.txt logo abaixo). Nunca bate em
+// produção contanto que o domínio de produção não comece com "hml".
 function isHomologHost(req) {
   return String(req.headers.host || "").toLowerCase().startsWith("hml");
+}
+
+// Domínio definitivo de produção (decidido pelo usuário) — usado SÓ
+// pra dado voltado pra SEO (canonical/OG/sitemap.xml/robots.txt),
+// NUNCA pra link funcional de verdade (checkout do Mercado Pago,
+// etc. — esses continuam via publicBaseUrl(req) acima, que precisa
+// refletir o host que atendeu a requisição de fato, senão homologação
+// mandaria quem está testando um pagamento de volta pra produção no
+// meio do fluxo). Fixo no código de propósito (não por env var): é
+// uma decisão de produto definitiva, não uma configuração de host que
+// muda por ambiente — e evita qualquer chance de página de
+// homologação declarar canonical pra si mesma (o certo é sempre
+// apontar pra produção, mesmo que algo escape do bloqueio abaixo).
+const CANONICAL_SITE_URL = "https://brdata.online";
+
+// Pedido do usuário: homologação nunca deveria aparecer indexada no
+// Google nem ter link nenhum seguido a partir dela — é uma cópia de
+// teste do mesmo conteúdo de produção; indexar as duas seria
+// duplicidade de conteúdo, e pior, hml podia até competir com
+// produção num resultado de busca por engano. Aplica em QUALQUER
+// página HTML servida desse host (raiz, entidades, privacidade,
+// admin) — ver chamadas em serveStatic() e renderShellWithSeo().
+// Redundante de propósito com o Disallow: / do /robots.txt logo
+// abaixo: robots.txt impede a TENTATIVA de rastreio; a meta tag
+// garante que, mesmo se algo escapar disso (um link externo apontando
+// direto pra uma URL de homologação, por exemplo), o Google ainda
+// sabe que não deve indexar nem seguir link nenhum a partir dali.
+function withRobotsMetaIfHomolog(req, html) {
+  if (!isHomologHost(req)) return html;
+  return html.replace("<head>", `<head>\n<meta name="robots" content="noindex, nofollow">`);
 }
 
 // Bootstrap opcional de admin via variável de ambiente — alternativa ao
@@ -408,11 +439,18 @@ function escapeHtml(s) {
 //                           raiz/páginas sem entidade — some o
 //                           marcador sem deixar nada no lugar)
 // canonicalPath já vem tipo "/times/flamengo" (sem domínio) — essa
-// função completa com publicBaseUrl(req), igual o resto do arquivo já
-// faz pros links do Mercado Pago.
+// função completa com CANONICAL_SITE_URL (ver constante acima), não
+// com publicBaseUrl(req) — canonical/OG são sobre SEO, sempre apontam
+// pra produção, diferente dos links funcionais do Mercado Pago (esses
+// sim usam publicBaseUrl(req), precisam refletir o host de verdade).
 async function renderShellWithSeo(req, { title, description, canonicalPath, bodySnapshotHtml, jsonLd }) {
   const html = await fs.promises.readFile(path.join(PUBLIC_DIR, "index.html"), "utf8");
-  const base = publicBaseUrl(req);
+  // CANONICAL_SITE_URL (não publicBaseUrl(req)) de propósito -- ver
+  // comentário grande na constante: canonical/OG sempre apontam pra
+  // produção, mesmo se essa requisição específica veio de
+  // homologação (que além disso já leva noindex/nofollow, ver
+  // withRobotsMetaIfHomolog mais abaixo).
+  const base = CANONICAL_SITE_URL;
   const canonicalUrl = `${base}${canonicalPath}`;
   const ogImage = `${base}/img/logo.png`;
   const ld = jsonLd || {
@@ -444,7 +482,8 @@ async function renderShellWithSeo(req, { title, description, canonicalPath, body
   if (startIdx !== -1 && endIdx !== -1) {
     out = html.slice(0, startIdx + startMarker.length) + "\n" + seoBlock + "\n" + html.slice(endIdx);
   }
-  return out.replace("<!-- SEO:BODY_SNAPSHOT -->", bodySnapshotHtml || "");
+  out = out.replace("<!-- SEO:BODY_SNAPSHOT -->", bodySnapshotHtml || "");
+  return withRobotsMetaIfHomolog(req, out);
 }
 
 function serveStatic(req, res) {
@@ -458,7 +497,7 @@ function serveStatic(req, res) {
       fs.readFile(path.join(PUBLIC_DIR, "index.html"), (e2, data2) => {
         if (e2) { res.writeHead(404); return res.end("Not found"); }
         res.writeHead(200, { "Content-Type": MIME[".html"] });
-        res.end(data2);
+        res.end(withRobotsMetaIfHomolog(req, data2.toString("utf8")));
       });
       return;
     }
@@ -470,6 +509,9 @@ function serveStatic(req, res) {
     // detecta atualização nenhuma.
     if (filePath.endsWith("sw.js")) headers["Cache-Control"] = "no-cache";
     res.writeHead(200, headers);
+    // Todo .html (raiz, privacidade, admin) leva a checagem de
+    // homologação — ver withRobotsMetaIfHomolog acima.
+    if (ext === ".html") return res.end(withRobotsMetaIfHomolog(req, data.toString("utf8")));
     res.end(data);
   });
 }
@@ -532,16 +574,20 @@ const server = http.createServer(async (req, res) => {
     }
 
     // ================= SEO: robots.txt + sitemap.xml =================
-    // AJUSTE (15/08/2026, "Plano de Indexação" — Fase A): rota dinâmica
-    // (não arquivo estático) pra usar publicBaseUrl(req) — mesma função
-    // já usada pros links do Mercado Pago (ver comentário lá em cima) —
-    // e assim funcionar certo em QUALQUER host sem precisar hardcodar
-    // domínio nenhum: homologação (hml-brdata.up.railway.app),
-    // produção no subdomínio padrão do Railway, ou um domínio próprio
-    // customizado depois — todos automaticamente corretos.
+    // AJUSTE (15/08/2026, "Plano de Indexação" — Fase A/B): rota
+    // dinâmica (não arquivo estático) — em produção usa
+    // CANONICAL_SITE_URL (domínio definitivo, decidido pelo usuário:
+    // brdata.online); em homologação (isHomologHost — qualquer host
+    // que comece com "hml") bloqueia rastreio por completo, sem
+    // exceção (pedido do usuário — ver comentário grande na constante
+    // CANONICAL_SITE_URL/withRobotsMetaIfHomolog).
     if (pathname === "/robots.txt") {
-      const base = publicBaseUrl(req);
       res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=3600" });
+      // Homologação: bloqueio TOTAL, sem exceção -- não é conteúdo pra
+      // rastrear de jeito nenhum (ver withRobotsMetaIfHomolog acima
+      // pro porquê). Sem linha de Sitemap: não faz sentido anunciar um
+      // sitemap num host que está pedindo pra não ser rastreado.
+      if (isHomologHost(req)) return res.end(`User-agent: *\nDisallow: /\n`);
       return res.end(
         `User-agent: *\n` +
         `Allow: /\n` +
@@ -549,7 +595,7 @@ const server = http.createServer(async (req, res) => {
         // orçamento de rastreio do robô sem ganho nenhum de SEO.
         `Disallow: /admin\n` +
         `Disallow: /api/\n\n` +
-        `Sitemap: ${base}/sitemap.xml\n`
+        `Sitemap: ${CANONICAL_SITE_URL}/sitemap.xml\n`
       );
     }
 
@@ -561,7 +607,13 @@ const server = http.createServer(async (req, res) => {
     // nesse host, cai pra v1 (só as URLs estáticas) — não tem time
     // nenhum pra listar sem dado ao vivo.
     if (pathname === "/sitemap.xml") {
-      const base = publicBaseUrl(req);
+      // CANONICAL_SITE_URL (não publicBaseUrl(req)) de propósito: o
+      // sitemap é o que se submete pro Google Search Console de
+      // PRODUÇÃO -- sempre lista URLs de produção, não importa de qual
+      // host essa requisição específica veio (evita listar URL de
+      // homologação por engano se alguém bater aqui nesse host, ou de
+      // um domínio auxiliar do Railway).
+      const base = CANONICAL_SITE_URL;
       const today = new Date().toISOString().slice(0, 10);
       const urls = [
         { loc: `${base}/`, changefreq: "daily", priority: "1.0" },
@@ -681,7 +733,7 @@ const server = http.createServer(async (req, res) => {
           jsonLd: {
             "@context": "https://schema.org", "@type": "SportsTeam",
             name: team.name, sport: "Soccer",
-            url: `${publicBaseUrl(req)}/times/${slug}`,
+            url: `${CANONICAL_SITE_URL}/times/${slug}`,
             ...(team.logo ? { logo: team.logo } : {}),
           },
         });
@@ -764,7 +816,7 @@ const server = http.createServer(async (req, res) => {
           jsonLd: {
             "@context": "https://schema.org", "@type": "Person",
             name: player.name,
-            url: `${publicBaseUrl(req)}${canonicalPath}`,
+            url: `${CANONICAL_SITE_URL}${canonicalPath}`,
             ...(player.photo ? { image: player.photo } : {}),
             ...(teamName ? { affiliation: { "@type": "SportsTeam", name: teamName } } : {}),
           },
@@ -786,7 +838,7 @@ const server = http.createServer(async (req, res) => {
       return fs.readFile(path.join(PUBLIC_DIR, "admin.html"), (err, data) => {
         if (err) { res.writeHead(404); return res.end("Not found"); }
         res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
-        res.end(data);
+        res.end(withRobotsMetaIfHomolog(req, data.toString("utf8")));
       });
     }
 
