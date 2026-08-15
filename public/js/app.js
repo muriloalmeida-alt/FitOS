@@ -2164,9 +2164,24 @@ function cancelFavoriteClubEdit() { state.favoriteClubEditing = false; renderFav
 // (favorito OU líder, ver renderFavoriteClubCard) — sem isso, times
 // com uma cor clara (ex: Botafogo preto/BRANCO) deixavam o texto/botão
 // brancos ilegíveis do lado claro do degradê.
+//
+// AJUSTE (pedido do usuário: "O vermelho do Athletico está ruim") --
+// a camada preta ia na MESMA direção do degradê do time (135deg,
+// esquerda->direita), então o preto mais forte (.4) caía bem em cima
+// do brasão/canto esquerdo -- onde mora a cor MAIS pura do time (c1).
+// Pra clubes de vermelho vivo (Flamengo/Athletico, #E30613) isso
+// escurecia o vermelho até virar um bordô sujo, sem necessidade --
+// o nome/subtítulo já tem text-shadow próprio (ver .team-hero-name/
+// .player-hero-name em style.css), então não dependem desse overlay
+// pra legibilidade. Só o lado DIREITO (onde mora c2 -- e o emblema/
+// nota do jogador fica) precisa de reforço, principalmente pra clubes
+// com c2 claro tipo Botafogo (branco). Solução: inverter os dois
+// stops -- preto fraco (.12) perto do brasão/c1, preto forte (.4)
+// perto do c2/lado direito. Preserva a cor real do time onde ela mais
+// aparece e mantém o contraste onde de fato precisa.
 function favClubGradientCSS(team) {
   return `margin-bottom:16px; border:none; color:#fff;
-    background:linear-gradient(135deg, rgba(0,0,0,.4), rgba(0,0,0,.12)), linear-gradient(135deg, ${teamGradientStops(team)});`;
+    background:linear-gradient(135deg, rgba(0,0,0,.12), rgba(0,0,0,.4)), linear-gradient(135deg, ${teamGradientStops(team)});`;
 }
 function favClubBrandedHTML(team, label, rank, pts, buttonHTML) {
   const metaHTML = rank != null ? `<div class="fav-club-active-meta">${rank}º colocado · ${pts} pts</div>` : "";
