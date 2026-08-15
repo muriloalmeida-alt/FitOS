@@ -68,7 +68,15 @@ function normalizeNameForColor(s) {
 function realTeamColor(name, competitionId) {
   const demoTeams = DEMO_DATA_BY_COMPETITION[competitionId]?.teams || [];
   const norm = normalizeNameForColor(name);
-  const match = demoTeams.find(t => normalizeNameForColor(t.name) === norm);
+  // Casa pelo nome OU por qualquer apelido/variação já confirmada em
+  // `aliases` (ver AJUSTE em data.js -- "Athletico PR" no fornecedor
+  // de dado real vs "Athletico Paranaense" aqui, mesmo bug de fundo
+  // que já rendeu o card do Athletico aparecendo VERDE em modo ao
+  // vivo, sem relação nenhuma com a cor real do clube).
+  const match = demoTeams.find(t =>
+    normalizeNameForColor(t.name) === norm ||
+    (t.aliases || []).some(a => normalizeNameForColor(a) === norm)
+  );
   // c3 é OPCIONAL (só clube tricolor de verdade tem, ver AJUSTE em
   // data.js) -- sem incluir aqui, o degradê de 3 cores do modo
   // Exemplo virava 2 cores de novo assim que passava pro modo ao

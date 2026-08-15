@@ -61,14 +61,35 @@ const DEMO_TEAMS = [
   // mesmas cores. Baseie-se no Flamengo") -- c1 alinhado com o
   // vermelho exato do Flamengo (#E30613, antes era #C8102E -- um
   // vermelho parecido mas não igual).
-  { id: "cap", name: "Athletico Paranaense",  short: "CAP", uf: "PR", c1: "#E30613", c2: "#1A1A1A", atk: 1.52, def: 0.94, venue: { name: "Ligga Arena", city: "Curitiba" } },
+  //
+  // BUG CORRIGIDO (pedido do usuário: "O vermelho do Athletico está
+  // ruim" -- dessa vez em modo AO VIVO, não no hero): o card de Clube
+  // Favorito apareceu VERDE pro Athletico com dado real. Causa: em
+  // modo ao vivo, realTeamColor() (ver liveData.js) casa o time pelo
+  // NOME que vem do fornecedor de dado (t.name, sem tradução nenhuma
+  // -- ver mapTeam em adapter.js), e a API-Sports manda esse clube
+  // como "Athletico PR" (nome curto, com espaço, sem "Paranaense"),
+  // não "Athletico Paranaense" como aqui. Sem bater o nome, caía pro
+  // hash antigo (colorForId) -- daí a cor errada (verde, sem relação
+  // nenhuma com o clube). `aliases` guarda variações de nome já
+  // confirmadas vindas de fornecedor de dado real, pra realTeamColor()
+  // também considerar (ver liveData.js) -- só entrou aqui a que já foi
+  // reportada/confirmada; se outro clube aparecer com cor errada em
+  // modo ao vivo, é o mesmo bug -- descobre o nome real (log do
+  // navegador ou rede) e soma um alias novo aqui.
+  { id: "cap", name: "Athletico Paranaense",  short: "CAP", uf: "PR", aliases: ["Athletico PR", "Athletico-PR"], c1: "#E30613", c2: "#1A1A1A", atk: 1.52, def: 0.94, venue: { name: "Ligga Arena", city: "Curitiba" } },
   { id: "cru", name: "Cruzeiro",              short: "CRU", uf: "MG", c1: "#003399", c2: "#FFFFFF", atk: 1.46, def: 0.98, venue: { name: "Mineirão", city: "Belo Horizonte" } },
   { id: "cam", name: "Atlético-MG",           short: "CAM", uf: "MG", c1: "#1A1A1A", c2: "#FFFFFF", atk: 1.51, def: 0.99, venue: { name: "Arena MRV", city: "Belo Horizonte" } },
   { id: "bah", name: "Bahia",                 short: "BAH", uf: "BA", c1: "#1E3A8A", c2: "#FFFFFF", c3: "#DC2626", atk: 1.44, def: 1.02, venue: { name: "Arena Fonte Nova", city: "Salvador" } },
-  { id: "vas", name: "Vasco da Gama",         short: "VAS", uf: "RJ", c1: "#1A1A1A", c2: "#FFFFFF", atk: 1.40, def: 1.05, venue: { name: "São Januário", city: "Rio de Janeiro" } },
+  // "Vasco" sozinho (sem "da Gama") é um apelido comum o bastante em
+  // fornecedor de dado real pra valer a pena já cobrir de antemão.
+  { id: "vas", name: "Vasco da Gama",         short: "VAS", uf: "RJ", aliases: ["Vasco"], c1: "#1A1A1A", c2: "#FFFFFF", atk: 1.40, def: 1.05, venue: { name: "São Januário", city: "Rio de Janeiro" } },
   { id: "flu", name: "Fluminense",            short: "FLU", uf: "RJ", c1: "#8A2432", c2: "#1E7A3D", atk: 1.38, def: 1.08, venue: { name: "Maracanã", city: "Rio de Janeiro" } },
   { id: "san", name: "Santos",                short: "SAN", uf: "SP", c1: "#1A1A1A", c2: "#FFFFFF", atk: 1.35, def: 1.10, venue: { name: "Vila Belmiro", city: "Santos" } },
-  { id: "bra", name: "Bragantino",            short: "BRA", uf: "SP", c1: "#DC2626", c2: "#FFC93C", c3: "#1A1A1A", atk: 1.33, def: 1.12, venue: { name: "Nabi Abi Chedid", city: "Bragança Paulista" } },
+  // Bragantino mudou de nome oficial pra "Red Bull Bragantino" --
+  // fornecedor de dado real tende a usar o nome oficial ou "RB
+  // Bragantino", não o apelido curto que o app usa aqui.
+  { id: "bra", name: "Bragantino",            short: "BRA", uf: "SP", aliases: ["Red Bull Bragantino", "RB Bragantino"], c1: "#DC2626", c2: "#FFC93C", c3: "#1A1A1A", atk: 1.33, def: 1.12, venue: { name: "Nabi Abi Chedid", city: "Bragança Paulista" } },
   { id: "vit", name: "Vitória",               short: "VIT", uf: "BA", c1: "#DC2626", c2: "#1A1A1A", atk: 1.20, def: 1.22, venue: { name: "Barradão", city: "Salvador" } },
   { id: "juv", name: "Juventude",             short: "JUV", uf: "RS", c1: "#1E7A3D", c2: "#FFFFFF", atk: 1.15, def: 1.28, venue: { name: "Alfredo Jaconi", city: "Caxias do Sul" } },
   { id: "mir", name: "Mirassol",              short: "MIR", uf: "SP", c1: "#FFC93C", c2: "#1E7A3D", atk: 1.10, def: 1.30, venue: { name: "Campos Maia", city: "Mirassol" } },
@@ -149,7 +170,7 @@ const DEMO_TEAMS_LA_LIGA = [
 const DEMO_TEAMS_SERIE_B = [
   // AJUSTE: mesmo motivo da entrada de Athletico em DEMO_TEAMS (Série
   // A) -- ver comentário lá.
-  { id: "atp", name: "Athletico Paranaense", short: "CAP", uf: "PR", c1: "#E30613", c2: "#1A1A1A", atk: 1.55, def: 0.85, venue: { name: "Arena da Baixada", city: "Curitiba" } },
+  { id: "atp", name: "Athletico Paranaense", short: "CAP", uf: "PR", aliases: ["Athletico PR", "Athletico-PR"], c1: "#E30613", c2: "#1A1A1A", atk: 1.55, def: 0.85, venue: { name: "Arena da Baixada", city: "Curitiba" } },
   { id: "cta", name: "Coritiba",             short: "CTA", uf: "PR", c1: "#0B6E33", c2: "#FFFFFF", atk: 1.50, def: 0.88, venue: { name: "Couto Pereira", city: "Curitiba" } },
   { id: "cha", name: "Chapecoense",          short: "CHA", uf: "SC", c1: "#1E7A3D", c2: "#FFFFFF", atk: 1.46, def: 0.90, venue: { name: "Arena Condá", city: "Chapecó" } },
   { id: "rem", name: "Remo",                 short: "REM", uf: "PA", c1: "#003DA5", c2: "#FFFFFF", atk: 1.44, def: 0.92, venue: { name: "Baenão", city: "Belém" } },
