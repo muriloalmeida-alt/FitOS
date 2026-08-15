@@ -55,7 +55,14 @@ const DEMO_TEAMS = [
   { id: "vit", name: "Vitória",               short: "VIT", uf: "BA", c1: "#DC2626", c2: "#1A1A1A", atk: 1.20, def: 1.22, venue: { name: "Barradão", city: "Salvador" } },
   { id: "juv", name: "Juventude",             short: "JUV", uf: "RS", c1: "#1E7A3D", c2: "#FFFFFF", atk: 1.15, def: 1.28, venue: { name: "Alfredo Jaconi", city: "Caxias do Sul" } },
   { id: "mir", name: "Mirassol",              short: "MIR", uf: "SP", c1: "#FFC93C", c2: "#1E7A3D", atk: 1.10, def: 1.30, venue: { name: "Campos Maia", city: "Mirassol" } },
-  { id: "cui", name: "Cuiabá",                short: "CUI", uf: "MT", c1: "#1E3A8A", c2: "#FFC93C", atk: 1.08, def: 1.32, venue: { name: "Arena Pantanal", city: "Cuiabá" } },
+  // BUG CORRIGIDO (pedido do usuário: cor de time é identidade, não é
+  // detalhe -- "envolve a paixão dos torcedores"): estava azul/dourado
+  // (#1E3A8A/#FFC93C), sem nenhuma relação com o apelido do clube
+  // ("Dourado") nem com a cor de verdade (verde/dourado). Corrigido
+  // pra bater com a entrada já certa de Cuiabá em DEMO_TEAMS_SERIE_B
+  // logo abaixo (mesmo clube, competição diferente -- tinha ficado
+  // inconsistente entre as 2 listas).
+  { id: "cui", name: "Cuiabá",                short: "CUI", uf: "MT", c1: "#00A650", c2: "#FFC72C", atk: 1.08, def: 1.32, venue: { name: "Arena Pantanal", city: "Cuiabá" } },
 ];
 
 /* 20 clubes de exemplo da Premier League (Inglaterra) — nomes reais,
