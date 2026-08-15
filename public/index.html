@@ -663,12 +663,42 @@
   // Registra o service worker (ver sw.js) — deixa o app instalável e
   // funcionando parcialmente offline. Best-effort: navegador sem
   // suporte (ou erro de registro) não afeta o resto do app.
+  //
+  // AJUSTE (15/08/2026): antes disso, a ÚNICA forma de saber que tinha
+  // versão nova esperando era o botão manual "Atualizar app" (ver
+  // forceRefreshApp em app.js) — que só aparece instalado como PWA E em
+  // modo Exemplo, ou seja, quem abre pelo navegador normal não tinha
+  // pista nenhuma. Bug relatado pelo usuário exigia abrir aba anônima
+  // toda vez pra conferir uma correção nova (cansativo). Agora: assim
+  // que o service worker que está controlando ESSA aba muda pra uma
+  // versão diferente (evento "controllerchange" — dispara sozinho
+  // porque sw.js já usa skipWaiting()+clients.claim(), sem precisar de
+  // postMessage nenhum daqui), mostra um aviso simples oferecendo
+  // recarregar. hadControllerAtLoad existe só pra não disparar isso no
+  // 1º acesso de sempre (aba sem service worker nenhum ainda -> primeiro
+  // controle não é "atualização", é só a 1ª instalação).
   if ("serviceWorker" in navigator) {
+    let hadControllerAtLoad = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (hadControllerAtLoad) showSwUpdateBanner();
+      hadControllerAtLoad = true; // não repete o aviso por engano se disparar de novo
+    });
     window.addEventListener("load", () => {
       navigator.serviceWorker.register("sw.js").catch((err) => {
         console.warn("[pwa] não foi possível registrar o service worker:", err.message);
       });
     });
+  }
+
+  function showSwUpdateBanner() {
+    if (document.getElementById("swUpdateBanner")) return; // já mostrando, não duplica
+    const bar = document.createElement("div");
+    bar.id = "swUpdateBanner";
+    bar.style.cssText = "position:fixed;left:0;right:0;bottom:0;z-index:9999;background:#12121A;color:#fff;padding:12px 16px;display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap;font-size:14px;box-shadow:0 -2px 12px rgba(0,0,0,.35);";
+    bar.innerHTML = `<span>🔄 Nova versão do BR Data disponível.</span>` +
+      `<button type="button" id="swUpdateBtn" style="padding:8px 16px;border-radius:6px;border:none;background:#FFC93C;color:#12121A;font-weight:600;cursor:pointer;">Atualizar agora</button>`;
+    document.body.appendChild(bar);
+    document.getElementById("swUpdateBtn").addEventListener("click", () => location.reload());
   }
 </script>
 </body>

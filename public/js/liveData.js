@@ -110,12 +110,27 @@ async function tryLoadLiveData(season = LIVE_SEASON, competitionId = "brasileira
 // compartilhada entre o card de jogo encerrado (escalação que jogou)
 // e o de jogo futuro (escalação já publicada, quando existir). Lazy
 // e cacheada: só busca quando o card é expandido, e só uma vez.
+// BUG CORRIGIDO (15/08/2026): mesmo padrão do resto deste arquivo (ver
+// AJUSTE em loadPlayersLeaders) — cacheava a PROMISE na hora, então uma
+// falha passageira (ou o jogo ainda não ter escalação publicada, que
+// também devolve {} normalmente) ficava presa em cache pro resto da
+// sessão. Pra escalação isso é ainda mais relevante: {} "ainda não
+// publicada" é um estado que muda com o tempo (a escalação sai perto
+// do jogo) — não cachear o vazio faz o app tentar de novo na próxima
+// vez que o card for expandido, em vez de ficar preso em "não
+// disponível" pro resto da sessão mesmo depois de publicada.
 const fixtureLineupsCache = new Map();
 async function loadFixtureLineups(fixtureId) {
-  if (fixtureLineupsCache.has(fixtureId)) return fixtureLineupsCache.get(fixtureId);
-  const promise = safeFetchJSON(`/api/fixtures/${fixtureId}/lineups`).then(r => r.lineups || {}).catch(() => ({}));
-  fixtureLineupsCache.set(fixtureId, promise);
-  return promise;
+  const cached = fixtureLineupsCache.get(fixtureId);
+  if (cached && Object.keys(cached).length) return cached;
+  try {
+    const data = await safeFetchJSON(`/api/fixtures/${fixtureId}/lineups`);
+    const lineups = data.lineups || {};
+    if (Object.keys(lineups).length) fixtureLineupsCache.set(fixtureId, lineups);
+    return lineups;
+  } catch {
+    return {};
+  }
 }
 
 // Emissora de TV de UM jogo — GET /api/broadcast já tenta EPG
@@ -128,36 +143,48 @@ async function loadFixtureLineups(fixtureId) {
 // futuro. Lazy, cacheada, e tolerante a falha: erro vira null, o
 // front-end cai no texto genérico nesse caso. Resolve pra
 // { station, source } | null.
+// BUG CORRIGIDO (15/08/2026): mesmo padrão do resto deste arquivo —
+// null (falha OU sem emissora achada) não é mais gravado em cache, só
+// o resultado com emissora de verdade.
 const broadcastCache = new Map();
 async function loadBroadcastInfo(dateIso, homeName, awayName, fixtureId) {
   const day = String(dateIso || "").slice(0, 10);
   const key = `${day}:${homeName}:${awayName}:${fixtureId || ""}`;
-  if (broadcastCache.has(key)) return broadcastCache.get(key);
+  const cached = broadcastCache.get(key);
+  if (cached) return cached;
   const fx = fixtureId ? `&fixtureId=${encodeURIComponent(fixtureId)}` : "";
-  const promise = safeFetchJSON(`/api/broadcast?date=${encodeURIComponent(day)}&home=${encodeURIComponent(homeName)}&away=${encodeURIComponent(awayName)}${fx}`)
-    .then(r => r.station ? { station: r.station, source: r.source || null } : null)
-    .catch(() => null);
-  broadcastCache.set(key, promise);
-  return promise;
+  try {
+    const r = await safeFetchJSON(`/api/broadcast?date=${encodeURIComponent(day)}&home=${encodeURIComponent(homeName)}&away=${encodeURIComponent(awayName)}${fx}`);
+    const info = r.station ? { station: r.station, source: r.source || null } : null;
+    if (info) broadcastCache.set(key, info);
+    return info;
+  } catch {
+    return null;
+  }
 }
 
 // Busca estatísticas + gols + substituições + escalação de UM jogo já
 // encerrado — lazy, só quando o usuário expande aquele card em "Jogos".
+// BUG CORRIGIDO (15/08/2026): antes cacheava a PROMISE do Promise.all
+// direto, sem nenhum .catch — se qualquer uma das 3 chamadas falhasse
+// (ex.: 429 do rate-limit de leitura pública), a promise REJEITADA
+// ficava presa em cache pro resto da sessão, e todo mundo que abrisse
+// aquele card de novo esbarrava na mesma rejeição, pra sempre. Agora só
+// entra em cache depois de um sucesso de verdade — falha propaga o
+// erro pra quem chamou (igual antes), mas a PRÓXIMA tentativa busca de
+// novo em vez de reusar a rejeição antiga.
 const fixtureDetailCache = new Map();
 async function loadFixtureDetails(fixtureId, homeId, awayId) {
-  if (fixtureDetailCache.has(fixtureId)) return fixtureDetailCache.get(fixtureId);
-  const promise = Promise.all([
+  const cached = fixtureDetailCache.get(fixtureId);
+  if (cached) return cached;
+  const [statsRes, eventsRes, lineups] = await Promise.all([
     safeFetchJSON(`/api/fixtures/${fixtureId}/statistics?home=${homeId}&away=${awayId}`),
     safeFetchJSON(`/api/fixtures/${fixtureId}/events`),
     loadFixtureLineups(fixtureId),
-  ]).then(([statsRes, eventsRes, lineups]) => ({
-    stats: statsRes.stats,
-    goals: eventsRes.goals,
-    substitutions: eventsRes.substitutions,
-    lineups,
-  }));
-  fixtureDetailCache.set(fixtureId, promise);
-  return promise;
+  ]);
+  const result = { stats: statsRes.stats, goals: eventsRes.goals, substitutions: eventsRes.substitutions, lineups };
+  fixtureDetailCache.set(fixtureId, result);
+  return result;
 }
 
 // Versão mais leve de loadFixtureDetails: só a estatística (sem
@@ -172,12 +199,23 @@ async function loadFixtureStatisticsOnly(fixtureId, homeId, awayId) {
 
 // Busca odds (1X2) de UM jogo específico ainda não realizado — lazy,
 // só quando o card daquela partida é renderizado na tela.
+// BUG CORRIGIDO (15/08/2026): antes cacheava a PROMISE sem nenhum
+// .catch — falha (ex.: 429 do rate-limit de leitura pública) virava
+// uma promise REJEITADA presa em cache pro resto da sessão. Agora só
+// cacheia depois de um sucesso de verdade; falha devolve null (odds
+// ainda não disponíveis é um estado normal/temporário, não erro) e
+// tenta buscar de novo na próxima vez que o card for renderizado.
 const fixtureOddsCache = new Map();
 async function loadFixtureOdds(fixtureId) {
-  if (fixtureOddsCache.has(fixtureId)) return fixtureOddsCache.get(fixtureId);
-  const promise = safeFetchJSON(`/api/fixtures/${fixtureId}/odds`).then(r => r.odds);
-  fixtureOddsCache.set(fixtureId, promise);
-  return promise;
+  const cached = fixtureOddsCache.get(fixtureId);
+  if (cached) return cached;
+  try {
+    const r = await safeFetchJSON(`/api/fixtures/${fixtureId}/odds`);
+    if (r.odds) fixtureOddsCache.set(fixtureId, r.odds);
+    return r.odds;
+  } catch {
+    return null;
+  }
 }
 
 // Histórico de movimentação de odds (gravado pelo próprio backend a
@@ -230,14 +268,23 @@ async function loadPlayersLeaders(season = LIVE_SEASON, competitionId = "brasile
 // teamName opcional — busca notícias só daquele time (usado pelo card
 // "Últimas notícias" do Dashboard quando há um Clube Favorito
 // selecionado); cache separado do feed genérico, por nome de time.
+// BUG CORRIGIDO (15/08/2026): mesmo padrão do resto deste arquivo —
+// lista vazia (falha OU realmente sem notícia nenhuma) não é mais
+// gravada em cache, só um resultado com notícia de verdade.
 const newsCache = new Map(); // chave: "" (genérico) ou nome do time
 async function loadNews(teamName = "") {
   const key = teamName || "";
-  if (newsCache.has(key)) return newsCache.get(key);
-  const url = teamName ? `/api/news?team=${encodeURIComponent(teamName)}` : "/api/news";
-  const promise = safeFetchJSON(url).then(r => r.items || []).catch(() => []);
-  newsCache.set(key, promise);
-  return promise;
+  const cached = newsCache.get(key);
+  if (cached && cached.length) return cached;
+  try {
+    const url = teamName ? `/api/news?team=${encodeURIComponent(teamName)}` : "/api/news";
+    const r = await safeFetchJSON(url);
+    const items = r.items || [];
+    if (items.length) newsCache.set(key, items);
+    return items;
+  } catch {
+    return [];
+  }
 }
 
 // Lista de campeonatos disponíveis (Brasileirão Série A + Série B/C —
@@ -260,21 +307,44 @@ async function loadCompetitionsInfo() {
 // precisa ir junto (ver /api/teams/:id/players em server.js) — alguns
 // fornecedores precisam saber a liga pra resolver estatística de
 // jogador por temporada.
+// BUG CORRIGIDO (15/08/2026): mesmo padrão já corrigido em
+// loadPlayersLeaders (empty array é truthy) — antes cacheava a PROMISE
+// na hora, então qualquer falha passageira (ex.: 429 do rate-limit de
+// leitura pública, ver publicRateLimit.js) virava "" [] permanente pro
+// resto da sessão, sem tentar de novo nunca mais. Relatado pelo
+// usuário como "elenco não disponível". Agora só guarda em cache
+// quando vem elenco de verdade — falha simplesmente tenta buscar de
+// novo na próxima vez que a página desse time abrir.
 const teamRosterCache = new Map();
 async function loadTeamRoster(teamId, season = LIVE_SEASON, competitionId = "brasileirao") {
-  if (teamRosterCache.has(teamId)) return teamRosterCache.get(teamId);
-  const promise = safeFetchJSON(`/api/teams/${teamId}/players?season=${season}&competition=${encodeURIComponent(competitionId)}`).then(r => r.players || []).catch(() => []);
-  teamRosterCache.set(teamId, promise);
-  return promise;
+  const cached = teamRosterCache.get(teamId);
+  if (cached && cached.length) return cached;
+  try {
+    const data = await safeFetchJSON(`/api/teams/${teamId}/players?season=${season}&competition=${encodeURIComponent(competitionId)}`);
+    const players = data.players || [];
+    if (players.length) teamRosterCache.set(teamId, players);
+    return players;
+  } catch (err) {
+    console.warn("[liveData] Não foi possível carregar elenco:", err.message);
+    return [];
+  }
 }
 
 // Busca 1 jogador específico por id — fallback pra quando a página
 // de detalhe do jogador abre pra alguém que não está nem nos líderes
 // (Estatísticas > Jogadores) nem no elenco já carregado de algum time.
+// BUG CORRIGIDO (15/08/2026): mesmo padrão do resto deste arquivo —
+// null (falha OU jogador realmente não encontrado) não é mais gravado
+// em cache, só um resultado com jogador de verdade.
 const singlePlayerCache = new Map();
 async function loadPlayerById(playerId, season = LIVE_SEASON) {
-  if (singlePlayerCache.has(playerId)) return singlePlayerCache.get(playerId);
-  const promise = safeFetchJSON(`/api/players/${playerId}?season=${season}`).then(r => r.player || null).catch(() => null);
-  singlePlayerCache.set(playerId, promise);
-  return promise;
+  const cached = singlePlayerCache.get(playerId);
+  if (cached) return cached;
+  try {
+    const r = await safeFetchJSON(`/api/players/${playerId}?season=${season}`);
+    if (r.player) singlePlayerCache.set(playerId, r.player);
+    return r.player || null;
+  } catch {
+    return null;
+  }
 }

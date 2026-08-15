@@ -17,7 +17,20 @@
    não reescrever isto. */
 
 const WINDOW_MS = 60 * 1000; // 1 minuto
-const MAX_REQUESTS = 60; // por IP, por janela — generoso pra navegação normal (várias chamadas a cada troca de página), baixo o bastante pra travar scraper repetitivo
+// BUG CORRIGIDO (15/08/2026): 60/min "generoso pra navegação normal" na
+// prática não era — relatado pelo usuário como "elenco não disponível"
+// (silencioso: loadTeamRoster/etc. tratam 429 igual qualquer outra
+// falha e caem pra lista vazia, sem aparecer erro nenhum na tela, só o
+// dado sumindo). Causa: SÓ abrir a aba "Jogos" já dispara até 40
+// chamadas de estatística de jogo em segundo plano (ver
+// ensureLeagueCardStats/LEAGUE_STATS_FILL_CAP em app.js, preenche o
+// total de cartões aos poucos), MAIS as 4 do carregamento inicial do
+// dashboard (times/tabela/jogos/artilheiros) — já perto do teto antigo
+// só com isso, antes de visitar time nenhum. Subiu 4x: ainda trava
+// scraper insistindo (250+ requisições/min sustentado é bem acima de
+// qualquer uso humano real), mas dá folga de sobra pra uma sessão
+// normal explorando várias páginas/times sem cair em 429 à toa.
+const MAX_REQUESTS = 240; // por IP, por janela
 
 let windowStart = Date.now();
 let counts = new Map();
