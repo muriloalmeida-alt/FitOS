@@ -11,6 +11,11 @@ node_modules/
 
 # logs
 *.log
+npm-debug.log*
 
-# dados locais (cadastros da área "Apoie o BR Data" — nunca commitar PII)
-server/data/
+# dados locais (usuários, sessões de simulação, banco de perguntas — nunca commitar PII)
+data/
+*.sqlite
+
+# uploads temporários (currículos, áudios)
+tmp/

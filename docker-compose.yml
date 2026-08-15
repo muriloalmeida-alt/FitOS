@@ -1,34 +1,13 @@
 services:
-  brasileirao:
+  interview-lab:
     build: .
-    container_name: brasileirao-2026
-    restart: unless-stopped
-    # Não publica mais a porta 8787 direto na internet — só o Caddy
-    # fica exposto (80/443). Se quiser acessar via localhost:8787
-    # durante testes locais, descomente as duas linhas abaixo.
-    # ports:
-    #   - "8787:8787"
-    expose:
-      - "8787"
-    env_file:
-      - server/.env
-    environment:
-      - PORT=8787
-
-  caddy:
-    image: caddy:2-alpine
-    container_name: brasileirao-caddy
-    restart: unless-stopped
     ports:
-      - "80:80"
-      - "443:443"
+      - '8787:8787'
+    env_file:
+      - .env
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile
-      - caddy_data:/data
-      - caddy_config:/config
-    depends_on:
-      - brasileirao
+      - interview-lab-data:/app/data
+    restart: unless-stopped
 
 volumes:
-  caddy_data:
-  caddy_config:
+  interview-lab-data:

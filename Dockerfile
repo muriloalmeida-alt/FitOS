@@ -1,18 +1,17 @@
-# Imagem mínima — o servidor não tem dependências externas (Node puro)
 FROM node:20-alpine
 
 WORKDIR /app
 
-# Copia backend e frontend
-COPY server/ ./server/
-COPY public/ ./public/
+COPY package.json ./
+RUN npm install --omit=dev
 
-WORKDIR /app/server
+COPY src ./src
 
-# Porta padrão da aplicação (pode ser sobrescrita por env PORT)
+ENV PORT=8787
 EXPOSE 8787
 
-# As variáveis de ambiente reais (API_SPORTS_KEY etc.) devem ser
-# passadas na hora de rodar o container (-e ou --env-file), nunca
-# copiadas para dentro da imagem.
-CMD ["node", "server.js"]
+# Dados locais (usuários, sessões, banco de perguntas) — monte um volume
+# aqui em produção, senão tudo some a cada deploy/restart.
+VOLUME ["/app/data"]
+
+CMD ["node", "src/server.js"]
