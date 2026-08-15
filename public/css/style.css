@@ -508,7 +508,16 @@ h1,h2,h3{ margin:0; }
    de propósito, independente do tema claro/escuro -- mesma lógica do
    Clube Favorito: cor de time pode ser clara (ex: Botafogo tem branco
    como 2ª cor), e a camada escura por baixo já garante contraste. */
-.player-hero{ display:flex; align-items:center; gap:20px; flex-wrap:wrap; position:relative; }
+/* AJUSTE (pedido do usuário: "o hero do jogador pode ter o nome e o
+   clube ao lado da imagem para diminuir a altura") -- antes tinha
+   flex-wrap:wrap, então no mobile (onde foto+corpo não cabiam numa
+   linha só) o corpo (nome/time) quebrava pra debaixo da foto,
+   dobrando a altura do hero. Sem wrap, fica sempre lado a lado (foto
+   | nome+time | nota), em qualquer largura de tela -- .player-hero-
+   body tem min-width:0 (deixa encolher de verdade) e nome/time
+   truncam com reticências se precisar, em vez de forçar quebra de
+   linha. */
+.player-hero{ display:flex; align-items:center; gap:16px; position:relative; }
 .player-hero-photo{
   width:100px; height:100px; border-radius:50%; overflow:hidden; flex-shrink:0;
   background:rgba(255,255,255,.18); border:3px solid rgba(255,255,255,.4);
@@ -516,17 +525,24 @@ h1,h2,h3{ margin:0; }
   font-size:32px; font-weight:800; color:#fff;
 }
 .player-hero-photo img{ width:100%; height:100%; object-fit:cover; }
-.player-hero-body{ min-width:0; flex:1 1 240px; }
+.player-hero-body{ min-width:0; flex:1 1 auto; }
 .player-hero-position{
   display:inline-block; font-size:10px; font-weight:800; letter-spacing:.6px; text-transform:uppercase;
   background:rgba(255,255,255,.2); color:#fff; padding:4px 10px; border-radius:100px; margin-bottom:8px;
 }
-.player-hero-name{ font-size:26px; font-weight:800; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.25); line-height:1.15; margin:0 0 8px; }
-.player-hero-team{ display:inline-flex; align-items:center; gap:8px; font-size:13px; font-weight:700; color:#fff; }
-.player-hero-team .crest{ background:#fff; border-radius:50%; padding:2px; }
+.player-hero-name{
+  font-size:26px; font-weight:800; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.25); line-height:1.15; margin:0 0 8px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.player-hero-team{ display:flex; align-items:center; gap:8px; font-size:13px; font-weight:700; color:#fff; min-width:0; }
+.player-hero-team .team-link{ min-width:0; } /* teamLinkHTML devolve um <span> inline-flex -- também precisa de min-width:0 pra deixar o .tname dentro dele encolher/truncar de verdade */
+.player-hero-team .crest{ background:#fff; border-radius:50%; padding:2px; flex-shrink:0; }
+.player-hero-team .tname{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 /* Nota média (rating), quando o fornecedor tem esse dado -- badge
    circular no canto, mesmo espírito visual do brasão do "Líder do
-   campeonato" (ver .lider-hero .crest-wrap). */
+   campeonato" (ver .lider-hero .crest-wrap). Fica na própria linha
+   do flex (não mais position:absolute) -- margin-left:auto empurra
+   pro canto direito sozinha, sobrando espaço pro corpo encolher. */
 .player-hero-rating{
   display:flex; flex-direction:column; align-items:center; justify-content:center;
   width:60px; height:60px; border-radius:50%; flex-shrink:0; margin-left:auto;
@@ -535,11 +551,13 @@ h1,h2,h3{ margin:0; }
 .player-hero-rating .num{ font-size:18px; font-weight:800; color:#fff; line-height:1; }
 .player-hero-rating .lbl{ font-size:7px; text-transform:uppercase; letter-spacing:.4px; color:rgba(255,255,255,.8); margin-top:2px; }
 @media (max-width:640px){
-  .player-hero{ padding:20px 16px; }
-  .player-hero-photo{ width:76px; height:76px; font-size:24px; }
-  .player-hero-name{ font-size:20px; }
-  .player-hero-rating{ position:absolute; top:20px; right:20px; width:48px; height:48px; }
-  .player-hero-rating .num{ font-size:14px; }
+  .player-hero{ padding:16px 14px; gap:12px; }
+  .player-hero-photo{ width:56px; height:56px; font-size:18px; border-width:2px; }
+  .player-hero-position{ font-size:8.5px; padding:3px 8px; margin-bottom:5px; }
+  .player-hero-name{ font-size:16px; margin-bottom:4px; }
+  .player-hero-team{ font-size:11px; }
+  .player-hero-rating{ width:44px; height:44px; margin-left:8px; }
+  .player-hero-rating .num{ font-size:13px; }
   .player-hero-rating .lbl{ display:none; }
 }
 
@@ -553,24 +571,36 @@ h1,h2,h3{ margin:0; }
    nas MESMAS cores do degradê de fundo, no fallback sem imagem de
    verdade — crestFallback() em app.js), então precisa de um fundo
    sólido neutro por trás pra continuar visível em qualquer time;
-   mesma técnica já usada em .lider-hero .crest-wrap. */
-.team-hero{ display:flex; align-items:center; gap:20px; flex-wrap:wrap; position:relative; }
+   mesma técnica já usada em .lider-hero .crest-wrap.
+
+   AJUSTE (pedido do usuário: "o hero da página de times também pode
+   ter as infos (imagem e conteúdo) lado a lado para diminuir a
+   altura") -- mesmo motivo/fix do .player-hero acima: tirado o
+   flex-wrap, escudo e conteúdo ficam sempre lado a lado (nunca
+   quebra pra debaixo do escudo), nome/subtítulo truncam com
+   reticências se precisar em vez de forçar quebra de linha. */
+.team-hero{ display:flex; align-items:center; gap:16px; position:relative; }
 .team-hero-crest{
   width:100px; height:100px; border-radius:50%; flex-shrink:0; padding:10px;
   background:#fff; display:flex; align-items:center; justify-content:center;
 }
 .team-hero-crest .crest{ width:100% !important; height:100% !important; }
-.team-hero-body{ min-width:0; flex:1 1 240px; }
+.team-hero-body{ min-width:0; flex:1 1 auto; }
 .team-hero-badge{
   display:inline-block; font-size:10px; font-weight:800; letter-spacing:.6px; text-transform:uppercase;
   background:rgba(255,255,255,.2); color:#fff; padding:4px 10px; border-radius:100px; margin-bottom:8px;
 }
-.team-hero-name{ font-size:26px; font-weight:800; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.25); line-height:1.15; margin:0 0 6px; }
-.team-hero-sub{ font-size:13px; font-weight:600; color:rgba(255,255,255,.85); }
+.team-hero-name{
+  font-size:26px; font-weight:800; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.25); line-height:1.15; margin:0 0 6px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.team-hero-sub{ font-size:13px; font-weight:600; color:rgba(255,255,255,.85); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 @media (max-width:640px){
-  .team-hero{ padding:20px 16px; }
-  .team-hero-crest{ width:76px; height:76px; }
-  .team-hero-name{ font-size:20px; }
+  .team-hero{ padding:16px 14px; gap:12px; }
+  .team-hero-crest{ width:56px; height:56px; padding:6px; }
+  .team-hero-badge{ font-size:8.5px; padding:3px 8px; margin-bottom:5px; }
+  .team-hero-name{ font-size:16px; margin-bottom:4px; }
+  .team-hero-sub{ font-size:11px; }
 }
 
 /* "Desempenho na temporada" (card ao lado de "Clube") -- 2 métricas
