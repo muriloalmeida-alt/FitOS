@@ -591,7 +591,17 @@ async function loadCompetitionData(id) {
   modePill.className = "mode-pill " + (LIVE_MODE ? "live" : "demo");
   updateRefreshButtonVisibility();
 
-  state.jogosRound = Math.max(1, firstUndecidedRound() - 1) || 1;
+  // AJUSTE (pedido do usuário: "Na página de jogos está trazendo uma
+  // rodada no passado. Gostaria de usar sempre a data de hoje como
+  // referência e mostrar para a frente como default") -- antes usava
+  // firstUndecidedRound() - 1, ou seja, sempre abria Jogos numa rodada
+  // JÁ ENCERRADA (a última com todo mundo decidido), 1 rodada pra trás
+  // do que o calendário considera "atual". firstUndecidedRound() já
+  // devolve exatamente a rodada de referência certa (primeira com pelo
+  // menos 1 jogo hoje ou no futuro, ver firstUndecidedRoundByCalendar
+  // em modo ao vivo) -- só usar ela direto, sem subtrair, já abre
+  // Jogos "pra frente" a partir de hoje por padrão.
+  state.jogosRound = firstUndecidedRound();
   state.simRound = firstUndecidedRound();
 
   applyCompetitionBranding(id);
