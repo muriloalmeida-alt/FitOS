@@ -494,6 +494,12 @@ h1,h2,h3{ margin:0; }
   color:var(--text-0); font-weight:700; font-size:12.5px; cursor:pointer; font-family:inherit;
   padding:8px 14px 8px 10px; box-shadow:var(--shadow-card);
   transition:background .15s ease, border-color .15s ease, color .15s ease;
+  /* AJUSTE (pedido do usuário: "ajusta o espaçamento do voltar e da
+     mais margem pra ele com relação ao header e o hero") -- antes
+     não tinha margem nenhuma própria: colava direto no hero logo
+     abaixo (só a folga natural de layout inline separava os dois) e
+     dependia só do padding-top de .content pra respirar da topbar. */
+  margin:6px 0 20px;
 }
 .back-link svg{ width:15px; height:15px; flex-shrink:0; }
 .back-link:hover{ background:var(--bg-app); border-color:var(--brd-blue); color:var(--brd-blue); }
