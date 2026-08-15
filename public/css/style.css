@@ -472,8 +472,65 @@ h1,h2,h3{ margin:0; }
 /* Página de detalhe (Time / Jogador) */
 .back-link{ display:inline-flex; align-items:center; gap:4px; background:none; border:none; color:var(--brd-blue); font-weight:700; font-size:12.5px; cursor:pointer; padding:0; font-family:inherit; }
 .back-link:hover{ text-decoration:underline; }
-.player-avatar-lg{ width:64px; height:64px; border-radius:50%; background:linear-gradient(135deg, var(--brd-blue), var(--brd-navy)); display:flex; align-items:center; justify-content:center; color:#fff; font-weight:800; font-size:20px; overflow:hidden; flex-shrink:0; }
-.player-avatar-lg img{ width:100%; height:100%; object-fit:cover; }
+
+/* Hero da página do Jogador (pedido do usuário: "destacar o atleta,
+   sua foto, seu clube e suas estatísticas") -- fundo nas cores do
+   CLUBE do jogador, preenchido via JS (ver playerHeroGradientCSS em
+   app.js -- mesma técnica de degradê + camada escura de legibilidade
+   já usada no card "Clube Favorito" do Dashboard, ver
+   favClubGradientCSS); sem time resolvido, cai pro degradê azul/
+   marinho padrão da marca (definido ali mesmo). Texto sempre branco
+   de propósito, independente do tema claro/escuro -- mesma lógica do
+   Clube Favorito: cor de time pode ser clara (ex: Botafogo tem branco
+   como 2ª cor), e a camada escura por baixo já garante contraste. */
+.player-hero{ display:flex; align-items:center; gap:20px; flex-wrap:wrap; position:relative; }
+.player-hero-photo{
+  width:100px; height:100px; border-radius:50%; overflow:hidden; flex-shrink:0;
+  background:rgba(255,255,255,.18); border:3px solid rgba(255,255,255,.4);
+  display:flex; align-items:center; justify-content:center;
+  font-size:32px; font-weight:800; color:#fff;
+}
+.player-hero-photo img{ width:100%; height:100%; object-fit:cover; }
+.player-hero-body{ min-width:0; flex:1 1 240px; }
+.player-hero-position{
+  display:inline-block; font-size:10px; font-weight:800; letter-spacing:.6px; text-transform:uppercase;
+  background:rgba(255,255,255,.2); color:#fff; padding:4px 10px; border-radius:100px; margin-bottom:8px;
+}
+.player-hero-name{ font-size:26px; font-weight:800; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.25); line-height:1.15; margin:0 0 8px; }
+.player-hero-team{ display:inline-flex; align-items:center; gap:8px; font-size:13px; font-weight:700; color:#fff; }
+.player-hero-team .crest{ background:#fff; border-radius:50%; padding:2px; }
+/* Nota média (rating), quando o fornecedor tem esse dado -- badge
+   circular no canto, mesmo espírito visual do brasão do "Líder do
+   campeonato" (ver .lider-hero .crest-wrap). */
+.player-hero-rating{
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  width:60px; height:60px; border-radius:50%; flex-shrink:0; margin-left:auto;
+  background:rgba(255,255,255,.18); border:2px solid rgba(255,255,255,.4);
+}
+.player-hero-rating .num{ font-size:18px; font-weight:800; color:#fff; line-height:1; }
+.player-hero-rating .lbl{ font-size:7px; text-transform:uppercase; letter-spacing:.4px; color:rgba(255,255,255,.8); margin-top:2px; }
+@media (max-width:640px){
+  .player-hero{ padding:20px 16px; }
+  .player-hero-photo{ width:76px; height:76px; font-size:24px; }
+  .player-hero-name{ font-size:20px; }
+  .player-hero-rating{ position:absolute; top:20px; right:20px; width:48px; height:48px; }
+  .player-hero-rating .num{ font-size:14px; }
+  .player-hero-rating .lbl{ display:none; }
+}
+
+/* "Desempenho na temporada" (card ao lado de "Clube") -- 2 métricas
+   derivadas (gols/jogo, participações em gol/jogo -- gols+assistências
+   por jogo), só aparecem com pelo menos 1 jogo disputado (ver
+   playerPerfHTML em app.js: sem "games", nem dá pra dividir por
+   zero). */
+.player-perf-stats{ display:flex; gap:28px; margin-top:14px; }
+.player-perf-stats .v{ display:block; font-size:20px; font-weight:800; color:var(--text-0); }
+.player-perf-stats .l{ display:block; font-size:10.5px; color:var(--text-2); text-transform:uppercase; letter-spacing:.4px; margin-top:2px; }
+
+/* 5ª cor de ícone de KPI (só as 4 já existiam: blue/green/yellow/navy)
+   -- Cartões (página do Jogador) usa vermelho por associação óbvia com
+   cartão vermelho, ver renderPlayerPage. */
+.kpi .ico.red{ background:rgba(217,45,32,.1); color:var(--brd-red); }
 
 /* Elenco (lista de jogadores clicáveis na página do time, dentro de
    .table-std — ver playerRosterRowHTML em app.js) */

@@ -659,16 +659,28 @@
         </div>
       </section>
 
-      <!-- ================= DETALHE DO JOGADOR ================= -->
+      <!-- ================= DETALHE DO JOGADOR =================
+           AJUSTE (pedido do usuário: "página de jogadores mais
+           atrativa... destacar o atleta, sua foto, seu clube e suas
+           estatísticas") — reconstruída do zero: antes era só um
+           cabeçalho pequeno (avatar 64px + nome) seguido de uma
+           grade de KPI genérica. Agora tem um HERO em destaque
+           (.player-hero, ver renderPlayerPage em app.js) com foto
+           grande, nota em badge circular e fundo nas CORES DO CLUBE
+           do jogador (mesma técnica já usada no card "Clube Favorito"
+           do Dashboard, ver favClubGradientCSS) — sem time resolvido,
+           cai pro degradê azul/marinho padrão da marca. Todo o
+           conteúdo do hero e dos cards abaixo é montado via JS
+           (dados só chegam depois de resolvePlayer), por isso os 3
+           containers ficam vazios aqui -- só a casca estática. -->
       <section class="page" id="page-jogador">
         <button class="back-link" onclick="goBackFromDetail()">← Voltar</button>
-        <div class="page-head" style="margin-top:8px;">
-          <div style="display:flex; align-items:center; gap:14px;">
-            <div id="playerPageAvatar"></div>
-            <div><h1 id="playerPageName">Jogador</h1><div class="sub" id="playerPageSub"></div></div>
-          </div>
+        <div class="card player-hero" id="playerHero" style="margin-bottom:16px;"></div>
+        <div class="grid grid-kpi" id="playerPageKpis" style="margin-bottom:16px;"></div>
+        <div class="grid grid-2">
+          <div class="card"><div class="card-head"><h3>Clube</h3></div><div id="playerPageTeamCard"></div></div>
+          <div class="card"><div class="card-head"><h3>Desempenho na temporada</h3></div><div id="playerPagePerf"></div></div>
         </div>
-        <div id="playerPageBody"></div>
       </section>
 
       <!-- ================= MAIS (menu mobile) ================= -->

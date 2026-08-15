@@ -3103,41 +3103,123 @@ async function resolvePlayer(playerId) {
   }
   return loadPlayerById(playerId);
 }
+// Fundo do hero do Jogador nas cores do CLUBE (ver .player-hero no
+// CSS) -- reaproveita a MESMA técnica (degradê + camada escura de
+// legibilidade) já usada no card "Clube Favorito" do Dashboard, ver
+// favClubGradientCSS logo acima. Sem time resolvido, team||{} faz
+// favClubGradientCSS cair nos defaults dela mesma (azul/marinho da
+// marca) -- não precisa duplicar esse fallback aqui.
+function playerHeroGradientCSS(team) { return favClubGradientCSS(team || {}); }
+
+function playerHeroHTML(player, team) {
+  const photoHTML = player.photo ? `<img src="${escAttr(player.photo)}" alt="">` : initialsOf(player.name);
+  const posLabel = translatePosition(player.position);
+  const ratingHTML = player.rating != null
+    ? `<div class="player-hero-rating"><div class="num">${Number(player.rating).toFixed(1)}</div><div class="lbl">Nota</div></div>`
+    : "";
+  return `
+    <div class="player-hero-photo">${photoHTML}</div>
+    <div class="player-hero-body">
+      ${posLabel ? `<div class="player-hero-position">${posLabel}</div>` : ""}
+      <h1 class="player-hero-name">${player.name}</h1>
+      ${team ? `<div class="player-hero-team">${teamLinkHTML(team, 22)}</div>` : ""}
+    </div>
+    ${ratingHTML}`;
+}
+
+// 5 KPIs (antes eram 4: faltava "Jogos" -- estatística básica pra
+// avaliar o atleta, omitida sem motivo na versão anterior da página).
+// fmt(): "—" pro fornecedor que não tem esse dado preenchido ainda
+// (em vez de mostrar em branco ou "null" cru) -- ver aviso grande em
+// server/src/providers/sportmonks.js sobre getPlayer() não trazer
+// estatística nenhuma quando o jogador é resolvido direto por ID (link
+// compartilhado/SEO), sem passar pelos artilheiros/elenco (que têm
+// fonte própria, mais completa).
+function playerKpisHTML(player) {
+  const fmt = (n) => (n == null ? "—" : n);
+  return `
+    <div class="card kpi"><div class="ico navy">🏟️</div><div><div class="lbl">Jogos</div><div class="val">${fmt(player.games)}</div></div></div>
+    <div class="card kpi"><div class="ico green">⚽</div><div><div class="lbl">Gols</div><div class="val">${fmt(player.goals)}</div></div></div>
+    <div class="card kpi"><div class="ico blue">🎯</div><div><div class="lbl">Assistências</div><div class="val">${fmt(player.assists)}</div></div></div>
+    <div class="card kpi"><div class="ico red">🟨</div><div><div class="lbl">Cartões</div><div class="val">${fmt(player.yellow)} <small>/ ${fmt(player.red)} 🟥</small></div></div></div>
+    <div class="card kpi"><div class="ico yellow">⭐</div><div><div class="lbl">Nota média</div><div class="val">${player.rating != null ? Number(player.rating).toFixed(1) : "—"}</div></div></div>`;
+}
+
+function playerTeamCardHTML(team) {
+  if (!team) return `<div class="empty">Sem clube associado no momento.</div>`;
+  // BUG CORRIGIDO (achado testando modo Exemplo): standings tem "rank"
+  // preenchido só em modo ao vivo (vem pronto do fornecedor) -- em
+  // modo Exemplo, computeStandings() (engine.js) devolve o array JÁ
+  // ordenado mas sem nenhum campo "rank" (a posição é implícita no
+  // índice) -- "row.rank" dava "undefinedº colocado" ali. Mesmo
+  // espírito do padrão já usado em renderTeamPage (acha a posição pelo
+  // ÍNDICE no array ordenado, não por um campo que só existe em 1 dos
+  // 2 modos) -- só que aqui com String() nos dois lados da comparação:
+  // computeStandings() (engine.js) monta suas linhas via
+  // Object.keys(TEAM_MAP), que SEMPRE devolve string (mesmo se
+  // team.id for número, caso comum em modo ao vivo) -- comparação
+  // estrita (===) sem o String() nunca bate nesse caso (number !==
+  // string mesmo com o mesmo valor), e a posição do time some da
+  // página sem erro nenhum pra avisar.
+  const standings = currentStandings();
+  const idx = standings.findIndex(r => String(r.id) === String(team.id));
+  const row = idx === -1 ? null : standings[idx];
+  return `
+    <div style="display:flex; align-items:center; gap:14px; margin-bottom:14px;">
+      ${crestEl(team, 52)}
+      <div>
+        <div style="font-size:16px; font-weight:800; color:var(--text-0);">${team.name}</div>
+        ${row ? `<div class="sub">${idx + 1}º colocado · ${row.pts} pts</div>` : ""}
+      </div>
+    </div>
+    <div class="card-link" onclick="goToTeam('${team.id}')" style="display:inline-block;">Ver página do time →</div>`;
+}
+
+// Só aparece com pelo menos 1 jogo disputado (sem "games", nem dá pra
+// dividir por zero -- e um "0.00 gols/jogo" não ajuda em nada quem tá
+// olhando). Reaproveita statBarRow (mesmo helper das estatísticas de
+// partida) pra comparar Gols x Assistências visualmente.
+function playerPerfHTML(player) {
+  const games = Number(player.games) || 0;
+  if (!games) return `<div class="empty">Estatísticas dessa temporada ainda não disponíveis.</div>`;
+  const goals = Number(player.goals) || 0;
+  const assists = Number(player.assists) || 0;
+  const perGame = (n) => (n / games).toFixed(2);
+  return `
+    ${statBarRow("Gols x Assistências", goals, assists)}
+    <div class="player-perf-stats">
+      <div><span class="v">${perGame(goals)}</span><span class="l">Gols/jogo</span></div>
+      <div><span class="v">${perGame(goals + assists)}</span><span class="l">Participações/jogo</span></div>
+    </div>`;
+}
+
 async function renderPlayerPage() {
   const playerId = state.selectedPlayerId;
-  document.getElementById("playerPageAvatar").innerHTML = `<div class="player-avatar-lg">${initialsOf("")}</div>`;
-  document.getElementById("playerPageName").textContent = "Carregando...";
-  document.getElementById("playerPageSub").textContent = "";
-  document.getElementById("playerPageBody").innerHTML = "";
+  const heroBox = document.getElementById("playerHero");
+  heroBox.style.cssText = playerHeroGradientCSS(null);
+  heroBox.innerHTML = `<div class="player-hero-photo">${initialsOf("")}</div><div class="player-hero-body"><h1 class="player-hero-name">Carregando...</h1></div>`;
+  document.getElementById("playerPageKpis").innerHTML = "";
+  document.getElementById("playerPageTeamCard").innerHTML = "";
+  document.getElementById("playerPagePerf").innerHTML = "";
 
   const player = await resolvePlayer(playerId);
   if (state.selectedPlayerId !== playerId) return; // usuário já trocou de jogador enquanto carregava
 
   if (!player) {
-    document.getElementById("playerPageAvatar").innerHTML = `<div class="player-avatar-lg">?</div>`;
-    document.getElementById("playerPageName").textContent = "Jogador não encontrado";
-    document.getElementById("playerPageBody").innerHTML = `<div class="card empty">Não temos estatísticas detalhadas desse jogador ainda.</div>`;
+    heroBox.style.cssText = playerHeroGradientCSS(null);
+    heroBox.innerHTML = `<div class="player-hero-photo">?</div><div class="player-hero-body"><h1 class="player-hero-name">Jogador não encontrado</h1></div>`;
+    document.getElementById("playerPageTeamCard").innerHTML = `<div class="empty">Não temos estatísticas detalhadas desse jogador ainda.</div>`;
     return;
   }
 
   const team = TEAM_MAP[player.teamId];
   syncPlayerUrl(playerId, team); // URL na barra de endereço só fica certa (aninhada em time) depois daqui -- ver aviso em syncUrlForPage
-  document.getElementById("playerPageAvatar").innerHTML = `<div class="player-avatar-lg">${player.photo ? `<img src="${player.photo}" alt="">` : initialsOf(player.name)}</div>`;
-  document.getElementById("playerPageName").textContent = player.name;
-  document.getElementById("playerPageSub").innerHTML = [
-    team ? teamLinkHTML(team, 18) : "",
-    translatePosition(player.position),
-  ].filter(Boolean).join(" · ");
 
-  document.getElementById("playerPageBody").innerHTML = `
-    <div class="grid grid-kpi" style="margin-bottom:16px;">
-      <div class="card kpi"><div class="ico green">⚽</div><div><div class="lbl">Gols</div><div class="val">${player.goals}</div></div></div>
-      <div class="card kpi"><div class="ico blue">🎯</div><div><div class="lbl">Assistências</div><div class="val">${player.assists}</div></div></div>
-      <div class="card kpi"><div class="ico yellow">🟨</div><div><div class="lbl">Cartões amarelos</div><div class="val">${player.yellow}</div></div></div>
-      <div class="card kpi"><div class="ico navy">🟥</div><div><div class="lbl">Cartões vermelhos</div><div class="val">${player.red || 0}</div></div></div>
-      <div class="card kpi"><div class="ico blue">⭐</div><div><div class="lbl">Nota média</div><div class="val">${player.rating != null ? player.rating.toFixed(1) : "-"}</div></div></div>
-    </div>
-    ${team ? `<div class="card-link" onclick="goToTeam('${team.id}')" style="display:inline-block;">Ver página de ${team.name} →</div>` : ""}`;
+  heroBox.style.cssText = playerHeroGradientCSS(team);
+  heroBox.innerHTML = playerHeroHTML(player, team);
+  document.getElementById("playerPageKpis").innerHTML = playerKpisHTML(player);
+  document.getElementById("playerPageTeamCard").innerHTML = playerTeamCardHTML(team);
+  document.getElementById("playerPagePerf").innerHTML = playerPerfHTML(player);
 }
 
 /* ================= SELECTS (comparador / radar / forma / e-se) ================= */
