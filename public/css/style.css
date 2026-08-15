@@ -86,24 +86,31 @@ h1,h2,h3{ margin:0; }
    separando visualmente do menu (era só um espaço em branco antes,
    sem nenhuma âncora visual de "isso aqui é o cabeçalho").
 
-   AJUSTE 2 (pedido do usuário): lockup HORIZONTAL de verdade — o
-   usuário forneceu a imagem pronta (ícone + "BR DATA" já desenhados
-   juntos, efeito/fonte definitivos), img/brand-horizontal.png:
-   recortada (removido o excesso de fundo e uma faísca decorativa do
-   canto que vinha na imagem original) E com o fundo navy sólido
-   removido via chroma-key (virou PNG transparente) — o navy da
-   imagem original batia com o tema claro (--bg-sidebar do light),
-   mas destoava do tema escuro (--bg-sidebar do dark é bem mais
-   escuro/preto), criando uma "caixa" visível ao redor da logo no
-   modo escuro; transparente, a logo se funde com o fundo em
-   qualquer tema. 64px de altura — bem maior que antes (~2x o
-   tamanho da 1ª tentativa horizontalizada) — pedido explícito do
-   usuário: "dá pra aumentar e dar mais destaque". */
+   AJUSTE 3 (pedido do usuário: "a logo... visualmente parece torta,
+   imagem e texto") — a AJUSTE 2 usava "BR DATA" já desenhado dentro
+   da imagem do usuário (img/brand-horizontal.png); o texto em si
+   media reto pixel a pixel, mas o ÍCONE daquela imagem é bem mais
+   alto que o texto (silhueta de escudo, não um retângulo), e não dava
+   pra realinhar isso com precisão numa imagem já teria fundida —
+   sobrava um desequilíbrio vertical entre ícone e texto que lia como
+   "torto". Voltou a ser ícone (img/brand-icon.png — só a peça do
+   escudo/seta da mesma imagem do usuário, recorte limpo) + "BR DATA"
+   em TEXTO DE VERDADE (.brand-word, fonte Sora do resto do app):
+   texto renderizado nunca fica torto (não é pixel de imagem), e
+   align-items:center do flexbox centraliza o ícone de verdade em vez
+   de depender de recorte manual. 64px de altura no ícone — mesmo
+   tamanho de destaque já pedido antes ("dá pra aumentar e dar mais
+   destaque"), só a técnica de composição que mudou. */
 .sidebar-brand{
   display:flex; flex-direction:column; align-items:flex-start; gap:10px;
   padding:14px 8px 20px; margin-bottom:6px; border-bottom:1px solid rgba(255,255,255,.08);
 }
-.brand-logo-h{ height:64px; width:auto; }
+.brand-lockup{ display:flex; align-items:center; gap:10px; }
+.brand-icon{ height:44px; width:auto; flex-shrink:0; }
+.brand-word{
+  font-family:var(--font); font-weight:800; font-size:26px; letter-spacing:.2px;
+  color:#fff; line-height:1;
+}
 .brand-tagline{ font-size:9.5px; color:#8FA3C7; letter-spacing:.8px; text-transform:uppercase; font-weight:600; white-space:nowrap; }
 
 .side-label{ font-size:10.5px; text-transform:uppercase; letter-spacing:.8px; color:#7E90B3; font-weight:600; margin:16px 10px 8px; }
@@ -175,10 +182,10 @@ h1,h2,h3{ margin:0; }
 .avatar .circ{ width:32px; height:32px; border-radius:50%; background:linear-gradient(135deg, var(--brd-blue), var(--brd-navy)); color:#fff; display:flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; }
 .avatar span{ font-size:13px; font-weight:600; }
 .mobile-only{ display:none; }
-/* Mesma imagem do sidebar (ver AJUSTE 2 lá) — img/brand-horizontal.png,
-   fornecida pelo usuário. */
+/* Mesmo lockup ícone+texto do sidebar (ver AJUSTE 3 lá). */
 .topbar-brand{ align-items:center; gap:8px; margin-right:auto; }
-.topbar-brand .brand-logo-h{ height:46px; width:auto; }
+.topbar-brand .brand-icon{ height:32px; width:auto; }
+.topbar-brand .brand-word{ font-size:19px; }
 
 .search-results{
   position:absolute; top:56px; right:220px; width:260px; background:var(--bg-surface); border:1px solid var(--border);
@@ -473,9 +480,23 @@ h1,h2,h3{ margin:0; }
 .team-link{ display:inline-flex; align-items:center; gap:6px; }
 .clickable-team:hover .tname, .clickable-team:hover, .clickable-player:hover{ text-decoration:underline; }
 
-/* Página de detalhe (Time / Jogador) */
-.back-link{ display:inline-flex; align-items:center; gap:4px; background:none; border:none; color:var(--brd-blue); font-weight:700; font-size:12.5px; cursor:pointer; padding:0; font-family:inherit; }
-.back-link:hover{ text-decoration:underline; }
+/* Página de detalhe (Time / Jogador) -- AJUSTE (pedido do usuário:
+   "não estou contente com o voltar entre as páginas esteticamente")
+   -- era só texto azul sublinhado no hover, meio perdido logo acima
+   do hero colorido novo. Virou um botão de verdade (pill, com fundo/
+   borda/sombra, igual aos outros botões secundários do app --
+   .roster-toggle-btn é a referência mais próxima), com um ícone de
+   seta (SVG, não mais o caractere "←") -- fica mais fácil de bater o
+   olho e reconhecer como botão, não só um link de texto solto. */
+.back-link{
+  display:inline-flex; align-items:center; gap:6px;
+  background:var(--bg-surface); border:1px solid var(--border); border-radius:100px;
+  color:var(--text-0); font-weight:700; font-size:12.5px; cursor:pointer; font-family:inherit;
+  padding:8px 14px 8px 10px; box-shadow:var(--shadow-card);
+  transition:background .15s ease, border-color .15s ease, color .15s ease;
+}
+.back-link svg{ width:15px; height:15px; flex-shrink:0; }
+.back-link:hover{ background:var(--bg-app); border-color:var(--brd-blue); color:var(--brd-blue); }
 
 /* Hero da página do Jogador (pedido do usuário: "destacar o atleta,
    sua foto, seu clube e suas estatísticas") -- fundo nas cores do

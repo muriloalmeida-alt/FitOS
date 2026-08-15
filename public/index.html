@@ -258,23 +258,25 @@
   <!-- ================= SIDEBAR ================= -->
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-brand">
-      <!-- AJUSTE (pedido do usuário): lockup HORIZONTAL de verdade
-           (ícone + "BR DATA" já desenhados juntos numa peça só,
-           imagem fornecida pelo usuário) — substituiu tanto a
-           img/logo.png empilhada (ícone em cima, texto embaixo,
-           desperdiçava largura no cabeçalho) quanto a 1ª tentativa
-           daqui (ícone recortado + texto em CSS por cima, ver
-           histórico) — o usuário mandou o lockup horizontal já
-           pronto com o efeito/fonte definitivos, então usar a imagem
-           direto (só recortada, removendo o excesso de fundo/uma
-           faísca decorativa no canto que vinha na imagem original)
-           bate exatamente com o pedido, sem tentar recriar em CSS.
-           Fundo navy sólido da imagem também foi removido via
-           chroma-key (PNG transparente) pra combinar com os dois
-           temas (o navy original só batia com o --bg-sidebar do
-           tema claro; no escuro sobrava uma "caixa" visível ao
-           redor da logo — ver CSS pra detalhe). -->
-      <img class="brand-logo-h" src="img/brand-horizontal.png" alt="BR Data">
+      <!-- AJUSTE (pedido do usuário: "a logo... visualmente parece
+           torta, imagem e texto") — voltou a ser ícone (recorte
+           limpo da imagem fornecida pelo usuário, só a peça do
+           escudo/seta, sem o texto) + "BR DATA" em TEXTO DE VERDADE
+           (CSS, fonte Sora do resto do app). A versão anterior usava
+           a palavra "BR DATA" já desenhada dentro da imagem do
+           usuário — medindo os pixels, o texto em si estava reto,
+           mas o ícone (bem mais alto que o texto) não tinha como ser
+           realinhado com precisão dentro de uma imagem já pronta, e
+           o resultado ficava com um desequilíbrio vertical entre
+           ícone e texto que lia como "torto". Texto em CSS elimina
+           esse problema de vez: sempre nasce nivelado (não é pixel
+           de imagem, é fonte renderizada), e o ícone é centralizado
+           nele via flexbox (align-items:center), que centraliza de
+           verdade em vez de depender de recorte manual. -->
+      <div class="brand-lockup">
+        <img class="brand-icon" src="img/brand-icon.png" alt="">
+        <span class="brand-word">BR DATA</span>
+      </div>
       <span class="brand-tagline">Estatísticas · Odds · Simulações</span>
     </div>
 
@@ -315,7 +317,8 @@
   <div class="main">
     <header class="topbar">
       <div class="topbar-brand mobile-only">
-        <img class="brand-logo-h" src="img/brand-horizontal.png" alt="BR Data">
+        <img class="brand-icon" src="img/brand-icon.png" alt="">
+        <span class="brand-word">BR DATA</span>
       </div>
       <button class="hamburger" id="btnHamburger">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
@@ -608,7 +611,7 @@
            continua exatamente igual, sem mudança nenhuma de conteúdo
            -- só o cabeçalho foi reconstruído. -->
       <section class="page" id="page-time">
-        <button class="back-link" onclick="goBackFromDetail()">← Voltar</button>
+        <button class="back-link" onclick="goBackFromDetail()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Voltar</button>
         <div class="card team-hero" id="teamHero" style="margin-bottom:16px;"></div>
         <div class="grid grid-kpi" id="teamPageKpis" style="margin-bottom:16px;"></div>
         <div class="grid grid-3" style="margin-bottom:16px;">
@@ -681,7 +684,7 @@
            (dados só chegam depois de resolvePlayer), por isso os 3
            containers ficam vazios aqui -- só a casca estática. -->
       <section class="page" id="page-jogador">
-        <button class="back-link" onclick="goBackFromDetail()">← Voltar</button>
+        <button class="back-link" onclick="goBackFromDetail()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Voltar</button>
         <div class="card player-hero" id="playerHero" style="margin-bottom:16px;"></div>
         <div class="grid grid-kpi" id="playerPageKpis" style="margin-bottom:16px;"></div>
         <div class="grid grid-2">
