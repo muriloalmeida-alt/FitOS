@@ -693,6 +693,41 @@
         </div>
       </section>
 
+      <!-- ================= DETALHE DA PARTIDA =================
+           Pedido do usuário (15/08/2026, junto com a página indexável
+           /jogos/:fixtureId, ver GET /jogos/:fixtureId em server.js):
+           "manter o destaque para as infos de horário e transmissão e
+           podemos trazer as infos de escalação provável e os campos
+           de botão em uma segunda posição. Mantenha o layout com
+           heros, logos e cores". Hero (.match-hero, ver
+           matchHeroGradientCSS/matchHeroHTML em app.js) mostra os 2
+           times um de cada lado, nas cores de CADA clube (degradê
+           dividido ao meio -- diferente do hero de Time/Jogador, que
+           só tem 1 time pra colorir). Horário e transmissão logo
+           abaixo do hero (1ª posição/destaque); escalação provável e
+           o campinho "jogo de botão" (ver formationPitchHTML, já
+           usado na página do Time) vêm depois (2ª posição). -->
+      <section class="page" id="page-partida">
+        <button class="back-link" onclick="goBackFromDetail()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Voltar</button>
+        <div class="card match-hero" id="matchHero" style="margin-bottom:16px;"></div>
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-head"><h3>Horário e transmissão</h3></div>
+          <div id="matchPageSchedule"></div>
+        </div>
+        <div class="card" id="matchPageResultCard" style="margin-bottom:16px; display:none;">
+          <div class="card-head"><h3>Resultado</h3></div>
+          <div id="matchPageResult"></div>
+        </div>
+        <div class="card" style="margin-bottom:16px;">
+          <div class="card-head"><h3>Escalação provável</h3></div>
+          <div id="matchPageLineups"></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h3>⚽ Jogo de botão</h3></div>
+          <div id="matchPageButtonPitch"></div>
+        </div>
+      </section>
+
       <!-- ================= MAIS (menu mobile) ================= -->
       <section class="page" id="page-mais">
         <div class="page-head"><div><h1>Mais</h1><div class="sub">Ferramentas e configurações</div></div></div>

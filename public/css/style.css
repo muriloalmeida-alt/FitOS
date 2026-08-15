@@ -609,6 +609,42 @@ h1,h2,h3{ margin:0; }
   .team-hero-sub{ font-size:11px; }
 }
 
+/* Hero da página da Partida (pedido do usuário, 15/08/2026: "manter o
+   destaque para as infos de horário e transmissão... mantenha o
+   layout com heros, logos e cores"). Diferente do .team-hero/
+   .player-hero acima (só 1 time pra colorir): aqui são 2 times, um de
+   cada lado -- fundo é um degradê DIVIDIDO ao meio, metade nas cores
+   do mandante, metade nas do visitante (ver matchHeroGradientCSS em
+   app.js), pra carregar a identidade visual dos 2 clubes ao mesmo
+   tempo, não só de um. Sempre em linha (crest | placar/vs | crest),
+   mesmo espírito "nunca quebra pra baixo" do team-hero/player-hero
+   (altura baixa em qualquer tela). */
+.match-hero{ display:flex; align-items:center; justify-content:space-between; gap:10px; position:relative; }
+.match-hero-side{ display:flex; flex-direction:column; align-items:center; gap:8px; flex:1 1 0; min-width:0; }
+.match-hero-side .crest{ background:#fff; border-radius:50%; padding:8px; }
+.match-hero-team-name{
+  font-size:14px; font-weight:800; color:#fff; text-align:center; text-shadow:0 1px 3px rgba(0,0,0,.25);
+  max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.match-hero-center{ display:flex; flex-direction:column; align-items:center; gap:4px; flex:0 0 auto; padding:0 6px; min-width:0; }
+.match-hero-badge{
+  display:inline-block; font-size:9.5px; font-weight:800; letter-spacing:.6px; text-transform:uppercase;
+  background:rgba(255,255,255,.2); color:#fff; padding:3px 9px; border-radius:100px;
+}
+.match-hero-score{ font-size:26px; font-weight:800; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.25); line-height:1.2; white-space:nowrap; }
+.match-hero-score .dash{ opacity:.7; font-weight:600; margin:0 2px; }
+.match-hero-vs{ font-size:16px; font-weight:800; color:rgba(255,255,255,.85); }
+.match-hero-date{ font-size:11px; font-weight:600; color:rgba(255,255,255,.85); white-space:nowrap; }
+@media (max-width:640px){
+  .match-hero{ padding:16px 10px; gap:6px; }
+  .match-hero-side .crest{ width:44px !important; height:44px !important; padding:5px; }
+  .match-hero-team-name{ font-size:11px; }
+  .match-hero-badge{ font-size:8px; padding:2px 7px; }
+  .match-hero-score{ font-size:19px; }
+  .match-hero-vs{ font-size:13px; }
+  .match-hero-date{ font-size:9.5px; }
+}
+
 /* "Desempenho na temporada" (card ao lado de "Clube") -- 2 métricas
    derivadas (gols/jogo, participações em gol/jogo -- gols+assistências
    por jogo), só aparecem com pelo menos 1 jogo disputado (ver
@@ -661,6 +697,12 @@ h1,h2,h3{ margin:0; }
   .button-disc{ width:30px; height:30px; font-size:11px; }
   .btn-name{ font-size:8.8px; }
 }
+/* 2 campinhos de "jogo de botão" empilhados (mandante e visitante),
+   ver "⚽ Jogo de botão" na página da Partida (matchLineupsSection em
+   app.js) -- .button-pitch já é o campinho de 1 time só (reaproveitado
+   sem alteração, mesmo usado na página do Time). */
+.button-pitch-team-label{ font-size:11px; font-weight:800; color:var(--text-1); margin:0 0 8px; text-transform:uppercase; letter-spacing:.4px; }
+.button-pitch-team-label:not(:first-child){ margin-top:20px; }
 
 /* Barras de probabilidade */
 .prob-row{ margin-bottom:12px; }

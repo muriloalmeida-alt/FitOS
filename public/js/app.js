@@ -1673,39 +1673,28 @@ function fullMatchCardHTML(m) {
       </div>
       <div class="match-meta">${metaHTML}</div>
       ${m.pending ? matchOddsStripHTML(m) : ""}
-      <button class="match-toggle" onclick="toggleMatchExpand('${domId}')">${m.expanded ? "Ocultar detalhes ▴" : "Ver detalhes ▾"}</button>
-      <div class="match-detail" style="display:${m.expanded ? "block" : "none"};">${detailHTML}</div>
+      ${m.fixtureId
+        ? `<button class="match-toggle" onclick="goToMatch('${m.fixtureId}')">Ver detalhes →</button>`
+        : `<button class="match-toggle" onclick="toggleMatchExpand('${domId}')">${m.expanded ? "Ocultar detalhes ▴" : "Ver detalhes ▾"}</button>
+      <div class="match-detail" style="display:${m.expanded ? "block" : "none"};">${detailHTML}</div>`}
     </div>`;
 }
 const MATCH_REGISTRY = {};
-// opts.skipUrlSync: usado só por goToMatch (URL já é a certa, veio
-// dela mesma via applyRouteFromLocation) -- um clique manual do
-// usuário em "Ver detalhes"/"Ocultar detalhes" (sem opts) sincroniza
-// a URL normalmente, ver syncMatchUrl.
-function toggleMatchExpand(domId, opts = {}) {
+// AJUSTE (pedido do usuário, 15/08/2026: "manter o layout com heros,
+// logos e cores... escalação provável e campos de botão em segunda
+// posição") -- partida com fixtureId (modo ao vivo) agora tem página
+// própria de verdade (ver goToMatch/renderMatchPage), então "Ver
+// detalhes" nela deixou de expandir o card ali mesmo (esse expand
+// inline virou redundante com a página nova, com bem menos destaque
+// visual). Esse toggle continua existindo só pro modo Exemplo (nunca
+// tem fixtureId -- não dá pra ter URL própria pra um jogo que não
+// existe fora dessa sessão), preservando o comportamento de sempre lá.
+function toggleMatchExpand(domId) {
   const m = MATCH_REGISTRY[domId];
   if (!m) return;
   m.expanded = !m.expanded;
   const el = document.getElementById(domId);
   if (el) el.outerHTML = fullMatchCardHTML(m);
-  if (!opts.skipUrlSync) syncMatchUrl(m);
-}
-// Mantém a URL do navegador em sincronia com o card de partida aberto
-// (mesmo espírito de syncUrlForPage/syncPlayerUrl, "Plano de
-// Indexação") -- expandir um card com fixtureId empurra /jogos/:id[-
-// slug], fechar (ou expandir uma partida sem fixtureId -- modo
-// Exemplo, que não tem página própria) volta a URL pra "/". Só mexe
-// na URL se a página atual for mesmo Jogos (evita, por exemplo, uma
-// partida que ficou marcada .expanded de uma visita anterior mexer na
-// URL de outra página).
-function syncMatchUrl(m) {
-  if (state.page !== "jogos") return;
-  if (m.expanded && m.fixtureId) {
-    const path = matchPath(m);
-    if (location.pathname !== path) history.pushState(null, "", path);
-  } else if (location.pathname.startsWith("/jogos/")) {
-    history.pushState(null, "", "/");
-  }
 }
 function renderJogos() {
   document.getElementById("roundLabel").textContent = `Rodada ${state.jogosRound}`;
@@ -1718,6 +1707,170 @@ function renderJogos() {
   ensureLeagueCardStats().then((changed) => {
     if (changed && state.page === "jogos") renderEstatisticasConsolidadas("statTiles", "leaderAtaque", "leaderDefesa");
   });
+}
+
+/* ================= PÁGINA: PARTIDA =================
+   Pedido do usuário (15/08/2026, junto com a URL indexável /jogos/
+   :fixtureId, ver GET /jogos/:fixtureId em server.js): "manter o
+   destaque para as infos de horário e transmissão e podemos trazer as
+   infos de escalação provável e os campos de botão em uma segunda
+   posição. Mantenha o layout com heros, logos e cores". Só existe pra
+   partida com fixtureId (modo ao vivo) -- ver goToMatch, o botão "Ver
+   detalhes" some daqui (fica só o expand inline de sempre) pra jogo
+   sem fixtureId (modo Exemplo). */
+
+// Degradê do hero da Partida -- diferente de favClubGradientCSS
+// (usada pelo hero de Time/Jogador, só 1 time), aqui são 2 times, um
+// de cada lado -- metade do degradê nas cores do mandante, metade nas
+// do visitante, deixando a identidade visual dos 2 clubes visível ao
+// mesmo tempo. Camada escura FLAT (não em degradê -- diferente do
+// favClubGradientCSS) de propósito: os 2 lados têm cor própria pra
+// proteger igualmente, não faz sentido escurecer mais um lado que o
+// outro como no hero de 1 time só.
+function matchHeroGradientCSS(home, away) {
+  const h1 = home?.c1 || "#0057B8", h2 = home?.c2 || "#062B5C";
+  const a1 = away?.c1 || "#0057B8", a2 = away?.c2 || "#062B5C";
+  return `margin-bottom:16px; border:none; color:#fff;
+    background:linear-gradient(rgba(0,0,0,.22), rgba(0,0,0,.22)), linear-gradient(90deg, ${h1} 0%, ${h2} 44%, ${a2} 56%, ${a1} 100%);`;
+}
+function matchHeroHTML(m, home, away) {
+  const scoreHTML = m.pending
+    ? `<div class="match-hero-vs">vs</div>`
+    : `<div class="match-hero-score">${m.gh} <span class="dash">×</span> ${m.ga}</div>`;
+  return `
+    <div class="match-hero-side clickable-team" onclick="goToTeam('${home.id}')">${crestEl(home, 64)}<div class="match-hero-team-name">${home.name}</div></div>
+    <div class="match-hero-center">
+      <div class="match-hero-badge">Rodada ${m.round}</div>
+      ${scoreHTML}
+      <div class="match-hero-date">${fmtFixtureDate(m.date, m.round)}</div>
+    </div>
+    <div class="match-hero-side clickable-team" onclick="goToTeam('${away.id}')">${crestEl(away, 64)}<div class="match-hero-team-name">${away.name}</div></div>`;
+}
+
+// Card "Horário e transmissão" -- 1ª posição/destaque logo abaixo do
+// hero, reaproveitando os mesmos helpers já usados no card inline de
+// Jogos (venueLineHTML/watchTvHTML/fmtFixtureDate), só recompostos
+// numa seção própria em vez de misturados com escalação/gols.
+function renderMatchScheduleSection(m) {
+  const box = document.getElementById("matchPageSchedule");
+  if (!box) return;
+  box.innerHTML = `
+    <div class="venue-line">🗓️ ${fmtFixtureDate(m.date, m.round)}</div>
+    ${venueLineHTML(m)}
+    ${watchTvHTML(m)}`;
+}
+// Card "Resultado" -- só existe pra partida já encerrada (gols +
+// estatísticas gerais), mesmo conteúdo que já existia em
+// decidedMatchDetailHTML, só reescrito pra escrever num container
+// próprio em vez de substituir o card inteiro do jogo.
+function renderMatchResultSection(m, home, away) {
+  const box = document.getElementById("matchPageResult");
+  if (!box) return;
+  if (!m.stats) { box.innerHTML = `<div class="empty">Estatísticas não disponíveis para este jogo.</div>`; return; }
+  const goals = m.goals || [];
+  const goalsHTML = goals.length ? `
+    <div class="goals-list">${goals.map(g => {
+      const scorer = g.player || ("Camisa " + g.camisa);
+      const scorerHTML = g.playerId ? `<span class="clickable-player" onclick="goToPlayer(${g.playerId})">${scorer}</span>` : scorer;
+      return `<div class="goal-line"><b>${g.min}'</b> ⚽ ${TEAM_MAP[g.team].short} · ${scorerHTML}</div>`;
+    }).join("")}</div>`
+    : `<div class="goals-list"><div class="goal-line">Sem gols na partida.</div></div>`;
+  const s = m.stats;
+  box.innerHTML = `
+    <div class="detail-subtitle">Gols</div>
+    ${goalsHTML}
+    ${substitutionsHTML(m.substitutions)}
+    <div class="detail-subtitle">Estatísticas gerais</div>
+    <div>
+      ${statBarRow("Posse de bola", s.posse[0], s.posse[1], "%")}
+      ${statBarRow("Finalizações", s.finalizacoes[0], s.finalizacoes[1])}
+      ${statBarRow("Escanteios", s.escanteios[0], s.escanteios[1])}
+      ${statBarRow("Cartões amarelos", s.amarelos[0], s.amarelos[1])}
+    </div>
+    ${watchLink(home, away, m.gh, m.ga)}`;
+}
+// Escalação provável (texto) + "jogo de botão" (campinho visual, ver
+// formationPitchHTML -- mesma função já usada na página do Time) --
+// 2ª posição/segundo plano na página, ambas em cards próprios abaixo
+// do de Horário e transmissão.
+function renderMatchLineupsSection(m, home, away) {
+  const lineupsBox = document.getElementById("matchPageLineups");
+  const pitchBox = document.getElementById("matchPageButtonPitch");
+  if (!lineupsBox || !pitchBox) return;
+  if (m.lineups === undefined) {
+    lineupsBox.innerHTML = `<div class="empty">Carregando escalação...</div>`;
+    pitchBox.innerHTML = `<div class="empty">Carregando...</div>`;
+    return;
+  }
+  lineupsBox.innerHTML = lineupsBlockHTML(home, away, m.lineups);
+  const emptyLabel = "Escalação ainda não divulgada."; // mesmo texto do card de escalação em texto ao lado, ver lineupSideHTML
+  pitchBox.innerHTML = `
+    <div class="button-pitch-team-label">${escAttr(home.short || home.name)}</div>
+    ${formationPitchHTML(home, m.lineups?.[home.id], emptyLabel)}
+    <div class="button-pitch-team-label">${escAttr(away.short || away.name)}</div>
+    ${formationPitchHTML(away, m.lineups?.[away.id], emptyLabel)}`;
+}
+// true só se a resposta lazy (broadcast/escalação/estatística, todas
+// assíncronas) ainda é relevante pra tela -- usuário pode ter saído da
+// página da Partida (ou aberto outra partida) antes da busca voltar;
+// sem essa checagem, um redesenho tardio escreveria por cima do
+// conteúdo errado.
+function stillOnMatch(fixtureId) {
+  return state.page === "partida" && String(state.selectedMatchFixtureId) === String(fixtureId);
+}
+function renderMatchPage() {
+  const fixtureId = state.selectedMatchFixtureId;
+  const found = findMatchByFixtureId(fixtureId);
+  if (!found) { goBackFromDetail(); return; }
+  const m = found.match;
+  const home = TEAM_MAP[m.home], away = TEAM_MAP[m.away];
+  if (!home || !away) { goBackFromDetail(); return; }
+
+  const heroBox = document.getElementById("matchHero");
+  heroBox.style.cssText = matchHeroGradientCSS(home, away);
+  heroBox.innerHTML = matchHeroHTML(m, home, away);
+
+  renderMatchScheduleSection(m);
+
+  document.getElementById("matchPageResultCard").style.display = m.pending ? "none" : "block";
+  if (!m.pending) renderMatchResultSection(m, home, away);
+
+  renderMatchLineupsSection(m, home, away);
+
+  // Buscas em segundo plano (fire-and-forget, mesmo padrão usado em
+  // toda a Fase B/C do app) -- redesenha só a seção certa quando o
+  // dado chega, sem travar o resto da página esperando.
+  const needsBroadcastLoad = LIVE_MODE && m.date && m.broadcast === undefined;
+  if (needsBroadcastLoad) {
+    loadBroadcastInfo(m.date, home.name, away.name, m.fixtureId).then(result => {
+      m.broadcast = result?.station || null;
+      m.broadcastSource = result?.source || null;
+      if (stillOnMatch(fixtureId)) renderMatchScheduleSection(m);
+    }).catch(() => { m.broadcast = null; m.broadcastSource = null; });
+  }
+
+  if (m.pending) {
+    if (!LIVE_MODE) ensureDemoLineups(m);
+    const needsLineupLoad = LIVE_MODE && m.fixtureId && m.lineups === undefined;
+    if (needsLineupLoad) {
+      loadFixtureLineups(m.fixtureId).then(lineups => {
+        m.lineups = lineups;
+        if (stillOnMatch(fixtureId)) renderMatchLineupsSection(m, home, away);
+      }).catch(() => { m.lineups = {}; if (stillOnMatch(fixtureId)) renderMatchLineupsSection(m, home, away); });
+    }
+  } else {
+    if (!LIVE_MODE) {
+      ensureDemoLineups(m);
+      if (!m.substitutions) m.substitutions = buildDemoSubstitutions(demoSeedFor(m), m.home, m.away, m.lineups);
+    }
+    const needsDetailLoad = LIVE_MODE && m.fixtureId && !m.stats;
+    if (needsDetailLoad) {
+      loadFixtureDetails(m.fixtureId, m.home, m.away).then(det => {
+        m.stats = det.stats; m.goals = det.goals; m.substitutions = det.substitutions; m.lineups = det.lineups;
+        if (stillOnMatch(fixtureId)) { renderMatchResultSection(m, home, away); renderMatchLineupsSection(m, home, away); }
+      }).catch(() => {});
+    }
+  }
 }
 
 function aggregateTeamStats(matches) {
@@ -2920,14 +3073,18 @@ function syncUrlForPage(name) {
     }
   }
   if (name === "jogador") return;
-  // "jogos" passa por aqui igual qualquer outra página (não tem um
-  // caso especial tipo "jogador" acima porque resolver a partida é
-  // síncrono -- ver goToMatch, que já pula essa função com
-  // skipUrlSync quando é ELE quem está navegando): clicar na aba
-  // Jogos "pelada" (sem vir de um link de partida) deve voltar
-  // qualquer /jogos/:id que tenha sobrado na barra de endereço pra
-  // "/" -- só volta a aparecer se o usuário expandir um card de
-  // partida de novo (ver syncMatchUrl).
+  // "partida" resolve de forma síncrona igual "time" acima (o
+  // fixtureId já dá pra achar a partida direto em TEAM_MAP/ALL_ROUNDS,
+  // sem precisar esperar nenhuma busca assíncrona) -- diferente de
+  // "jogador", que precisa de syncPlayerUrl à parte.
+  if (name === "partida" && state.selectedMatchFixtureId) {
+    const found = findMatchByFixtureId(state.selectedMatchFixtureId);
+    if (found) {
+      const path = matchPath(found.match);
+      if (location.pathname !== path) history.pushState(null, "", path);
+      return;
+    }
+  }
   if (location.pathname.startsWith("/times/") || location.pathname.startsWith("/jogadores/") || location.pathname.startsWith("/jogos/")) {
     history.pushState(null, "", "/");
   }
@@ -2950,37 +3107,35 @@ function syncPlayerUrl(playerId, team) {
 
 // opts.pushUrl=false: URL já está certa (veio de applyRouteFromLocation,
 // ela mesma lendo a URL) -- não sincroniza de novo, só troca a página.
+// "partida" entra no mesmo grupo de "time"/"jogador" nesse guard --
+// as 3 são páginas de DETALHE; navegar entre elas (ex.: abrir um time
+// a partir da página da Partida) não deve perder o "voltar" original
+// (ver goBackFromDetail/state.pageBeforeDetail).
 function goToTeam(teamId, opts = {}) {
-  if (state.page !== "time" && state.page !== "jogador") state.pageBeforeDetail = state.page;
+  if (state.page !== "time" && state.page !== "jogador" && state.page !== "partida") state.pageBeforeDetail = state.page;
   const match = TEAMS.find((t) => String(t.id) === String(teamId));
   state.selectedTeamId = match ? match.id : teamId;
   setActivePage("time", { skipUrlSync: opts.pushUrl === false });
 }
 function goToPlayer(playerId, opts = {}) {
-  if (state.page !== "time" && state.page !== "jogador") state.pageBeforeDetail = state.page;
+  if (state.page !== "time" && state.page !== "jogador" && state.page !== "partida") state.pageBeforeDetail = state.page;
   state.selectedPlayerId = playerId;
   setActivePage("jogador", { skipUrlSync: opts.pushUrl === false });
 }
-// Abre a página Jogos já na rodada certa, com o card da partida
-// expandido e a tela rolada até ele -- usado ao abrir /jogos/:fixtureId
-// direto (link do Google, WhatsApp etc., ver GET /jogos/:fixtureId em
-// server.js e applyRouteFromLocation abaixo). fixtureId não encontrado
-// (id errado, ou modo Exemplo -- que nunca tem fixtureId de verdade,
-// ver findMatchByFixtureId) cai pro Dashboard em vez de travar numa
-// tela vazia.
+// Abre a página própria da Partida (pedido do usuário, 15/08/2026:
+// "mantenha o layout com heros, logos e cores") -- usada ao abrir
+// /jogos/:fixtureId direto (link do Google, WhatsApp etc., ver GET
+// /jogos/:fixtureId em server.js e applyRouteFromLocation abaixo) e
+// pelo botão "Ver detalhes →" de qualquer partida com fixtureId (modo
+// ao vivo, ver fullMatchCardHTML). fixtureId não encontrado (id
+// errado, ou modo Exemplo -- que nunca tem fixtureId de verdade) cai
+// pro Dashboard em vez de travar numa tela vazia -- ver checagem
+// equivalente em renderMatchPage, que cobre o caso de alguém já
+// dentro do app perder a partida de vista (ex.: trocou de campeonato).
 function goToMatch(fixtureId, opts = {}) {
-  if (state.page !== "jogos") state.pageBeforeDetail = state.page;
-  const found = findMatchByFixtureId(fixtureId);
-  if (!found) { setActivePage("dashboard"); return; }
-  state.jogosRound = found.round;
-  const domId = `match-${found.round}-${found.match.home}-${found.match.away}`;
-  setActivePage("jogos", { skipUrlSync: opts.pushUrl === false, scrollTo: domId });
-  // Expande DEPOIS do render acima (fullMatchCardHTML, chamado dentro
-  // de renderJogos, é quem popula MATCH_REGISTRY[domId] -- expandir
-  // antes não teria o que expandir ainda). Mesmo caminho de um clique
-  // manual em "Ver detalhes", então dispara igual os fetches lazy de
-  // estatística/escalação/transmissão.
-  toggleMatchExpand(domId, { skipUrlSync: true });
+  if (state.page !== "time" && state.page !== "jogador" && state.page !== "partida") state.pageBeforeDetail = state.page;
+  state.selectedMatchFixtureId = String(fixtureId);
+  setActivePage("partida", { skipUrlSync: opts.pushUrl === false });
 }
 function goBackFromDetail() {
   setActivePage(state.pageBeforeDetail || "dashboard");
@@ -3109,9 +3264,16 @@ function buttonPieceHTML(p, team) {
   </div>`;
 }
 const BUTTON_POS_ORDER = ["G", "D", "M", "F"];
-function formationPitchHTML(team, lineup) {
+// emptyLabel: texto do aviso sem escalação -- opcional, default é o
+// de sempre (usado na página do Time, "escalação do ÚLTIMO jogo"). A
+// página da Partida (ver matchLineupsSection) manda um texto próprio
+// ("Escalação ainda não divulgada.", igual ao card de escalação em
+// texto ao lado -- ver lineupSideHTML) porque "último jogo" não faz
+// sentido pra um jogo FUTURO específico, só pro contexto "resumo do
+// time".
+function formationPitchHTML(team, lineup, emptyLabel = "Escalação não disponível para o último jogo.") {
   if (!lineup || !lineup.startXI || !lineup.startXI.length) {
-    return `<div class="empty" style="padding:8px 0;">Escalação não disponível para o último jogo.</div>`;
+    return `<div class="empty" style="padding:8px 0;">${emptyLabel}</div>`;
   }
   const byPos = BUTTON_POS_ORDER.map(code => lineup.startXI.filter(p => (p.pos || "").toUpperCase() === code));
   const placed = new Set(byPos.flat());
@@ -3433,7 +3595,7 @@ function populateAllSelects() {
 }
 
 /* ================= NAVEGAÇÃO ================= */
-const PAGES = ["dashboard", "jogos", "tabela", "estatisticas", "simulador", "favoritos", "noticias", "apoie", "time", "jogador", "mais"];
+const PAGES = ["dashboard", "jogos", "tabela", "estatisticas", "simulador", "favoritos", "noticias", "apoie", "time", "jogador", "partida", "mais"];
 function setActivePage(name, opts = {}) {
   state.page = name;
   trackEvent("page_view", name); // "páginas mais navegadas" em /admin > Comportamento -- toda troca de página passa por aqui, inclusive a 1ª (dashboard) depois do login/boot
@@ -3458,6 +3620,7 @@ function setActivePage(name, opts = {}) {
   if (name === "apoie") renderApoiePage();
   if (name === "time") renderTeamPage();
   if (name === "jogador") renderPlayerPage();
+  if (name === "partida") renderMatchPage();
 
   // Cada página troca de conteúdo (às vezes bem mais curto/mais longo
   // que a anterior) mas o scroll é da janela toda (sidebar é que tem
