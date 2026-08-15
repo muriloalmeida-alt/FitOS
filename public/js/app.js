@@ -3254,4 +3254,20 @@ function refreshAll() {
 }
 
 /* ================= Boot ================= */
-boot();
+// AJUSTE (15/08/2026): boot() nunca tinha nenhum tratamento de erro —
+// qualquer exceção não tratada durante o carregamento inicial (ex.:
+// descompasso de cache do Service Worker entre um index.html e um
+// app.js de versões diferentes, ver BUG CORRIGIDO em sw.js) deixava a
+// tela em branco, sem pista nenhuma pro visitante do que aconteceu.
+// Rede de segurança: se o boot falhar por qualquer motivo, mostra uma
+// mensagem simples com botão de recarregar em vez de tela em branco
+// muda — pior caso agora sempre tem uma saída visível.
+boot().catch((err) => {
+  console.error("[boot] falha não tratada ao iniciar o app:", err);
+  document.body.innerHTML = `
+    <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;text-align:center;background:#0B1220;color:#E7ECF5;font-family:system-ui,sans-serif;">
+      <h2 style="margin:0;">Algo deu errado ao carregar o BR Data</h2>
+      <p style="margin:0;max-width:420px;color:#8FA3C7;">Isso costuma resolver com uma atualização da página. Se persistir depois de recarregar, tente limpar o cache do navegador.</p>
+      <button onclick="location.reload()" style="padding:12px 24px;border-radius:8px;border:none;background:#FFC93C;color:#12121A;font-weight:600;cursor:pointer;">Recarregar</button>
+    </div>`;
+});

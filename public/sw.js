@@ -17,8 +17,25 @@
    CACHE_NAME: muda a cada mudança relevante de assets — isso invalida
    o cache antigo automaticamente no próximo deploy (ver "activate"
    abaixo, que limpa qualquer cache com nome diferente deste).
+
+   BUG CORRIGIDO (15/08/2026): esse número ficou parado em v20 por
+   VÁRIOS deploys seguidos que mexeram em index.html/app.js/style.css
+   (toda a leva "Freemium sem login" + os ajustes depois) — quem já
+   tinha o app aberto/instalado antes continuava recebendo o HTML/JS
+   antigo do cache (stale-while-revalidate serve o cache na hora,
+   sempre), enquanto o backend já rodava as rotas novas. Pior ainda:
+   como cada arquivo do App Shell revalida (atualiza o cache) de forma
+   INDEPENDENTE, dava pra um visitante ficar com um MIX — ex.: app.js
+   novo (que espera elementos como #authGateClose, #desktopBanner) rodando
+   em cima de um index.html ainda velho (sem esses elementos) — e
+   qualquer acesso a esse elemento inexistente estourava exceção bem
+   cedo no boot(), sem try/catch nenhum ali (ver app.js), travando o
+   app inteiro numa tela em branco pro visitante. A partir de agora:
+   TODO deploy que mexer em qualquer arquivo do APP_SHELL abaixo
+   precisa bumpar esse número — é o único jeito de forçar quem já tinha
+   o site aberto a pegar a versão nova certinha, sem mistura.
 =================================================================== */
-const CACHE_NAME = "brdata-shell-v20";
+const CACHE_NAME = "brdata-shell-v21";
 const API_CACHE_NAME = "brdata-api-v1";
 
 const APP_SHELL = [
