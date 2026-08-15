@@ -1447,15 +1447,20 @@ function statBarRow(label, a, b, unit = "") {
 }
 /* ---------- Escalação / substituições (compartilhado entre jogo
    encerrado e jogo futuro) ---------- */
-// Link pro jogador DESLIGADO por enquanto (13/08/2026, pedido do
-// usuário: "vamos tirar o link dos jogadores por enquanto pra
-// pensarmos nessa página num segundo momento") — goToPlayer()/
-// renderPlayerPage() continuam existindo, só não tem mais nenhum
-// "onclick" chamando eles nas telas principais. Pra reativar depois,
-// é só devolver o "clickable-player" + onclick="goToPlayer(...)" nos
-// pontos marcados com esse mesmo aviso.
+// AJUSTE (pedido do usuário): link pro jogador RELIGADO -- tinha sido
+// desligado em 13/08/2026 ("vamos tirar o link dos jogadores por
+// enquanto pra pensarmos nessa página num segundo momento") pra dar
+// tempo de repensar a página de detalhe; agora que ela foi
+// reconstruída (hero + estatísticas em destaque), volta a fazer
+// sentido linkar o nome em todo lugar que ele aparece. Só clicável
+// quando tem id (modo ao vivo) -- nomes de escalação do modo demo são
+// fictícios, gerados só pra aquela partida, sem registro persistente
+// pra abrir uma página de detalhe de verdade.
 function lineupPlayerLine(p) {
-  return `<div class="lineup-player"><span class="lp-num">${p.number ?? "-"}</span><span class="lp-name">${p.name}</span><span class="lp-pos">${p.pos || ""}</span></div>`;
+  const nameHTML = p.id
+    ? `<span class="lp-name clickable-player" onclick="goToPlayer(${p.id})">${p.name}</span>`
+    : `<span class="lp-name">${p.name}</span>`;
+  return `<div class="lineup-player"><span class="lp-num">${p.number ?? "-"}</span>${nameHTML}<span class="lp-pos">${p.pos || ""}</span></div>`;
 }
 function lineupSideHTML(team, lineup) {
   if (!lineup || !lineup.startXI || !lineup.startXI.length) {
@@ -1480,8 +1485,9 @@ function substitutionsHTML(subs) {
     <div class="detail-subtitle">Substituições</div>
     <div class="subs-list">${subs.map(s => {
       const team = TEAM_MAP[s.team];
-      // Link pro jogador desligado por enquanto — ver aviso em lineupPlayerLine.
-      return `<div class="sub-line"><b>${s.min}'</b> ${team ? team.short : ""} — <span class="sub-out">↓ ${s.out}</span> <span class="sub-in">↑ ${s.in}</span></div>`;
+      const outHTML = s.outId ? `<span class="clickable-player" onclick="goToPlayer(${s.outId})">${s.out}</span>` : s.out;
+      const inHTML = s.inId ? `<span class="clickable-player" onclick="goToPlayer(${s.inId})">${s.in}</span>` : s.in;
+      return `<div class="sub-line"><b>${s.min}'</b> ${team ? team.short : ""} — <span class="sub-out">↓ ${outHTML}</span> <span class="sub-in">↑ ${inHTML}</span></div>`;
     }).join("")}</div>`;
 }
 function venueLineHTML(m) {
@@ -1544,9 +1550,9 @@ function decidedMatchDetailHTML(m, domId) {
   const goals = m.goals || [];
   const goalsHTML = goals.length ? `
     <div class="goals-list">${goals.map(g => {
-      // Link pro jogador desligado por enquanto — ver aviso em lineupPlayerLine.
       const scorer = g.player || ("Camisa " + g.camisa);
-      return `<div class="goal-line"><b>${g.min}'</b> ⚽ ${TEAM_MAP[g.team].short} · ${scorer}</div>`;
+      const scorerHTML = g.playerId ? `<span class="clickable-player" onclick="goToPlayer(${g.playerId})">${scorer}</span>` : scorer;
+      return `<div class="goal-line"><b>${g.min}'</b> ⚽ ${TEAM_MAP[g.team].short} · ${scorerHTML}</div>`;
     }).join("")}</div>`
     : `<div class="goals-list"><div class="goal-line">Sem gols na partida.</div></div>`;
   const s = m.stats;
@@ -1815,7 +1821,7 @@ function playerCardsValue(p) { return p.yellow + p.red * 2; }
 function playerLeaderRowHTML(p, valueLabel) {
   const team = TEAM_MAP[p.teamId];
   return `<tr>
-    <td><div class="team-cell">${team ? crestEl(team, 22) : ""}<b>${p.name}</b>${team ? `<span class="clickable-team" onclick="goToTeam('${team.id}')" style="color:var(--text-2); font-weight:500;"> · ${team.short}</span>` : ""}</div></td>
+    <td><div class="team-cell">${team ? crestEl(team, 22) : ""}<b class="clickable-player" onclick="goToPlayer(${p.id})">${p.name}</b>${team ? `<span class="clickable-team" onclick="goToTeam('${team.id}')" style="color:var(--text-2); font-weight:500;"> · ${team.short}</span>` : ""}</div></td>
     <td class="num" style="font-weight:700;">${valueLabel}</td>
   </tr>`;
 }
@@ -2876,7 +2882,7 @@ function playerCardsCellHTML(p) {
 function playerRosterRowHTML(p) {
   const avatar = p.photo ? `<img src="${escAttr(p.photo)}" alt="">` : initialsOf(p.name);
   return `
-  <tr>
+  <tr class="clickable-player" onclick="goToPlayer(${p.id})">
     <td><div class="team-cell"><div class="roster-avatar-sm">${avatar}</div><div><div class="rname">${p.name}</div><div class="rmeta">${translatePosition(p.position)}</div></div></div></td>
     <td class="num">${p.games ?? "—"}</td>
     <td class="num">${p.goals ?? 0}</td>
@@ -2949,8 +2955,9 @@ function lastNameOf(name) {
   return parts[parts.length - 1] || name || "?";
 }
 function buttonPieceHTML(p, team) {
-  // Link pro jogador desligado por enquanto — ver aviso em lineupPlayerLine.
-  const nameHTML = `<span class="btn-name">${lastNameOf(p.name)}</span>`;
+  const nameHTML = p.id
+    ? `<span class="btn-name clickable-player" onclick="goToPlayer(${p.id})">${lastNameOf(p.name)}</span>`
+    : `<span class="btn-name">${lastNameOf(p.name)}</span>`;
   return `
   <div class="button-piece" title="${escAttr(p.name)}">
     <div class="button-disc" style="background:linear-gradient(160deg, ${team.c1 || "#0057B8"}, ${team.c2 || "#062B5C"});">${p.number ?? "-"}</div>
@@ -2982,7 +2989,11 @@ async function renderTeamLastLineup(teamId, lastMatch) {
   const team = TEAM_MAP[teamId];
 
   if (!lastMatch) {
-    box.innerHTML = `<div class="empty">Sem jogos decididos ainda.</div>`;
+    // Pedido do usuário: removida a mensagem "Sem jogos decididos
+    // ainda." -- sem jogo decidido ainda pra puxar a escalação, o
+    // card só fica sem conteúdo (título "Escalação titular" continua
+    // visível), sem bloco de aviso.
+    box.innerHTML = "";
     if (hint) hint.textContent = "";
     return;
   }
@@ -3022,26 +3033,61 @@ async function renderTeamLastLineup(teamId, lastMatch) {
   }
 }
 
+// Fundo do hero do Time nas cores do PRÓPRIO time -- mesma técnica
+// (degradê + camada escura de legibilidade) já reaproveitada pelo
+// hero do Jogador, ver playerHeroGradientCSS.
+function teamHeroGradientCSS(team) { return favClubGradientCSS(team || {}); }
+
+function teamHeroHTML(team, pos) {
+  const compSubtitle = (COMPETITION_META[state.competitionId] || COMPETITION_META.brasileirao).subtitle;
+  const sub = [team.uf, team.venue?.name, team.venue?.city].filter(Boolean).join(" · ")
+    || `${compSubtitle} · ${LIVE_MODE ? "dados ao vivo" : "dados de exemplo"}`;
+  return `
+    <div class="team-hero-crest">${crestEl(team, 84)}</div>
+    <div class="team-hero-body">
+      ${pos ? `<div class="team-hero-badge">${pos}º colocado</div>` : ""}
+      <h1 class="team-hero-name">${team.name}</h1>
+      <div class="team-hero-sub">${sub}</div>
+    </div>`;
+}
+
 function renderTeamPage() {
   const teamId = state.selectedTeamId;
   const team = TEAM_MAP[teamId];
   if (!team) { goBackFromDetail(); return; }
 
-  document.getElementById("teamPageCrest").innerHTML = crestEl(team, 56);
-  document.getElementById("teamPageName").textContent = team.name;
-  const compSubtitle = (COMPETITION_META[state.competitionId] || COMPETITION_META.brasileirao).subtitle;
-  document.getElementById("teamPageSub").textContent = [team.uf, team.venue?.name, team.venue?.city].filter(Boolean).join(" · ")
-    || `${compSubtitle} · ${LIVE_MODE ? "dados ao vivo" : "dados de exemplo"}`;
-
   const standings = currentStandings();
-  const pos = standings.findIndex(r => r.id === teamId) + 1;
-  const row = standings.find(r => r.id === teamId);
-  document.getElementById("teamPageKpis").innerHTML = row ? `
-    <div class="card kpi"><div class="ico yellow">🏆</div><div><div class="lbl">Posição</div><div class="val">${pos}º</div></div></div>
-    <div class="card kpi"><div class="ico blue">⭐</div><div><div class="lbl">Pontos</div><div class="val">${row.pts}</div></div></div>
-    <div class="card kpi"><div class="ico green">⚽</div><div><div class="lbl">Gols marcados</div><div class="val">${row.gp}</div></div></div>
-    <div class="card kpi"><div class="ico navy">🥅</div><div><div class="lbl">Gols sofridos</div><div class="val">${row.gc}</div></div></div>
-  ` : `<div class="card empty" style="grid-column:1/-1;">Sem jogos decididos ainda.</div>`;
+  // BUG CORRIGIDO (mesma causa-raiz achada na página do Jogador, ver
+  // playerTeamCardHTML): computeStandings() (engine.js) monta as
+  // linhas via Object.keys(TEAM_MAP), que SEMPRE devolve o id como
+  // STRING -- comparação estrita (===) contra teamId (NÚMERO em modo
+  // ao vivo, ids da Sportmonks/API-Sports não são string) nunca
+  // batia. Resultado: "Posição"/"Pontos"/"Gols" sumiam da página do
+  // Time em modo ao vivo mesmo com jogos de verdade já decididos --
+  // caía sempre no aviso "Sem jogos decididos ainda.", inclusive no
+  // meio do campeonato. Corrigido com String() dos dois lados.
+  const idx = standings.findIndex(r => String(r.id) === String(teamId));
+  const row = idx === -1 ? null : standings[idx];
+  const pos = idx === -1 ? null : idx + 1;
+
+  const heroBox = document.getElementById("teamHero");
+  heroBox.style.cssText = teamHeroGradientCSS(team);
+  heroBox.innerHTML = teamHeroHTML(team, pos);
+
+  // AJUSTE (pedido do usuário: "refatorar a página dos times... /
+  // remover a info de 'sem jogos decididos'") -- a grade de KPI agora
+  // SEMPRE aparece (mesmo espírito da página do Jogador, ver
+  // playerKpisHTML): cada campo mostra "—" sozinho quando não tem
+  // dado, em vez de trocar a grade inteira por um card de aviso —
+  // bem mais resistente a dado incompleto (e o aviso, de qualquer
+  // forma, estava aparecendo bem mais do que deveria por causa do bug
+  // acima).
+  const fmt = (n) => (n == null ? "—" : n);
+  document.getElementById("teamPageKpis").innerHTML = `
+    <div class="card kpi"><div class="ico yellow">🏆</div><div><div class="lbl">Posição</div><div class="val">${pos ? pos + "º" : "—"}</div></div></div>
+    <div class="card kpi"><div class="ico blue">⭐</div><div><div class="lbl">Pontos</div><div class="val">${fmt(row?.pts)}</div></div></div>
+    <div class="card kpi"><div class="ico green">⚽</div><div><div class="lbl">Gols marcados</div><div class="val">${fmt(row?.gp)}</div></div></div>
+    <div class="card kpi"><div class="ico navy">🥅</div><div><div class="lbl">Gols sofridos</div><div class="val">${fmt(row?.gc)}</div></div></div>`;
 
   renderFormaInto("teamPageForma", teamId);
   renderRadarInto("teamPageRadar", teamId);
@@ -3057,7 +3103,10 @@ function renderTeamPage() {
   document.getElementById("teamPageNextFixtures").innerHTML = upcoming.length ? upcoming.map(fixtureRowHTML).join("") : `<div class="empty">Sem jogos futuros cadastrados.</div>`;
 
   const last = allDecidedMatches().filter(m => m.home === teamId || m.away === teamId).sort((a, b) => b.round - a.round).slice(0, 6);
-  document.getElementById("teamPageLastMatches").innerHTML = last.length ? last.map(m => teamLastMatchRowHTML(m, teamId)).join("") : `<div class="empty">Sem jogos decididos ainda.</div>`;
+  // Pedido do usuário: removida a mensagem "Sem jogos decididos
+  // ainda." -- sem jogo decidido ainda, o card só fica sem conteúdo
+  // (o título "Últimos jogos" continua visível), sem bloco de aviso.
+  document.getElementById("teamPageLastMatches").innerHTML = last.map(m => teamLastMatchRowHTML(m, teamId)).join("");
 
   renderTeamCompare(teamId, standings);
   renderTeamRoster(teamId);

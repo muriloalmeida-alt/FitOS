@@ -594,15 +594,22 @@
         <p class="apoie-disclaimer">🔒 Pagamento processado com segurança pelo Mercado Pago — os dados do seu cartão nunca passam pelos servidores do BR Data.</p>
       </section>
 
-      <!-- ================= DETALHE DO TIME ================= -->
+      <!-- ================= DETALHE DO TIME =================
+           AJUSTE (pedido do usuário: "refatorar a página dos times
+           seguindo o modelo da página de jogadores com hero, 4 cards
+           com infos e depois seguir os cards já existentes") — mesmo
+           molde da página do Jogador (ver #page-jogador): hero em
+           destaque (agora com o escudo do time e fundo nas cores DO
+           PRÓPRIO time, ver renderTeamPage em app.js) seguido da
+           grade de 4 KPIs que já existia (Posição/Pontos/Gols
+           marcados/Gols sofridos — só reposicionada logo abaixo do
+           hero novo). Todo o resto da página (Forma recente, Elenco,
+           Comparador, Odds, Simulador, Escalação, Últimos jogos)
+           continua exatamente igual, sem mudança nenhuma de conteúdo
+           -- só o cabeçalho foi reconstruído. -->
       <section class="page" id="page-time">
         <button class="back-link" onclick="goBackFromDetail()">← Voltar</button>
-        <div class="page-head" style="margin-top:8px;">
-          <div style="display:flex; align-items:center; gap:14px;">
-            <div id="teamPageCrest"></div>
-            <div><h1 id="teamPageName">Time</h1><div class="sub" id="teamPageSub"></div></div>
-          </div>
-        </div>
+        <div class="card team-hero" id="teamHero" style="margin-bottom:16px;"></div>
         <div class="grid grid-kpi" id="teamPageKpis" style="margin-bottom:16px;"></div>
         <div class="grid grid-3" style="margin-bottom:16px;">
           <div class="card"><div class="card-head"><h3>Forma recente</h3></div><div id="teamPageForma"></div></div>

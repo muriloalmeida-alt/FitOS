@@ -522,6 +522,36 @@ h1,h2,h3{ margin:0; }
   .player-hero-rating .lbl{ display:none; }
 }
 
+/* Hero da página do Time (pedido do usuário: "refatorar a página dos
+   times seguindo o modelo da página de jogadores com hero") -- mesmo
+   molde do .player-hero acima (degradê nas cores do time + camada
+   escura de legibilidade, texto sempre branco), só troca a foto pelo
+   escudo. Escudo sobre fundo BRANCO sólido (não translúcido, ao
+   contrário de .player-hero-photo) -- diferente de foto de jogador,
+   escudo às vezes tem fundo transparente ou já é colorido (inclusive
+   nas MESMAS cores do degradê de fundo, no fallback sem imagem de
+   verdade — crestFallback() em app.js), então precisa de um fundo
+   sólido neutro por trás pra continuar visível em qualquer time;
+   mesma técnica já usada em .lider-hero .crest-wrap. */
+.team-hero{ display:flex; align-items:center; gap:20px; flex-wrap:wrap; position:relative; }
+.team-hero-crest{
+  width:100px; height:100px; border-radius:50%; flex-shrink:0; padding:10px;
+  background:#fff; display:flex; align-items:center; justify-content:center;
+}
+.team-hero-crest .crest{ width:100% !important; height:100% !important; }
+.team-hero-body{ min-width:0; flex:1 1 240px; }
+.team-hero-badge{
+  display:inline-block; font-size:10px; font-weight:800; letter-spacing:.6px; text-transform:uppercase;
+  background:rgba(255,255,255,.2); color:#fff; padding:4px 10px; border-radius:100px; margin-bottom:8px;
+}
+.team-hero-name{ font-size:26px; font-weight:800; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.25); line-height:1.15; margin:0 0 6px; }
+.team-hero-sub{ font-size:13px; font-weight:600; color:rgba(255,255,255,.85); }
+@media (max-width:640px){
+  .team-hero{ padding:20px 16px; }
+  .team-hero-crest{ width:76px; height:76px; }
+  .team-hero-name{ font-size:20px; }
+}
+
 /* "Desempenho na temporada" (card ao lado de "Clube") -- 2 métricas
    derivadas (gols/jogo, participações em gol/jogo -- gols+assistências
    por jogo), só aparecem com pelo menos 1 jogo disputado (ver
