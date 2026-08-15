@@ -659,6 +659,21 @@ function getRoundMatches(round) {
     return { home: fx.home, away: fx.away, round, fixtureId: fx.fixtureId, date: fx.date, venue: fx.venue, pending: true };
   });
 }
+// Acha a partida (e a rodada dela) por fixtureId -- só existe em modo
+// ao vivo (fixtureId vem da Sportmonks/API-Sports, ver tryLoadLiveData
+// em liveData.js; modo Exemplo nunca preenche esse campo, então essa
+// busca sempre volta null lá, de propósito -- ver goToMatch). Usado
+// só ao abrir /jogos/:fixtureId direto (link do Google, compartilhado
+// etc.), por isso varrer todas as rodadas aqui (no máximo ~38 x ~10
+// jogos) não pesa nada -- roda 1x por navegação, não a cada render.
+function findMatchByFixtureId(fixtureId) {
+  const fid = String(fixtureId);
+  for (let r = 1; r <= TOTAL_ROUNDS; r++) {
+    const found = getRoundMatches(r).find(m => String(m.fixtureId) === fid);
+    if (found) return { match: found, round: r };
+  }
+  return null;
+}
 // Local do jogo: usa o venue vindo da API-Sports quando disponível;
 // senão cai no estádio-sede do time mandante (funciona em modo demo,
 // onde DEMO_TEAMS já tem o estádio real de cada clube).
@@ -1663,12 +1678,34 @@ function fullMatchCardHTML(m) {
     </div>`;
 }
 const MATCH_REGISTRY = {};
-function toggleMatchExpand(domId) {
+// opts.skipUrlSync: usado só por goToMatch (URL já é a certa, veio
+// dela mesma via applyRouteFromLocation) -- um clique manual do
+// usuário em "Ver detalhes"/"Ocultar detalhes" (sem opts) sincroniza
+// a URL normalmente, ver syncMatchUrl.
+function toggleMatchExpand(domId, opts = {}) {
   const m = MATCH_REGISTRY[domId];
   if (!m) return;
   m.expanded = !m.expanded;
   const el = document.getElementById(domId);
   if (el) el.outerHTML = fullMatchCardHTML(m);
+  if (!opts.skipUrlSync) syncMatchUrl(m);
+}
+// Mantém a URL do navegador em sincronia com o card de partida aberto
+// (mesmo espírito de syncUrlForPage/syncPlayerUrl, "Plano de
+// Indexação") -- expandir um card com fixtureId empurra /jogos/:id[-
+// slug], fechar (ou expandir uma partida sem fixtureId -- modo
+// Exemplo, que não tem página própria) volta a URL pra "/". Só mexe
+// na URL se a página atual for mesmo Jogos (evita, por exemplo, uma
+// partida que ficou marcada .expanded de uma visita anterior mexer na
+// URL de outra página).
+function syncMatchUrl(m) {
+  if (state.page !== "jogos") return;
+  if (m.expanded && m.fixtureId) {
+    const path = matchPath(m);
+    if (location.pathname !== path) history.pushState(null, "", path);
+  } else if (location.pathname.startsWith("/jogos/")) {
+    history.pushState(null, "", "/");
+  }
 }
 function renderJogos() {
   document.getElementById("roundLabel").textContent = `Rodada ${state.jogosRound}`;
@@ -2771,12 +2808,12 @@ function activeFavoriteTeam() {
 // ou string, dependendo do fornecedor) em vez de guardar o que veio
 // cru do HTML.
 // ================= Roteamento por URL (Fase B, "Plano de Indexação") =================
-// Time (/times/:slug) e agora Jogador (/jogadores/:id[-slug]) têm URL
-// própria — Jogo (partida) fica pra continuação natural dessa mesma
-// fase, mesma mecânica, mas sem "página" própria hoje (é um card
-// expansível dentro de Jogos, não uma rota separada como Time/Jogador
-// já eram). slugifyName precisa gerar EXATAMENTE o mesmo resultado que
-// server/src/slug.js (slugify) — ver aviso lá.
+// Time (/times/:slug), Jogador (/jogadores/:id[-slug]) e agora Jogo
+// (/jogos/:fixtureId[-slug], pedido do usuário 15/08/2026: "onde
+// assistir e que horas é o jogo" como página própria indexável, não
+// só um card expansível dentro de Jogos) têm URL própria.
+// slugifyName/matchSlug precisam gerar EXATAMENTE o mesmo resultado
+// que server/src/slug.js (slugify/matchSlug) — ver aviso lá.
 function slugifyName(name) {
   return String(name || "")
     .normalize("NFD").replace(/[̀-ͯ]/g, "")
@@ -2786,6 +2823,22 @@ function slugifyName(name) {
 }
 function teamSlug(team) { return slugifyName(team.name); }
 function findTeamBySlug(slug) { return TEAMS.find((t) => teamSlug(t) === slug) || null; }
+function matchSlug(homeName, awayName, dateIso) {
+  const d = dateIso ? new Date(dateIso) : null;
+  const dateStr = d && !isNaN(d)
+    ? new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric" })
+        .format(d).replace(/\//g, "-")
+    : "";
+  return [slugifyName(homeName), "x", slugifyName(awayName), dateStr].filter(Boolean).join("-");
+}
+// Caminho canônico da página de uma partida -- fixtureId é quem
+// resolve de verdade (ver goToMatch/applyRouteFromLocation), o slug
+// depois do "-" é só cosmético/leitura.
+function matchPath(m) {
+  const H = TEAM_MAP[m.home], A = TEAM_MAP[m.away];
+  const slug = matchSlug(H?.name, A?.name, m.date);
+  return `/jogos/${m.fixtureId}${slug ? "-" + slug : ""}`;
+}
 
 // Lê a URL atual e navega pra página correspondente, se reconhecida —
 // devolve true se navegou, false se a URL não bateu com nada
@@ -2832,6 +2885,14 @@ function applyRouteFromLocation() {
     goToPlayer(playerMatch[1], { pushUrl: false });
     return true;
   }
+
+  // Partida (/jogos/:fixtureId[-slug], pedido do usuário 15/08/2026)
+  // -- igual jogador, só o ID resolve de verdade; ver goToMatch.
+  const matchRouteMatch = location.pathname.match(/^\/jogos\/(\d+)(?:-[a-z0-9-]+)?\/?$/);
+  if (matchRouteMatch) {
+    goToMatch(matchRouteMatch[1], { pushUrl: false });
+    return true;
+  }
   return false;
 }
 
@@ -2859,7 +2920,15 @@ function syncUrlForPage(name) {
     }
   }
   if (name === "jogador") return;
-  if (location.pathname.startsWith("/times/") || location.pathname.startsWith("/jogadores/")) {
+  // "jogos" passa por aqui igual qualquer outra página (não tem um
+  // caso especial tipo "jogador" acima porque resolver a partida é
+  // síncrono -- ver goToMatch, que já pula essa função com
+  // skipUrlSync quando é ELE quem está navegando): clicar na aba
+  // Jogos "pelada" (sem vir de um link de partida) deve voltar
+  // qualquer /jogos/:id que tenha sobrado na barra de endereço pra
+  // "/" -- só volta a aparecer se o usuário expandir um card de
+  // partida de novo (ver syncMatchUrl).
+  if (location.pathname.startsWith("/times/") || location.pathname.startsWith("/jogadores/") || location.pathname.startsWith("/jogos/")) {
     history.pushState(null, "", "/");
   }
 }
@@ -2891,6 +2960,27 @@ function goToPlayer(playerId, opts = {}) {
   if (state.page !== "time" && state.page !== "jogador") state.pageBeforeDetail = state.page;
   state.selectedPlayerId = playerId;
   setActivePage("jogador", { skipUrlSync: opts.pushUrl === false });
+}
+// Abre a página Jogos já na rodada certa, com o card da partida
+// expandido e a tela rolada até ele -- usado ao abrir /jogos/:fixtureId
+// direto (link do Google, WhatsApp etc., ver GET /jogos/:fixtureId em
+// server.js e applyRouteFromLocation abaixo). fixtureId não encontrado
+// (id errado, ou modo Exemplo -- que nunca tem fixtureId de verdade,
+// ver findMatchByFixtureId) cai pro Dashboard em vez de travar numa
+// tela vazia.
+function goToMatch(fixtureId, opts = {}) {
+  if (state.page !== "jogos") state.pageBeforeDetail = state.page;
+  const found = findMatchByFixtureId(fixtureId);
+  if (!found) { setActivePage("dashboard"); return; }
+  state.jogosRound = found.round;
+  const domId = `match-${found.round}-${found.match.home}-${found.match.away}`;
+  setActivePage("jogos", { skipUrlSync: opts.pushUrl === false, scrollTo: domId });
+  // Expande DEPOIS do render acima (fullMatchCardHTML, chamado dentro
+  // de renderJogos, é quem popula MATCH_REGISTRY[domId] -- expandir
+  // antes não teria o que expandir ainda). Mesmo caminho de um clique
+  // manual em "Ver detalhes", então dispara igual os fetches lazy de
+  // estatística/escalação/transmissão.
+  toggleMatchExpand(domId, { skipUrlSync: true });
 }
 function goBackFromDetail() {
   setActivePage(state.pageBeforeDetail || "dashboard");

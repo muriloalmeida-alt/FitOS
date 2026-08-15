@@ -137,6 +137,17 @@ async function tryLoadLiveData(season = LIVE_SEASON, competitionId = "brasileira
         results[`${fx.round}_${fx.home}_${fx.away}`] = {
           home: fx.home, away: fx.away, gh: fx.gh, ga: fx.ga, round: fx.round,
           fixtureId: fx.id, official: true, venue: fx.venue,
+          // AJUSTE (pedido do usuário, 15/08/2026: página própria por
+          // partida -- ver matchPath/matchSlug em app.js): antes só o
+          // jogo PENDENTE (linha de allRounds acima) tinha `date` --
+          // um jogo já decidido virava slug sem data
+          // ("flamengo-x-palmeiras" em vez de "...-15-08-2026"),
+          // divergindo do slug canônico que o servidor monta (esse
+          // sim sempre com data, porque lê a lista de fixtures crua
+          // -- ver GET /jogos/:fixtureId em server.js). fixtureId
+          // continua sendo quem resolve de verdade (o slug é só
+          // cosmético), mas mantém as 2 URLs consistentes.
+          date: fx.date,
         };
       }
     });

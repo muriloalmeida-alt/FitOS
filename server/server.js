@@ -57,7 +57,7 @@ const competitions = require("./src/competitions");
 const paymentsLedger = require("./src/paymentsLedger");
 const contentStore = require("./src/contentStore");
 const publicRateLimit = require("./src/publicRateLimit");
-const { slugify } = require("./src/slug");
+const { slugify, matchSlug } = require("./src/slug");
 
 const PORT = process.env.PORT || 8787;
 const LEAGUE_ID = process.env.LEAGUE_ID || "71"; // 71 = Brasileirão Série A na API-Sports (confirme no /api/leagues/search)
@@ -603,6 +603,188 @@ async function handlePlayerRoute(req, res, playerId, requestedTeamSlug) {
   }
 }
 
+// ================= Página da Partida (pedido do usuário, 15/08/2026) =================
+// "Onde assistir e que horas é o jogo é uma das grandes dores da
+// internet" -- pra aparecer no Google (ou virar um featured snippet
+// de resposta rápida) essa resposta precisa MORAR numa URL própria,
+// indexável, com a resposta já pronta no HTML cru -- não só depois de
+// interação dentro da SPA (o que o app tinha até aqui: "onde
+// assistir" só existia atrás de um clique em "Ver detalhes",
+// carregado via JS, invisível pra um crawler que não roda JS ou com
+// orçamento curto).
+//
+// /jogos/:fixtureId[-slug] -- MESMO padrão de
+// /times/:slug/jogadores/:id[-slug]: fixtureId é quem resolve de
+// verdade (vem de getFixtures, ver contrato em providers/index.js), o
+// slug depois do "-" é só cosmético/leitura pro Google e pra quem lê
+// a URL -- não precisa bater, nunca redireciona por causa dele (mesmo
+// espírito de handlePlayerRoute acima).
+//
+// "Onde assistir" reusa a MESMA lógica E a MESMA chave de cache de
+// GET /api/broadcast (2 fontes -- EPG e TheSportsDB, nenhuma exige
+// credencial de fornecedor esportivo, ver aviso grande lá) -- um
+// crawler batendo aqui não custa nada a mais além do que o app
+// cliente já paga normalmente pro mesmo jogo.
+async function handleMatchRoute(req, res, fixtureId) {
+  if (!liveModeEnabled()) return serveStatic(req, res);
+
+  try {
+    const comp = competitions.getCompetition("brasileirao");
+    const leagueId = competitions.providerLeagueId(comp, dataProvider.ACTIVE_PROVIDER_NAME);
+    const season = LIVE_SEASON;
+    const [teams, fixtures] = await Promise.all([
+      withCache(`teams:${comp.id}:${season}`, TTL.teams, () => dataProvider.getTeams({ leagueId, season })),
+      withCache(`fixtures:${comp.id}:${season}`, TTL.fixtures, () => dataProvider.getFixtures({ leagueId, season })),
+    ]);
+    const fixture = fixtures.find((f) => String(f.id) === String(fixtureId));
+
+    if (!fixture) {
+      const html = await renderShellWithSeo(req, {
+        title: "Partida não encontrada · BR Data",
+        description: "Não encontramos esse jogo. Veja a tabela de jogos e o calendário completo do Brasileirão no BR Data.",
+        canonicalPath: `/jogos/${fixtureId}`,
+        bodySnapshotHtml: "",
+      });
+      res.writeHead(404, { "Content-Type": "text/html; charset=utf-8" });
+      return res.end(html);
+    }
+
+    const teamById = new Map(teams.map((t) => [t.id, t]));
+    const home = teamById.get(fixture.home);
+    const away = teamById.get(fixture.away);
+    const homeName = home?.name || "Time da casa";
+    const awayName = away?.name || "Time visitante";
+    const FINISHED_STATUS = ["FT", "AET", "PEN"]; // mesma lista usada no cliente e em /times/:slug, ver tryLoadLiveData em liveData.js
+    const finished = FINISHED_STATUS.includes(fixture.status);
+
+    const slug = matchSlug(homeName, awayName, fixture.date);
+    const canonicalPath = `/jogos/${fixture.id}${slug ? `-${slug}` : ""}`;
+
+    // Onde assistir -- mesma lógica e mesma chave de cache de GET
+    // /api/broadcast (ver aviso grande lá): erro ou "não achou" em
+    // qualquer uma das 2 fontes nunca quebra a página, só segue sem
+    // essa informação (o resto da página continua valendo — data,
+    // horário, local, escalação).
+    let broadcastStation = null;
+    if (fixture.date) {
+      try {
+        const data = await withCache(
+          `broadcast:${fixture.date.slice(0, 10)}:${homeName}:${awayName}:${fixture.id || ""}`,
+          TTL.broadcast,
+          async () => {
+            try {
+              const fromEpg = await fetchBroadcastFromEPG(fixture.date, homeName, awayName);
+              if (fromEpg) return { station: fromEpg, source: "epg" };
+            } catch (err) {
+              console.error("[jogos/:fixtureId] falha ao consultar o EPG:", err.message);
+            }
+            try {
+              const fromSportsDb = await fetchBroadcastStation(fixture.date, homeName, awayName);
+              return { station: fromSportsDb, source: fromSportsDb ? "thesportsdb" : null };
+            } catch (err) {
+              console.error("[jogos/:fixtureId] falha ao consultar TheSportsDB:", err.message);
+              return { station: null, source: null };
+            }
+          }
+        );
+        broadcastStation = data.station;
+      } catch { /* segue sem transmissão */ }
+    }
+
+    const d = fixture.date ? new Date(fixture.date) : null;
+    const validDate = d && !isNaN(d);
+    const dateLabel = validDate
+      ? new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", day: "2-digit", month: "2-digit", year: "numeric" }).format(d)
+      : null;
+    const timeLabel = validDate
+      ? new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", hour: "2-digit", minute: "2-digit" }).format(d)
+      : null;
+    const venueName = fixture.venue?.name || home?.venue?.name || null;
+
+    const title = finished
+      ? `${homeName} ${fixture.gh} x ${fixture.ga} ${awayName}: resultado, onde assistir e estatísticas · BR Data`
+      : `${homeName} x ${awayName}: onde assistir, horário e escalação${dateLabel ? ` — ${dateLabel}` : ""} · BR Data`;
+
+    // "Resposta rápida" -- literal, no formato da própria pergunta que
+    // alguém digita no Google ("onde assistir X x Y", "que horas é o
+    // jogo hoje") -- vira o 1º texto substancial da página, é isso
+    // que dá chance real de featured snippet (Google extrai do
+    // CONTEÚDO, não de schema -- ver explicação dada ao usuário).
+    const quickAnswer = finished
+      ? `${homeName} ${fixture.gh} x ${fixture.ga} ${awayName} — jogo encerrado${dateLabel ? ` em ${dateLabel}` : ""}${venueName ? `, no ${venueName}` : ""}.`
+      : `${homeName} x ${awayName} joga${dateLabel ? ` ${dateLabel}` : ""}${timeLabel ? ` às ${timeLabel} (horário de Brasília)` : ""}${venueName ? `, no ${venueName}` : ""}.${broadcastStation ? ` Transmissão: ${broadcastStation}.` : ""}`;
+
+    const description = finished
+      ? `${homeName} ${fixture.gh} x ${fixture.ga} ${awayName}, resultado do jogo${dateLabel ? ` de ${dateLabel}` : ""} pelo Brasileirão. Veja gols, escalações e estatísticas completas no BR Data.`
+      : `${quickAnswer}${broadcastStation ? "" : " Veja escalação, odds e estatísticas no BR Data."}`;
+
+    // Tempo verbal muda com o status -- "começa às" pra um jogo que já
+    // aconteceu há semanas lê estranho (mesmo não sendo errado), e
+    // "onde assistir" faz mais sentido no passado pra jogo encerrado.
+    const watchAnswer = finished
+      ? (broadcastStation ? `A transmissão de ${homeName} x ${awayName} foi pela ${broadcastStation}.` : `Não temos registro de onde esse jogo foi transmitido.`)
+      : (broadcastStation ? `A transmissão de ${homeName} x ${awayName} é pela ${broadcastStation}.` : `Ainda não temos confirmação de onde assistir ${homeName} x ${awayName} — confira mais perto da data.`);
+    const timeAnswer = (dateLabel && timeLabel)
+      ? `${homeName} x ${awayName} ${finished ? "aconteceu" : "começa"} às ${timeLabel} (horário de Brasília), no dia ${dateLabel}${venueName ? `, no ${venueName}` : ""}.`
+      : `Horário de ${homeName} x ${awayName} ainda não confirmado pelo Brasileirão.`;
+
+    const bodySnapshotHtml = `<div id="seoSnapshot" style="max-width:680px;margin:32px auto;padding:0 20px;font:15px/1.6 system-ui,sans-serif;color:#0A1424;">
+  <h1>${escapeHtml(homeName)} x ${escapeHtml(awayName)}</h1>
+  <p><strong>${escapeHtml(quickAnswer)}</strong></p>
+  <h2>Onde assistir ${escapeHtml(homeName)} x ${escapeHtml(awayName)}?</h2>
+  <p>${escapeHtml(watchAnswer)}</p>
+  <h2>Que horas é o jogo ${escapeHtml(homeName)} x ${escapeHtml(awayName)}?</h2>
+  <p>${escapeHtml(timeAnswer)}</p>
+  ${venueName ? `<h2>Onde é o jogo?</h2>\n  <p>${escapeHtml(venueName)}</p>` : ""}
+</div>`;
+
+    // SportsEvent + BroadcastEvent (só quando a emissora foi
+    // confirmada -- nunca inventa dado) é o jeito documentado pelo
+    // schema.org de declarar "onde passa"; FAQPage reforça o mesmo
+    // conteúdo em formato pergunta/resposta -- vale lembrar que desde
+    // ago/2023 o Google restringiu o ACORDEON visual de FAQ a sites
+    // "bem conhecidos", então não é garantia de aparecer bonito na
+    // busca, mas não atrapalha e ainda ajuda a relevância/snippet.
+    const eventJsonLd = {
+      "@type": "SportsEvent",
+      name: `${homeName} x ${awayName}`,
+      url: `${CANONICAL_SITE_URL}${canonicalPath}`,
+      eventStatus: finished ? "https://schema.org/EventCompleted" : "https://schema.org/EventScheduled",
+      ...(fixture.date ? { startDate: fixture.date } : {}),
+      ...(venueName ? { location: { "@type": "Place", name: venueName } } : {}),
+      homeTeam: { "@type": "SportsTeam", name: homeName, sport: "Soccer", ...(home?.logo ? { logo: home.logo } : {}), url: `${CANONICAL_SITE_URL}/times/${slugify(homeName)}` },
+      awayTeam: { "@type": "SportsTeam", name: awayName, sport: "Soccer", ...(away?.logo ? { logo: away.logo } : {}), url: `${CANONICAL_SITE_URL}/times/${slugify(awayName)}` },
+      ...(broadcastStation ? {
+        publication: {
+          "@type": "BroadcastEvent",
+          name: `${homeName} x ${awayName} ao vivo`,
+          isLiveBroadcast: true,
+          ...(fixture.date ? { startDate: fixture.date } : {}),
+          publishedOn: { "@type": "BroadcastService", name: broadcastStation, broadcastDisplayName: broadcastStation },
+        },
+      } : {}),
+    };
+    const faqJsonLd = {
+      "@type": "FAQPage",
+      mainEntity: [
+        { "@type": "Question", name: `Onde assistir ${homeName} x ${awayName}?`, acceptedAnswer: { "@type": "Answer", text: watchAnswer } },
+        { "@type": "Question", name: `Que horas é o jogo ${homeName} x ${awayName}?`, acceptedAnswer: { "@type": "Answer", text: timeAnswer } },
+      ],
+    };
+
+    const html = await renderShellWithSeo(req, {
+      title, description, canonicalPath, bodySnapshotHtml,
+      image: home?.logo || null,
+      jsonLd: { "@context": "https://schema.org", "@graph": [eventJsonLd, faqJsonLd] },
+    });
+    res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=600" });
+    return res.end(html);
+  } catch (err) {
+    console.error("[jogos/:fixtureId] falha ao montar a página, servindo o shell padrão:", err.message);
+    return serveStatic(req, res);
+  }
+}
+
 function serveStatic(req, res) {
   let filePath = path.join(PUBLIC_DIR, decodeURIComponent(req.url.split("?")[0]));
   if (req.url === "/" || req.url === "") filePath = path.join(PUBLIC_DIR, "index.html");
@@ -785,6 +967,33 @@ const server = http.createServer(async (req, res) => {
               urls.push({ loc: `${base}/times/${teamSlugStr}/jogadores/${p.id}-${slugify(p.name)}`, changefreq: "weekly", priority: "0.5" });
             });
           });
+
+          // Partidas (pedido do usuário, 15/08/2026: "onde assistir e
+          // que horas é o jogo" como página própria -- ver
+          // handleMatchRoute) -- TODAS as rodadas da temporada, não só
+          // as próximas: jogo já encerrado continua tendo valor de
+          // busca (resultado, estatísticas), só com prioridade/
+          // changefreq menor que um jogo ainda por vir (onde a
+          // resposta "onde assistir"/"que horas" muda mais e importa
+          // mais pra quem busca). Reaproveita a MESMA chave de cache
+          // de GET /api/fixtures -- zero custo extra de fornecedor
+          // além do que o resto do sitemap/app já paga.
+          const teamById = new Map(teams.map((t) => [t.id, t]));
+          const fixtures = await withCache(`fixtures:${comp.id}:${LIVE_SEASON}`, TTL.fixtures, () =>
+            dataProvider.getFixtures({ leagueId, season: LIVE_SEASON })
+          );
+          const FINISHED_STATUS_SITEMAP = ["FT", "AET", "PEN"];
+          fixtures.forEach((f) => {
+            const homeT = teamById.get(f.home), awayT = teamById.get(f.away);
+            if (!homeT || !awayT) return; // time não resolvido (raro) -- sem nome pra montar slug, pula essa partida
+            const finished = FINISHED_STATUS_SITEMAP.includes(f.status);
+            const slug = matchSlug(homeT.name, awayT.name, f.date);
+            urls.push({
+              loc: `${base}/jogos/${f.id}${slug ? `-${slug}` : ""}`,
+              changefreq: finished ? "monthly" : "daily",
+              priority: finished ? "0.6" : "0.8",
+            });
+          });
         } catch (err) {
           // Sitemap nunca deveria quebrar por causa de uma falha
           // pontual do fornecedor -- pior caso, sai só com as URLs
@@ -838,7 +1047,13 @@ const server = http.createServer(async (req, res) => {
         const upcomingHTML = upcoming.map((f) => {
           const home = teamById.get(f.home)?.name || "?";
           const away = teamById.get(f.away)?.name || "?";
-          return `<li>${escapeHtml(home)} x ${escapeHtml(away)}</li>`;
+          // Link pra página própria da partida (ver handleMatchRoute) --
+          // a raiz é a página de MAIOR tráfego do site, então é o
+          // link interno de maior peso pra ajudar o Google a descobrir
+          // essas URLs novas (sitemap sozinho não carrega relevância).
+          const slug = matchSlug(home, away, f.date);
+          const href = `/jogos/${f.id}${slug ? `-${slug}` : ""}`;
+          return `<li><a href="${escapeHtml(href)}">${escapeHtml(home)} x ${escapeHtml(away)} — onde assistir e horário</a></li>`;
         }).join("\n    ");
 
         const bodySnapshotHtml = `<div id="seoSnapshot" style="max-width:680px;margin:32px auto;padding:0 20px;font:15px/1.6 system-ui,sans-serif;color:#0A1424;">
@@ -947,17 +1162,24 @@ const server = http.createServer(async (req, res) => {
           ? `${team.name} está em ${row.rank}º lugar no Brasileirão, com ${row.pts} pontos em ${row.j} jogos. Veja elenco, últimos resultados e próximos jogos.`
           : `Elenco, tabela e próximos jogos do ${team.name} no Brasileirão.`;
 
+        // Link pra página própria da partida (/jogos/:fixtureId-slug,
+        // ver handleMatchRoute) -- além de ajudar quem está lendo, é
+        // um LINK INTERNO de verdade (não só sitemap) até essa URL
+        // nova, o que ajuda o Google a descobrir/rastrear com mais
+        // prioridade (sitemap sozinho é só "aqui existe", link interno
+        // também carrega relevância).
+        const matchHref = (f) => `/jogos/${f.id}${matchSlug(teamById.get(f.home)?.name, teamById.get(f.away)?.name, f.date) ? `-${matchSlug(teamById.get(f.home)?.name, teamById.get(f.away)?.name, f.date)}` : ""}`;
         const resultLineHTML = (f) => {
           const isHome = f.home === team.id;
           const gf = isHome ? f.gh : f.ga, ga = isHome ? f.ga : f.gh;
-          return `<li>${escapeHtml(team.name)} ${gf} x ${ga} ${escapeHtml(oppName(f))}</li>`;
+          return `<li><a href="${escapeHtml(matchHref(f))}">${escapeHtml(team.name)} ${gf} x ${ga} ${escapeHtml(oppName(f))}</a></li>`;
         };
 
         const bodySnapshotHtml = `<div id="seoSnapshot" style="max-width:680px;margin:32px auto;padding:0 20px;font:15px/1.6 system-ui,sans-serif;color:#0A1424;">
   <h1>${escapeHtml(team.name)}</h1>
   <p>${escapeHtml(description)}</p>
   ${finished.length ? `<h2>Últimos jogos</h2>\n  <ul>\n    ${finished.map(resultLineHTML).join("\n    ")}\n  </ul>` : ""}
-  ${nextMatch ? `<h2>Próximo jogo</h2>\n  <p>${escapeHtml(team.name)} x ${escapeHtml(oppName(nextMatch))}</p>` : ""}
+  ${nextMatch ? `<h2>Próximo jogo</h2>\n  <p><a href="${escapeHtml(matchHref(nextMatch))}">${escapeHtml(team.name)} x ${escapeHtml(oppName(nextMatch))} — onde assistir e horário</a></p>` : ""}
 </div>`;
 
         const html = await renderShellWithSeo(req, {
@@ -996,6 +1218,15 @@ const server = http.createServer(async (req, res) => {
     const playerRouteMatch = pathname.match(/^\/jogadores\/(\d+)(?:-[a-z0-9-]+)?\/?$/);
     if (playerRouteMatch) {
       return handlePlayerRoute(req, res, playerRouteMatch[1], null);
+    }
+
+    // ================= Página da Partida (pedido do usuário, 15/08/2026) =================
+    // /jogos/:fixtureId[-slug] -- ver handleMatchRoute (definida perto
+    // de handlePlayerRoute) pra toda a lógica ("onde assistir", horário,
+    // JSON-LD). Mesmo padrão: o ID sozinho resolve, "-slug" é só cosmético.
+    const matchRouteMatch = pathname.match(/^\/jogos\/(\d+)(?:-[a-z0-9-]+)?\/?$/);
+    if (matchRouteMatch) {
+      return handleMatchRoute(req, res, matchRouteMatch[1]);
     }
 
     // URL amigável (sem ".html") pra área administrativa — o resto do
