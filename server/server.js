@@ -641,6 +641,80 @@ const server = http.createServer(async (req, res) => {
       return res.end(`<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${body}\n</urlset>\n`);
     }
 
+    // ================= Raiz ("/") com resumo pré-renderizado =================
+    // AJUSTE (achado numa simulação de crawl do Googlebot, pedido pelo
+    // usuário): a raiz — a página de MAIOR tráfego do site — nunca
+    // tinha conteúdo nenhum no HTML cru, só o <head> (title/description/
+    // OG já configurados na Fase A). O corpo inteiro dependia de JS
+    // rodando pra aparecer QUALQUER texto — pior caso possível pra um
+    // crawler que não executa JS (ou que executa mas com orçamento
+    // limitado, o caso comum do Googlebot pra sites menores). Mesma
+    // mecânica de /times/:slug: tabela completa do Brasileirão em HTML
+    // puro, some assim que o JS termina de carregar (removeSeoSnapshot
+    // em app.js, mesmo marcador SEO:BODY_SNAPSHOT). title/description/
+    // OG continuam os mesmos defaults já configurados (não muda nada
+    // visível no <head> — só o CORPO ganha conteúdo de verdade).
+    if (pathname === "/") {
+      if (!liveModeEnabled()) return serveStatic(req, res);
+      try {
+        const comp = competitions.getCompetition("brasileirao");
+        const leagueId = competitions.providerLeagueId(comp, dataProvider.ACTIVE_PROVIDER_NAME);
+        const season = LIVE_SEASON;
+        const [teams, standings, fixtures] = await Promise.all([
+          withCache(`teams:${comp.id}:${season}`, TTL.teams, () => dataProvider.getTeams({ leagueId, season })),
+          withCache(`standings:${comp.id}:${season}`, TTL.standings, () => dataProvider.getStandings({ leagueId, season })),
+          withCache(`fixtures:${comp.id}:${season}`, TTL.fixtures, () => dataProvider.getFixtures({ leagueId, season })),
+        ]);
+        const teamById = new Map(teams.map((t) => [t.id, t]));
+        const sorted = [...standings].sort((a, b) => a.rank - b.rank);
+        const FINISHED_STATUS = ["FT", "AET", "PEN"];
+        const upcoming = fixtures
+          .filter((f) => !FINISHED_STATUS.includes(f.status))
+          .sort((a, b) => new Date(a.date) - new Date(b.date))
+          .slice(0, 5);
+
+        const standingsRowsHTML = sorted.map((r) => {
+          const t = teamById.get(r.id);
+          return `<tr><td>${r.rank}º</td><td>${escapeHtml(t?.name || "?")}</td><td>${r.pts}</td><td>${r.j}</td></tr>`;
+        }).join("\n    ");
+        const upcomingHTML = upcoming.map((f) => {
+          const home = teamById.get(f.home)?.name || "?";
+          const away = teamById.get(f.away)?.name || "?";
+          return `<li>${escapeHtml(home)} x ${escapeHtml(away)}</li>`;
+        }).join("\n    ");
+
+        const bodySnapshotHtml = `<div id="seoSnapshot" style="max-width:680px;margin:32px auto;padding:0 20px;font:15px/1.6 system-ui,sans-serif;color:#0A1424;">
+  <h1>Tabela do Brasileirão</h1>
+  <p>Classificação atualizada, próximos jogos e estatísticas de cada time do Campeonato Brasileiro.</p>
+  <table>
+    <thead><tr><th>Pos</th><th>Time</th><th>Pontos</th><th>Jogos</th></tr></thead>
+    <tbody>
+    ${standingsRowsHTML}
+    </tbody>
+  </table>
+  ${upcoming.length ? `<h2>Próximos jogos</h2>\n  <ul>\n    ${upcomingHTML}\n  </ul>` : ""}
+</div>`;
+
+        const html = await renderShellWithSeo(req, {
+          title: "BR Data · Tabela, Jogos e Estatísticas do Brasileirão 2026",
+          description: "Tabela, jogos, estatísticas e simulador de probabilidades do Campeonato Brasileiro 2026 — dados atualizados de cada time, artilheiros e próximos jogos.",
+          canonicalPath: "/",
+          bodySnapshotHtml,
+          jsonLd: {
+            "@context": "https://schema.org", "@type": "WebSite",
+            name: "BR Data",
+            description: "Tabela, jogos, estatísticas e simulador de probabilidades do Campeonato Brasileiro.",
+            inLanguage: "pt-BR",
+          },
+        });
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "public, max-age=600" });
+        return res.end(html);
+      } catch (err) {
+        console.error("[raiz] falha ao montar o resumo pré-renderizado, servindo o shell padrão:", err.message);
+        return serveStatic(req, res);
+      }
+    }
+
     // ================= Página do Time (Fase B, "Plano de Indexação") =================
     // /times/:slug — 1ª URL por entidade do plano de SEO (ver Fase A
     // já em produção). Sempre do Brasileirão Série A por enquanto (é a
