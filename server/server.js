@@ -572,6 +572,15 @@ async function handlePlayerRoute(req, res, playerId, requestedTeamSlug) {
     const title = `${player.name} — Estatísticas no Brasileirão · BR Data`;
     const description = `${player.name}${teamName ? ` (${teamName})` : ""}: ${player.goals ?? 0} gols e ${player.assists ?? 0} assistências em ${player.games ?? 0} jogos no Brasileirão.`;
 
+    // AJUSTE (pedido do usuário: "revisa o funil pra garantir que
+    // todas as páginas estão mapeadas") -- o time já é linkado PRA CÁ
+    // (elenco na página do time), mas não tinha o caminho de volta:
+    // link daqui pro time só existia no JSON-LD (affiliation, não é
+    // clicável/rastreável) -- correctTeamSlug já estava calculado
+    // acima, só faltava usar aqui no corpo.
+    const teamLinkHTML = correctTeamSlug
+      ? `<p><a href="/times/${escapeHtml(correctTeamSlug)}">Ver página do ${escapeHtml(teamName)}</a></p>`
+      : "";
     const bodySnapshotHtml = `<div id="seoSnapshot" style="max-width:680px;margin:32px auto;padding:0 20px;font:15px/1.6 system-ui,sans-serif;color:#0A1424;">
   <h1>${escapeHtml(player.name)}</h1>
   <p>${escapeHtml(description)}</p>
@@ -582,6 +591,7 @@ async function handlePlayerRoute(req, res, playerId, requestedTeamSlug) {
     <li>Cartões amarelos: ${Number(player.yellow) || 0}</li>
     <li>Cartões vermelhos: ${Number(player.red) || 0}</li>
   </ul>
+  ${teamLinkHTML}
 </div>`;
 
     const html = await renderShellWithSeo(req, {
@@ -728,9 +738,16 @@ async function handleMatchRoute(req, res, fixtureId) {
       ? `${homeName} x ${awayName} ${finished ? "aconteceu" : "começa"} às ${timeLabel} (horário de Brasília), no dia ${dateLabel}${venueName ? `, no ${venueName}` : ""}.`
       : `Horário de ${homeName} x ${awayName} ainda não confirmado pelo Brasileirão.`;
 
+    // AJUSTE (pedido do usuário: "revisa o funil pra garantir que
+    // todas as páginas estão mapeadas") -- H1 tinha só texto puro, sem
+    // link nenhum pra nenhum dos 2 times (o JSON-LD já tinha homeTeam.
+    // url/awayTeam.url, mas isso não é clicável/rastreável por um
+    // crawler igual um <a> de verdade é).
+    const teamLinksHTML = `<p>${escapeHtml(homeName)} <a href="/times/${escapeHtml(slugify(homeName))}">ver página do time</a> · ${escapeHtml(awayName)} <a href="/times/${escapeHtml(slugify(awayName))}">ver página do time</a></p>`;
     const bodySnapshotHtml = `<div id="seoSnapshot" style="max-width:680px;margin:32px auto;padding:0 20px;font:15px/1.6 system-ui,sans-serif;color:#0A1424;">
   <h1>${escapeHtml(homeName)} x ${escapeHtml(awayName)}</h1>
   <p><strong>${escapeHtml(quickAnswer)}</strong></p>
+  ${teamLinksHTML}
   <h2>Onde assistir ${escapeHtml(homeName)} x ${escapeHtml(awayName)}?</h2>
   <p>${escapeHtml(watchAnswer)}</p>
   <h2>Que horas é o jogo ${escapeHtml(homeName)} x ${escapeHtml(awayName)}?</h2>
@@ -1040,9 +1057,20 @@ const server = http.createServer(async (req, res) => {
           .sort((a, b) => new Date(a.date) - new Date(b.date))
           .slice(0, 5);
 
+        // AJUSTE (pedido do usuário: "revisa o funil pra garantir que
+        // todas as páginas estão mapeadas") -- nome do time aqui era
+        // texto puro, sem link nenhum pra /times/:slug. A raiz é a
+        // página de MAIOR tráfego do site (tem até comentário próprio
+        // sobre isso mais abaixo, na Fase A) -- os 20 times ficavam
+        // descobríveis só pelo sitemap, nunca por link interno de
+        // verdade a partir da página mais visitada. Sitemap diz "isso
+        // existe"; link interno também carrega relevância de rastreio
+        // (mesmo raciocínio já aplicado em "Próximos jogos" logo
+        // abaixo, pros times só faltava).
         const standingsRowsHTML = sorted.map((r) => {
           const t = teamById.get(r.id);
-          return `<tr><td>${r.rank}º</td><td>${escapeHtml(t?.name || "?")}</td><td>${r.pts}</td><td>${r.j}</td></tr>`;
+          const nameHTML = t ? `<a href="/times/${escapeHtml(slugify(t.name))}">${escapeHtml(t.name)}</a>` : "?";
+          return `<tr><td>${r.rank}º</td><td>${nameHTML}</td><td>${r.pts}</td><td>${r.j}</td></tr>`;
         }).join("\n    ");
         const upcomingHTML = upcoming.map((f) => {
           const home = teamById.get(f.home)?.name || "?";
