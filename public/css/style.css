@@ -225,6 +225,10 @@ h1,h2,h3{ margin:0; }
    sem o "Saldo" que existia antes) — coluna fixa em vez de herdar as
    5/3 colunas do .grid-kpi do Dashboard, senão sobra um espaço vazio. */
 #teamPageKpis{ grid-template-columns:repeat(4, minmax(0, 1fr)); }
+/* Página do Jogador: mesmo motivo -- 4 KPIs (Jogos/Gols/Assistências/
+   Cartões; Nota média saiu daqui, pedido do usuário: já tem o badge
+   circular dela no hero, ficava repetida -- ver playerKpisHTML). */
+#playerPageKpis{ grid-template-columns:repeat(4, minmax(0, 1fr)); }
 .grid-3{ grid-template-columns:minmax(0, 1.3fr) minmax(0, 1fr) minmax(0, 1fr); align-items:start; }
 .grid-4{ grid-template-columns:repeat(4, minmax(0, 1fr)); align-items:start; }
 .grid-2{ grid-template-columns:minmax(0, 1fr) minmax(0, 1fr); align-items:start; }

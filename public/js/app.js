@@ -3127,8 +3127,12 @@ function playerHeroHTML(player, team) {
     ${ratingHTML}`;
 }
 
-// 5 KPIs (antes eram 4: faltava "Jogos" -- estatística básica pra
-// avaliar o atleta, omitida sem motivo na versão anterior da página).
+// 4 KPIs (pedido do usuário: a nota média aparecia 2x -- já tem o
+// badge circular dela no hero, ver playerHeroHTML -- tirada daqui pra
+// não repetir a mesma informação 2 vezes na mesma página). Jogos foi
+// adicionado nessa reconstrução (antes eram só Gols/Assistências/
+// Cartões/Nota -- faltava "Jogos", estatística básica pra avaliar o
+// atleta, omitida sem motivo na versão anterior da página).
 // fmt(): "—" pro fornecedor que não tem esse dado preenchido ainda
 // (em vez de mostrar em branco ou "null" cru) -- ver aviso grande em
 // server/src/providers/sportmonks.js sobre getPlayer() não trazer
@@ -3141,8 +3145,7 @@ function playerKpisHTML(player) {
     <div class="card kpi"><div class="ico navy">🏟️</div><div><div class="lbl">Jogos</div><div class="val">${fmt(player.games)}</div></div></div>
     <div class="card kpi"><div class="ico green">⚽</div><div><div class="lbl">Gols</div><div class="val">${fmt(player.goals)}</div></div></div>
     <div class="card kpi"><div class="ico blue">🎯</div><div><div class="lbl">Assistências</div><div class="val">${fmt(player.assists)}</div></div></div>
-    <div class="card kpi"><div class="ico red">🟨</div><div><div class="lbl">Cartões</div><div class="val">${fmt(player.yellow)} <small>/ ${fmt(player.red)} 🟥</small></div></div></div>
-    <div class="card kpi"><div class="ico yellow">⭐</div><div><div class="lbl">Nota média</div><div class="val">${player.rating != null ? Number(player.rating).toFixed(1) : "—"}</div></div></div>`;
+    <div class="card kpi"><div class="ico red">🟨</div><div><div class="lbl">Cartões</div><div class="val">${fmt(player.yellow)} <small>/ ${fmt(player.red)} 🟥</small></div></div></div>`;
 }
 
 function playerTeamCardHTML(team) {
