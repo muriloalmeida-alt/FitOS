@@ -898,6 +898,23 @@ function renderDashboard() {
   renderDashNextFixtures();
   renderDashOdds();
   renderDashNewsMini();
+
+  // BUG CORRIGIDO (pedido do usuário: "Posse média segue em branco na
+  // página inicial") -- mesma causa-raiz já corrigida antes em
+  // "Desempenho ofensivo" (Estatísticas) e nos tiles de
+  // Estatísticas consolidadas (Jogos), ver ensureRadarStatsAndRerender/
+  // ensureLeagueCardStats: m.stats (de onde "Posse média" lê
+  // m.stats.posse) só existe depois de uma busca que ninguém tinha
+  // disparado ainda -- renderDashKpis (linha acima) roda síncrono e
+  // sempre achava 0 jogos com stats na 1ª visita da sessão (Dashboard
+  // é a página de entrada padrão), then mostrava "—" pra sempre até o
+  // usuário visitar Jogos/Estatísticas por conta própria. Mesmo
+  // padrão fire-and-forget já usado nessas 2 páginas -- busca em
+  // segundo plano, redesenha só os KPIs quando chegar mais dado (sem
+  // travar o resto do Dashboard esperando).
+  ensureLeagueCardStats().then((changed) => {
+    if (changed && state.page === "dashboard") renderDashKpis(standings);
+  });
 }
 
 // Tabela de classificação do Dashboard — top 6 de sempre. Com um Clube
