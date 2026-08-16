@@ -34,8 +34,20 @@
    TODO deploy que mexer em qualquer arquivo do APP_SHELL abaixo
    precisa bumpar esse número — é o único jeito de forçar quem já tinha
    o site aberto a pegar a versão nova certinha, sem mistura.
+
+   BUMP (16/08/2026): brdata.online acabou de sair do ar (DNS+SSL só
+   resolveram agora) e produção ainda estava em deploy MANUAL no
+   Railway -- o 1º acesso real ao domínio caiu num app.js várias
+   versões atrás (setupEventListeners tentando addEventListener num
+   elemento que não existe mais nessa versão do index.html, mesmo
+   "mix" descrito acima), travando o boot() no meio e deixando só o
+   resumo estático pro Google visível. Produção acabou de virar
+   deploy AUTOMÁTICO (autorizado pelo usuário) -- esse commit é o
+   gatilho do 1º deploy automático, e bumpar aqui garante que quem
+   quer que já tenha acessado o domínio nesse meio tempo (com o app.js
+   velho) também descarte esse cache misturado na próxima visita.
 =================================================================== */
-const CACHE_NAME = "brdata-shell-v25";
+const CACHE_NAME = "brdata-shell-v26";
 const API_CACHE_NAME = "brdata-api-v1";
 
 const APP_SHELL = [
