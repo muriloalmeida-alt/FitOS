@@ -1,0 +1,62 @@
+{
+  "$schema": "Tokens extraídos do UI Kit & Design System — Copiloto Financeiro Pessoal (Ago/2026). Ver docs/copiloto-financeiro/discovery.md, seção 14.",
+  "color": {
+    "background": "#080B10",
+    "surface": "#11161F",
+    "surfaceElevated": "#171D27",
+    "border": "#252D38",
+    "primary": "#2F6BFF",
+    "primaryLight": "#5C8DFF",
+    "textPrimary": "#F5F7FA",
+    "textSecondary": "#9AA4B2",
+    "textMuted": "#667085",
+    "success": "#35C98A",
+    "warning": "#F5B942",
+    "danger": "#F05D6C"
+  },
+  "colorRatio": {
+    "darkSurfaces": "70%",
+    "whiteGray": "20%",
+    "blue": "7%",
+    "semantic": "3%"
+  },
+  "typography": {
+    "fontFamily": "Inter, system-ui, sans-serif",
+    "styles": {
+      "display": { "size": "48-56px", "weight": "600-700", "use": "Grandes números e destaque" },
+      "heading1": { "size": "32px", "weight": "600", "use": "Títulos de tela" },
+      "heading2": { "size": "24px", "weight": "600", "use": "Seções" },
+      "heading3": { "size": "18px", "weight": "600", "use": "Cards e grupos" },
+      "body": { "size": "15-16px", "weight": "400-500", "use": "Conteúdo" },
+      "small": { "size": "13px", "weight": "400-500", "use": "Metadados" },
+      "caption": { "size": "11-12px", "weight": "400-500", "use": "Auxiliar" }
+    }
+  },
+  "spacingScale": [4, 8, 12, 16, 24, 32, 48, 64],
+  "grid": {
+    "desktop": { "columns": 12, "margin": "32-48px", "gap": "16-24px" },
+    "mobile": { "columns": 4, "margin": "16px", "gap": "12-16px" }
+  },
+  "radius": {
+    "card": "12px",
+    "input": "8px",
+    "button": "8px",
+    "badge": "6px",
+    "modal": "12-16px"
+  },
+  "button": {
+    "height": "40-44px",
+    "paddingHorizontal": "16-20px",
+    "variants": ["primary", "secondary", "ghost", "disabled", "loading"]
+  },
+  "iconography": {
+    "library": "Lucide Icons (ou equivalente)",
+    "style": "outline",
+    "strokeWidth": "1.5-2px",
+    "rule": "Nunca usar emoji como elemento de UI final"
+  },
+  "aiMarker": {
+    "symbol": "✦",
+    "rule": "Identidade discreta; sem gradientes chamativos; sem estética de chatbot genérico"
+  }
+}
