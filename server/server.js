@@ -289,6 +289,19 @@ const TTL = {
   playersLeaders: 6 * 60 * 60 * 1000, // 6h — rankings de jogadores não mudam durante o dia
   broadcast: 6 * 60 * 60 * 1000,     // 6h — fonte comunitária (TheSportsDB), não muda de hora em hora
   news: 20 * 60 * 1000,              // 20min — feed de notícias, atualiza mas não precisa ser em tempo real
+  // AJUSTE (26/08/2026, pedido do usuário: "Quero que a página de jogos
+  // reflita os resultados ao vivo"): bem mais curto que TTL.fixtures
+  // (15min) de propósito — um placar/minuto que só atualiza a cada
+  // 15min não é "ao vivo" de verdade. 45s é um meio-termo: rápido o
+  // bastante pra parecer em tempo real (o front-end também só faz
+  // polling a cada 45s, ver LIVE_SCORES_POLL_MS em app.js — pedir mais
+  // rápido que isso só bateria no mesmo cache, sem ganho nenhum de
+  // frescor), sem chamar a Sportmonks/API-Sports a cada requisição de
+  // cada visitante (o cache aqui é compartilhado entre TODOS os
+  // usuários vendo essa competição, então 1 chamada real a cada 45s
+  // atende qualquer quantidade de gente olhando a aba Jogos ao mesmo
+  // tempo).
+  liveScores: 45 * 1000,
 };
 
 function loadDotEnv() {
@@ -1578,6 +1591,7 @@ const server = http.createServer(async (req, res) => {
     const PUBLIC_READ_EXACT = new Set([
       "/api/competitions", "/api/teams", "/api/standings", "/api/fixtures",
       "/api/players/leaders", "/api/broadcast", "/api/news",
+      "/api/livescores", // mesma classe de dado público que /api/fixtures — placar ao vivo também não exige login
     ]);
     const PUBLIC_READ_PATTERNS = [
       /^\/api\/teams\/\d+\/players$/,
@@ -1721,6 +1735,21 @@ const server = http.createServer(async (req, res) => {
         dataProvider.getFixtures({ leagueId: comp.leagueId, season })
       );
       return sendJSON(res, 200, { fixtures });
+    }
+
+    // AJUSTE (26/08/2026, pedido do usuário: "Quero que a página de
+    // jogos reflita os resultados ao vivo. A Sportmonks tem uma api de
+    // live score" — ver getLiveScores em providers/index.js/sportmonks.js/
+    // apiSports.js). Sem "season" de propósito — é sempre "o que está
+    // rolando agora", não um recorte de temporada. Cache curto
+    // (TTL.liveScores, 45s) e compartilhado por competição, não por
+    // usuário — ver comentário do TTL acima.
+    if (pathname === "/api/livescores") {
+      const comp = resolveCompetition(req, searchParams);
+      const live = await withCache(`livescores:${comp.id}`, TTL.liveScores, () =>
+        dataProvider.getLiveScores({ leagueId: comp.leagueId })
+      );
+      return sendJSON(res, 200, { live });
     }
 
     if (pathname === "/api/players/leaders") {

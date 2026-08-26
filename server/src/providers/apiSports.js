@@ -106,6 +106,28 @@ async function getFixtureOdds({ fixtureId }) {
 // fonte, tenta a próxima" — EPG/TheSportsDB — sem quebrar a página).
 async function getFixtureBroadcast() { return null; }
 
+// AJUSTE (26/08/2026, pedido do usuário: jogos ao vivo na aba Jogos —
+// ver AJUSTE 7 equivalente em providers/sportmonks.js). live=all
+// devolve TODOS os jogos em andamento agora, de qualquer liga do
+// plano contratado — filtra por liga aqui (fx.league.id), igual o
+// filtro por fx.league_id feito no lado da Sportmonks. mapFixture (já
+// importado de ../adapter) cobre participants/round/gols; só falta
+// forçar status="LIVE" (por definição desse endpoint) e ler o minuto
+// corrido direto de fixture.status.elapsed (a API-Sports, diferente da
+// Sportmonks, já devolve isso pronto, sem precisar montar a partir de
+// "periods").
+async function getLiveScores({ leagueId }) {
+  const data = await apiSportsGet("/fixtures", { live: "all" });
+  return (data || [])
+    .filter((fx) => String(fx.league?.id) === String(leagueId))
+    .map((fx) => ({
+      ...mapFixture(fx),
+      status: "LIVE",
+      phase: fx.fixture?.status?.short || null,
+      elapsed: fx.fixture?.status?.elapsed ?? null,
+    }));
+}
+
 // Precisa de API_SPORTS_KEY configurada pra funcionar — ver
 // hasCredential()/liveModeEnabled() em server.js.
 function hasCredential() { return !!process.env.API_SPORTS_KEY; }
@@ -117,6 +139,6 @@ module.exports = {
   searchLeagues, getTeams, getStandings, getFixtures,
   getPlayersLeaders, getTeamPlayers, getPlayer,
   getFixtureStatistics, getFixtureEvents, getFixtureLineups, getFixtureOdds,
-  getFixtureBroadcast,
+  getFixtureBroadcast, getLiveScores,
   getQuota,
 };

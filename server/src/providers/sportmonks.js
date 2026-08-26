@@ -645,6 +645,81 @@ async function getFixtureLineups({ fixtureId }) {
   return out;
 }
 
+// AJUSTE 7 (26/08/2026, pedido do usuário: "Quero que a página de
+// jogos reflita os resultados ao vivo. A Sportmonks tem uma api de
+// live score" -- endpoint apontado por ele mesmo: /livescores/inplay
+// com include "participants;scores;periods;events;league.country;round").
+// Esse endpoint devolve TODOS os jogos em andamento AGORA MESMO em
+// QUALQUER liga que o token tenha acesso (não filtra por liga sozinho
+// -- filtra por fx.league_id aqui embaixo, campo que já vem solto na
+// raiz de todo fixture da Sportmonks, sem precisar de include nenhum
+// pra isso). "league.country" pedido pelo usuário é um include
+// aninhado (relação dentro de relação) -- esse endpoint nunca tinha
+// sido chamado antes nesse arquivo, então (ver aviso grande no topo:
+// "0 nested includes" já mordeu em outros endpoints "temporada ->
+// algo") não dá pra garantir de antemão que ele aceita esse nível. Por
+// isso tenta com o include completo primeiro e, SÓ se a Sportmonks
+// rejeitar especificamente por causa de include aninhado, cai pra uma
+// versão sem "league.country" (o filtro por liga já funciona de
+// qualquer jeito, via league_id solto -- country nunca foi usado pra
+// nada além do include em si).
+const LIVESCORES_INCLUDE_FULL = "participants;scores;periods;events;league.country;round";
+const LIVESCORES_INCLUDE_FLAT = "participants;scores;periods;events;round";
+
+async function fetchInplayFixtures(include) {
+  const data = await sportmonksGet("/livescores/inplay", { include });
+  return Array.isArray(data) ? data : (data ? [data] : []);
+}
+
+// "periods" traz o histórico de tempos da partida (1º tempo, intervalo,
+// 2º tempo, prorrogação...); o período "ticking" (true) é o que está
+// contando agora, e "minutes" nele já é o minuto corrido de verdade
+// (formato ainda não confirmado contra resposta real -- endpoint nunca
+// chamado antes nesse arquivo, ver aviso acima). Sem "ticking" nenhum
+// (ex.: resposta vier sem esse campo), assume o ÚLTIMO período da
+// lista como o atual -- nunca quebra se vier vazio/no formato
+// diferente do esperado, só devolve null (front-end já trata elapsed
+// null mostrando só a fase, sem o minuto -- ver livePhaseLabel em
+// app.js).
+function extractElapsedMinutes(periods) {
+  if (!Array.isArray(periods) || !periods.length) return null;
+  const current = periods.find((p) => p.ticking === true) || periods[periods.length - 1];
+  const n = Number(current?.minutes);
+  return Number.isFinite(n) ? n : null;
+}
+
+// Reaproveita mapFixture (participants/scores/round/venue) e só soma o
+// que é específico de "jogo ao vivo agora": status forçado pra "LIVE"
+// (por definição -- esse endpoint só devolve jogo em andamento), "phase"
+// (short_name cru: "1H"/"HT"/"2H"/"ET" etc., pro badge escolher o texto
+// certo) e "elapsed" (minuto corrido, ver extractElapsedMinutes acima).
+function mapLiveFixture(fx) {
+  const base = mapFixture(fx);
+  return {
+    ...base,
+    status: "LIVE",
+    phase: fx.state?.short_name || null,
+    elapsed: extractElapsedMinutes(fx.periods),
+  };
+}
+
+async function getLiveScores({ leagueId }) {
+  let fixtures;
+  try {
+    fixtures = await fetchInplayFixtures(LIVESCORES_INCLUDE_FULL);
+  } catch (err) {
+    if (/nested include/i.test(err.message || "")) {
+      console.warn(`[sportmonks] /livescores/inplay rejeitou include com "league.country" (nested) -- tentando de novo sem esse include. Erro original: ${err.message}`);
+      fixtures = await fetchInplayFixtures(LIVESCORES_INCLUDE_FLAT);
+    } else {
+      throw err;
+    }
+  }
+  return fixtures
+    .filter((fx) => String(fx.league_id) === String(leagueId))
+    .map(mapLiveFixture);
+}
+
 async function getFixtureOdds({ fixtureId }) {
   const odds = await sportmonksGet(`/odds/pre-match/fixtures/${fixtureId}`, { include: "market;bookmaker" });
   const market = (odds || []).filter((o) => /match winner|1x2|full time result/i.test(o.market?.name || ""));
@@ -691,6 +766,6 @@ module.exports = {
   searchLeagues, getTeams, getStandings, getFixtures,
   getPlayersLeaders, getTeamPlayers, getPlayer,
   getFixtureStatistics, getFixtureEvents, getFixtureLineups, getFixtureOdds,
-  getFixtureBroadcast,
+  getFixtureBroadcast, getLiveScores,
   getQuota,
 };

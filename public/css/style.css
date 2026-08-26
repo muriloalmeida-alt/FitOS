@@ -631,6 +631,10 @@ h1,h2,h3{ margin:0; }
   display:inline-block; font-size:9.5px; font-weight:800; letter-spacing:.6px; text-transform:uppercase;
   background:rgba(255,255,255,.2); color:#fff; padding:3px 9px; border-radius:100px;
 }
+/* Jogo ao vivo na página da Partida (ver matchHeroHTML/app.js) --
+   mesmo pulso do .live-tag da aba Jogos, adaptado pro fundo escuro do
+   hero (fundo vermelho sólido em vez de translúcido branco). */
+.match-hero-badge-live{ background:var(--brd-red); animation:liveTagPulse 1.8s ease-in-out infinite; }
 .match-hero-score{ font-size:26px; font-weight:800; color:#fff; text-shadow:0 1px 3px rgba(0,0,0,.25); line-height:1.2; white-space:nowrap; }
 .match-hero-score .dash{ opacity:.7; font-weight:600; margin:0 2px; }
 .match-hero-vs{ font-size:16px; font-weight:800; color:rgba(255,255,255,.85); }
@@ -868,6 +872,13 @@ h1,h2,h3{ margin:0; }
 .match-score .dash{ color:var(--text-2); font-size:14px; font-weight:500; }
 .match-meta{ text-align:center; margin-top:8px; font-size:10.5px; color:var(--text-2); }
 .pending-tag{ display:inline-block; margin-top:4px; font-size:10px; padding:3px 9px; border-radius:100px; background:rgba(47,128,237,.1); color:var(--brd-info); }
+/* Badge "AO VIVO" -- jogo em andamento agora (ver `live:true` em
+   getRoundMatches/app.js, pedido do usuário 26/08/2026: "página de
+   jogos reflita os resultados ao vivo"). Mesmo formato de pílula do
+   .pending-tag, cor de perigo (--brd-red) em vez de info, com um pulso
+   sutil de opacidade pra chamar atenção sem ficar irritante. */
+.live-tag{ display:inline-block; margin-top:4px; font-size:10px; font-weight:700; padding:3px 9px; border-radius:100px; background:rgba(217,45,32,.12); color:var(--brd-red); animation:liveTagPulse 1.8s ease-in-out infinite; }
+@keyframes liveTagPulse{ 0%,100%{ opacity:1; } 50%{ opacity:.55; } }
 
 /* Botão "Ver detalhes" — card fechado por padrão, só carrega/mostra
    escalação, gols, estatísticas etc. quando o usuário expande. */

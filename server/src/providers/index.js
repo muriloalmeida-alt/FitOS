@@ -51,6 +51,19 @@
           (ex.: API-Sports não tem) devolve null sempre — server.js já
           trata isso como "sem essa fonte, tenta a próxima" (EPG /
           TheSportsDB, ver GET /api/broadcast), nunca quebra a página.
+     getLiveScores({ leagueId })
+       -> [{ id, date, status, round, home, away, gh, ga, venue, phase, elapsed }]
+          jogos EM ANDAMENTO agora mesmo nessa liga — status sempre
+          "LIVE" (por definição: já é filtrado pra só trazer jogo ao
+          vivo), phase = fase crua do fornecedor ("1H"/"HT"/"2H"/"ET"
+          etc, pro front-end escolher o texto certo do badge — ver
+          livePhaseLabel em app.js) e elapsed = minuto corrido (número)
+          ou null se o fornecedor não conseguir calcular. Usado só pela
+          aba Jogos pra atualizar placar/minuto em tempo real (ver GET
+          /api/livescores em server.js, polling em loadLiveScores/
+          refreshLiveScores em public/js/liveData.js e app.js) — nunca
+          usado pra decidir resultado OFICIAL (isso continua vindo só
+          de getFixtures, quando o status virar FT de verdade).
      getQuota()
        -> { limit, remaining } — síncrono, só reflete a última chamada
           feita; um fornecedor sem esse conceito pode devolver

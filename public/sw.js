@@ -46,8 +46,16 @@
    gatilho do 1º deploy automático, e bumpar aqui garante que quem
    quer que já tenha acessado o domínio nesse meio tempo (com o app.js
    velho) também descarte esse cache misturado na próxima visita.
+
+   BUMP (26/08/2026): placar ao vivo na aba Jogos (pedido do usuário) --
+   mexeu em app.js (LIVE_SCORES/refreshLiveScores/getRoundMatches/
+   fullMatchCardHTML/matchHeroHTML), liveData.js (loadLiveScores) e
+   style.css (.live-tag/.match-hero-badge-live) ao mesmo tempo -- os 3
+   arquivos do APP_SHELL abaixo. Mesma regra de sempre (ver topo deste
+   comentário): bumpar aqui evita o "mix" de app.js novo com liveData.js/
+   style.css velhos (ou vice-versa) pra quem já tinha o app aberto.
 =================================================================== */
-const CACHE_NAME = "brdata-shell-v26";
+const CACHE_NAME = "brdata-shell-v27";
 const API_CACHE_NAME = "brdata-api-v1";
 
 const APP_SHELL = [

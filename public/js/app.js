@@ -5,11 +5,15 @@
      TEAMS         -> array de times ativos
      ALL_ROUNDS    -> { 1: [{home,away,fixtureId?,date?}], ..., N: [...] }
      MATCH_RESULTS -> { "round_home_away": resultado }  (jogos decididos)
+     LIVE_SCORES   -> { "fixtureId": {gh,ga,phase,elapsed} } (jogo EM
+                       ANDAMENTO agora — placar ainda não oficial, ver
+                       AJUSTE 26/08/2026 logo abaixo de getRoundMatches)
 =================================================================== */
 
 let TEAMS = DEMO_TEAMS;
 let ALL_ROUNDS = {};
 let MATCH_RESULTS = {};
+let LIVE_SCORES = {};
 let TOTAL_ROUNDS = 38;
 let LIVE_MODE = false;
 // Elenco fictício ativo (modo demo) — troca junto com TEAMS a cada
@@ -554,6 +558,7 @@ async function startApp(user) {
   // (lite/pro/enterprise) fica sem anúncio.
   if (!user || user.plan === "freemium") { loadAdsenseConfig(); startAdTimer(); } else { stopAdTimer(); }
   loadCompetitionsInfo().then(applyCompetitionsSidebar);
+  startLiveScoresPolling();
 }
 
 // Busca (ou gera, em modo exemplo) os dados de UM campeonato — times,
@@ -570,6 +575,12 @@ async function loadCompetitionData(id) {
   const demo = DEMO_DATA_BY_COMPETITION[id] || DEMO_DATA_BY_COMPETITION.brasileirao;
   setActiveTeams(demo.teams);
   activeDemoPlayers = demo.players;
+  // Placar ao vivo é por fixtureId, e fixtureId não existe (ou não
+  // significa a mesma coisa) de uma competição pra outra — zera ao
+  // trocar/recarregar competição, senão um jogo já encerrado da
+  // competição anterior podia continuar "ao vivo" com placar velho até
+  // o próximo polling (ver refreshLiveScores).
+  LIVE_SCORES = {};
 
   const live = await tryLoadLiveData(LIVE_SEASON, id);
 
@@ -652,13 +663,71 @@ function initDemoSeason(teams = DEMO_TEAMS) {
 function keyFor(round, home, away) { return `${round}_${home}_${away}`; }
 function getRoundFixtures(round) { return ALL_ROUNDS[round] || []; }
 
+// AJUSTE (26/08/2026, pedido do usuário: "Quero que a página de jogos
+// reflita os resultados ao vivo. A Sportmonks tem uma api de live
+// score"): 3º estado além de "decidido" (MATCH_RESULTS, oficial) e
+// "pendente" (sem nenhum placar ainda) — jogo EM ANDAMENTO agora,
+// placar real mas ainda NÃO oficial (só vira MATCH_RESULTS quando o
+// fornecedor marcar como FT de verdade — ver tryLoadLiveData em
+// liveData.js). Checa MATCH_RESULTS primeiro (fonte de verdade pro
+// jogo já encerrado, nunca sobrescrita por um placar ao vivo desatualizado)
+// e só cai pro placar ao vivo (LIVE_SCORES, por fixtureId — ver
+// refreshLiveScores) se aquele jogo específico estiver em LIVE_SCORES
+// nesse instante. `live:true` (não `pending:true`) é o que faz
+// fullMatchCardHTML/matchHeroHTML mostrarem o placar de verdade em vez
+// de "vs", e some de "próximos jogos"/simulação (que filtram por
+// `pending`, ver leagueNextFixtures/teamNextFixtures/nextFixtureWithId)
+// -- um jogo que já começou não é mais "próximo", mas também ainda não
+// é oficial (Monte Carlo/probabilidades continuam tratando ele como
+// resultado em aberto até official virar true, exatamente como antes).
 function getRoundMatches(round) {
   return getRoundFixtures(round).map(fx => {
     const k = keyFor(round, fx.home, fx.away);
     if (MATCH_RESULTS[k]) return MATCH_RESULTS[k];
+    const live = fx.fixtureId != null ? LIVE_SCORES[String(fx.fixtureId)] : null;
+    if (live) {
+      return {
+        home: fx.home, away: fx.away, round, fixtureId: fx.fixtureId, date: fx.date, venue: fx.venue,
+        gh: live.gh, ga: live.ga, phase: live.phase, elapsed: live.elapsed, live: true,
+      };
+    }
     return { home: fx.home, away: fx.away, round, fixtureId: fx.fixtureId, date: fx.date, venue: fx.venue, pending: true };
   });
 }
+// Polling do placar ao vivo (ver loadLiveScores em liveData.js e
+// getRoundMatches acima). Intervalo igual ao TTL do cache do servidor
+// (TTL.liveScores em server.js, 45s) -- pedir mais rápido que isso só
+// bateria no mesmo cache compartilhado, sem nenhum placar mais fresco
+// de verdade. Só busca de fato em modo ao vivo (checado a cada tick,
+// não só na hora de ligar o timer -- assim funciona certo mesmo depois
+// de trocar de competição/cair pro modo Exemplo sem precisar
+// parar/religar o timer) e só quando a aba do navegador está visível
+// (document.hidden) -- ninguém precisa de placar atualizando a cada
+// 45s numa aba em segundo plano, e isso evita gastar cota da API à
+// toa. Redesenha só a página que está de fato visível no momento (Jogos
+// ou a página de 1 Partida específica) -- as outras páginas pegam o
+// placar atualizado normalmente na próxima vez que forem abertas
+// (getRoundMatches já lê LIVE_SCORES na hora).
+const LIVE_SCORES_POLL_MS = 45000;
+let liveScoresTimerId = null;
+async function refreshLiveScores() {
+  if (!LIVE_MODE || document.hidden) return;
+  const list = await loadLiveScores(state.competitionId);
+  const next = {};
+  list.forEach(fx => {
+    if (fx.id == null) return;
+    next[String(fx.id)] = { gh: fx.gh, ga: fx.ga, phase: fx.phase, elapsed: fx.elapsed };
+  });
+  LIVE_SCORES = next;
+  if (state.page === "jogos") renderJogos();
+  else if (state.page === "partida") renderMatchPage();
+}
+function startLiveScoresPolling() {
+  if (liveScoresTimerId) return; // só liga 1x -- chamado de novo em cada startApp não deveria acontecer, mas não custa ser tolerante
+  refreshLiveScores();
+  liveScoresTimerId = setInterval(refreshLiveScores, LIVE_SCORES_POLL_MS);
+}
+
 // Acha a partida (e a rodada dela) por fixtureId -- só existe em modo
 // ao vivo (fixtureId vem da Sportmonks/API-Sports, ver tryLoadLiveData
 // em liveData.js; modo Exemplo nunca preenche esse campo, então essa
@@ -1653,6 +1722,17 @@ function pendingMatchDetailHTML(m, domId) {
     ${watchTvHTML(m)}`;
 }
 
+// Badge de jogo ao vivo (ver `live:true` em getRoundMatches acima) --
+// "phase" é o short_name cru do fornecedor (Sportmonks: 1H/HT/2H/ET;
+// API-Sports: idem, mesmos códigos short da própria API-Sports).
+// Qualquer fase não mapeada aqui cai no texto genérico "Ao vivo" em
+// vez de mostrar um código técnico ("BT"/"P" etc.) pro usuário final.
+const LIVE_PHASE_LABEL = { "1H": "1º tempo", "2H": "2º tempo", "HT": "Intervalo", "ET": "Prorrogação", "BT": "Intervalo (prorrogação)", "P": "Pênaltis" };
+function livePhaseLabel(phase, elapsed) {
+  const label = LIVE_PHASE_LABEL[phase] || "Ao vivo";
+  return elapsed != null ? `${elapsed}' · ${label}` : label;
+}
+
 function fullMatchCardHTML(m) {
   const H = TEAM_MAP[m.home], A = TEAM_MAP[m.away];
   const domId = `match-${m.round}-${m.home}-${m.away}`;
@@ -1660,7 +1740,9 @@ function fullMatchCardHTML(m) {
   const scoreHTML = m.pending ? `<span class="dash">vs</span>` : `${m.gh} <span class="dash">×</span> ${m.ga}`;
   const metaHTML = m.pending
     ? `<span class="pending-tag">${fmtFixtureDate(m.date, m.round)}</span>`
-    : `Rodada ${m.round} ${m.simulated ? "· simulado" : "· encerrado"}`;
+    : m.live
+      ? `<span class="live-tag">● AO VIVO · ${livePhaseLabel(m.phase, m.elapsed)}</span>`
+      : `Rodada ${m.round} ${m.simulated ? "· simulado" : "· encerrado"}`;
   // Só monta (e só dispara os fetches lazy de dentro de pending/decidedMatchDetailHTML)
   // quando o card está de fato expandido — fechado, nem consulta a API nem gasta cota.
   const detailHTML = !m.expanded ? "" : (m.pending ? pendingMatchDetailHTML(m, domId) : decidedMatchDetailHTML(m, domId));
@@ -1737,10 +1819,16 @@ function matchHeroHTML(m, home, away) {
   const scoreHTML = m.pending
     ? `<div class="match-hero-vs">vs</div>`
     : `<div class="match-hero-score">${m.gh} <span class="dash">×</span> ${m.ga}</div>`;
+  // Jogo ao vivo (m.live, ver getRoundMatches) ganha o mesmo badge
+  // pulsante da aba Jogos em vez de "Rodada X" -- é a informação mais
+  // relevante da tela nesse momento (ver AJUSTE 26/08/2026).
+  const badgeHTML = m.live
+    ? `<div class="match-hero-badge match-hero-badge-live">● AO VIVO · ${livePhaseLabel(m.phase, m.elapsed)}</div>`
+    : `<div class="match-hero-badge">Rodada ${m.round}</div>`;
   return `
     <div class="match-hero-side clickable-team" onclick="goToTeam('${home.id}')">${crestEl(home, 64)}<div class="match-hero-team-name">${home.name}</div></div>
     <div class="match-hero-center">
-      <div class="match-hero-badge">Rodada ${m.round}</div>
+      ${badgeHTML}
       ${scoreHTML}
       <div class="match-hero-date">${fmtFixtureDate(m.date, m.round)}</div>
     </div>

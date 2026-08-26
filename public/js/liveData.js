@@ -344,6 +344,25 @@ async function loadNews(teamName = "") {
   }
 }
 
+// Placar ao vivo (pedido do usuário: "Quero que a página de jogos
+// reflita os resultados ao vivo" — ver GET /api/livescores em
+// server.js, que já filtra pela liga certa e devolve status/phase/
+// elapsed de cada jogo em andamento agora). Sem cache local — o valor
+// muda a cada chamada de propósito (é exatamente o ponto), quem chama
+// (refreshLiveScores em app.js) já controla o intervalo de polling.
+// Falha vira lista vazia (mesmo padrão do resto deste arquivo) — a
+// aba Jogos simplesmente não mostra placar ao vivo nessa rodada de
+// polling, sem quebrar o resto da página.
+async function loadLiveScores(competitionId = "brasileirao") {
+  try {
+    const data = await safeFetchJSON(`/api/livescores?competition=${encodeURIComponent(competitionId)}`);
+    return data.live || [];
+  } catch (err) {
+    console.warn("[liveData] Não foi possível carregar placar ao vivo:", err.message);
+    return [];
+  }
+}
+
 // Lista de campeonatos disponíveis (Brasileirão Série A + Série B/C —
 // as duas últimas ainda "em breve", ver server/src/competitions.js) e
 // as temporadas de histórico do plano Enterprise, já anotadas com o
