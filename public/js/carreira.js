@@ -202,10 +202,10 @@ function teamById(id) {
   return LEAGUE_TEAMS.find((t) => String(t.id) === String(id))
     || { id, name: `Time #${id}`, short: String(id).slice(0, 3).toUpperCase(), c1: "#8892A0", c2: "#333" };
 }
-function crestImg(t) {
-  if (t && t.logo) return `<img src="${t.logo}" alt="">`;
+function crestImg(t, size = 40) {
+  if (t && t.logo) return `<img src="${t.logo}" alt="" style="height:${size}px;width:${size}px;object-fit:contain;flex-shrink:0;">`;
   const c1 = t?.c1 || "#8892A0", c2 = t?.c2 || "#333";
-  return `<div style="height:40px;width:40px;border-radius:50%;background:linear-gradient(135deg, ${c1}, ${c2});flex-shrink:0;"></div>`;
+  return `<div style="height:${size}px;width:${size}px;border-radius:50%;background:linear-gradient(135deg, ${c1}, ${c2});flex-shrink:0;"></div>`;
 }
 // Mesmo degradê de cores do clube usado no "jogo de botão" do dashboard
 // principal (ver teamGradientStops em public/js/app.js) — duplicado
@@ -673,16 +673,23 @@ function renderCentral() {
 // showMatchDetailModal). Nome sempre abreviado (mesmo padrão do
 // Elenco). Sem eventos (folga, ou jogo sem detalhe registrado) não
 // mostra nada.
+const MATCH_EVENT_META = {
+  gol: { icon: "⚽", label: "Gol" },
+  assistencia: { icon: "🅰️", label: "Assistência" },
+  amarelo: { icon: "🟨", label: "Cartão amarelo" },
+  vermelho: { icon: "🟥", label: "Cartão vermelho" },
+};
 function matchEventsSummaryHTML(events) {
   if (!events || !events.length) return "";
-  const names = (list) => list.map((e) => escapeHtml(abbreviateName(e.player))).join(", ");
-  const line = (icon, label, list) => list.length
-    ? `<div class="ct-match-event-line"><b>${icon} ${label}:</b> ${names(list)}</div>` : "";
-  const by = (type) => events.filter((e) => e.type === type);
-  return line("⚽", "Gols", by("gol"))
-    + line("🅰️", "Assistências", by("assistencia"))
-    + line("🟨", "Cartões amarelos", by("amarelo"))
-    + line("🟥", "Cartões vermelhos", by("vermelho"));
+  const rows = events.map((e) => {
+    const meta = MATCH_EVENT_META[e.type] || { icon: "•", label: e.type };
+    return `<div class="ct-event-row">
+      <span class="ct-event-icon">${meta.icon}</span>
+      <span class="nm">${escapeHtml(abbreviateName(e.player))}</span>
+      <span class="tp">${meta.label}</span>
+    </div>`;
+  }).join("");
+  return `<div class="ct-event-list">${rows}</div>`;
 }
 
 /* ---------- Renderização: Elenco ---------- */
@@ -721,10 +728,12 @@ function openDetail(id) {
   if (!p) return;
   const inStarters = CAREER.lineup.starters.includes(id);
   const inBench = CAREER.lineup.bench.includes(id);
-  const groupFull = SUBPOS_LABEL[subPositionOf(p)] || "—";
+  const subpos = subPositionOf(p);
+  const groupFull = SUBPOS_LABEL[subpos] || "—";
+  document.getElementById("detailIcon").textContent = subpos === "GOL" ? "🧤" : "⚽";
+  document.getElementById("detailName").textContent = p.name;
+  document.getElementById("detailSub").textContent = `${groupFull} · ${p.age} anos · ${p.origin === "principal" ? "Elenco principal" : "Categoria de base"}${p.real ? "" : " (gerado)"}`;
   document.getElementById("detailBody").innerHTML = `
-    <h3>${escapeHtml(p.name)}</h3>
-    <p class="ct-sub">${groupFull} · ${p.age} anos · ${p.origin === "principal" ? "Elenco principal" : "Categoria de base"}${p.real ? "" : " (gerado)"}</p>
     <div class="ct-kpis" style="margin-bottom:12px;">
       <div class="ct-kpi"><div class="v">${p.overall}</div><div class="l">Geral</div></div>
       <div class="ct-kpi"><div class="v">${p.atk}</div><div class="l">Ataque</div></div>
@@ -1012,7 +1021,9 @@ function showRoundResultsModal(summary) {
     const home = teamById(r.home), away = teamById(r.away);
     const isMe = String(r.home) === String(CAREER.clubId) || String(r.away) === String(CAREER.clubId);
     return `<div class="ct-round-result-row ${isMe ? "me" : ""}">
-      <span>${escapeHtml(home.short || home.name)}</span><span>${r.gh} x ${r.ga}</span><span>${escapeHtml(away.short || away.name)}</span>
+      <div class="ct-rr-team">${crestImg(home, 22)}<span>${escapeHtml(home.short || home.name)}</span></div>
+      <span class="ct-rr-score">${r.gh} <small>x</small> ${r.ga}</span>
+      <div class="ct-rr-team right">${crestImg(away, 22)}<span>${escapeHtml(away.short || away.name)}</span></div>
     </div>`;
   }).join("");
   document.getElementById("roundResultsChanges").textContent = (summary.lineupChanges && summary.lineupChanges.length)

@@ -154,24 +154,47 @@
   /* ---------- Estatísticas ---------- */
   .ct-stats-table-title{ font-size:13px; font-weight:700; color:var(--text-0); margin:16px 0 8px; }
 
-  /* ---------- Detalhe do jogo (modal de simular rodada / último jogo) ---------- */
-  .ct-match-event-line{ font-size:12.5px; color:var(--text-0); margin-bottom:6px; line-height:1.5; }
-  .ct-match-event-line b{ color:var(--text-1); }
-  .ct-round-result-row{ display:flex; align-items:center; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--border); font-size:12.5px; }
-  .ct-round-result-row:last-child{ border-bottom:none; }
-  .ct-round-result-row.me{ font-weight:700; color:var(--brd-blue); }
+  /* ---------- Detalhe do jogo (lista de eventos — modal de simular
+     rodada e Central > "Resultado da última rodada") ---------- */
+  .ct-event-list{ display:flex; flex-direction:column; gap:6px; margin-top:14px; }
+  .ct-event-row{ display:flex; align-items:center; gap:10px; padding:8px 10px; border-radius:10px; background:var(--bg-app); }
+  .ct-event-icon{ width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:13px; flex-shrink:0; background:var(--bg-surface); border:1px solid var(--border); }
+  .ct-event-row .nm{ font-weight:700; color:var(--text-0); font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ct-event-row .tp{ color:var(--text-2); font-size:11px; margin-left:auto; flex-shrink:0; padding-left:8px; }
 
-  /* ---------- Modal ---------- */
-  .ct-modal-overlay{ position:fixed; inset:0; background:rgba(6,11,23,.55); display:none; align-items:center; justify-content:center; z-index:200; padding:16px; }
+  /* Resultados da rodada — 1 linha por jogo, com escudo dos 2 times;
+     zebra + destaque no jogo do próprio clube (fundo + negrito, ver
+     .me), em vez do texto azul simples de antes. */
+  .ct-round-result-row{ display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:8px; padding:8px 10px; border-radius:10px; font-size:12px; }
+  .ct-round-result-row:nth-child(even){ background:var(--bg-app); }
+  .ct-round-result-row.me{ background:rgba(0,87,184,.12); font-weight:800; }
+  .ct-rr-team{ display:flex; align-items:center; gap:6px; min-width:0; overflow:hidden; white-space:nowrap; }
+  .ct-rr-team.right{ flex-direction:row-reverse; text-align:right; justify-content:flex-start; }
+  .ct-rr-score{ font-weight:800; color:var(--text-0); white-space:nowrap; text-align:center; font-variant-numeric:tabular-nums; }
+  .ct-rr-score small{ color:var(--text-2); font-weight:600; }
+
+  /* ---------- Modal ----------
+     Pedido do usuário: layout melhor + header melhor. Cabeçalho
+     próprio (ícone + título + subtítulo opcional + fechar), mesma cor
+     da topbar/gate de login do site (navy) — antes era só um "✕"
+     flutuando sobre um <h3> solto. Corpo rolável separado do
+     cabeçalho (que fica fixo mesmo se o conteúdo for grande). */
+  .ct-modal-overlay{ position:fixed; inset:0; background:rgba(6,11,23,.6); display:none; align-items:center; justify-content:center; z-index:200; padding:16px; }
   .ct-modal-overlay.open{ display:flex; }
-  .ct-modal{ background:var(--bg-surface); border-radius:var(--radius-md); max-width:520px; width:100%; max-height:82vh; overflow:auto; padding:18px; }
-  .ct-modal h3{ margin:0 0 10px; font-size:15px; color:var(--text-0); }
-  .ct-modal-close{ float:right; background:none; border:none; font-size:18px; color:var(--text-2); cursor:pointer; }
-  .ct-pick-row{ display:flex; align-items:center; justify-content:space-between; padding:8px 6px; border-bottom:1px solid var(--border); cursor:pointer; font-size:12.5px; }
+  .ct-modal{ background:var(--bg-surface); border-radius:var(--radius-lg); max-width:520px; width:100%; max-height:86vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 24px 64px rgba(0,0,0,.4); }
+  .ct-modal-header{ display:flex; align-items:center; gap:10px; padding:16px 18px; background:linear-gradient(135deg, var(--brd-navy), #030d1e); flex-shrink:0; }
+  .ct-modal-icon{ font-size:19px; line-height:1; flex-shrink:0; }
+  .ct-modal-header-text{ flex:1; min-width:0; }
+  .ct-modal-header h3{ margin:0; font-size:15px; font-weight:800; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ct-modal-sub{ font-size:11px; color:rgba(255,255,255,.62); font-weight:600; margin-top:1px; }
+  .ct-modal-close{ background:rgba(255,255,255,.12); border:none; color:#fff; width:26px; height:26px; border-radius:50%; font-size:14px; cursor:pointer; flex-shrink:0; display:flex; align-items:center; justify-content:center; line-height:1; }
+  .ct-modal-close:hover{ background:rgba(255,255,255,.24); }
+  .ct-modal-body{ padding:18px; overflow-y:auto; }
+  .ct-pick-row{ display:flex; align-items:center; justify-content:space-between; padding:9px 8px; border-radius:9px; cursor:pointer; font-size:12.5px; }
   .ct-pick-row:hover{ background:var(--bg-app); }
   .ct-pick-row .nm{ font-weight:700; color:var(--text-0); }
   .ct-pick-row .meta{ color:var(--text-2); font-size:11px; }
-  .ct-search{ width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--border); background:var(--bg-app); color:var(--text-0); font-family:var(--font); font-size:13px; margin-bottom:8px; }
+  .ct-search{ width:100%; padding:9px 10px; border-radius:9px; border:1px solid var(--border); background:var(--bg-app); color:var(--text-0); font-family:var(--font); font-size:13px; margin-bottom:10px; }
 
   .ct-toast{ position:fixed; bottom:18px; left:50%; transform:translateX(-50%); background:var(--bg-sidebar); color:#fff; padding:10px 18px; border-radius:10px; font-size:13px; font-weight:600; z-index:300; display:none; box-shadow:var(--shadow-card); }
   .ct-empty{ color:var(--text-2); font-size:13px; text-align:center; padding:20px 0; }
@@ -336,18 +359,30 @@
 <!-- ================= Modal genérico de escolha de jogador ================= -->
 <div class="ct-modal-overlay" id="pickerOverlay">
   <div class="ct-modal">
-    <button class="ct-modal-close" id="pickerClose">✕</button>
-    <h3 id="pickerTitle">Escolher jogador</h3>
-    <input class="ct-search" id="pickerSearch" placeholder="Buscar por nome...">
-    <div id="pickerList"></div>
+    <div class="ct-modal-header">
+      <span class="ct-modal-icon">🔄</span>
+      <div class="ct-modal-header-text"><h3 id="pickerTitle">Escolher jogador</h3></div>
+      <button class="ct-modal-close" id="pickerClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <input class="ct-search" id="pickerSearch" placeholder="Buscar por nome...">
+      <div id="pickerList"></div>
+    </div>
   </div>
 </div>
 
 <!-- ================= Modal de detalhe do jogador ================= -->
 <div class="ct-modal-overlay" id="detailOverlay">
   <div class="ct-modal">
-    <button class="ct-modal-close" id="detailClose">✕</button>
-    <div id="detailBody"></div>
+    <div class="ct-modal-header">
+      <span class="ct-modal-icon" id="detailIcon">⚽</span>
+      <div class="ct-modal-header-text">
+        <h3 id="detailName"></h3>
+        <div class="ct-modal-sub" id="detailSub"></div>
+      </div>
+      <button class="ct-modal-close" id="detailClose">✕</button>
+    </div>
+    <div class="ct-modal-body" id="detailBody"></div>
   </div>
 </div>
 
@@ -356,13 +391,22 @@
      jogo do PRÓPRIO clube (resultado, gols, assistências, cartões) —
      só existe pra rodada em que o clube jogou; ver showMatchDetailModal
      em carreira.js. "Continuar" leva pro modal de resultados da
-     rodada inteira (ver #roundResultsOverlay abaixo). -->
+     rodada inteira (ver #roundResultsOverlay abaixo). Sem botão de
+     fechar de propósito — só avança clicando "Continuar" mesmo. -->
 <div class="ct-modal-overlay" id="matchDetailOverlay">
   <div class="ct-modal">
-    <h3>Seu jogo — Rodada <span id="matchDetailRound"></span></h3>
-    <div class="ct-next-match" id="matchDetailScore"></div>
-    <div id="matchDetailEvents"></div>
-    <button class="ct-btn primary full" id="btnMatchDetailContinue" style="margin-top:12px;">Continuar</button>
+    <div class="ct-modal-header">
+      <span class="ct-modal-icon">⚽</span>
+      <div class="ct-modal-header-text">
+        <h3>Seu jogo</h3>
+        <div class="ct-modal-sub">Rodada <span id="matchDetailRound"></span></div>
+      </div>
+    </div>
+    <div class="ct-modal-body">
+      <div class="ct-next-match" id="matchDetailScore"></div>
+      <div id="matchDetailEvents"></div>
+      <button class="ct-btn primary full" id="btnMatchDetailContinue" style="margin-top:14px;">Continuar</button>
+    </div>
   </div>
 </div>
 
@@ -371,10 +415,18 @@
      rodada. "Continuar" fecha e leva pra aba Tabela já atualizada. -->
 <div class="ct-modal-overlay" id="roundResultsOverlay">
   <div class="ct-modal">
-    <h3>Resultados — Rodada <span id="roundResultsRound"></span></h3>
-    <div id="roundResultsList"></div>
-    <div class="ct-sub" id="roundResultsChanges" style="margin-top:10px;"></div>
-    <button class="ct-btn primary full" id="btnRoundResultsContinue" style="margin-top:12px;">Ver tabela atualizada</button>
+    <div class="ct-modal-header">
+      <span class="ct-modal-icon">📋</span>
+      <div class="ct-modal-header-text">
+        <h3>Resultados da rodada</h3>
+        <div class="ct-modal-sub">Rodada <span id="roundResultsRound"></span></div>
+      </div>
+    </div>
+    <div class="ct-modal-body">
+      <div id="roundResultsList"></div>
+      <div class="ct-sub" id="roundResultsChanges" style="margin-top:10px;"></div>
+      <button class="ct-btn primary full" id="btnRoundResultsContinue" style="margin-top:14px;">Ver tabela atualizada</button>
+    </div>
   </div>
 </div>
 
