@@ -978,8 +978,12 @@ function playerRow(p) {
   const statusPill = p.status === "ok" ? `<span class="ct-pill ok">Disponível</span>`
     : p.status === "contundido" ? `<span class="ct-pill hurt">Lesionado (até R${p.outUntilRound})</span>`
     : `<span class="ct-pill susp">Suspenso (R${p.outUntilRound})</span>`;
+  // Pedido do usuário: sem tag "gerado" pra jogador da BASE (a
+  // categoria inteira já é gerada, ver comentário em openDetail) — só
+  // aparece pro elenco PRINCIPAL gerado (exceção de verdade, quando a
+  // busca real veio incompleta).
   return `<tr data-id="${p.id}" style="cursor:pointer;">
-    <td class="ct-name-cell">${escapeHtml(abbreviateName(p.name))}${p.real ? "" : ' <span class="ct-pill base" style="margin-left:4px;">gerado</span>'}</td>
+    <td class="ct-name-cell">${escapeHtml(abbreviateName(p.name))}${(!p.real && p.origin !== "base") ? ' <span class="ct-pill base" style="margin-left:4px;">gerado</span>' : ""}</td>
     <td>${subPositionOf(p)}</td><td>${p.age}</td><td><b>${p.overall}</b></td>
     <td><span class="ct-cond-track"><span class="ct-cond-fill" style="width:${Math.round(p.condition)}%"></span></span></td>
     <td>${statusPill}</td>
@@ -1010,7 +1014,13 @@ function openDetail(id) {
   const groupFull = SUBPOS_LABEL[subpos] || "—";
   document.getElementById("detailIcon").textContent = subpos === "GOL" ? "🧤" : "⚽";
   document.getElementById("detailName").textContent = p.name;
-  document.getElementById("detailSub").textContent = `${groupFull} · ${p.age} anos · ${p.origin === "principal" ? "Elenco principal" : "Categoria de base"}${p.real ? "" : " (gerado)"}`;
+  // Pedido do usuário: tirar a tag "gerado" dos jogadores da BASE —
+  // toda a categoria de base já vem gerada (a API não cobre elenco
+  // sub-20 do Brasileirão, ver comentário em buildBasePlayer), então a
+  // tag não dizia nada de novo ali, só poluía. Continua aparecendo só
+  // pro elenco PRINCIPAL gerado (jogador extra criado quando a busca
+  // real veio incompleta — esse sim é uma exceção que vale marcar).
+  document.getElementById("detailSub").textContent = `${groupFull} · ${p.age} anos · ${p.origin === "principal" ? "Elenco principal" : "Categoria de base"}${(!p.real && p.origin !== "base") ? " (gerado)" : ""}`;
   // FASE 2 (b) — promover um jogador de base soma o salário dele na
   // folha do elenco PRINCIPAL (ver wageBillOf) — bloqueia se estourar
   // o teto salarial do clube (CAREER.finances.wageCap).
