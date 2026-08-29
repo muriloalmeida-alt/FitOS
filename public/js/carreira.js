@@ -121,12 +121,12 @@ async function fetchJSON(url, opts) {
   return data;
 }
 let toastTimer = null;
-function toast(msg) {
+function toast(msg, durationMs = 3600) {
   const el = document.getElementById("toast");
   el.textContent = msg;
   el.style.display = "block";
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { el.style.display = "none"; }, 3600);
+  toastTimer = setTimeout(() => { el.style.display = "none"; }, durationMs);
 }
 function show(name) {
   ["screenLoading", "screenLoginRequired", "screenPicker", "screenGame"].forEach((id) => {
@@ -1727,8 +1727,26 @@ function declineOffer() {
 }
 
 /* ---------- Tela do jogo ---------- */
+// BUG CORRIGIDO (relato do usuário: Elenco em branco, nenhum erro
+// visível na tela — login funcionou, então não é o crash de boot()):
+// antes, se QUALQUER uma dessas 6 render* desse erro, TODAS as
+// seguintes na lista ficavam sem rodar (uma exceção no meio da cadeia
+// síncrona para tudo) — a aba que quebrou (e todas depois dela) ficava
+// com o HTML inicial vazio pra sempre (trocar de aba só troca
+// visibilidade via CSS, ver switchToPanel, não re-renderiza nada).
+// Cada render agora roda isolado: uma quebra não derruba as outras
+// abas, e loga + avisa qual foi (sem isso, não dava pra saber o que
+// tinha quebrado sem acesso ao console do navegador).
 function renderAll() {
-  renderCentral(); renderElenco(); renderEscalacao(); renderTabela(); renderEstatisticas(); renderMercado();
+  [
+    ["Central", renderCentral], ["Elenco", renderElenco], ["Escalação", renderEscalacao],
+    ["Tabela", renderTabela], ["Estatísticas", renderEstatisticas], ["Mercado", renderMercado],
+  ].forEach(([name, fn]) => {
+    try { fn(); } catch (err) {
+      console.error(`[carreira] falha ao renderizar ${name}:`, err);
+      toast(`Erro ao carregar ${name}: ${err.message}`, 15000); // mais tempo que o normal (3.6s) — dá pra ler/printar
+    }
+  });
 }
 function showGameScreen() {
   show("screenGame");
