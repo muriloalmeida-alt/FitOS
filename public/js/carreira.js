@@ -1296,7 +1296,7 @@ function openDetail(id) {
   });
   document.getElementById("detailOverlay").classList.add("open");
 }
-function handlePlayerAction(id, act) {
+async function handlePlayerAction(id, act) {
   const p = CAREER.squad.find((x) => x.id === id);
   if (!p) return;
   if (act === "removeStarter") {
@@ -1325,7 +1325,7 @@ function handlePlayerAction(id, act) {
     CAREER.lineup.starters = CAREER.lineup.starters.map((x) => (x === id ? null : x));
     CAREER.lineup.bench = CAREER.lineup.bench.filter((x) => x !== id);
   } else if (act === "sell") {
-    if (!sellPlayer(id)) return; // cancelado ou bloqueado — mantém o modal aberto
+    if (!(await sellPlayer(id))) return; // cancelado ou bloqueado — mantém o modal aberto
   }
   document.getElementById("detailOverlay").classList.remove("open");
   persistCareer();
@@ -1644,7 +1644,7 @@ function renderMercado() {
 // vista, sem parcelamento — mais simples) e soma o salário na sua
 // folha, com o MESMO teto salarial da promoção (ver wageBillOf/
 // CAREER.finances.wageCap em Fase 2b).
-function buyPlayer(clubId, playerId) {
+async function buyPlayer(clubId, playerId) {
   const squad = leagueSquadFor(clubId);
   const idx = squad.findIndex((x) => x.id === playerId);
   if (idx < 0) return;
@@ -1658,7 +1658,7 @@ function buyPlayer(clubId, playerId) {
     return;
   }
   if (CAREER.squad.length >= MAX_PRINCIPAL + 20) { toast("Elenco já está muito grande — dispense ou venda alguém antes."); return; }
-  if (!confirm(`Contratar ${p.name} por ${fmtBRL(p.value)}?`)) return;
+  if (!(await confirmModal(`Contratar ${p.name} por ${fmtBRL(p.value)}?`, "Contratar"))) return;
   squad.splice(idx, 1);
   CAREER.finances.cash -= p.value;
   p.origin = "principal";
@@ -1674,12 +1674,12 @@ function buyPlayer(clubId, playerId) {
 // "Vender" do detalhe do jogador (ver handlePlayerAction) quanto pela
 // aba Mercado (ver sellFromMarket) — devolve false sem mexer em nada
 // se cancelado ou bloqueado, pra quem chamou saber se deve continuar.
-function sellPlayer(id) {
+async function sellPlayer(id) {
   const p = CAREER.squad.find((x) => x.id === id);
   if (!p) return false;
   const principalCount = CAREER.squad.filter((x) => x.origin === "principal").length;
   if (principalCount <= 14) { toast("O elenco principal não pode ficar com menos de 14 jogadores."); return false; }
-  if (!confirm(`Vender ${p.name} por ${fmtBRL(p.value)}?`)) return false;
+  if (!(await confirmModal(`Vender ${p.name} por ${fmtBRL(p.value)}?`, "Vender"))) return false;
   const buyer = pickRandomOtherClub(CAREER.clubId);
   CAREER.finances.cash += p.value;
   CAREER.squad = CAREER.squad.filter((x) => x.id !== id);
@@ -1695,8 +1695,8 @@ function sellPlayer(id) {
 // Botão "Vender" direto na aba Mercado (fora do detalhe do jogador,
 // que já fecha/persiste/re-renderiza sozinho no fluxo de
 // handlePlayerAction) — precisa persistir e re-renderizar aqui.
-function sellFromMarket(id) {
-  if (!sellPlayer(id)) return;
+async function sellFromMarket(id) {
+  if (!(await sellPlayer(id))) return;
   persistCareer();
   renderMercado(); renderElenco(); renderCentral();
 }
@@ -1830,6 +1830,39 @@ function showSeasonModal(result) {
   document.getElementById("seasonOverlay").classList.add("open");
 }
 
+// Pedido do usuário: "transforme todas as caixas de diálogo em
+// modais — o navegador bloqueia caixas e não vai rolar deixar assim".
+// window.confirm() é bloqueado silenciosamente em vários contextos de
+// navegador in-app/PWA — sem aviso nenhum, o "if (!confirm(...))"
+// simplesmente nunca avança. Substitui TODO confirm() do jogo por essa
+// modal, que devolve uma Promise<boolean> (true = confirmou, false =
+// cancelou ou fechou clicando fora) no lugar do valor síncrono que
+// confirm() devolvia — por isso todo chamador precisa de "await" na
+// frente agora (ver buyPlayer/sellPlayer/btnRestart/btnAdvanceSeason).
+function confirmModal(text, okLabel = "Confirmar") {
+  return new Promise((resolve) => {
+    const overlay = document.getElementById("confirmOverlay");
+    const okBtn = document.getElementById("confirmOkBtn");
+    const cancelBtn = document.getElementById("confirmCancelBtn");
+    document.getElementById("confirmText").textContent = text;
+    okBtn.textContent = okLabel;
+    overlay.classList.add("open");
+    function cleanup(result) {
+      overlay.classList.remove("open");
+      okBtn.removeEventListener("click", onOk);
+      cancelBtn.removeEventListener("click", onCancel);
+      overlay.removeEventListener("click", onBackdrop);
+      resolve(result);
+    }
+    function onOk() { cleanup(true); }
+    function onCancel() { cleanup(false); }
+    function onBackdrop(e) { if (e.target === overlay) cleanup(false); }
+    okBtn.addEventListener("click", onOk);
+    cancelBtn.addEventListener("click", onCancel);
+    overlay.addEventListener("click", onBackdrop);
+  });
+}
+
 /* ---------- Listeners estáticos (uma vez, no boot) ---------- */
 function populateSelect(id, options) {
   document.getElementById(id).innerHTML = options.map(([v, l]) => `<option value="${v}">${l}</option>`).join("");
@@ -1889,7 +1922,7 @@ function wireStaticListeners() {
   document.getElementById("btnRestart").addEventListener("click", async () => {
     document.getElementById("topbarMenu").classList.remove("open");
     if (!CAREER) return;
-    if (!confirm(`Isso vai apagar sua carreira atual no ${CAREER.clubName} e começar do zero. Continuar?`)) return;
+    if (!(await confirmModal(`Isso vai apagar sua carreira atual no ${CAREER.clubName} e começar do zero. Continuar?`, "Apagar e reiniciar"))) return;
     await fetchJSON("/api/career", { method: "DELETE" }).catch(() => {});
     CAREER = null;
     renderClubPicker();
@@ -1930,8 +1963,8 @@ function wireStaticListeners() {
 
   // FASE 3 (c) — multitemporadas: avança a temporada (ver
   // advanceSeason) e mostra o resumo antes de liberar a Rodada 1 nova.
-  document.getElementById("btnAdvanceSeason").addEventListener("click", () => {
-    if (!confirm(`Avançar pra Temporada ${CAREER.seasonYear + 1}? O elenco envelhece, contratos vencidos saem e a base renova.`)) return;
+  document.getElementById("btnAdvanceSeason").addEventListener("click", async () => {
+    if (!(await confirmModal(`Avançar pra Temporada ${CAREER.seasonYear + 1}? O elenco envelhece, contratos vencidos saem e a base renova.`, "Avançar"))) return;
     const result = advanceSeason();
     if (!result) return;
     persistCareer();

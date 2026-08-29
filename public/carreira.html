@@ -355,8 +355,10 @@
           <!-- FASE 3 (a) — pedido do usuário: diretoria avalia risco de
                rebaixamento/disputa de título pra decidir se libera mais
                orçamento (ver askBoard em carreira.js). -->
-          <button class="ct-btn small" id="btnAskBoard" style="margin-top:10px;">🏛️ Pedir mais orçamento à diretoria</button>
-          <p class="ct-sub" id="boardDecisionText" style="margin-top:8px;"></p>
+          <div style="text-align:center; margin-top:10px;">
+            <button class="ct-btn small" id="btnAskBoard">🏛️ Pedir mais orçamento à diretoria</button>
+          </div>
+          <p class="ct-sub" id="boardDecisionText" style="margin-top:8px; text-align:center;"></p>
         </div>
         <div class="ct-card" id="lastResultCard" style="display:none;">
           <h2>Resultado da última rodada</h2>
@@ -578,6 +580,30 @@
       <p class="ct-sub" id="seasonSummaryText"></p>
       <div id="seasonDepartures"></div>
       <button class="ct-btn primary full" id="btnSeasonContinue" style="margin-top:14px;">Começar a temporada</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= Modal de confirmação (genérico) =================
+     Pedido do usuário: "transforme todas as caixas de diálogo em
+     modais — o navegador bloqueia caixas nativas (confirm/alert) e
+     não vai rolar deixar assim" (bloqueio comum em navegador in-app/
+     PWA, ainda mais no celular). Substitui todo window.confirm() do
+     jogo (comprar, vender, reiniciar, avançar temporada) — ver
+     confirmModal() em carreira.js, que devolve uma Promise<boolean>
+     no lugar do valor síncrono que confirm() devolvia. -->
+<div class="ct-modal-overlay" id="confirmOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header">
+      <span class="ct-modal-icon">❓</span>
+      <div class="ct-modal-header-text"><h3 id="confirmTitle">Confirmar</h3></div>
+    </div>
+    <div class="ct-modal-body">
+      <p class="ct-sub" id="confirmText"></p>
+      <div style="display:flex; gap:8px; margin-top:14px;">
+        <button class="ct-btn" id="confirmCancelBtn" style="flex:1;">Cancelar</button>
+        <button class="ct-btn primary" id="confirmOkBtn" style="flex:1;">Confirmar</button>
+      </div>
     </div>
   </div>
 </div>
