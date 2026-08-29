@@ -100,6 +100,7 @@ let LIVE_SEASON = new Date().getFullYear();
 let LEAGUE_TEAMS = []; // 20 clubes ativos (real ou DEMO_TEAMS — ver loadLeague)
 let CAREER = null;     // save inteiro da carreira atual (null = sem carreira ainda)
 let PICKER_CTX = null; // contexto do modal de escolha de jogador ({type:"slot",index} ou {type:"bench",currentId})
+let PENDING_ROUND_SUMMARY = null; // resumo da rodada entre o modal de detalhe do jogo e o de resultados (ver simulateRound)
 
 /* ---------- Helpers genéricos ---------- */
 function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
@@ -215,6 +216,16 @@ function teamGradientStops(colors) {
 function lastNameOf(name) {
   const parts = String(name || "").trim().split(/\s+/);
   return parts[parts.length - 1] || name || "?";
+}
+// Pedido do usuário: nome do jogador nas listas/tabelas do Elenco
+// sempre como "Inicial. Sobrenome" (ex.: "Kevin Viveiros" -> "K.
+// Viveiros") — mais curto que o nome completo, garante que cabe numa
+// linha só no celular (ver .ct-name-cell no <style> de carreira.html).
+// Nome de 1 palavra só (raro) fica como está.
+function abbreviateName(name) {
+  const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length <= 1) return name || "?";
+  return `${parts[0][0].toUpperCase()}. ${parts[parts.length - 1]}`;
 }
 
 /* ---------- Elenco: jogadores reais (mesma fonte do BR Data) + base gerada ---------- */
@@ -403,7 +414,9 @@ async function startCareer(clubId) {
       liveMode: LIVE_MODE, createdAt: Date.now(), updatedAt: Date.now(),
       squad, lineup, trainingFocus: "equilibrado",
       schedule, currentRound: 1, standings, resultsByRound: {},
-      news: [{ round: 0, type: "info", text: `Você assumiu o comando do ${club.name}! Boa sorte na temporada — monte sua escalação em "Escalação" antes da 1ª rodada.` }],
+      // Agregado da temporada pra aba Estatísticas (gols já vêm de
+      // standings[clubId].gp, não precisa duplicar aqui).
+      teamStats: { assists: 0, yellow: 0, red: 0 },
     };
     await persistCareer();
     showGameScreen();
@@ -422,7 +435,11 @@ function refreshAvailability(uptoRound) {
     }
   });
 }
+// Devolve a lista de trocas forçadas (texto curto, já com nome
+// abreviado) — mostrada no modal de resultados da rodada (ver
+// showRoundResultsModal) em vez de um feed de notícias separado.
 function autoFixLineup(round) {
+  const changes = [];
   const usedIds = new Set([...CAREER.lineup.starters.filter(Boolean), ...CAREER.lineup.bench]);
   CAREER.lineup.starters = CAREER.lineup.starters.map((id, idx) => {
     const p = id ? CAREER.squad.find((x) => x.id === id) : null;
@@ -437,11 +454,12 @@ function autoFixLineup(round) {
     if (repl) {
       usedIds.delete(id); usedIds.add(repl.id);
       CAREER.lineup.bench = CAREER.lineup.bench.filter((x) => x !== repl.id);
-      if (p) CAREER.news.unshift({ round, type: "escalacao", text: `🔁 ${repl.name} entra na equipe titular no lugar de ${p.name} (indisponível).` });
+      if (p) changes.push(`${abbreviateName(repl.name)} entra no time titular no lugar de ${abbreviateName(p.name)} (indisponível)`);
       return repl.id;
     }
     return null;
   });
+  return changes;
 }
 
 /* ---------- Força do time (escalação → ataque/defesa efetivos) ---------- */
@@ -473,37 +491,63 @@ function computeHumanStrength(club) {
   };
 }
 
-/* ---------- Eventos de jogo (gols/cartões/lesões) pros SEUS jogadores ---------- */
+/* ---------- Eventos de jogo (gols/assistências/cartões/lesões) pros
+   SEUS jogadores — devolve uma lista estruturada (não texto pronto),
+   usada pelo modal de detalhe do jogo (ver matchEventsSummaryHTML) e
+   pela Central ("Resultado da última rodada"). Lesão continua afetando
+   o jogador (status/outUntilRound) mas não entra na lista — pedido do
+   usuário listou só gol/cartão/assistência. ---------- */
 function simulatePlayerEvents(starters, goals, round) {
-  const news = [];
-  if (!starters || !starters.length) return news;
-  const weights = starters.map((p) => ({ F: 4, M: 2, D: 0.6, G: 0.02 }[p.group] || 1));
+  const events = [];
+  if (!starters || !starters.length) return events;
+  const atkWeights = starters.map((p) => ({ F: 4, M: 2, D: 0.6, G: 0.02 }[p.group] || 1));
   for (let i = 0; i < goals; i++) {
-    const scorer = weightedPick(starters, weights);
+    const scorer = weightedPick(starters, atkWeights);
     scorer.goalsCareer = (scorer.goalsCareer || 0) + 1;
-    news.push({ round, type: "gol", text: `⚽ ${scorer.name} balançou as redes pelo ${CAREER.clubName}.` });
+    events.push({ type: "gol", player: scorer.name });
+    // ~72% dos gols saem com assistência de um companheiro (nunca o
+    // próprio artilheiro) — meio-campista pesa mais no sorteio, mas
+    // qualquer titular pode ter dado o passe.
+    if (starters.length > 1 && Math.random() < 0.72) {
+      const assistPool = starters.filter((p) => p.id !== scorer.id);
+      const assistWeights = assistPool.map((p) => ({ M: 3, F: 1.5, D: 0.8, G: 0.05 }[p.group] || 1));
+      const assister = weightedPick(assistPool, assistWeights);
+      assister.assistsCareer = (assister.assistsCareer || 0) + 1;
+      events.push({ type: "assistencia", player: assister.name });
+    }
   }
   starters.forEach((p) => {
     p.apps = (p.apps || 0) + 1;
     const roll = Math.random();
     if (roll < 0.012) {
       p.status = "suspenso"; p.outUntilRound = round + 1; p.yellowCards = 0;
-      news.push({ round, type: "cartao", text: `🟥 ${p.name} foi expulso e está suspenso na próxima rodada.` });
+      events.push({ type: "vermelho", player: p.name });
     } else if (roll < 0.11) {
       p.yellowCards = (p.yellowCards || 0) + 1;
+      events.push({ type: "amarelo", player: p.name });
       if (p.yellowCards >= 3) {
         p.status = "suspenso"; p.outUntilRound = round + 1; p.yellowCards = 0;
-        news.push({ round, type: "cartao", text: `🟨 ${p.name} chegou ao 3º cartão e cumpre suspensão automática.` });
       }
     }
     if (p.status === "ok" && Math.random() < 0.025) {
       const dur = 1 + Math.floor(Math.random() * 4);
       p.status = "contundido"; p.outUntilRound = round + dur;
-      news.push({ round, type: "lesao", text: `🚑 ${p.name} sofreu uma lesão — fora por ${dur} rodada${dur > 1 ? "s" : ""}.` });
     }
     p.condition = clamp((p.condition == null ? 100 : p.condition) - (15 + Math.random() * 15), 25, 100);
   });
-  return news;
+  return events;
+}
+// Soma os eventos do jogo do clube pros KPIs da aba Estatísticas —
+// gols de "minha equipe" já vêm de standings[clubId].gp (fonte única),
+// então só assistência/cartão precisam de contador próprio aqui.
+function tallyTeamStats(events) {
+  if (!events || !events.length) return;
+  if (!CAREER.teamStats) CAREER.teamStats = { assists: 0, yellow: 0, red: 0 };
+  events.forEach((e) => {
+    if (e.type === "assistencia") CAREER.teamStats.assists++;
+    else if (e.type === "amarelo") CAREER.teamStats.yellow++;
+    else if (e.type === "vermelho") CAREER.teamStats.red++;
+  });
 }
 function applyConditionRecovery(starterIds) {
   const set = new Set(starterIds);
@@ -522,13 +566,18 @@ function applyResultToStandings(r) {
   H.sg = H.gp - H.gc; A.sg = A.gp - A.gc;
 }
 
-/* ---------- Simular a rodada corrente ---------- */
+/* ---------- Simular a rodada corrente ----------
+   Devolve um resumo ESTRUTURADO (não mais um texto de toast pronto) —
+   pedido do usuário: ao simular, mostrar um modal com o detalhe do
+   JOGO do clube (resultado/gols/assistências/cartões — ver
+   showMatchDetailModal), depois um modal com os RESULTADOS da rodada
+   inteira (ver showRoundResultsModal), só então a Tabela atualizada. */
 function simulateRound() {
   const round = CAREER.currentRound;
   if (round > 38) return null;
   const fixtures = CAREER.schedule[round] || [];
-  let toastMsg = null;
-  const roundNews = [];
+  const allResults = [];
+  let humanMatch = null; // { home, away, gh, ga, isHome, events } — só existe se o clube jogou essa rodada
   fixtures.forEach((fx) => {
     const home = teamById(fx.home), away = teamById(fx.away);
     const isHome = String(fx.home) === String(CAREER.clubId), isAway = String(fx.away) === String(CAREER.clubId);
@@ -538,27 +587,26 @@ function simulateRound() {
     const lambdaAway = clamp(as.atk / hs.def, 0.05, 6);
     const gh = poissonSample(lambdaHome, Math.random); // global de js/data.js
     const ga = poissonSample(lambdaAway, Math.random);
-    const result = { home: fx.home, away: fx.away, gh, ga };
-    applyResultToStandings(result);
-    (CAREER.resultsByRound[round] = CAREER.resultsByRound[round] || []).push(result);
+    let events = null;
     if (isHome || isAway) {
-      const myGoals = isHome ? gh : ga, oppGoals = isHome ? ga : gh;
-      const oppTeam = isHome ? away : home;
+      const myGoals = isHome ? gh : ga;
       const myStarters = isHome ? hs.starters : as.starters;
-      roundNews.push(...simulatePlayerEvents(myStarters, myGoals, round));
-      const outcome = myGoals > oppGoals ? "Vitória" : myGoals < oppGoals ? "Derrota" : "Empate";
-      const placar = isHome ? `${gh} x ${ga}` : `${gh} x ${ga}`;
-      toastMsg = `${outcome}: ${CAREER.clubName} ${placar} ${oppTeam.name}`;
-      roundNews.unshift({ round, type: "resultado", text: `${outcome} — ${isHome ? CAREER.clubName : oppTeam.name} ${gh} x ${ga} ${isHome ? oppTeam.name : CAREER.clubName}` });
+      events = simulatePlayerEvents(myStarters, myGoals, round);
+      tallyTeamStats(events);
       applyConditionRecovery(myStarters.map((p) => p.id));
     }
+    const result = { home: fx.home, away: fx.away, gh, ga };
+    if (events) result.events = events; // só o jogo do clube carrega eventos — CPU x CPU não tem elenco com identidade
+    applyResultToStandings(result);
+    (CAREER.resultsByRound[round] = CAREER.resultsByRound[round] || []).push(result);
+    allResults.push(result);
+    if (isHome || isAway) humanMatch = { ...result, isHome };
   });
-  CAREER.news = [...roundNews, ...CAREER.news].slice(0, 60);
   const nextRound = round + 1;
   refreshAvailability(nextRound);
-  autoFixLineup(nextRound);
+  const lineupChanges = autoFixLineup(nextRound);
   CAREER.currentRound = nextRound;
-  return toastMsg || "Rodada sem jogo do seu time (folga).";
+  return { round, humanMatch, allResults, lineupChanges };
 }
 
 /* ---------- Renderização: Central ---------- */
@@ -598,7 +646,7 @@ function renderCentral() {
   const susp = squad.filter((p) => p.status === "suspenso").length;
   document.getElementById("squadKpis").innerHTML = [
     ["Elenco", squad.length], ["Disponíveis", ok], ["Contundidos", hurt], ["Suspensos", susp],
-  ].map(([l, v]) => `<div class="ct-kpi"><div class="v">${v}</div><div class="l">${l}</div></div>`).join("");
+  ].map(([l, v]) => kpiHTML(l, v)).join("");
 
   const lastCard = document.getElementById("lastResultCard");
   const last = CAREER.resultsByRound[round - 1];
@@ -606,14 +654,35 @@ function renderCentral() {
   if (fx) {
     const home = teamById(fx.home), away = teamById(fx.away);
     lastCard.style.display = "";
+    // Pedido do usuário: além do placar, mostrar quem fez gol, quem
+    // deu assistência e quem tomou cartão nesse jogo (ver fx.events,
+    // gravado em simulateRound só pro jogo do próprio clube).
     document.getElementById("lastResultBox").innerHTML = `<div class="ct-next-match">
       <div class="side">${crestImg(home)}<span class="n">${escapeHtml(home.name)}</span></div>
       <span class="vs" style="font-size:18px;">${fx.gh} × ${fx.ga}</span>
       <div class="side">${crestImg(away)}<span class="n">${escapeHtml(away.name)}</span></div>
-    </div>`;
+    </div>
+    ${matchEventsSummaryHTML(fx.events)}`;
   } else {
     lastCard.style.display = "none";
   }
+}
+// Lista gols/assistências/cartões de um jogo (ver estrutura de
+// "events" em simulateRound/simulatePlayerEvents) — usado na Central
+// ("Resultado da última rodada") e no modal de detalhe do jogo (ver
+// showMatchDetailModal). Nome sempre abreviado (mesmo padrão do
+// Elenco). Sem eventos (folga, ou jogo sem detalhe registrado) não
+// mostra nada.
+function matchEventsSummaryHTML(events) {
+  if (!events || !events.length) return "";
+  const names = (list) => list.map((e) => escapeHtml(abbreviateName(e.player))).join(", ");
+  const line = (icon, label, list) => list.length
+    ? `<div class="ct-match-event-line"><b>${icon} ${label}:</b> ${names(list)}</div>` : "";
+  const by = (type) => events.filter((e) => e.type === type);
+  return line("⚽", "Gols", by("gol"))
+    + line("🅰️", "Assistências", by("assistencia"))
+    + line("🟨", "Cartões amarelos", by("amarelo"))
+    + line("🟥", "Cartões vermelhos", by("vermelho"));
 }
 
 /* ---------- Renderização: Elenco ---------- */
@@ -625,7 +694,7 @@ function playerRow(p) {
     : p.status === "contundido" ? `<span class="ct-pill hurt">Lesionado (até R${p.outUntilRound})</span>`
     : `<span class="ct-pill susp">Suspenso (R${p.outUntilRound})</span>`;
   return `<tr data-id="${p.id}" style="cursor:pointer;">
-    <td>${escapeHtml(p.name)}${p.real ? "" : ' <span class="ct-pill base" style="margin-left:4px;">gerado</span>'}</td>
+    <td class="ct-name-cell">${escapeHtml(abbreviateName(p.name))}${p.real ? "" : ' <span class="ct-pill base" style="margin-left:4px;">gerado</span>'}</td>
     <td>${subPositionOf(p)}</td><td>${p.age}</td><td><b>${p.overall}</b></td>
     <td><span class="ct-cond-track"><span class="ct-cond-fill" style="width:${Math.round(p.condition)}%"></span></span></td>
     <td>${statusPill}</td>
@@ -772,7 +841,7 @@ function renderBench() {
     .filter(Boolean)
     .sort((a, b) => squadSortKey(a) - squadSortKey(b));
   const rows = benchPlayers.map((p) => `<tr data-id="${p.id}" style="cursor:pointer;">
-    <td>${escapeHtml(p.name)}</td><td>${subPositionOf(p)}</td><td><b>${p.overall}</b></td>
+    <td class="ct-name-cell">${escapeHtml(abbreviateName(p.name))}</td><td>${subPositionOf(p)}</td><td><b>${p.overall}</b></td>
   </tr>`).join("");
   const canAdd = CAREER.lineup.bench.length < MAX_BENCH;
   const addRow = canAdd ? `<tr id="benchAddRow" style="cursor:pointer; color:var(--text-2);"><td colspan="3">+ adicionar reserva</td></tr>` : "";
@@ -807,7 +876,7 @@ function renderPickerList(filter) {
   const list = document.getElementById("pickerList");
   list.innerHTML = clearRow + (pool.length ? pool.map((p) => `
     <div class="ct-pick-row" data-id="${p.id}">
-      <span class="nm">${escapeHtml(p.name)}${p.id === currentId ? " (atual)" : ""}</span>
+      <span class="nm" style="white-space:nowrap;">${escapeHtml(abbreviateName(p.name))}${p.id === currentId ? " (atual)" : ""}</span>
       <span class="meta">${subPositionOf(p)} · OVR ${p.overall} · ${p.origin === "base" ? "base" : "principal"}</span>
     </div>`).join("") : `<p class="ct-empty">Nenhum jogador disponível.</p>`);
   list.querySelectorAll("[data-clear]").forEach((el) => el.addEventListener("click", () => pickerChoose(null)));
@@ -857,21 +926,100 @@ function renderTabela() {
   table.querySelector("tbody").innerHTML = tbody;
 }
 
-/* ---------- Renderização: Notícias ---------- */
-function renderNoticias() {
-  const items = CAREER.news.slice(0, 60);
-  document.getElementById("newsList").innerHTML = items.length
-    ? items.map((n) => `<div class="ct-news-item"><span class="ct-news-round">${n.round ? "R" + n.round : "—"}</span><span>${escapeHtml(n.text)}</span></div>`).join("")
-    : `<p class="ct-empty">Nenhuma notícia ainda.</p>`;
+/* ---------- Renderização: Estatísticas ----------
+   Pedido do usuário: substitui a aba Notícias — dados do campeonato
+   (derivados da tabela da carreira, mesma fonte de sempre — ver
+   CAREER.standings) e da própria equipe (gols, cartões, assistências —
+   gols vem de standings[clubId].gp; assistência/cartão de
+   CAREER.teamStats, ver tallyTeamStats). */
+function kpiHTML(label, value) {
+  return `<div class="ct-kpi"><div class="v">${value}</div><div class="l">${label}</div></div>`;
+}
+function renderEstatisticas() {
+  const rows = Object.values(CAREER.standings);
+  const withGames = rows.filter((r) => r.j > 0);
+  const totalGoals = rows.reduce((s, r) => s + r.gp, 0);
+  const totalGames = withGames.reduce((s, r) => s + r.j, 0) / 2; // cada jogo soma 1 pra cada time -> divide por 2
+  const avgGoals = totalGames ? totalGoals / totalGames : 0;
+  const bestAtk = rows.slice().sort((a, b) => b.gp - a.gp)[0];
+  const bestDef = withGames.slice().sort((a, b) => a.gc - b.gc)[0];
+  document.getElementById("leagueStatsKpis").innerHTML = [
+    ["Gols na competição", totalGoals],
+    ["Média de gols/jogo", avgGoals.toFixed(2)],
+    ["Melhor ataque", bestAtk ? `${teamById(bestAtk.id).short || teamById(bestAtk.id).name} (${bestAtk.gp})` : "—"],
+    ["Melhor defesa", bestDef ? `${teamById(bestDef.id).short || teamById(bestDef.id).name} (${bestDef.gc})` : "—"],
+  ].map(([l, v]) => kpiHTML(l, v)).join("");
+
+  const sorted = rows.slice().sort((a, b) => (b.pts - a.pts) || (b.v - a.v) || (b.sg - a.sg) || (b.gp - a.gp));
+  const myPos = sorted.findIndex((r) => String(r.id) === String(CAREER.clubId)) + 1;
+  const myRow = CAREER.standings[CAREER.clubId] || { gp: 0 };
+  const stats = CAREER.teamStats || { assists: 0, yellow: 0, red: 0 };
+  document.getElementById("teamStatsKpis").innerHTML = [
+    ["Posição atual", myPos ? `${myPos}º` : "—"],
+    ["Gols marcados", myRow.gp],
+    ["Assistências", stats.assists],
+    ["Cartões (A+V)", stats.yellow + stats.red],
+  ].map(([l, v]) => kpiHTML(l, v)).join("");
+
+  const topPlayers = CAREER.squad.slice()
+    .filter((p) => (p.goalsCareer || 0) > 0 || (p.assistsCareer || 0) > 0)
+    .sort((a, b) => (b.goalsCareer || 0) - (a.goalsCareer || 0) || (b.assistsCareer || 0) - (a.assistsCareer || 0))
+    .slice(0, 10);
+  const tbody = topPlayers.map((p) => `<tr>
+    <td class="ct-name-cell">${escapeHtml(abbreviateName(p.name))}</td><td>${subPositionOf(p)}</td>
+    <td><b>${p.goalsCareer || 0}</b></td><td>${p.assistsCareer || 0}</td>
+  </tr>`).join("");
+  document.getElementById("teamTopPlayersTable").querySelector("tbody").innerHTML =
+    tbody || `<tr><td colspan="4" class="ct-empty">Ninguém marcou gol ou deu assistência ainda.</td></tr>`;
 }
 
 /* ---------- Tela do jogo ---------- */
 function renderAll() {
-  renderTopbar(); renderCentral(); renderElenco(); renderEscalacao(); renderTabela(); renderNoticias();
+  renderTopbar(); renderCentral(); renderElenco(); renderEscalacao(); renderTabela(); renderEstatisticas();
 }
 function showGameScreen() {
   show("screenGame");
   renderAll();
+}
+function switchToPanel(name) {
+  document.querySelectorAll(".ct-tab").forEach((b) => b.classList.toggle("active", b.dataset.panel === name));
+  document.querySelectorAll(".ct-panel").forEach((p) => p.classList.toggle("active", p.id === "panel-" + name));
+}
+
+/* ---------- Modais do fluxo "Simular rodada" (pedido do usuário) ---------- */
+// 1º modal: o jogo do PRÓPRIO clube (se jogou essa rodada — bye/folga
+// pula direto pro modal de resultados, não tem jogo pra detalhar).
+function showMatchDetailModal(summary) {
+  if (!summary.humanMatch) { showRoundResultsModal(summary); return; }
+  const { home, away, gh, ga, events } = summary.humanMatch;
+  const homeTeam = teamById(home), awayTeam = teamById(away);
+  document.getElementById("matchDetailRound").textContent = summary.round;
+  document.getElementById("matchDetailScore").innerHTML = `
+    <div class="side">${crestImg(homeTeam)}<span class="n">${escapeHtml(homeTeam.name)}</span></div>
+    <span class="vs" style="font-size:18px;">${gh} × ${ga}</span>
+    <div class="side">${crestImg(awayTeam)}<span class="n">${escapeHtml(awayTeam.name)}</span></div>`;
+  document.getElementById("matchDetailEvents").innerHTML = matchEventsSummaryHTML(events)
+    || `<p class="ct-empty">Nenhum gol, cartão ou assistência nesse jogo.</p>`;
+  PENDING_ROUND_SUMMARY = summary;
+  document.getElementById("matchDetailOverlay").classList.add("open");
+}
+// 2º modal: placar dos 20 times nessa rodada + trocas forçadas de
+// escalação (jogador que ficou indisponível — ver autoFixLineup),
+// quando houve. "Continuar" leva pra Tabela já atualizada.
+function showRoundResultsModal(summary) {
+  document.getElementById("roundResultsRound").textContent = summary.round;
+  document.getElementById("roundResultsList").innerHTML = summary.allResults.map((r) => {
+    const home = teamById(r.home), away = teamById(r.away);
+    const isMe = String(r.home) === String(CAREER.clubId) || String(r.away) === String(CAREER.clubId);
+    return `<div class="ct-round-result-row ${isMe ? "me" : ""}">
+      <span>${escapeHtml(home.short || home.name)}</span><span>${r.gh} x ${r.ga}</span><span>${escapeHtml(away.short || away.name)}</span>
+    </div>`;
+  }).join("");
+  document.getElementById("roundResultsChanges").textContent = (summary.lineupChanges && summary.lineupChanges.length)
+    ? `Mudanças no time pra próxima rodada: ${summary.lineupChanges.join("; ")}.`
+    : "";
+  PENDING_ROUND_SUMMARY = null;
+  document.getElementById("roundResultsOverlay").classList.add("open");
 }
 
 /* ---------- Listeners estáticos (uma vez, no boot) ---------- */
@@ -886,12 +1034,7 @@ function wireStaticListeners() {
   populateSelect("trainingFocus", TRAINING_OPTIONS);
 
   document.querySelectorAll(".ct-tab").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      document.querySelectorAll(".ct-tab").forEach((b) => b.classList.remove("active"));
-      document.querySelectorAll(".ct-panel").forEach((p) => p.classList.remove("active"));
-      btn.classList.add("active");
-      document.getElementById("panel-" + btn.dataset.panel).classList.add("active");
-    });
+    btn.addEventListener("click", () => switchToPanel(btn.dataset.panel));
   });
 
   document.getElementById("formationSelect").addEventListener("change", (e) => {
@@ -908,13 +1051,26 @@ function wireStaticListeners() {
     renderCentral();
   });
 
+  // Fluxo de "Simular rodada" (pedido do usuário): modal com o jogo do
+  // clube (resultado/gols/assistências/cartões) -> "Continuar" -> modal
+  // com o resultado da rodada inteira (+ trocas forçadas de escalação,
+  // se houve) -> "Continuar" -> aba Tabela já atualizada. Ver
+  // showMatchDetailModal/showRoundResultsModal.
   document.getElementById("btnSimulate").addEventListener("click", async () => {
     const btn = document.getElementById("btnSimulate");
     btn.disabled = true;
     const summary = simulateRound();
     await persistCareer();
     renderAll();
-    if (summary) toast(summary);
+    if (summary) showMatchDetailModal(summary);
+  });
+  document.getElementById("btnMatchDetailContinue").addEventListener("click", () => {
+    document.getElementById("matchDetailOverlay").classList.remove("open");
+    if (PENDING_ROUND_SUMMARY) showRoundResultsModal(PENDING_ROUND_SUMMARY);
+  });
+  document.getElementById("btnRoundResultsContinue").addEventListener("click", () => {
+    document.getElementById("roundResultsOverlay").classList.remove("open");
+    switchToPanel("tabela");
   });
 
   document.getElementById("btnRestart").addEventListener("click", async () => {

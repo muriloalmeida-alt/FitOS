@@ -143,10 +143,23 @@
   .ct-cond-track{ width:60px; height:6px; border-radius:100px; background:var(--border); overflow:hidden; display:inline-block; vertical-align:middle; }
   .ct-cond-fill{ height:100%; background:var(--brd-green); }
 
-  /* ---------- Notícias ---------- */
-  .ct-news-item{ padding:10px 0; border-bottom:1px solid var(--border); font-size:13px; color:var(--text-0); display:flex; gap:10px; }
-  .ct-news-item:last-child{ border-bottom:none; }
-  .ct-news-round{ font-size:11px; font-weight:700; color:var(--text-2); flex-shrink:0; width:56px; }
+  /* Nome do jogador (Elenco/Banco/picker) — pedido do usuário: nome
+     abreviado (ver abbreviateName em carreira.js, ex.: "K. Viveiros")
+     + nunca quebrar em 2 linhas no celular. white-space:nowrap garante
+     isso; se algum nome abreviado ainda assim não coubesse (raríssimo),
+     a tabela já vive dentro de .ct-scroll-x (overflow-x:auto) — no pior
+     caso rola só a tabela, nunca a página toda. */
+  .ct-name-cell{ white-space:nowrap; }
+
+  /* ---------- Estatísticas ---------- */
+  .ct-stats-table-title{ font-size:13px; font-weight:700; color:var(--text-0); margin:16px 0 8px; }
+
+  /* ---------- Detalhe do jogo (modal de simular rodada / último jogo) ---------- */
+  .ct-match-event-line{ font-size:12.5px; color:var(--text-0); margin-bottom:6px; line-height:1.5; }
+  .ct-match-event-line b{ color:var(--text-1); }
+  .ct-round-result-row{ display:flex; align-items:center; justify-content:space-between; padding:7px 0; border-bottom:1px solid var(--border); font-size:12.5px; }
+  .ct-round-result-row:last-child{ border-bottom:none; }
+  .ct-round-result-row.me{ font-weight:700; color:var(--brd-blue); }
 
   /* ---------- Modal ---------- */
   .ct-modal-overlay{ position:fixed; inset:0; background:rgba(6,11,23,.55); display:none; align-items:center; justify-content:center; z-index:200; padding:16px; }
@@ -228,7 +241,7 @@
       <button class="ct-tab" data-panel="elenco">Elenco</button>
       <button class="ct-tab" data-panel="escalacao">Escalação</button>
       <button class="ct-tab" data-panel="tabela">Tabela</button>
-      <button class="ct-tab" data-panel="noticias">Notícias</button>
+      <button class="ct-tab" data-panel="estatisticas">Estatísticas</button>
     </nav>
 
     <div class="ct-body">
@@ -302,11 +315,17 @@
         </div>
       </section>
 
-      <!-- ---------- Notícias ---------- -->
-      <section class="ct-panel" id="panel-noticias">
+      <!-- ---------- Estatísticas ---------- -->
+      <section class="ct-panel" id="panel-estatisticas">
         <div class="ct-card">
-          <h2>Notícias do clube</h2>
-          <div id="newsList"></div>
+          <h2>Campeonato</h2>
+          <div class="ct-kpis" id="leagueStatsKpis"></div>
+        </div>
+        <div class="ct-card">
+          <h2>Minha equipe</h2>
+          <div class="ct-kpis" id="teamStatsKpis"></div>
+          <div class="ct-stats-table-title">Artilheiros e garçons do time</div>
+          <div class="ct-scroll-x"><table class="ct-table" id="teamTopPlayersTable"><thead><tr><th>Nome</th><th>Pos</th><th>Gols</th><th>Assist.</th></tr></thead><tbody></tbody></table></div>
         </div>
       </section>
 
@@ -329,6 +348,33 @@
   <div class="ct-modal">
     <button class="ct-modal-close" id="detailClose">✕</button>
     <div id="detailBody"></div>
+  </div>
+</div>
+
+<!-- ================= Modal: detalhe do jogo (ao simular rodada) =================
+     1º passo do fluxo "Simular rodada" (pedido do usuário): mostra o
+     jogo do PRÓPRIO clube (resultado, gols, assistências, cartões) —
+     só existe pra rodada em que o clube jogou; ver showMatchDetailModal
+     em carreira.js. "Continuar" leva pro modal de resultados da
+     rodada inteira (ver #roundResultsOverlay abaixo). -->
+<div class="ct-modal-overlay" id="matchDetailOverlay">
+  <div class="ct-modal">
+    <h3>Seu jogo — Rodada <span id="matchDetailRound"></span></h3>
+    <div class="ct-next-match" id="matchDetailScore"></div>
+    <div id="matchDetailEvents"></div>
+    <button class="ct-btn primary full" id="btnMatchDetailContinue" style="margin-top:12px;">Continuar</button>
+  </div>
+</div>
+
+<!-- ================= Modal: resultados da rodada inteira =================
+     2º passo do fluxo (pedido do usuário) — placar dos 20 times nessa
+     rodada. "Continuar" fecha e leva pra aba Tabela já atualizada. -->
+<div class="ct-modal-overlay" id="roundResultsOverlay">
+  <div class="ct-modal">
+    <h3>Resultados — Rodada <span id="roundResultsRound"></span></h3>
+    <div id="roundResultsList"></div>
+    <div class="ct-sub" id="roundResultsChanges" style="margin-top:10px;"></div>
+    <button class="ct-btn primary full" id="btnRoundResultsContinue" style="margin-top:12px;">Ver tabela atualizada</button>
   </div>
 </div>
 
