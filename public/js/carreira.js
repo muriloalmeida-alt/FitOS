@@ -132,6 +132,11 @@ function show(name) {
   ["screenLoading", "screenLoginRequired", "screenPicker", "screenGame"].forEach((id) => {
     document.getElementById(id).classList.toggle("hidden", id !== name);
   });
+  // BUG CORRIGIDO: trocar de tela (ex.: escolher um clube mais pra
+  // baixo na grade, que exige rolar a página) não voltava a rolagem
+  // pro topo — quem entrava assim na tela do jogo ficava com o
+  // cabeçalho novo escondido acima da dobra até rolar manualmente.
+  window.scrollTo(0, 0);
 }
 function applyStoredTheme() {
   try { document.documentElement.setAttribute("data-theme", localStorage.getItem("brdata_theme") || "light"); } catch {}

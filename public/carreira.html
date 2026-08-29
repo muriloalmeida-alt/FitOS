@@ -31,16 +31,45 @@
   .ct-spinner{ width:28px; height:28px; border-radius:50%; border:3px solid var(--border); border-top-color:var(--brd-blue); animation:ct-spin 0.8s linear infinite; }
   @keyframes ct-spin{ to{ transform:rotate(360deg); } }
 
-  /* ---------- Topbar ---------- */
-  .ct-topbar{ display:flex; align-items:center; gap:12px; padding:10px 18px; background:var(--bg-sidebar); color:#fff; flex-wrap:wrap; }
-  .ct-back{ color:rgba(255,255,255,.8); text-decoration:none; font-size:13px; font-weight:600; display:flex; align-items:center; gap:6px; }
+  /* ---------- Topbar ----------
+     AJUSTE (pedido do usuário: "o cabeçalho do modo carreira... dá pra
+     ficar mais bonito"): antes era uma barra sólida com tudo numa linha
+     só (quebrava feio no mobile — nome do clube colado no botão
+     Reiniciar). Agora 2 linhas fixas (marca+rodada / clube+ação),
+     degradê igual ao das modais (mesma identidade visual do resto do
+     app) e o escudo do clube ganha uma bolha branca atrás — muitos
+     escudos têm fundo transparente pensado pra ficar sobre branco, no
+     azul-marinho ficavam apagados. */
+  .ct-topbar{
+    display:flex; flex-direction:column; gap:10px;
+    padding:14px 18px 16px; background:linear-gradient(135deg, var(--brd-navy), #030d1e);
+    color:#fff; box-shadow:0 4px 14px rgba(0,0,0,.2);
+  }
+  .ct-topbar-row1{ display:flex; align-items:center; gap:10px; }
+  .ct-topbar-row2{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .ct-back{ color:rgba(255,255,255,.65); text-decoration:none; font-size:12.5px; font-weight:600; display:flex; align-items:center; gap:6px; flex-shrink:0; }
   .ct-back:hover{ color:#fff; }
-  .ct-topbar-title{ font-weight:800; font-size:14.5px; flex-shrink:0; }
-  .ct-topbar-club{ display:flex; align-items:center; gap:8px; margin-left:auto; font-size:13px; font-weight:600; }
-  .ct-topbar-club img{ height:22px; width:22px; object-fit:contain; }
-  .ct-round-pill{ background:rgba(255,255,255,.12); border-radius:100px; padding:4px 12px; font-size:12px; font-weight:700; }
-  .ct-icon-btn{ background:rgba(255,255,255,.1); border:none; color:#fff; border-radius:8px; padding:6px 10px; font-size:12px; font-weight:600; cursor:pointer; }
+  .ct-topbar-title{ font-weight:800; font-size:15px; flex-shrink:0; }
+  .ct-round-pill{ margin-left:auto; background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.16); border-radius:100px; padding:5px 13px; font-size:11.5px; font-weight:700; flex-shrink:0; white-space:nowrap; }
+  .ct-topbar-club{ display:flex; align-items:center; gap:10px; min-width:0; }
+  .ct-club-crest-wrap{ width:34px; height:34px; border-radius:50%; background:#fff; display:flex; align-items:center; justify-content:center; flex-shrink:0; box-shadow:0 2px 6px rgba(0,0,0,.3); }
+  .ct-topbar-club img{ height:24px; width:24px; object-fit:contain; }
+  #clubName{ font-size:15px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ct-icon-btn{ background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.2); color:#fff; border-radius:9px; padding:7px 13px; font-size:12px; font-weight:700; cursor:pointer; flex-shrink:0; }
   .ct-icon-btn:hover{ background:rgba(255,255,255,.2); }
+  /* BUG CORRIGIDO: "← BR Data" + "⚽ Modo Técnico" + a pill da rodada
+     não cabiam numa linha só em telas bem estreitas (320px) — nenhum
+     dos 3 encolhia (flex-shrink:0 nos 3), e o texto vazava pra fora da
+     tela em vez de quebrar, criando scroll horizontal na página
+     inteira (mesma categoria de bug já corrigida antes no campinho de
+     escalação e na tela de abertura). */
+  @media (max-width:360px){
+    .ct-topbar{ padding-left:14px; padding-right:14px; }
+    .ct-topbar-row1{ gap:6px; }
+    .ct-topbar-title{ font-size:13px; }
+    .ct-round-pill{ padding:4px 9px; font-size:10.5px; }
+    .ct-back{ font-size:11px; }
+  }
 
   /* ---------- Tabs ---------- */
   .ct-tabs{ display:flex; gap:4px; padding:8px 14px 0; background:var(--bg-app); overflow-x:auto; }
@@ -249,14 +278,18 @@
   <!-- ================= Jogo ================= -->
   <div class="hidden" id="screenGame" style="display:flex; flex-direction:column; flex:1;">
     <div class="ct-topbar">
-      <a class="ct-back" href="/">← BR Data</a>
-      <span class="ct-topbar-title">⚽ Modo Técnico</span>
-      <span class="ct-round-pill" id="roundPill">Rodada 1/38</span>
-      <div class="ct-topbar-club">
-        <img id="clubCrest" src="" alt="">
-        <span id="clubName">—</span>
+      <div class="ct-topbar-row1">
+        <a class="ct-back" href="/">← BR Data</a>
+        <span class="ct-topbar-title">⚽ Modo Técnico</span>
+        <span class="ct-round-pill" id="roundPill">Rodada 1/38</span>
       </div>
-      <button class="ct-icon-btn" id="btnRestart" title="Abandonar e começar outra carreira">Reiniciar</button>
+      <div class="ct-topbar-row2">
+        <div class="ct-topbar-club">
+          <span class="ct-club-crest-wrap"><img id="clubCrest" src="" alt=""></span>
+          <span id="clubName">—</span>
+        </div>
+        <button class="ct-icon-btn" id="btnRestart" title="Abandonar e começar outra carreira">↺ Reiniciar</button>
+      </div>
     </div>
 
     <nav class="ct-tabs">
