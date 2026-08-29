@@ -18,6 +18,7 @@ README-API-SPORTS.md   → detalhes da integração com a API-Sports
 README-LOGIN.md        → cadastro/login obrigatório, planos e sessão (LEIA — tem um passo obrigatório no Railway)
 README-PAGAMENTOS.md   → pagamento por cartão/PIX via Mercado Pago
 README-DEPLOY-RAILWAY.md → os dois ambientes Railway (HML auto-deploy / PRD manual) e checklist de verificação
+README-CARREIRA.md     → "Modo Técnico" (/carreira) — carreira de técnico estilo Elifoot em cima do elenco do Brasileirão
 ```
 
 > ⚠️ O site agora exige login pra qualquer acesso (cadastro + escolha

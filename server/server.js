@@ -56,6 +56,7 @@ const sessions = require("./src/sessions");
 const competitions = require("./src/competitions");
 const paymentsLedger = require("./src/paymentsLedger");
 const contentStore = require("./src/contentStore");
+const careerStore = require("./src/careerStore");
 const publicRateLimit = require("./src/publicRateLimit");
 const { slugify, matchSlug } = require("./src/slug");
 
@@ -1555,6 +1556,22 @@ const server = http.createServer(async (req, res) => {
       });
     }
 
+    // URL amigável pro "Modo Técnico" (Elifoot-like) — mesmo espírito
+    // da rota /admin acima: só serve o HTML/JS, quem protege de
+    // verdade é o login obrigatório de /api/career/* (ver guard mais
+    // abaixo). noindex sempre — é uma ferramenta atrás de login, não
+    // conteúdo pra indexar.
+    if (pathname === "/carreira") {
+      return fs.readFile(path.join(PUBLIC_DIR, "carreira.html"), (err, data) => {
+        if (err) { res.writeHead(404); return res.end("Not found"); }
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        res.end(data.toString("utf8").replace(
+          "</head>",
+          `<meta name="robots" content="noindex, nofollow">\n</head>`
+        ));
+      });
+    }
+
     // Beacon de analytics de produto (funil de login + páginas mais
     // navegadas — pedido do usuário, ver server/src/analytics.js e
     // GET /api/adminpanel/analytics mais abaixo) — colocado CEDO de
@@ -1673,10 +1690,18 @@ const server = http.createServer(async (req, res) => {
     // local (server/src/competitions.js), e /api/account/favorite-club
     // só grava no arquivo local de usuários (server/src/users.js) —
     // nenhum desses chama a API-Sports, ficam de fora dessa checagem.
+    // /api/career/* também fica de fora: o "Modo Técnico" guarda um
+    // save opaco (ver server/src/careerStore.js) e monta elenco/
+    // calendário sozinho no cliente (real quando há dado ao vivo,
+    // gerado quando não há — mesma dualidade de sempre, só que decidida
+    // em public/js/carreira.js em vez de aqui) — precisa funcionar
+    // mesmo sem fornecedor configurado, senão a carreira fica
+    // impossível de jogar em qualquer host sem chave.
     const LIVE_ONLY = pathname.startsWith("/api/") && pathname !== "/api/broadcast" && pathname !== "/api/news"
       && pathname !== "/api/competitions" && pathname !== "/api/account/favorite-club"
       && !pathname.startsWith("/api/support/") && !pathname.startsWith("/api/auth/")
-      && !pathname.startsWith("/api/admin/") && !pathname.startsWith("/api/adminpanel/");
+      && !pathname.startsWith("/api/admin/") && !pathname.startsWith("/api/adminpanel/")
+      && !pathname.startsWith("/api/career");
     if (LIVE_ONLY && !liveModeEnabled()) {
       const err = new Error(
         APP_MODE === "demo"
@@ -2041,6 +2066,23 @@ const server = http.createServer(async (req, res) => {
       if (!competitions.getCompetition(competitionId)) return sendJSON(res, 400, { error: "Competição inválida." });
       const updated = users.setFavoriteClub(req.authUser.id, competitionId, teamId);
       return sendJSON(res, 200, { favoriteClubs: updated.favoriteClubs || {} });
+    }
+
+    // ================= Modo Técnico (carreira estilo Elifoot) =================
+    // Save inteiro é opaco pro backend (ver aviso em careerStore.js) —
+    // elenco/escalação/tabela/notícias são montados e recalculados no
+    // cliente (public/js/carreira.js), aqui só persiste por conta.
+    if (pathname === "/api/career" && req.method === "GET") {
+      return sendJSON(res, 200, { career: careerStore.getCareer(req.authUser.id) });
+    }
+    if (pathname === "/api/career" && req.method === "PUT") {
+      const body = await readBody(req);
+      const saved = careerStore.saveCareer(req.authUser.id, body);
+      return sendJSON(res, 200, { career: saved });
+    }
+    if (pathname === "/api/career" && req.method === "DELETE") {
+      careerStore.deleteCareer(req.authUser.id);
+      return sendJSON(res, 200, { ok: true });
     }
 
     // Cria um novo checkout pra quem já está logado — cobre 2 casos:

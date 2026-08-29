@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Modo Técnico · BR Data</title>
+<link rel="icon" type="image/png" sizes="32x32" href="img/icons/favicon-32.png">
+<link rel="stylesheet" href="css/style.css">
+<style>
+  /* ===================================================================
+     MODO TÉCNICO — carreira estilo Elifoot em cima do elenco real do
+     Brasileirão (mesma fonte de dado do BR Data — API-Sports/Sportmonks,
+     ver server/src/providers/). Página própria, separada do app.js dos
+     usuários finais (mesmo motivo do /admin — ver comentário lá e no
+     topo de public/js/carreira.js): reaproveita as variáveis de marca
+     de css/style.css, mas com layout e estado próprios.
+
+     Elenco/calendário/tabela dessa carreira são MONTADOS E GUARDADOS
+     no cliente (ver careerStore.js no backend — o save é opaco lá) —
+     por isso o "estado do jogo" mora inteiro em CAREER (carreira.js),
+     não em variáveis globais do app.js.
+  =================================================================== */
+  body{ background:var(--bg-app); }
+  .ct-shell{ min-height:100vh; display:flex; flex-direction:column; }
+
+  /* ---------- Telas cheias (loading / login / picker) ---------- */
+  .ct-full{ flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:14px; padding:32px 16px; text-align:center; }
+  .ct-full img.brand{ height:34px; margin-bottom:6px; }
+  .ct-full h1{ font-size:20px; font-weight:800; color:var(--text-0); margin:0; }
+  .ct-full p{ font-size:13.5px; color:var(--text-2); margin:0; max-width:420px; }
+  .ct-spinner{ width:28px; height:28px; border-radius:50%; border:3px solid var(--border); border-top-color:var(--brd-blue); animation:ct-spin 0.8s linear infinite; }
+  @keyframes ct-spin{ to{ transform:rotate(360deg); } }
+
+  /* ---------- Topbar ---------- */
+  .ct-topbar{ display:flex; align-items:center; gap:12px; padding:10px 18px; background:var(--bg-sidebar); color:#fff; flex-wrap:wrap; }
+  .ct-back{ color:rgba(255,255,255,.8); text-decoration:none; font-size:13px; font-weight:600; display:flex; align-items:center; gap:6px; }
+  .ct-back:hover{ color:#fff; }
+  .ct-topbar-title{ font-weight:800; font-size:14.5px; flex-shrink:0; }
+  .ct-topbar-club{ display:flex; align-items:center; gap:8px; margin-left:auto; font-size:13px; font-weight:600; }
+  .ct-topbar-club img{ height:22px; width:22px; object-fit:contain; }
+  .ct-round-pill{ background:rgba(255,255,255,.12); border-radius:100px; padding:4px 12px; font-size:12px; font-weight:700; }
+  .ct-icon-btn{ background:rgba(255,255,255,.1); border:none; color:#fff; border-radius:8px; padding:6px 10px; font-size:12px; font-weight:600; cursor:pointer; }
+  .ct-icon-btn:hover{ background:rgba(255,255,255,.2); }
+
+  /* ---------- Tabs ---------- */
+  .ct-tabs{ display:flex; gap:4px; padding:8px 14px 0; background:var(--bg-app); overflow-x:auto; }
+  .ct-tab{ border:none; background:transparent; color:var(--text-2); font-weight:700; font-size:13px; padding:10px 14px; border-radius:10px 10px 0 0; cursor:pointer; white-space:nowrap; }
+  .ct-tab.active{ background:var(--bg-surface); color:var(--brd-blue); }
+  .ct-body{ flex:1; background:var(--bg-surface); padding:18px; }
+  .ct-panel{ display:none; max-width:1080px; margin:0 auto; }
+  .ct-panel.active{ display:block; }
+
+  .ct-card{ background:var(--bg-app); border:1px solid var(--border); border-radius:var(--radius-md); padding:16px 18px; margin-bottom:14px; }
+  .ct-card h2{ font-size:14.5px; margin:0 0 12px; color:var(--text-0); }
+  .ct-card h3{ font-size:13px; margin:0 0 8px; color:var(--text-0); }
+  .ct-sub{ font-size:12px; color:var(--text-2); margin:0 0 12px; }
+  .ct-grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width:720px){ .ct-grid-2{ grid-template-columns:1fr; } }
+
+  /* ---------- Botões ---------- */
+  .ct-btn{ border:none; border-radius:9px; padding:9px 16px; font-size:13px; font-weight:700; cursor:pointer; background:var(--bg-surface); color:var(--text-0); border:1px solid var(--border); }
+  .ct-btn:hover{ filter:brightness(0.97); }
+  .ct-btn.primary{ background:var(--brd-blue); color:#fff; border-color:var(--brd-blue); }
+  .ct-btn.accent{ background:var(--brd-green); color:#fff; border-color:var(--brd-green); }
+  .ct-btn.danger{ background:transparent; color:var(--brd-red); border-color:var(--brd-red); }
+  .ct-btn.small{ padding:5px 10px; font-size:11.5px; }
+  .ct-btn:disabled{ opacity:.5; cursor:not-allowed; }
+
+  /* ---------- Clube picker ---------- */
+  .ct-club-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); gap:12px; max-width:900px; margin:18px auto 0; }
+  .ct-club-card{ background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius-md); padding:14px 10px; text-align:center; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:8px; }
+  .ct-club-card:hover{ border-color:var(--brd-blue); transform:translateY(-1px); }
+  .ct-club-card img{ height:44px; width:44px; object-fit:contain; }
+  .ct-club-card .name{ font-size:12.5px; font-weight:700; color:var(--text-0); }
+
+  /* ---------- Central ---------- */
+  .ct-next-match{ display:flex; align-items:center; justify-content:center; gap:18px; padding:14px 0; }
+  .ct-next-match .side{ display:flex; flex-direction:column; align-items:center; gap:6px; width:110px; }
+  .ct-next-match img{ height:40px; width:40px; object-fit:contain; }
+  .ct-next-match .side .n{ font-size:12px; font-weight:700; color:var(--text-0); text-align:center; }
+  .ct-next-match .vs{ font-size:12px; color:var(--text-2); font-weight:700; }
+  .ct-kpis{ display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:10px; }
+  .ct-kpi{ background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 12px; text-align:center; }
+  .ct-kpi .v{ font-size:19px; font-weight:800; color:var(--text-0); }
+  .ct-kpi .l{ font-size:10.5px; color:var(--text-2); text-transform:uppercase; letter-spacing:.3px; font-weight:700; }
+
+  /* ---------- Escalação ---------- */
+  .ct-line{ display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:10px; }
+  .ct-slot{ width:118px; background:var(--bg-surface); border:1.5px dashed var(--border); border-radius:10px; padding:8px 6px; text-align:center; cursor:pointer; }
+  .ct-slot.filled{ border-style:solid; border-color:var(--brd-blue); }
+  .ct-slot.problem{ border-color:var(--brd-red); }
+  .ct-slot .tag{ font-size:9.5px; font-weight:800; color:var(--text-2); letter-spacing:.4px; }
+  .ct-slot .nm{ font-size:12px; font-weight:700; color:var(--text-0); margin-top:3px; line-height:1.25; }
+  .ct-slot .ov{ font-size:10.5px; color:var(--text-2); }
+  .ct-bench-list{ display:flex; flex-wrap:wrap; gap:8px; }
+  .ct-bench-slot{ width:110px; background:var(--bg-surface); border:1.5px dashed var(--border); border-radius:10px; padding:8px 6px; text-align:center; cursor:pointer; font-size:11.5px; }
+  .ct-tactics{ display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; }
+  .ct-field{ display:flex; flex-direction:column; gap:4px; }
+  .ct-field label{ font-size:11px; font-weight:700; color:var(--text-2); text-transform:uppercase; letter-spacing:.3px; }
+  .ct-field select{ padding:8px 10px; border-radius:8px; border:1px solid var(--border); background:var(--bg-app); color:var(--text-0); font-family:var(--font); font-size:13px; }
+
+  /* ---------- Tabelas ---------- */
+  table.ct-table{ width:100%; border-collapse:collapse; font-size:12.5px; }
+  table.ct-table th{ text-align:left; padding:8px 8px; color:var(--text-2); font-size:10.5px; text-transform:uppercase; letter-spacing:.3px; border-bottom:1px solid var(--border); }
+  table.ct-table td{ padding:8px 8px; border-bottom:1px solid var(--border); color:var(--text-0); }
+  table.ct-table tr.me{ background:rgba(0,87,184,.08); }
+  table.ct-table tr:hover{ background:rgba(0,0,0,.02); }
+  .ct-scroll-x{ overflow-x:auto; }
+  .zone-dot{ display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:6px; }
+  .zone-campeao{ background:#FFC93C; } .zone-libertadores{ background:#20B866; } .zone-sula{ background:#2F80ED; } .zone-reb{ background:var(--brd-red); }
+
+  .ct-pill{ display:inline-block; font-size:10px; font-weight:700; padding:2px 8px; border-radius:100px; }
+  .ct-pill.ok{ background:rgba(32,184,102,.14); color:var(--brd-positive); }
+  .ct-pill.hurt{ background:rgba(217,45,32,.12); color:var(--brd-red); }
+  .ct-pill.susp{ background:rgba(255,193,7,.16); color:#8a6400; }
+  .ct-pill.base{ background:rgba(139,146,160,.16); color:var(--text-1); }
+
+  .ct-cond-track{ width:60px; height:6px; border-radius:100px; background:var(--border); overflow:hidden; display:inline-block; vertical-align:middle; }
+  .ct-cond-fill{ height:100%; background:var(--brd-green); }
+
+  /* ---------- Notícias ---------- */
+  .ct-news-item{ padding:10px 0; border-bottom:1px solid var(--border); font-size:13px; color:var(--text-0); display:flex; gap:10px; }
+  .ct-news-item:last-child{ border-bottom:none; }
+  .ct-news-round{ font-size:11px; font-weight:700; color:var(--text-2); flex-shrink:0; width:56px; }
+
+  /* ---------- Modal ---------- */
+  .ct-modal-overlay{ position:fixed; inset:0; background:rgba(6,11,23,.55); display:none; align-items:center; justify-content:center; z-index:200; padding:16px; }
+  .ct-modal-overlay.open{ display:flex; }
+  .ct-modal{ background:var(--bg-surface); border-radius:var(--radius-md); max-width:520px; width:100%; max-height:82vh; overflow:auto; padding:18px; }
+  .ct-modal h3{ margin:0 0 10px; font-size:15px; color:var(--text-0); }
+  .ct-modal-close{ float:right; background:none; border:none; font-size:18px; color:var(--text-2); cursor:pointer; }
+  .ct-pick-row{ display:flex; align-items:center; justify-content:space-between; padding:8px 6px; border-bottom:1px solid var(--border); cursor:pointer; font-size:12.5px; }
+  .ct-pick-row:hover{ background:var(--bg-app); }
+  .ct-pick-row .nm{ font-weight:700; color:var(--text-0); }
+  .ct-pick-row .meta{ color:var(--text-2); font-size:11px; }
+  .ct-search{ width:100%; padding:8px 10px; border-radius:8px; border:1px solid var(--border); background:var(--bg-app); color:var(--text-0); font-family:var(--font); font-size:13px; margin-bottom:8px; }
+
+  .ct-toast{ position:fixed; bottom:18px; left:50%; transform:translateX(-50%); background:var(--bg-sidebar); color:#fff; padding:10px 18px; border-radius:10px; font-size:13px; font-weight:600; z-index:300; display:none; box-shadow:var(--shadow-card); }
+  .ct-empty{ color:var(--text-2); font-size:13px; text-align:center; padding:20px 0; }
+  .hidden{ display:none !important; }
+</style>
+</head>
+<body>
+
+<div class="ct-shell" id="ctShell">
+
+  <!-- ================= Loading ================= -->
+  <div class="ct-full" id="screenLoading">
+    <div class="ct-spinner"></div>
+    <p>Carregando o Modo Técnico...</p>
+  </div>
+
+  <!-- ================= Login necessário ================= -->
+  <div class="ct-full hidden" id="screenLoginRequired">
+    <img class="brand" src="img/logo.png" alt="BR Data">
+    <h1>Faça login pra acessar o Modo Técnico</h1>
+    <p>O progresso da sua carreira fica salvo na sua conta BR Data.</p>
+    <a class="ct-btn primary" href="/">Ir pro login</a>
+  </div>
+
+  <!-- ================= Escolha de clube ================= -->
+  <div class="ct-full hidden" id="screenPicker" style="justify-content:flex-start; padding-top:36px;">
+    <img class="brand" src="img/logo.png" alt="BR Data">
+    <h1>Escolha o clube que você vai comandar</h1>
+    <p>Você define escalação, formação, banco de reservas e as trocas — os outros 19 times são simulados pela CPU. Dá pra promover jogadores da base pro time principal a qualquer momento.</p>
+    <div class="ct-club-grid" id="clubGrid"></div>
+  </div>
+
+  <!-- ================= Jogo ================= -->
+  <div class="hidden" id="screenGame" style="display:flex; flex-direction:column; flex:1;">
+    <div class="ct-topbar">
+      <a class="ct-back" href="/">← BR Data</a>
+      <span class="ct-topbar-title">⚽ Modo Técnico</span>
+      <span class="ct-round-pill" id="roundPill">Rodada 1/38</span>
+      <div class="ct-topbar-club">
+        <img id="clubCrest" src="" alt="">
+        <span id="clubName">—</span>
+      </div>
+      <button class="ct-icon-btn" id="btnRestart" title="Abandonar e começar outra carreira">Reiniciar</button>
+    </div>
+
+    <nav class="ct-tabs">
+      <button class="ct-tab active" data-panel="central">Central</button>
+      <button class="ct-tab" data-panel="elenco">Elenco</button>
+      <button class="ct-tab" data-panel="escalacao">Escalação</button>
+      <button class="ct-tab" data-panel="tabela">Tabela</button>
+      <button class="ct-tab" data-panel="noticias">Notícias</button>
+    </nav>
+
+    <div class="ct-body">
+
+      <!-- ---------- Central ---------- -->
+      <section class="ct-panel active" id="panel-central">
+        <div class="ct-card">
+          <h2>Próximo jogo</h2>
+          <div class="ct-next-match" id="nextMatchBox"></div>
+          <p class="ct-sub" id="lineupWarning"></p>
+          <div style="text-align:center;">
+            <button class="ct-btn accent" id="btnSimulate">▶ Simular rodada</button>
+          </div>
+        </div>
+        <div class="ct-card">
+          <h2>Situação do elenco</h2>
+          <div class="ct-kpis" id="squadKpis"></div>
+        </div>
+        <div class="ct-card" id="lastResultCard" style="display:none;">
+          <h2>Resultado da última rodada</h2>
+          <div id="lastResultBox"></div>
+        </div>
+      </section>
+
+      <!-- ---------- Elenco ---------- -->
+      <section class="ct-panel" id="panel-elenco">
+        <div class="ct-card">
+          <h2>Elenco principal</h2>
+          <p class="ct-sub">Clique num jogador pra ver detalhes, escalar, promover a titular do banco, ou dispensar.</p>
+          <div class="ct-scroll-x"><table class="ct-table" id="squadMainTable"><thead></thead><tbody></tbody></table></div>
+        </div>
+        <div class="ct-card">
+          <h2>Categoria de base</h2>
+          <p class="ct-sub">Jogadores da base (gerados — a API de dados não cobre elenco sub-20 do Brasileirão hoje). Promova os destaques pro elenco principal.</p>
+          <div class="ct-scroll-x"><table class="ct-table" id="squadBaseTable"><thead></thead><tbody></tbody></table></div>
+        </div>
+      </section>
+
+      <!-- ---------- Escalação ---------- -->
+      <section class="ct-panel" id="panel-escalacao">
+        <div class="ct-card">
+          <h2>Formação e titulares</h2>
+          <div class="ct-field" style="max-width:220px; margin-bottom:14px;">
+            <label>Esquema tático</label>
+            <select id="formationSelect"></select>
+          </div>
+          <div id="pitchLines"></div>
+        </div>
+        <div class="ct-card">
+          <h2>Banco de reservas <span style="font-weight:400; color:var(--text-2);">(até 7)</span></h2>
+          <div class="ct-bench-list" id="benchList"></div>
+        </div>
+        <div class="ct-card">
+          <h2>Instruções táticas</h2>
+          <div class="ct-tactics">
+            <div class="ct-field"><label>Mentalidade</label><select id="tacticMentality"></select></div>
+            <div class="ct-field"><label>Marcação</label><select id="tacticMarking"></select></div>
+            <div class="ct-field"><label>Ritmo de jogo</label><select id="tacticTempo"></select></div>
+            <div class="ct-field"><label>Foco de treino</label><select id="trainingFocus"></select></div>
+          </div>
+          <div style="margin-top:14px;"><button class="ct-btn primary" id="btnSaveLineup">Salvar escalação e táticas</button></div>
+        </div>
+      </section>
+
+      <!-- ---------- Tabela ---------- -->
+      <section class="ct-panel" id="panel-tabela">
+        <div class="ct-card">
+          <h2>Tabela da carreira</h2>
+          <p class="ct-sub">Classificação própria dessa carreira (não é a tabela real do Brasileirão) — atualizada a cada rodada simulada.</p>
+          <div class="ct-scroll-x"><table class="ct-table" id="standingsTable"><thead></thead><tbody></tbody></table></div>
+        </div>
+      </section>
+
+      <!-- ---------- Notícias ---------- -->
+      <section class="ct-panel" id="panel-noticias">
+        <div class="ct-card">
+          <h2>Notícias do clube</h2>
+          <div id="newsList"></div>
+        </div>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<!-- ================= Modal genérico de escolha de jogador ================= -->
+<div class="ct-modal-overlay" id="pickerOverlay">
+  <div class="ct-modal">
+    <button class="ct-modal-close" id="pickerClose">✕</button>
+    <h3 id="pickerTitle">Escolher jogador</h3>
+    <input class="ct-search" id="pickerSearch" placeholder="Buscar por nome...">
+    <div id="pickerList"></div>
+  </div>
+</div>
+
+<!-- ================= Modal de detalhe do jogador ================= -->
+<div class="ct-modal-overlay" id="detailOverlay">
+  <div class="ct-modal">
+    <button class="ct-modal-close" id="detailClose">✕</button>
+    <div id="detailBody"></div>
+  </div>
+</div>
+
+<div class="ct-toast" id="toast"></div>
+
+<script src="js/data.js"></script>
+<script src="js/carreira.js"></script>
+</body>
+</html>

@@ -54,8 +54,18 @@
    arquivos do APP_SHELL abaixo. Mesma regra de sempre (ver topo deste
    comentário): bumpar aqui evita o "mix" de app.js novo com liveData.js/
    style.css velhos (ou vice-versa) pra quem já tinha o app aberto.
+
+   BUMP (29/08/2026): "Modo Técnico" (carreira estilo Elifoot, pedido do
+   usuário) -- mexeu em index.html (novo link "Modo Técnico" na
+   sidebar), que já estava no APP_SHELL abaixo -- mesma regra de sempre.
+   A página nova em si (/carreira, public/carreira.html, js/carreira.js)
+   fica FORA do APP_SHELL de propósito, mesmo padrão já usado pra
+   /admin (também não precisa entrar aqui) -- o handler "fetch"
+   genérico abaixo já cacheia (stale-while-revalidate) qualquer GET
+   same-origin sob demanda na 1ª visita, sem precisar listar cada
+   página secundária no precache de instalação.
 =================================================================== */
-const CACHE_NAME = "brdata-shell-v27";
+const CACHE_NAME = "brdata-shell-v28";
 const API_CACHE_NAME = "brdata-api-v1";
 
 const APP_SHELL = [
