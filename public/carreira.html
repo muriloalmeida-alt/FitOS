@@ -166,6 +166,14 @@
   .ct-pill.susp{ background:rgba(255,193,7,.16); color:#8a6400; }
   .ct-pill.base{ background:rgba(139,146,160,.16); color:var(--text-1); }
 
+  /* FASE 2 (c) — filtro de posição da aba Mercado (não usa .ct-field
+     porque esse wrapper foi pensado pra formulário com label em cima —
+     aqui é só um filtro solto ao lado da busca). */
+  .ct-market-filters{ margin-bottom:10px; }
+  .ct-market-filters select{ padding:9px 10px; border-radius:9px; border:1px solid var(--border); background:var(--bg-app); color:var(--text-0); font-family:var(--font); font-size:13px; }
+  .ct-transfer-feed-item{ padding:8px 0; border-bottom:1px solid var(--border); font-size:12.5px; color:var(--text-1); }
+  .ct-transfer-feed-item:last-child{ border-bottom:none; }
+  .ct-transfer-feed-item b{ color:var(--text-0); }
   .ct-cond-track{ width:60px; height:6px; border-radius:100px; background:var(--border); overflow:hidden; display:inline-block; vertical-align:middle; }
   .ct-cond-fill{ height:100%; background:var(--brd-green); }
   /* FASE 2 (b) — barra de uso do teto salarial, card "Financeiro" da
@@ -299,6 +307,7 @@
       <button class="ct-tab" data-panel="escalacao">Escalação</button>
       <button class="ct-tab" data-panel="tabela">Tabela</button>
       <button class="ct-tab" data-panel="estatisticas">Estatísticas</button>
+      <button class="ct-tab" data-panel="mercado">Mercado</button>
     </nav>
 
     <div class="ct-body">
@@ -405,6 +414,42 @@
         </div>
       </section>
 
+      <!-- ---------- Mercado (Fase 2c) ----------
+           Pedido do usuário: os outros 19 times também negociam entre
+           si (ver simulateAiTransfers/maybeGenerateOffer em
+           carreira.js) — essa aba é onde o SEU clube participa: aceitar/
+           recusar proposta recebida, contratar jogador de outro time,
+           acompanhar o feed de transferências da liga inteira. -->
+      <section class="ct-panel" id="panel-mercado">
+        <div class="ct-card" id="pendingOfferCard" style="display:none;">
+          <h2>💰 Proposta recebida</h2>
+          <p class="ct-sub" id="pendingOfferText"></p>
+          <div style="display:flex; gap:8px;">
+            <button class="ct-btn primary small" id="btnAcceptOffer">Aceitar</button>
+            <button class="ct-btn small" id="btnDeclineOffer">Recusar</button>
+          </div>
+        </div>
+        <div class="ct-card">
+          <h2>Contratar jogadores</h2>
+          <p class="ct-sub">Jogadores dos outros 19 times da competição. Contratar soma o salário na sua folha (mesmo teto do Financeiro).</p>
+          <input class="ct-search" id="marketSearch" placeholder="Buscar por nome ou time...">
+          <div class="ct-market-filters">
+            <select id="marketPosFilter">
+              <option value="">Todas as posições</option>
+              <option value="G">Goleiros</option>
+              <option value="D">Defensores</option>
+              <option value="M">Meio-campo</option>
+              <option value="F">Atacantes</option>
+            </select>
+          </div>
+          <div class="ct-scroll-x"><table class="ct-table" id="marketBuyTable"><thead><tr><th>Nome</th><th>Time</th><th>Preço</th><th></th></tr></thead><tbody></tbody></table></div>
+        </div>
+        <div class="ct-card">
+          <h2>Transferências recentes</h2>
+          <div id="transferFeed"></div>
+        </div>
+      </section>
+
     </div>
   </div>
 </div>
@@ -482,6 +527,7 @@
       <div id="roundResultsList"></div>
       <div class="ct-sub" id="roundResultsChanges" style="margin-top:10px;"></div>
       <div class="ct-sub" id="roundResultsFinance"></div>
+      <div class="ct-sub" id="roundResultsOffer" style="color:var(--brd-blue); font-weight:700;"></div>
       <button class="ct-btn primary full" id="btnRoundResultsContinue" style="margin-top:14px;">Ver tabela atualizada</button>
     </div>
   </div>

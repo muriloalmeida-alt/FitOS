@@ -485,6 +485,63 @@ function pickCpuXI(squad) {
   return xi;
 }
 
+/* ---------- FASE 2 (c) — mercado de transferências ----------
+   Pedido do usuário: os outros 19 times também negociam entre si (não
+   só o seu clube compra/vende). Sem economia própria pros times CPU
+   (eles não têm CAREER.finances, só o seu clube tem — ver Fase 2b): a
+   troca entre 2 clubes CPU é só um jogador mudando de elenco (mesmos
+   atributos, sem recalcular overall pro novo clube — manter simples de
+   propósito), virando uma notícia no feed (ver pushTransferLog). Fica
+   de olho no controle de tamanho do save: mover jogador entre elencos
+   não muda o total de jogadores na liga, então não cresce o save.
+   pushTransferLog mantém só as últimas TRANSFER_LOG_MAX notícias. */
+const TRANSFER_LOG_MAX = 12;
+function pushTransferLog(text, round) {
+  CAREER.transferLog = CAREER.transferLog || [];
+  CAREER.transferLog.unshift({ round, text });
+  if (CAREER.transferLog.length > TRANSFER_LOG_MAX) CAREER.transferLog.length = TRANSFER_LOG_MAX;
+}
+function pickRandomOtherClub(excludeId) {
+  const pool = LEAGUE_TEAMS.filter((t) => String(t.id) !== String(excludeId));
+  if (!pool.length) return null;
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+// 0 a 2 transferências entre times CPU por rodada (chance decrescente
+// — a maioria das rodadas não tem nenhuma, imitando janela de
+// transferência esporádica em vez de mercado aberto toda hora).
+function simulateAiTransfers(round) {
+  let count = 0;
+  if (Math.random() < 0.35) count = 1;
+  if (Math.random() < 0.08) count = 2;
+  for (let i = 0; i < count; i++) {
+    const fromClub = pickRandomOtherClub(CAREER.clubId);
+    if (!fromClub) continue;
+    const fromSquad = leagueSquadFor(fromClub.id);
+    if (fromSquad.length <= MIN_LEAGUE_SQUAD) continue; // não esvazia um elenco CPU
+    const toClub = pickRandomOtherClub(fromClub.id);
+    if (!toClub || String(toClub.id) === String(CAREER.clubId)) continue; // negociação CPU x CPU só, não mexe no SEU elenco sem sua ação
+    const idx = Math.floor(Math.random() * fromSquad.length);
+    const [player] = fromSquad.splice(idx, 1);
+    (CAREER.leagueSquads[String(toClub.id)] = CAREER.leagueSquads[String(toClub.id)] || []).push(player);
+    pushTransferLog(`${toClub.name} contratou ${player.name} (${SUBPOS_LABEL[subPositionOf(player)]}) do ${fromClub.name} por ${fmtBRL(player.value)}.`, round);
+  }
+}
+// De vez em quando (e só se não tiver proposta pendente ainda) um time
+// CPU oferece pra comprar um jogador SEU — usuário decide aceitar ou
+// recusar (ver acceptOffer/declineOffer). Nunca deixa o elenco
+// principal cair abaixo do mínimo jogável (mesma trava de "release").
+function maybeGenerateOffer(round) {
+  if (CAREER.pendingOffer) return; // só 1 proposta pendente por vez
+  if (Math.random() >= 0.18) return;
+  const principal = CAREER.squad.filter((p) => p.origin === "principal");
+  if (principal.length <= 14) return;
+  const player = principal[Math.floor(Math.random() * principal.length)];
+  const club = pickRandomOtherClub(CAREER.clubId);
+  if (!club) return;
+  const fee = Math.round(player.value * (0.85 + Math.random() * 0.4) / 1000) * 1000;
+  CAREER.pendingOffer = { playerId: player.id, playerName: player.name, clubId: String(club.id), clubName: club.name, fee, round };
+}
+
 /* ---------- Escalação automática (usada ao criar a carreira) ---------- */
 function autoLineup(squad, formation) {
   const slots = FORMATIONS[formation];
@@ -587,6 +644,9 @@ async function startCareer(clubId) {
       // FASE 2 (b) — pedido do usuário: contrato/salário/valor com
       // orçamento real limitando ação (ver initialFinances/wageBillOf).
       finances: initialFinances(squad),
+      // FASE 2 (c) — mercado de transferências (ver simulateAiTransfers/
+      // maybeGenerateOffer/pushTransferLog).
+      transferLog: [], pendingOffer: null,
     };
     await persistCareer();
     showGameScreen();
@@ -800,7 +860,13 @@ function simulateRound() {
   // mercado de transferências (fase seguinte) pra gastar nele.
   const wagePaid = Math.round(wageBillOf(CAREER.squad) / 4);
   CAREER.finances.cash -= wagePaid;
-  return { round, humanMatch, allResults, lineupChanges, wagePaid };
+  // FASE 2 (c) — mercado de transferências: os outros 19 times também
+  // negociam entre si (ver simulateAiTransfers) e, de vez em quando,
+  // um deles propõe comprar um jogador SEU (ver maybeGenerateOffer,
+  // resolvido em Mercado com aceitar/recusar).
+  simulateAiTransfers(round);
+  maybeGenerateOffer(round);
+  return { round, humanMatch, allResults, lineupChanges, wagePaid, newOffer: CAREER.pendingOffer };
 }
 
 /* ---------- Renderização: Central ---------- */
@@ -966,6 +1032,7 @@ function openDetail(id) {
       ${p.origin === "base"
         ? `<button class="ct-btn small primary" data-act="promote" ${promoteBlocked ? "disabled" : ""} ${promoteBlocked ? `title="Estouraria o teto salarial (${fmtBRL(CAREER.finances.wageCap)}) — libere espaço dispensando ou enviando alguém pra base antes."` : ""}>Promover ao elenco principal</button>`
         : `<button class="ct-btn small" data-act="demote">Enviar pra base</button>`}
+      ${p.origin === "principal" ? `<button class="ct-btn small" data-act="sell">Vender por ${fmtBRL(p.value)}</button>` : ""}
       <button class="ct-btn small danger" data-act="release">Dispensar</button>
     </div>
     ${promoteBlocked ? `<p class="ct-sub" style="color:var(--brd-red); margin-top:8px;">⚠️ Promover esse jogador levaria a folha salarial a ${fmtBRL(wageAfterPromote)}, acima do teto de ${fmtBRL(CAREER.finances.wageCap)}.</p>` : ""}`;
@@ -1002,6 +1069,23 @@ function handlePlayerAction(id, act) {
     CAREER.squad = CAREER.squad.filter((x) => x.id !== id);
     CAREER.lineup.starters = CAREER.lineup.starters.map((x) => (x === id ? null : x));
     CAREER.lineup.bench = CAREER.lineup.bench.filter((x) => x !== id);
+  } else if (act === "sell") {
+    // FASE 2 (c) — mesma trava de mínimo do elenco principal do
+    // "release", só que aqui você RECEBE o valor de mercado (ver
+    // "release" pra dispensa sem receber nada).
+    const principalCount = CAREER.squad.filter((x) => x.origin === "principal").length;
+    if (principalCount <= 14) { toast("O elenco principal não pode ficar com menos de 14 jogadores."); return; }
+    if (!confirm(`Vender ${p.name} por ${fmtBRL(p.value)}?`)) return;
+    const buyer = pickRandomOtherClub(CAREER.clubId);
+    CAREER.finances.cash += p.value;
+    CAREER.squad = CAREER.squad.filter((x) => x.id !== id);
+    CAREER.lineup.starters = CAREER.lineup.starters.map((x) => (x === id ? null : x));
+    CAREER.lineup.bench = CAREER.lineup.bench.filter((x) => x !== id);
+    if (buyer) {
+      (CAREER.leagueSquads[String(buyer.id)] = CAREER.leagueSquads[String(buyer.id)] || []).push(p);
+      pushTransferLog(`Você vendeu ${p.name} pro ${buyer.name} por ${fmtBRL(p.value)}.`, CAREER.currentRound);
+    }
+    toast(`${abbreviateName(p.name)} vendido por ${fmtBRL(p.value)}.`);
   }
   document.getElementById("detailOverlay").classList.remove("open");
   persistCareer();
@@ -1245,9 +1329,116 @@ function renderEstatisticas() {
   document.getElementById("leagueTeamStatsTable").querySelector("tbody").innerHTML = teamRows;
 }
 
+/* ---------- FASE 2 (c) — Mercado de transferências ---------- */
+// Todos os jogadores dos outros 19 times, achatados numa lista só com
+// o clube já anexado (id/nome/sigla) — reconstruída a cada render (a
+// lista muda a cada transferência AI ou compra sua, não vale a pena
+// cachear).
+function allMarketPlayers() {
+  return Object.entries(CAREER.leagueSquads || {}).flatMap(([clubId, squad]) =>
+    squad.map((p) => ({ p, club: teamById(clubId) }))
+  );
+}
+function renderMercado() {
+  const offer = CAREER.pendingOffer;
+  const offerCard = document.getElementById("pendingOfferCard");
+  offerCard.style.display = offer ? "" : "none";
+  if (offer) {
+    document.getElementById("pendingOfferText").textContent =
+      `${offer.clubName} oferece ${fmtBRL(offer.fee)} pelo seu jogador ${offer.playerName}.`;
+  }
+
+  const search = (document.getElementById("marketSearch").value || "").trim().toLowerCase();
+  const posFilter = document.getElementById("marketPosFilter").value;
+  let list = allMarketPlayers();
+  if (posFilter) list = list.filter(({ p }) => p.group === posFilter);
+  if (search) {
+    list = list.filter(({ p, club }) =>
+      p.name.toLowerCase().includes(search) || (club.name || "").toLowerCase().includes(search) || (club.short || "").toLowerCase().includes(search)
+    );
+  }
+  list.sort((a, b) => b.p.value - a.p.value);
+  // Sem busca, mostra só os 40 mais valiosos (evita renderizar ~500
+  // linhas à toa) — buscando, mostra até 60 resultados batendo o termo.
+  const capped = list.slice(0, search || posFilter ? 60 : 40);
+  // Nome+pos+OVR numa célula só (em vez de 3 colunas) — junto com o
+  // preço encurtado (fmtBRLShort), dá pra caber Nome/Time/Preço/Ação
+  // sem precisar rolar de lado pra alcançar o botão "Contratar" (o que
+  // acontecia com 6 colunas, ver histórico desse comentário no git).
+  const rows = capped.map(({ p, club }) => `<tr>
+    <td class="ct-name-cell">${escapeHtml(abbreviateName(p.name))}<br><span style="font-size:10px; color:var(--text-2); font-weight:600;">${subPositionOf(p)} · OVR ${p.overall}</span></td>
+    <td>${escapeHtml(club.short || club.name)}</td>
+    <td>${fmtBRLShort(p.value)}</td>
+    <td><button class="ct-btn small primary" data-buy="${p.id}" data-club="${escapeHtml(String(club.id))}">Contratar</button></td>
+  </tr>`).join("");
+  document.getElementById("marketBuyTable").querySelector("tbody").innerHTML =
+    rows || `<tr><td colspan="4" class="ct-empty">Nenhum jogador encontrado.</td></tr>`;
+  document.getElementById("marketBuyTable").querySelectorAll("[data-buy]").forEach((btn) => {
+    btn.addEventListener("click", () => buyPlayer(btn.dataset.club, btn.dataset.buy));
+  });
+
+  const feed = CAREER.transferLog || [];
+  document.getElementById("transferFeed").innerHTML = feed.length
+    ? feed.map((e) => `<div class="ct-transfer-feed-item"><b>Rodada ${e.round}:</b> ${escapeHtml(e.text)}</div>`).join("")
+    : `<p class="ct-empty">Nenhuma transferência ainda.</p>`;
+}
+// Contratar um jogador de outro time: paga o valor de mercado (à
+// vista, sem parcelamento — mais simples) e soma o salário na sua
+// folha, com o MESMO teto salarial da promoção (ver wageBillOf/
+// CAREER.finances.wageCap em Fase 2b).
+function buyPlayer(clubId, playerId) {
+  const squad = leagueSquadFor(clubId);
+  const idx = squad.findIndex((x) => x.id === playerId);
+  if (idx < 0) return;
+  const p = squad[idx];
+  if (CAREER.finances.cash < p.value) {
+    toast(`Caixa insuficiente — você tem ${fmtBRL(CAREER.finances.cash)}, o jogador custa ${fmtBRL(p.value)}.`);
+    return;
+  }
+  if (wageBillOf(CAREER.squad) + p.wage > CAREER.finances.wageCap) {
+    toast(`Contratar esse jogador estouraria o teto salarial (${fmtBRL(CAREER.finances.wageCap)}).`);
+    return;
+  }
+  if (CAREER.squad.length >= MAX_PRINCIPAL + 20) { toast("Elenco já está muito grande — dispense ou venda alguém antes."); return; }
+  if (!confirm(`Contratar ${p.name} por ${fmtBRL(p.value)}?`)) return;
+  squad.splice(idx, 1);
+  CAREER.finances.cash -= p.value;
+  p.origin = "principal";
+  CAREER.squad.push(p);
+  pushTransferLog(`Você contratou ${p.name} do ${teamById(clubId).name} por ${fmtBRL(p.value)}.`, CAREER.currentRound);
+  toast(`${abbreviateName(p.name)} contratado!`);
+  persistCareer();
+  renderMercado(); renderElenco(); renderCentral();
+}
+// FASE 2 (c) — aceitar/recusar proposta recebida por um jogador seu
+// (gerada em maybeGenerateOffer, ver simulateRound).
+function acceptOffer() {
+  const offer = CAREER.pendingOffer;
+  if (!offer) return;
+  const p = CAREER.squad.find((x) => x.id === offer.playerId);
+  if (!p) { CAREER.pendingOffer = null; renderMercado(); return; } // jogador já saiu do elenco por outro motivo
+  CAREER.finances.cash += offer.fee;
+  CAREER.squad = CAREER.squad.filter((x) => x.id !== p.id);
+  CAREER.lineup.starters = CAREER.lineup.starters.map((x) => (x === p.id ? null : x));
+  CAREER.lineup.bench = CAREER.lineup.bench.filter((x) => x !== p.id);
+  (CAREER.leagueSquads[offer.clubId] = CAREER.leagueSquads[offer.clubId] || []).push(p);
+  pushTransferLog(`Você vendeu ${p.name} pro ${offer.clubName} por ${fmtBRL(offer.fee)}.`, CAREER.currentRound);
+  toast(`Proposta aceita — ${fmtBRL(offer.fee)} no caixa.`);
+  CAREER.pendingOffer = null;
+  persistCareer();
+  renderMercado(); renderElenco(); renderEscalacao(); renderCentral();
+}
+function declineOffer() {
+  if (!CAREER.pendingOffer) return;
+  toast("Proposta recusada.");
+  CAREER.pendingOffer = null;
+  persistCareer();
+  renderMercado();
+}
+
 /* ---------- Tela do jogo ---------- */
 function renderAll() {
-  renderCentral(); renderElenco(); renderEscalacao(); renderTabela(); renderEstatisticas();
+  renderCentral(); renderElenco(); renderEscalacao(); renderTabela(); renderEstatisticas(); renderMercado();
 }
 function showGameScreen() {
   show("screenGame");
@@ -1297,6 +1488,11 @@ function showRoundResultsModal(summary) {
   // ir até a Central toda vez.
   document.getElementById("roundResultsFinance").textContent = summary.wagePaid
     ? `Salários pagos: ${fmtBRL(summary.wagePaid)} · Caixa: ${fmtBRL(CAREER.finances.cash)}`
+    : "";
+  // FASE 2 (c) — avisa aqui se surgiu proposta nova por um jogador seu
+  // (resolvida na aba Mercado com aceitar/recusar).
+  document.getElementById("roundResultsOffer").textContent = summary.newOffer
+    ? `💰 Proposta recebida: ${summary.newOffer.clubName} oferece ${fmtBRL(summary.newOffer.fee)} pelo jogador ${abbreviateName(summary.newOffer.playerName)} — veja na aba Mercado.`
     : "";
   PENDING_ROUND_SUMMARY = null;
   document.getElementById("roundResultsOverlay").classList.add("open");
@@ -1391,6 +1587,13 @@ function wireStaticListeners() {
     try { await fetchJSON("/api/auth/logout", { method: "POST" }); } catch { /* segue mesmo se falhar */ }
     location.href = "/";
   });
+
+  // FASE 2 (c) — Mercado: busca/filtro re-renderizam a lista na hora
+  // (sem debounce — a lista é local, filtrar de novo é instantâneo).
+  document.getElementById("marketSearch").addEventListener("input", renderMercado);
+  document.getElementById("marketPosFilter").addEventListener("change", renderMercado);
+  document.getElementById("btnAcceptOffer").addEventListener("click", acceptOffer);
+  document.getElementById("btnDeclineOffer").addEventListener("click", declineOffer);
 
   document.getElementById("pickerClose").addEventListener("click", () => document.getElementById("pickerOverlay").classList.remove("open"));
   document.getElementById("pickerOverlay").addEventListener("click", (e) => { if (e.target.id === "pickerOverlay") e.currentTarget.classList.remove("open"); });
