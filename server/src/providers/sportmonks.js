@@ -251,15 +251,31 @@ const TOPSCORER_TYPE = { GOALS: 208, ASSISTS: 209, CARDS: 210, RATING: 211 };
 // pronto (ver playerSeasonStats abaixo, buscado separado por
 // jogador) — sem ele, cai de volta pro item.xxx antigo só por
 // garantia (não deveria nunca vir preenchido, mas não custa nada).
+//
+// BUG CORRIGIDO (pedido do usuário: "goleiro Santos e Mycael não
+// aparecem no elenco", "posição dos atletas não reflete a posição
+// real"): "position" saía sempre null aqui, mesmo o comentário acima
+// já apontando que posição É PARTE do vínculo (item), não do jogador —
+// nunca chegou a ser lido de verdade. Sem posição reconhecida, quem
+// consome esse dado (mapPositionGroup em public/js/carreira.js) sorteia
+// o grupo aleatoriamente entre Defensor/Meio/Atacante (nunca Goleiro,
+// de propósito — ver comentário lá) pra todo mundo, goleiro incluso:
+// resultado, elenco inteiro com posição errada e nenhum goleiro
+// aparecendo como goleiro. position_id É esse campo (mesmo id fixo já
+// confirmado contra resposta real em LINEUP_POSITION/mapLineupPosition,
+// mais abaixo — 24=goleiro, 25=zagueiro, 26=meia, 27=atacante);
+// detailed_position_id como fallback pro raro caso de vir só ele.
 function mapPlayerFromSquad(item, stats) {
   const p = item.player;
   if (!p) return null;
+  const posCode = mapLineupPosition(item.position_id ?? item.detailed_position_id);
+  const position = { G: "Goalkeeper", D: "Defender", M: "Midfielder", F: "Attacker" }[posCode] || null;
   return {
     id: p.id,
     name: p.display_name || p.name,
     photo: p.image_path || null,
     teamId: item.team_id ?? null,
-    position: null,
+    position,
     games: stats?.games ?? item.appearances ?? null,
     goals: stats?.goals ?? item.goals ?? null,
     assists: stats?.assists ?? item.assists ?? null,
@@ -517,9 +533,14 @@ async function getTeamPlayers({ teamId, season, leagueId }) {
 async function getPlayer({ playerId }) {
   const p = await sportmonksGet(`/players/${playerId}`, {});
   if (!p) return null;
+  // Mesmo bug/correção de mapPlayerFromSquad acima — o Player da
+  // Sportmonks também tem posição PRINCIPAL em position_id (mesmos ids
+  // de LINEUP_POSITION), nunca lida aqui antes.
+  const posCode = mapLineupPosition(p.position_id ?? p.detailed_position_id);
+  const position = { G: "Goalkeeper", D: "Defender", M: "Midfielder", F: "Attacker" }[posCode] || null;
   return {
     id: p.id, name: p.display_name || p.name, photo: p.image_path || null,
-    teamId: null, position: null,
+    teamId: null, position,
     games: null, goals: null, assists: null, yellow: null, red: null, rating: null,
   };
 }
