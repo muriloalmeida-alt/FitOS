@@ -915,28 +915,72 @@ function wireStaticListeners() {
   document.getElementById("pickerOverlay").addEventListener("click", (e) => { if (e.target.id === "pickerOverlay") e.currentTarget.classList.remove("open"); });
   document.getElementById("detailClose").addEventListener("click", () => document.getElementById("detailOverlay").classList.remove("open"));
   document.getElementById("detailOverlay").addEventListener("click", (e) => { if (e.target.id === "detailOverlay") e.currentTarget.classList.remove("open"); });
+
+  document.getElementById("ctLoginForm").addEventListener("submit", submitCtLogin);
+}
+
+/* ---------- Login (pedido do usuário: mostrar a tela de login de
+   verdade em vez de um botão saindo da página) — só o login em si;
+   cadastro com escolha de plano/pagamento continua só na página
+   principal (ver link "Cadastre-se" no HTML). Mesmo endpoint/contrato
+   de submitGateLogin em public/js/app.js. ---------- */
+async function submitCtLogin(e) {
+  e.preventDefault();
+  const errEl = document.getElementById("ctLoginError");
+  errEl.style.display = "none"; errEl.textContent = "";
+  const email = document.getElementById("ctLoginEmail").value.trim();
+  const password = document.getElementById("ctLoginPassword").value;
+  if (!email || !password) { errEl.textContent = "Informe e-mail e senha."; errEl.style.display = "block"; return; }
+
+  const btn = e.target.querySelector("button[type=submit]");
+  const originalLabel = btn.textContent;
+  btn.disabled = true; btn.textContent = "Entrando...";
+  try {
+    const data = await fetchJSON("/api/auth/login", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }),
+    });
+    if (data.user.planStatus !== "active") {
+      errEl.textContent = "Sua conta tem um pagamento pendente — finalize na página inicial (brdata.online) pra liberar o acesso.";
+      errEl.style.display = "block";
+      btn.disabled = false; btn.textContent = originalLabel;
+      return;
+    }
+    await enterAfterAuth();
+  } catch (err) {
+    errEl.textContent = err.message || "E-mail ou senha incorretos.";
+    errEl.style.display = "block";
+    btn.disabled = false; btn.textContent = originalLabel;
+  }
 }
 
 /* ---------- Boot ---------- */
+// Parte do boot que só roda DEPOIS de confirmar sessão válida —
+// extraída à parte pra ser reaproveitada pelo login inline
+// (submitCtLogin acima) sem precisar recarregar a página inteira.
+async function enterAfterAuth() {
+  show("screenLoading");
+  document.getElementById("screenLoading").innerHTML = `<div class="ct-spinner"></div><p>Carregando o Modo Técnico...</p>`;
+  await loadLeague();
+  const saved = await fetchJSON("/api/career").catch(() => ({ career: null }));
+  if (saved && saved.career) {
+    CAREER = saved.career;
+    showGameScreen();
+  } else {
+    renderClubPicker();
+    show("screenPicker");
+  }
+}
 async function boot() {
   applyStoredTheme();
   wireStaticListeners();
   try {
     const me = await fetchJSON("/api/auth/me").catch(() => ({ authenticated: false }));
     if (!me.authenticated) { show("screenLoginRequired"); return; }
-    await loadLeague();
-    const saved = await fetchJSON("/api/career").catch(() => ({ career: null }));
-    if (saved && saved.career) {
-      CAREER = saved.career;
-      showGameScreen();
-    } else {
-      renderClubPicker();
-      show("screenPicker");
-    }
+    await enterAfterAuth();
   } catch (err) {
     console.error("[carreira] falha no boot:", err);
-    const el = document.getElementById("screenLoading");
-    el.innerHTML = `<p>Não deu pra carregar o Modo Técnico agora. <a href="/carreira">Tentar de novo</a></p>`;
+    show("screenLoading");
+    document.getElementById("screenLoading").innerHTML = `<p>Não deu pra carregar o Modo Técnico agora. <a href="/carreira">Tentar de novo</a></p>`;
   }
 }
 

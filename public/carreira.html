@@ -162,12 +162,31 @@
     <p>Carregando o Modo Técnico...</p>
   </div>
 
-  <!-- ================= Login necessário ================= -->
-  <div class="ct-full hidden" id="screenLoginRequired">
-    <img class="brand" src="img/logo.png" alt="BR Data">
-    <h1>Faça login pra acessar o Modo Técnico</h1>
-    <p>O progresso da sua carreira fica salvo na sua conta BR Data.</p>
-    <a class="ct-btn primary" href="/">Ir pro login</a>
+  <!-- ================= Login necessário =================
+       Mesmo visual do gate de login da página principal (reaproveita
+       .auth-gate/.auth-gate-card/.field/.apoie-form-error já definidos
+       em css/style.css, ver #authGate em index.html) — só o login em
+       si (sem o cadastro com escolha de plano/pagamento, que continua
+       vivendo só na página principal; link "Cadastre-se" manda pra
+       lá). Pedido do usuário: mostrar a tela de login de verdade em
+       vez de um botão saindo da página. -->
+  <div class="hidden" id="screenLoginRequired">
+    <div class="auth-gate" style="min-height:100vh;">
+      <div class="auth-gate-inner">
+        <div class="auth-gate-brand"><img src="img/logo.png" alt="BR Data" class="auth-gate-logo"></div>
+        <div class="auth-gate-card">
+          <h2>Entrar</h2>
+          <p class="auth-gate-sub">Faça login pra acessar o Modo Técnico — o progresso da sua carreira fica salvo na sua conta BR Data.</p>
+          <form id="ctLoginForm" class="auth-gate-form">
+            <div class="field"><label for="ctLoginEmail">E-mail</label><input type="text" inputmode="email" id="ctLoginEmail" autocomplete="username" placeholder="voce@email.com"></div>
+            <div class="field"><label for="ctLoginPassword">Senha</label><input type="password" id="ctLoginPassword" autocomplete="current-password" placeholder="Sua senha"></div>
+            <div class="apoie-form-error" id="ctLoginError" style="display:none;"></div>
+            <button type="submit" class="btn btn-accent full">Entrar</button>
+          </form>
+          <p class="auth-gate-switch">Não tem uma conta? <a href="/">Cadastre-se no BR Data</a></p>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- ================= Escolha de clube ================= -->

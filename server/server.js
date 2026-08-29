@@ -61,6 +61,13 @@ const publicRateLimit = require("./src/publicRateLimit");
 const { slugify, matchSlug } = require("./src/slug");
 
 const PORT = process.env.PORT || 8787;
+// Muda sozinho a cada boot do processo (todo deploy no Railway reinicia
+// o processo) — usado pra substituir "__DEPLOY_VERSION__" dentro de
+// public/sw.js na hora de servir (ver serveStatic abaixo), gerando um
+// CACHE_NAME novo a cada deploy sem precisar editar sw.js manualmente
+// (era o processo antigo — ver histórico de "BUMP" no git blame de
+// sw.js). Também exposto em GET /api/health, só pra debug.
+const DEPLOY_VERSION = Date.now().toString(36);
 const LEAGUE_ID = process.env.LEAGUE_ID || "71"; // 71 = Brasileirão Série A na API-Sports (confirme no /api/leagues/search)
 // Temporada usada no modo ao vivo — configurável no Railway/host, sem
 // precisar editar código nem dar redeploy manual de código toda vez
@@ -826,7 +833,7 @@ function serveStatic(req, res) {
       // fallback SPA: qualquer rota desconhecida cai no index.html
       fs.readFile(path.join(PUBLIC_DIR, "index.html"), (e2, data2) => {
         if (e2) { res.writeHead(404); return res.end("Not found"); }
-        res.writeHead(200, { "Content-Type": MIME[".html"] });
+        res.writeHead(200, { "Content-Type": MIME[".html"], "Cache-Control": "no-cache" });
         res.end(withRobotsMetaIfHomolog(req, data2.toString("utf8")));
       });
       return;
@@ -836,8 +843,24 @@ function serveStatic(req, res) {
     // O service worker precisa ser sempre revalidado — se o navegador
     // (ou um proxy/CDN no meio do caminho) guardar sw.js em cache por
     // um tempo, o app fica preso numa versão antiga do worker e nunca
-    // detecta atualização nenhuma.
-    if (filePath.endsWith("sw.js")) headers["Cache-Control"] = "no-cache";
+    // detecta atualização nenhuma. AJUSTE (29/08/2026, "problema de
+    // cache a cada deploy"): também substitui "__DEPLOY_VERSION__" pelo
+    // valor calculado no boot deste processo (ver DEPLOY_VERSION acima)
+    // — gera um CACHE_NAME novo sozinho a cada deploy (Railway reinicia
+    // o processo), sem precisar mais editar sw.js manualmente a cada
+    // vez (ver comentário no topo de public/sw.js).
+    if (filePath.endsWith("sw.js")) {
+      headers["Cache-Control"] = "no-cache";
+      res.writeHead(200, headers);
+      return res.end(data.toString("utf8").replaceAll("__DEPLOY_VERSION__", DEPLOY_VERSION));
+    }
+    // Todo .html (raiz, privacidade, admin, carreira) também não deve
+    // ficar em cache — é o documento que decide QUAIS versões de JS/CSS
+    // carregar; mesmo motivo do sw.js acima, só que pro navegador (o
+    // service worker já busca isso com cache:"no-store" quando ativo,
+    // isso aqui cobre quem ainda não tem o service worker registrado
+    // ou não suporta).
+    if (ext === ".html") headers["Cache-Control"] = "no-cache";
     res.writeHead(200, headers);
     // Todo .html (raiz, privacidade, admin) leva a checagem de
     // homologação — ver withRobotsMetaIfHomolog acima.
@@ -866,6 +889,7 @@ const server = http.createServer(async (req, res) => {
         // GitHub) — sem isso não dava pra saber, só de olhar o
         // comportamento do site, se o host tinha mesmo redeployado.
         commit: (process.env.RAILWAY_GIT_COMMIT_SHA || process.env.GIT_COMMIT_SHA || "").slice(0, 12) || null,
+        deployVersion: DEPLOY_VERSION, // muda a cada boot -- ver comentário ao lado da constante
         // Sinal explícito pra debug: pediram modo ao vivo (APP_MODE=live)
         // mas o fornecedor ativo não tem credencial configurada no host
         // — em vez de cair quieto pro modo exemplo, isso aparece aqui e
@@ -1551,7 +1575,7 @@ const server = http.createServer(async (req, res) => {
     if (pathname === "/admin") {
       return fs.readFile(path.join(PUBLIC_DIR, "admin.html"), (err, data) => {
         if (err) { res.writeHead(404); return res.end("Not found"); }
-        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
         res.end(withRobotsMetaIfHomolog(req, data.toString("utf8")));
       });
     }
@@ -1564,7 +1588,7 @@ const server = http.createServer(async (req, res) => {
     if (pathname === "/carreira") {
       return fs.readFile(path.join(PUBLIC_DIR, "carreira.html"), (err, data) => {
         if (err) { res.writeHead(404); return res.end("Not found"); }
-        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-cache" });
         res.end(data.toString("utf8").replace(
           "</head>",
           `<meta name="robots" content="noindex, nofollow">\n</head>`
