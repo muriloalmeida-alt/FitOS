@@ -10,6 +10,7 @@ const { apiSportsGet, getQuota } = require("../apiSports");
 const {
   mapTeam, mapStandingRow, mapFixture, mapStatistics,
   mapEvents, mapSubstitutions, mapLineups, mapOdds, mapPlayerEntry,
+  normalizeLogoUrl,
 } = require("../adapter");
 
 async function searchLeagues({ name }) {
@@ -57,22 +58,27 @@ async function getPlayersLeaders({ leagueId, season }) {
   return Array.from(byId.values());
 }
 
-// BUG CORRIGIDO (pedido do usuário: "no elenco tem jogadores reais"
-// sendo substituídos por jogador gerado no Modo Técnico): isso sempre
-// buscava só 2 páginas (~20-40 jogadores), então um elenco real maior
-// que isso (temporada com bastante movimentação — empréstimos, sub-20
-// promovidos etc.) vinha CORTADO mesmo quando a API tinha mais
-// jogador real disponível. Agora busca PÁGINA POR PÁGINA (sequencial,
-// não em paralelo — o cliente genérico descarta o campo "paging" da
-// resposta, não dá pra saber o total de antemão) até vir uma página
-// não-cheia (a API-Sports pagina de 20 em 20; página com menos de 20
-// já é a última) ou vazia — sequencial também evita gastar cota em
-// páginas que nem existem pra time com elenco menor (plano free tem
-// só 100 requisições/dia). maxPages é só trava de segurança, nunca
-// deveria chegar perto disso num elenco de futebol de verdade.
-async function getTeamPlayers({ teamId, season }) {
+// BUG CORRIGIDO (pedido do usuário: "goleiro Santos e Mycael não
+// aparecem no elenco do Athletico PR"): a causa NUNCA foi paginação —
+// era a FONTE errada. /players?team=X&season=Y é um endpoint de
+// ESTATÍSTICA por temporada: só devolve quem já tem pelo menos 1 jogo
+// registrado por aquele time NAQUELA temporada (mapPlayerEntry, ver
+// adapter.js, descarta todo item sem "statistics" — if(!s) return
+// null). Reserva que ainda não entrou em campo (típico pra 2º/3º
+// goleiro) nunca aparecia ali, não importa quantas páginas a gente
+// buscasse.
+//
+// A fonte certa pro ELENCO em si — quem está registrado no time
+// AGORA, jogando ou não — é /players/squads?team=X: devolve todo
+// mundo (nome/idade/número/posição), sem depender de estatística
+// nenhuma. É essa que vira a base da lista agora; /players?season=Y
+// continua sendo usado, só que como ENRIQUECIMENTO por cima (games/
+// goals/assists/nota pra quem já tiver) — quem não tiver estatística
+// nenhuma continua aparecendo no elenco, só com esses números
+// zerados/vazios em vez de sumir da lista.
+async function getPlayerStatsMap(teamId, season) {
   const byId = new Map();
-  const maxPages = 6;
+  const maxPages = 6; // trava de segurança — nunca deveria chegar perto disso
   for (let page = 1; page <= maxPages; page++) {
     const items = await apiSportsGet("/players", { team: teamId, season, page }).catch(() => []);
     if (!items.length) break;
@@ -80,9 +86,30 @@ async function getTeamPlayers({ teamId, season }) {
       const p = mapPlayerEntry(item);
       if (p) byId.set(p.id, p);
     });
-    if (items.length < 20) break;
+    if (items.length < 20) break; // API-Sports pagina de 20 em 20 — página não-cheia já é a última
   }
-  return Array.from(byId.values());
+  return byId;
+}
+async function getTeamPlayers({ teamId, season }) {
+  const [squadResp, statsById] = await Promise.all([
+    apiSportsGet("/players/squads", { team: teamId }).catch(() => []),
+    getPlayerStatsMap(teamId, season),
+  ]);
+  const squad = squadResp?.[0]?.players || [];
+  if (!squad.length) {
+    // /players/squads veio vazio (plano sem cobertura desse endpoint
+    // nesse host, ou time sem elenco cadastrado ainda) — cai pro que
+    // a estatística tiver, melhor um elenco incompleto do que nenhum.
+    return Array.from(statsById.values());
+  }
+  return squad.map((sp) => statsById.get(sp.id) || {
+    id: sp.id,
+    name: sp.name,
+    photo: normalizeLogoUrl(sp.photo),
+    teamId: Number(teamId),
+    position: sp.position || null,
+    games: 0, goals: 0, assists: 0, yellow: 0, red: 0, rating: null,
+  });
 }
 
 async function getPlayer({ playerId, season }) {
