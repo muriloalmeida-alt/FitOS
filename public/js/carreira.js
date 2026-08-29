@@ -1168,6 +1168,13 @@ function wireStaticListeners() {
   document.getElementById("pickerOverlay").addEventListener("click", (e) => { if (e.target.id === "pickerOverlay") e.currentTarget.classList.remove("open"); });
   document.getElementById("detailClose").addEventListener("click", () => document.getElementById("detailOverlay").classList.remove("open"));
   document.getElementById("detailOverlay").addEventListener("click", (e) => { if (e.target.id === "detailOverlay") e.currentTarget.classList.remove("open"); });
+  // Pedido do usuário: X também nas modais de detalhe do jogo e de
+  // resultados da rodada (só fecha, igual às outras 2 — quem quiser ver
+  // o próximo passo do fluxo clica em "Continuar" mesmo).
+  document.getElementById("matchDetailClose").addEventListener("click", () => document.getElementById("matchDetailOverlay").classList.remove("open"));
+  document.getElementById("matchDetailOverlay").addEventListener("click", (e) => { if (e.target.id === "matchDetailOverlay") e.currentTarget.classList.remove("open"); });
+  document.getElementById("roundResultsClose").addEventListener("click", () => document.getElementById("roundResultsOverlay").classList.remove("open"));
+  document.getElementById("roundResultsOverlay").addEventListener("click", (e) => { if (e.target.id === "roundResultsOverlay") e.currentTarget.classList.remove("open"); });
 
   document.getElementById("ctLoginForm").addEventListener("submit", submitCtLogin);
 }

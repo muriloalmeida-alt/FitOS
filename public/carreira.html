@@ -32,44 +32,41 @@
   @keyframes ct-spin{ to{ transform:rotate(360deg); } }
 
   /* ---------- Topbar ----------
-     AJUSTE (pedido do usuário: "o cabeçalho do modo carreira... dá pra
-     ficar mais bonito"): antes era uma barra sólida com tudo numa linha
-     só (quebrava feio no mobile — nome do clube colado no botão
-     Reiniciar). Agora 2 linhas fixas (marca+rodada / clube+ação),
-     degradê igual ao das modais (mesma identidade visual do resto do
-     app) e o escudo do clube ganha uma bolha branca atrás — muitos
-     escudos têm fundo transparente pensado pra ficar sobre branco, no
-     azul-marinho ficavam apagados. */
+     AJUSTE (pedido do usuário: "ao invés da logo do BR Data no header
+     podemos usar a do clube"): a marca genérica do BR Data (+ o título
+     "Modo Técnico" grande) competia com o escudo do clube por atenção,
+     sendo que depois de escolher o clube ELE é o protagonista da tela,
+     não o app. Virou 1 linha só: seta de voltar bem discreta, escudo
+     grande (com bolha branca atrás — escudo com fundo transparente
+     ficava apagado direto no azul-marinho) e nome do clube como
+     identidade principal, "Modo Técnico" como legenda pequena embaixo.
+     Degradê igual ao das modais (mesma identidade visual do resto do
+     app). A pill da rodada saiu daqui (ver #roundPill agora do lado de
+     "Próximo jogo" na Central, pedido do usuário). */
   .ct-topbar{
-    display:flex; flex-direction:column; gap:10px;
-    padding:14px 18px 16px; background:linear-gradient(135deg, var(--brd-navy), #030d1e);
+    display:flex; align-items:center; gap:12px;
+    padding:12px 18px; background:linear-gradient(135deg, var(--brd-navy), #030d1e);
     color:#fff; box-shadow:0 4px 14px rgba(0,0,0,.2);
   }
-  .ct-topbar-row1{ display:flex; align-items:center; gap:10px; }
-  .ct-topbar-row2{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
-  .ct-back{ color:rgba(255,255,255,.65); text-decoration:none; font-size:12.5px; font-weight:600; display:flex; align-items:center; gap:6px; flex-shrink:0; }
+  .ct-back{ color:rgba(255,255,255,.55); text-decoration:none; font-size:19px; line-height:1; flex-shrink:0; }
   .ct-back:hover{ color:#fff; }
-  .ct-topbar-title{ font-weight:800; font-size:15px; flex-shrink:0; }
-  .ct-round-pill{ margin-left:auto; background:rgba(255,255,255,.14); border:1px solid rgba(255,255,255,.16); border-radius:100px; padding:5px 13px; font-size:11.5px; font-weight:700; flex-shrink:0; white-space:nowrap; }
-  .ct-topbar-club{ display:flex; align-items:center; gap:10px; min-width:0; }
-  .ct-club-crest-wrap{ width:34px; height:34px; border-radius:50%; background:#fff; display:flex; align-items:center; justify-content:center; flex-shrink:0; box-shadow:0 2px 6px rgba(0,0,0,.3); }
-  .ct-topbar-club img{ height:24px; width:24px; object-fit:contain; }
-  #clubName{ font-size:15px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ct-club-crest-wrap{ width:38px; height:38px; border-radius:50%; background:#fff; display:flex; align-items:center; justify-content:center; flex-shrink:0; box-shadow:0 2px 6px rgba(0,0,0,.3); }
+  .ct-club-crest-wrap img{ height:27px; width:27px; object-fit:contain; }
+  .ct-topbar-identity{ display:flex; flex-direction:column; min-width:0; flex:1; }
+  #clubName{ font-size:16px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ct-topbar-subtitle{ font-size:11px; font-weight:600; color:rgba(255,255,255,.55); }
   .ct-icon-btn{ background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.2); color:#fff; border-radius:9px; padding:7px 13px; font-size:12px; font-weight:700; cursor:pointer; flex-shrink:0; }
   .ct-icon-btn:hover{ background:rgba(255,255,255,.2); }
-  /* BUG CORRIGIDO: "← BR Data" + "⚽ Modo Técnico" + a pill da rodada
-     não cabiam numa linha só em telas bem estreitas (320px) — nenhum
-     dos 3 encolhia (flex-shrink:0 nos 3), e o texto vazava pra fora da
-     tela em vez de quebrar, criando scroll horizontal na página
-     inteira (mesma categoria de bug já corrigida antes no campinho de
-     escalação e na tela de abertura). */
   @media (max-width:360px){
-    .ct-topbar{ padding-left:14px; padding-right:14px; }
-    .ct-topbar-row1{ gap:6px; }
-    .ct-topbar-title{ font-size:13px; }
-    .ct-round-pill{ padding:4px 9px; font-size:10.5px; }
-    .ct-back{ font-size:11px; }
+    .ct-topbar{ padding:10px 14px; gap:9px; }
+    .ct-club-crest-wrap{ width:32px; height:32px; }
+    .ct-club-crest-wrap img{ height:22px; width:22px; }
+    #clubName{ font-size:14px; }
+    .ct-icon-btn{ padding:6px 10px; font-size:11px; }
   }
+  /* Pill da rodada, agora ao lado do título "Próximo jogo" (fundo
+     claro do card, não mais a barra escura do topo). */
+  .ct-round-pill{ background:rgba(0,87,184,.1); color:var(--brd-blue); border-radius:100px; padding:5px 13px; font-size:11.5px; font-weight:700; flex-shrink:0; white-space:nowrap; }
 
   /* ---------- Tabs ---------- */
   .ct-tabs{ display:flex; gap:4px; padding:8px 14px 0; background:var(--bg-app); overflow-x:auto; }
@@ -278,18 +275,13 @@
   <!-- ================= Jogo ================= -->
   <div class="hidden" id="screenGame" style="display:flex; flex-direction:column; flex:1;">
     <div class="ct-topbar">
-      <div class="ct-topbar-row1">
-        <a class="ct-back" href="/">← BR Data</a>
-        <span class="ct-topbar-title">⚽ Modo Técnico</span>
-        <span class="ct-round-pill" id="roundPill">Rodada 1/38</span>
+      <a class="ct-back" href="/" title="Voltar pro BR Data">←</a>
+      <span class="ct-club-crest-wrap"><img id="clubCrest" src="" alt=""></span>
+      <div class="ct-topbar-identity">
+        <span id="clubName">—</span>
+        <span class="ct-topbar-subtitle">⚽ Modo Técnico</span>
       </div>
-      <div class="ct-topbar-row2">
-        <div class="ct-topbar-club">
-          <span class="ct-club-crest-wrap"><img id="clubCrest" src="" alt=""></span>
-          <span id="clubName">—</span>
-        </div>
-        <button class="ct-icon-btn" id="btnRestart" title="Abandonar e começar outra carreira">↺ Reiniciar</button>
-      </div>
+      <button class="ct-icon-btn" id="btnRestart" title="Abandonar e começar outra carreira">↺ Reiniciar</button>
     </div>
 
     <nav class="ct-tabs">
@@ -305,7 +297,10 @@
       <!-- ---------- Central ---------- -->
       <section class="ct-panel active" id="panel-central">
         <div class="ct-card">
-          <h2>Próximo jogo</h2>
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px;">
+            <h2 style="margin:0;">Próximo jogo</h2>
+            <span class="ct-round-pill" id="roundPill">Rodada 1/38</span>
+          </div>
           <div class="ct-next-match" id="nextMatchBox"></div>
           <p class="ct-sub" id="lineupWarning"></p>
           <div style="text-align:center;">
@@ -424,8 +419,9 @@
      jogo do PRÓPRIO clube (resultado, gols, assistências, cartões) —
      só existe pra rodada em que o clube jogou; ver showMatchDetailModal
      em carreira.js. "Continuar" leva pro modal de resultados da
-     rodada inteira (ver #roundResultsOverlay abaixo). Sem botão de
-     fechar de propósito — só avança clicando "Continuar" mesmo. -->
+     rodada inteira (ver #roundResultsOverlay abaixo). O X (pedido do
+     usuário) só fecha esse modal — não avança sozinho pro de
+     resultados, quem quiser ver os dois clica em "Continuar" mesmo. -->
 <div class="ct-modal-overlay" id="matchDetailOverlay">
   <div class="ct-modal">
     <div class="ct-modal-header">
@@ -434,6 +430,7 @@
         <h3>Seu jogo</h3>
         <div class="ct-modal-sub">Rodada <span id="matchDetailRound"></span></div>
       </div>
+      <button class="ct-modal-close" id="matchDetailClose">✕</button>
     </div>
     <div class="ct-modal-body">
       <div class="ct-next-match" id="matchDetailScore"></div>
@@ -454,6 +451,7 @@
         <h3>Resultados da rodada</h3>
         <div class="ct-modal-sub">Rodada <span id="roundResultsRound"></span></div>
       </div>
+      <button class="ct-modal-close" id="roundResultsClose">✕</button>
     </div>
     <div class="ct-modal-body">
       <div id="roundResultsList"></div>
