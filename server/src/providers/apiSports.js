@@ -57,17 +57,31 @@ async function getPlayersLeaders({ leagueId, season }) {
   return Array.from(byId.values());
 }
 
-// Elenco de 1 time só cabe em 1-2 páginas (~20-40 jogadores); busca as
-// duas sempre, sem depender do "paging" da resposta (o cliente
-// genérico já descarta esse campo). Página vazia não quebra a outra.
+// BUG CORRIGIDO (pedido do usuário: "no elenco tem jogadores reais"
+// sendo substituídos por jogador gerado no Modo Técnico): isso sempre
+// buscava só 2 páginas (~20-40 jogadores), então um elenco real maior
+// que isso (temporada com bastante movimentação — empréstimos, sub-20
+// promovidos etc.) vinha CORTADO mesmo quando a API tinha mais
+// jogador real disponível. Agora busca PÁGINA POR PÁGINA (sequencial,
+// não em paralelo — o cliente genérico descarta o campo "paging" da
+// resposta, não dá pra saber o total de antemão) até vir uma página
+// não-cheia (a API-Sports pagina de 20 em 20; página com menos de 20
+// já é a última) ou vazia — sequencial também evita gastar cota em
+// páginas que nem existem pra time com elenco menor (plano free tem
+// só 100 requisições/dia). maxPages é só trava de segurança, nunca
+// deveria chegar perto disso num elenco de futebol de verdade.
 async function getTeamPlayers({ teamId, season }) {
-  const fetchPage = (p) => apiSportsGet("/players", { team: teamId, season, page: p }).catch(() => []);
-  const [page1, page2] = await Promise.all([fetchPage(1), fetchPage(2)]);
   const byId = new Map();
-  [...page1, ...page2].forEach((item) => {
-    const p = mapPlayerEntry(item);
-    if (p) byId.set(p.id, p);
-  });
+  const maxPages = 6;
+  for (let page = 1; page <= maxPages; page++) {
+    const items = await apiSportsGet("/players", { team: teamId, season, page }).catch(() => []);
+    if (!items.length) break;
+    items.forEach((item) => {
+      const p = mapPlayerEntry(item);
+      if (p) byId.set(p.id, p);
+    });
+    if (items.length < 20) break;
+  }
   return Array.from(byId.values());
 }
 
