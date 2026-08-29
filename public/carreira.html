@@ -104,6 +104,21 @@
   .ct-piece.ct-piece-empty .button-disc{ border-style:dashed; opacity:.55; box-shadow:none; }
   .ct-piece.ct-piece-problem .button-disc{ border-color:#FF6B6B; box-shadow:0 0 0 2px rgba(255,77,79,.55), 0 3px 0 rgba(0,0,0,.28); }
   .ct-piece:hover .button-disc{ filter:brightness(1.08); }
+  /* BUG CORRIGIDO (pedido do usuário: "na formação 3-5-2 o botão está
+     quebrando no meio de campo"): .button-row (css/style.css) usa
+     flex-wrap normal -- uma linha de 5 (meio-campo de 3-5-2/4-2-3-1/
+     4-5-1, ver renderPitch em carreira.js) não cabia no tamanho padrão
+     do disco na largura de um celular comum, então o flex quebrava a
+     linha em 2, sobrepondo o 5º jogador em cima da linha do meio do
+     campinho. Encolhe só as linhas de 5 (.ct-row-5, aplicada só nelas
+     — linha de até 4 continua do tamanho normal) e nunca deixa
+     quebrar; overflow-x:auto é só uma rede de segurança pra celular
+     extremamente estreito (< ~320px), sem afetar o resto da página. */
+  .ct-row-5{ flex-wrap:nowrap; gap:6px; overflow-x:auto; -webkit-overflow-scrolling:touch; }
+  .ct-row-5 .button-piece{ width:44px; flex-shrink:0; }
+  .ct-row-5 .button-disc{ width:26px; height:26px; font-size:10px; }
+  .ct-row-5 .ct-piece-tag{ font-size:7px; }
+  .ct-row-5 .btn-name{ font-size:7.5px; }
   .ct-tactics{ display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; }
   .ct-field{ display:flex; flex-direction:column; gap:4px; }
   .ct-field label{ font-size:11px; font-weight:700; color:var(--text-2); text-transform:uppercase; letter-spacing:.3px; }

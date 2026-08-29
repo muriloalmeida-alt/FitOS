@@ -743,9 +743,17 @@ function renderPitch() {
   // usado no resto do site (column-reverse em .button-pitch, ver
   // css/style.css).
   const rows = ["G", "D", "M", "F"].map((g) => slots.filter((s) => s.grp === g)).filter((r) => r.length);
+  // BUG CORRIGIDO (pedido do usuário: "na formação 3-5-2 o botão está
+  // quebrando no meio de campo"): .button-row (ver css/style.css) usa
+  // flex-wrap normal — uma linha com 5 jogadores (3-5-2, 4-2-3-1 e
+  // 4-5-1 têm 5 no meio-campo) não cabe na largura de um celular comum
+  // no tamanho padrão do disco, então o flex QUEBRA a linha em 2,
+  // sobrepondo o 5º jogador em cima da linha do meio do campinho —
+  // ver .ct-row-5 no <style> de carreira.html, que encolhe só as
+  // linhas de 5 (linhas de até 4 continuam do tamanho normal).
   document.getElementById("pitchLines").innerHTML = `
     <div class="button-pitch">
-      ${rows.map((row) => `<div class="button-row">${row.map((s) => pitchPieceHTML(s, gradient)).join("")}</div>`).join("")}
+      ${rows.map((row) => `<div class="button-row${row.length >= 5 ? " ct-row-5" : ""}">${row.map((s) => pitchPieceHTML(s, gradient)).join("")}</div>`).join("")}
     </div>`;
   document.getElementById("pitchLines").querySelectorAll(".ct-piece").forEach((el) => {
     el.addEventListener("click", () => openPicker({ type: "slot", index: Number(el.dataset.index) }, `Escolher — ${el.dataset.label}`));
