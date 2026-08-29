@@ -67,7 +67,14 @@
   .ct-btn:disabled{ opacity:.5; cursor:not-allowed; }
 
   /* ---------- Clube picker ---------- */
-  .ct-club-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); gap:12px; max-width:900px; margin:18px auto 0; }
+  /* width:100% é o que importa aqui -- sem isso, dentro de um pai flex
+     com align-items:center (ver .ct-full), um grid de largura livre
+     (sem width setado) se dimensiona pelo "max-content" das próprias
+     colunas em vez de respeitar a largura do pai, e o auto-fill tenta
+     caber TODAS as colunas de minmax(150px,1fr) numa linha só antes de
+     quebrar -- é isso que causava o scroll horizontal na tela de
+     escolha de clube em telas estreitas (celular). */
+  .ct-club-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); gap:12px; width:100%; max-width:900px; margin:18px auto 0; }
   .ct-club-card{ background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius-md); padding:14px 10px; text-align:center; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:8px; }
   .ct-club-card:hover{ border-color:var(--brd-blue); transform:translateY(-1px); }
   .ct-club-card img{ height:44px; width:44px; object-fit:contain; }
@@ -84,14 +91,19 @@
   .ct-kpi .v{ font-size:19px; font-weight:800; color:var(--text-0); }
   .ct-kpi .l{ font-size:10.5px; color:var(--text-2); text-transform:uppercase; letter-spacing:.3px; font-weight:700; }
 
-  /* ---------- Escalação ---------- */
-  .ct-line{ display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-bottom:10px; }
-  .ct-slot{ width:118px; background:var(--bg-surface); border:1.5px dashed var(--border); border-radius:10px; padding:8px 6px; text-align:center; cursor:pointer; }
-  .ct-slot.filled{ border-style:solid; border-color:var(--brd-blue); }
-  .ct-slot.problem{ border-color:var(--brd-red); }
-  .ct-slot .tag{ font-size:9.5px; font-weight:800; color:var(--text-2); letter-spacing:.4px; }
-  .ct-slot .nm{ font-size:12px; font-weight:700; color:var(--text-0); margin-top:3px; line-height:1.25; }
-  .ct-slot .ov{ font-size:10.5px; color:var(--text-2); }
+  /* ---------- Escalação: campinho "jogo de botão" ----------
+     Reaproveita as classes .button-pitch/.button-row/.button-disc/
+     .btn-name já definidas em css/style.css (mesmo campinho da
+     Escalação titular do último jogo, ver public/js/app.js
+     formationPitchHTML) — aqui só as classes ct-piece* de cima,
+     pra deixar o disco CLICÁVEL (escolher jogador) e mostrar a
+     posição da vaga (tag) e um contorno de aviso quando o jogador ali
+     estiver indisponível. */
+  .ct-piece{ cursor:pointer; }
+  .ct-piece-tag{ display:block; font-size:8.5px; font-weight:800; color:rgba(255,255,255,.85); text-transform:uppercase; letter-spacing:.3px; margin-bottom:3px; text-shadow:0 1px 2px rgba(0,0,0,.5); }
+  .ct-piece.ct-piece-empty .button-disc{ border-style:dashed; opacity:.55; box-shadow:none; }
+  .ct-piece.ct-piece-problem .button-disc{ border-color:#FF6B6B; box-shadow:0 0 0 2px rgba(255,77,79,.55), 0 3px 0 rgba(0,0,0,.28); }
+  .ct-piece:hover .button-disc{ filter:brightness(1.08); }
   .ct-bench-list{ display:flex; flex-wrap:wrap; gap:8px; }
   .ct-bench-slot{ width:110px; background:var(--bg-surface); border:1.5px dashed var(--border); border-radius:10px; padding:8px 6px; text-align:center; cursor:pointer; font-size:11.5px; }
   .ct-tactics{ display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; }

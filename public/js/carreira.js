@@ -72,7 +72,36 @@ const TRAINING_MOD = {
   equilibrado: { atk: 1, def: 1 }, ataque: { atk: 1.03, def: 0.99 },
   defesa: { atk: 0.99, def: 1.03 }, fisico: { atk: 1, def: 1 },
 };
-const GROUP_LABEL = { G: "GOL", D: "DEF", M: "MEI", F: "ATA" };
+// Sub-posição só pra ORDENAR/rotular o elenco (pedido do usuário:
+// "Goleiros, Defensores, Volantes, Meio Campo, Atacante e
+// Centroavante") — não existe endpoint de dado esportivo que devolva
+// essa granularidade (nem API-Sports nem Sportmonks vão além de
+// Goleiro/Defensor/Meio/Atacante, ver mapPositionGroup), então Volante
+// vs Meio-campo e Atacante vs Centroavante são inferidos de forma
+// determinística a partir dos próprios atributos já calculados do
+// jogador (def/atk) — não é uma posição "oficial", é só um critério
+// estável de agrupamento visual.
+const SUBPOS_ORDER = { GOL: 0, DEF: 1, VOL: 2, MEI: 3, ATA: 4, CA: 5 };
+const SUBPOS_LABEL = { GOL: "Goleiro", DEF: "Defensor", VOL: "Volante", MEI: "Meio-campo", ATA: "Atacante", CA: "Centroavante" };
+// Usa o atributo físico (independente de atk/def) como critério de
+// desempate — comparar atk com def do MESMO jogador não funciona aqui
+// porque a forma como esses 2 atributos são calculados (ver
+// buildRealPlayer/buildBasePlayer/buildGeneratedProPlayer) já embute
+// um viés fixo por grupo (todo meio-campo sai com atk > def, todo
+// atacante sai com atk MUITO > def) — isso tornava "VOL"/"ATA"
+// praticamente inalcançáveis. Físico alto tende a Volante/Centroavante
+// (jogo de referência/duelo), físico mais baixo tende a Meia/Atacante
+// (mais técnico/veloz) — não é uma regra "oficial", só um critério
+// estável que dá variedade real de verdade entre as 2 opções de cada
+// grupo.
+function subPositionOf(p) {
+  if (p.group === "G") return "GOL";
+  if (p.group === "D") return "DEF";
+  if (p.group === "M") return p.phys >= 68 ? "VOL" : "MEI";
+  if (p.group === "F") return p.phys >= 68 ? "CA" : "ATA";
+  return "DEF";
+}
+function squadSortKey(p) { return (SUBPOS_ORDER[subPositionOf(p)] ?? 9) * 1000 - p.overall; }
 
 /* ---------- Estado ---------- */
 let LIVE_MODE = false;
@@ -133,6 +162,21 @@ function calibrateStrengths(standings) {
   });
   return out;
 }
+// Casa o nome do time (fornecedor ao vivo) com o catálogo de cores já
+// curado em DEMO_TEAMS (js/data.js) — mesma técnica de realTeamColor()
+// em public/js/liveData.js, duplicada aqui de propósito (esta página
+// não carrega liveData.js/app.js, só js/data.js). Sem isso, os discos
+// do campinho "jogo de botão" (ver renderPitch) sairiam todos com a
+// mesma cor genérica em modo ao vivo, sem relação com o clube de
+// verdade.
+function normalizeNameForColor(s) {
+  return String(s || "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]+/g, " ").trim();
+}
+function realTeamColor(name) {
+  const norm = normalizeNameForColor(name);
+  const match = DEMO_TEAMS.find((t) => normalizeNameForColor(t.name) === norm || (t.aliases || []).some((a) => normalizeNameForColor(a) === norm));
+  return match ? { c1: match.c1, c2: match.c2, c3: match.c3 } : null;
+}
 async function loadLeague() {
   try {
     const health = await fetchJSON("/api/health");
@@ -144,7 +188,13 @@ async function loadLeague() {
     ]);
     if (!teamsData.teams || !teamsData.teams.length) throw new Error("resposta vazia");
     const strengths = calibrateStrengths(standingsData.standings || []);
-    LEAGUE_TEAMS = teamsData.teams.map((t) => ({ ...t, atk: strengths[t.id]?.atk ?? 1.3, def: strengths[t.id]?.def ?? 1.05 }));
+    LEAGUE_TEAMS = teamsData.teams.map((t) => {
+      const realColor = realTeamColor(t.name);
+      return {
+        ...t, atk: strengths[t.id]?.atk ?? 1.3, def: strengths[t.id]?.def ?? 1.05,
+        c1: realColor?.c1 || "#0057B8", c2: realColor?.c2 || "#062B5C", c3: realColor?.c3,
+      };
+    });
     LIVE_MODE = true;
   } catch {
     LEAGUE_TEAMS = DEMO_TEAMS; // global vindo de js/data.js
@@ -164,6 +214,16 @@ function crestImg(t) {
   if (t && t.logo) return `<img src="${t.logo}" alt="">`;
   const c1 = t?.c1 || "#8892A0", c2 = t?.c2 || "#333";
   return `<div style="height:40px;width:40px;border-radius:50%;background:linear-gradient(135deg, ${c1}, ${c2});flex-shrink:0;"></div>`;
+}
+// Mesmo degradê de cores do clube usado no "jogo de botão" do dashboard
+// principal (ver teamGradientStops em public/js/app.js) — duplicado
+// aqui pelo mesmo motivo de sempre (esta página não carrega app.js).
+function teamGradientStops(colors) {
+  return [colors?.c1 || "#0057B8", colors?.c2 || "#062B5C", colors?.c3].filter(Boolean).join(", ");
+}
+function lastNameOf(name) {
+  const parts = String(name || "").trim().split(/\s+/);
+  return parts[parts.length - 1] || name || "?";
 }
 
 /* ---------- Elenco: jogadores reais (mesma fonte do BR Data) + base gerada ---------- */
@@ -236,12 +296,46 @@ function buildBasePlayer(club, idx, rng) {
     goalsCareer: 0, assistsCareer: 0, apps: 0,
   };
 }
+// Composição usada só pra COMPLETAR o elenco principal quando o
+// fornecedor devolve menos jogadores reais do que o alvo (ver
+// TARGET_PRINCIPAL em buildSquad) — jogador adulto/profissional
+// (diferente de buildBasePlayer, que é sempre jovem/baixo overall),
+// só pra fechar o elenco. Cicla numa composição típica de time
+// profissional (mais defensor/meio do que goleiro/atacante).
+const FILLER_COMPOSITION = ["G", "D", "D", "D", "D", "D", "M", "M", "M", "M", "M", "M", "F", "F", "F", "F"];
+function buildGeneratedProPlayer(club, idx, rng) {
+  const group = FILLER_COMPOSITION[idx % FILLER_COMPOSITION.length];
+  const age = 19 + Math.floor(rng() * 16); // 19-34, faixa normal de elenco profissional
+  const clubFactor = (group === "F" || group === "M") ? club.atk : (2 - club.def);
+  const overall = Math.round(clamp(52 + (clubFactor - 1) * 14 + (rng() * 16 - 8), 40, 82));
+  const atk = clamp(overall + (group === "F" ? 6 : group === "M" ? 2 : -10) + Math.round(rng() * 6 - 3), 28, 90);
+  const def = clamp(overall + (group === "D" || group === "G" ? 6 : -10) + Math.round(rng() * 6 - 3), 28, 90);
+  const phys = clamp(Math.round(55 + rng() * 30), 38, 90);
+  const first = DEMO_FIRST_NAMES[Math.floor(rng() * DEMO_FIRST_NAMES.length)];
+  const last = DEMO_LAST_NAMES[Math.floor(rng() * DEMO_LAST_NAMES.length)];
+  return {
+    id: `gen_${club.id}_${idx}`, name: `${first} ${last}`, photo: null,
+    group, age, overall, atk, def, phys,
+    origin: "principal", real: false,
+    status: "ok", outUntilRound: null, yellowCards: 0, condition: 100,
+    goalsCareer: 0, assistsCareer: 0, apps: 0,
+  };
+}
+// Elenco principal: prioriza TODOS os jogadores reais que o fornecedor
+// devolver (sem cortar em N, como acontecia antes) — só completa com
+// jogadores gerados quando não houver TARGET_PRINCIPAL (50) reais.
+// TARGET_PRINCIPAL também funciona como teto (elenco raramente passa
+// disso na vida real) pra não deixar o save gigante num caso
+// excepcional de fornecedor devolvendo elenco enorme.
+const TARGET_PRINCIPAL = 50;
 async function buildSquad(club) {
   const rng = seededRngFromKey(`squad:${club.id}:${LIVE_SEASON}`); // global de js/data.js
   const raw = await fetchRealPlayers(club.id);
-  const principal = raw.slice(0, 28).map((p) => buildRealPlayer(p, club, rng));
+  const realPlayers = raw.slice(0, TARGET_PRINCIPAL).map((p) => buildRealPlayer(p, club, rng));
+  const missing = Math.max(0, TARGET_PRINCIPAL - realPlayers.length);
+  const filler = Array.from({ length: missing }, (_, i) => buildGeneratedProPlayer(club, i, rng));
   const base = Array.from({ length: 16 }, (_, i) => buildBasePlayer(club, i, rng));
-  return [...principal, ...base];
+  return [...realPlayers, ...filler, ...base];
 }
 
 /* ---------- Escalação automática (usada ao criar a carreira) ---------- */
@@ -303,7 +397,7 @@ async function startCareer(clubId) {
     CAREER = {
       version: 1,
       clubId: club.id, clubName: club.name, clubShort: club.short || club.name.slice(0, 3).toUpperCase(),
-      clubLogo: club.logo || null,
+      clubLogo: club.logo || null, clubColors: { c1: club.c1, c2: club.c2, c3: club.c3 },
       liveMode: LIVE_MODE, createdAt: Date.now(), updatedAt: Date.now(),
       squad, lineup, trainingFocus: "equilibrado",
       schedule, currentRound: 1, standings, resultsByRound: {},
@@ -530,7 +624,7 @@ function playerRow(p) {
     : `<span class="ct-pill susp">Suspenso (R${p.outUntilRound})</span>`;
   return `<tr data-id="${p.id}" style="cursor:pointer;">
     <td>${escapeHtml(p.name)}${p.real ? "" : ' <span class="ct-pill base" style="margin-left:4px;">gerado</span>'}</td>
-    <td>${GROUP_LABEL[p.group] || "?"}</td><td>${p.age}</td><td><b>${p.overall}</b></td>
+    <td>${subPositionOf(p)}</td><td>${p.age}</td><td><b>${p.overall}</b></td>
     <td><span class="ct-cond-track"><span class="ct-cond-fill" style="width:${Math.round(p.condition)}%"></span></span></td>
     <td>${statusPill}</td>
     <td style="text-align:right; color:var(--text-2);">▸</td>
@@ -538,8 +632,12 @@ function playerRow(p) {
 }
 function renderElenco() {
   refreshAvailability();
-  const principal = CAREER.squad.filter((p) => p.origin === "principal").sort((a, b) => b.overall - a.overall);
-  const base = CAREER.squad.filter((p) => p.origin === "base").sort((a, b) => b.overall - a.overall);
+  // Ordenado por posição (Goleiros, Defensores, Volantes, Meio Campo,
+  // Atacante, Centroavante — ver SUBPOS_ORDER) e, dentro da mesma
+  // posição, por overall — dentro de cada grupo (principal/base),
+  // pedido do usuário.
+  const principal = CAREER.squad.filter((p) => p.origin === "principal").sort((a, b) => squadSortKey(a) - squadSortKey(b));
+  const base = CAREER.squad.filter((p) => p.origin === "base").sort((a, b) => squadSortKey(a) - squadSortKey(b));
   const mt = document.getElementById("squadMainTable");
   mt.querySelector("thead").innerHTML = squadTableHead();
   mt.querySelector("tbody").innerHTML = principal.map(playerRow).join("") || `<tr><td colspan="7" class="ct-empty">Sem jogadores.</td></tr>`;
@@ -553,7 +651,7 @@ function openDetail(id) {
   if (!p) return;
   const inStarters = CAREER.lineup.starters.includes(id);
   const inBench = CAREER.lineup.bench.includes(id);
-  const groupFull = { G: "Goleiro", D: "Defensor", M: "Meio-campo", F: "Atacante" }[p.group] || "—";
+  const groupFull = SUBPOS_LABEL[subPositionOf(p)] || "—";
   document.getElementById("detailBody").innerHTML = `
     <h3>${escapeHtml(p.name)}</h3>
     <p class="ct-sub">${groupFull} · ${p.age} anos · ${p.origin === "principal" ? "Elenco principal" : "Categoria de base"}${p.real ? "" : " (gerado)"}</p>
@@ -614,25 +712,41 @@ function renderEscalacao() {
   renderPitch();
   renderBench();
 }
-function slotHTML(index, label) {
-  const id = CAREER.lineup.starters[index];
+// Desenha a escalação no campinho "jogo de botão" — mesmas classes
+// .button-pitch/.button-row/.button-disc/.btn-name já usadas na
+// Escalação titular do último jogo do dashboard principal (ver
+// formationPitchHTML em public/js/app.js e o comentário de
+// .ct-piece* em carreira.html), só que aqui EDITÁVEL: cada disco é
+// clicável (abre o mesmo modal de escolha de jogador de sempre) e
+// mostra a posição da vaga (tag), o overall no lugar da camisa e um
+// contorno vermelho quando o titular ali estiver indisponível.
+function pitchPieceHTML(slot, gradient) {
+  const id = CAREER.lineup.starters[slot.i];
   const p = id ? CAREER.squad.find((x) => x.id === id) : null;
   const problem = p && p.status !== "ok";
-  return `<div class="ct-slot ${p ? "filled" : ""} ${problem ? "problem" : ""}" data-index="${index}" data-label="${label}">
-    <div class="tag">${label}</div>
-    <div class="nm">${p ? escapeHtml(p.name) : "vazio"}</div>
-    ${p ? `<div class="ov">OVR ${p.overall}${problem ? " ⚠️" : ""}</div>` : ""}
+  const discBg = p ? `linear-gradient(160deg, ${gradient})` : "rgba(255,255,255,.18)";
+  const discContent = p ? p.overall : "+";
+  const nameText = p ? lastNameOf(p.name) : "vazio";
+  return `<div class="button-piece ct-piece ${problem ? "ct-piece-problem" : ""} ${!p ? "ct-piece-empty" : ""}"
+      data-index="${slot.i}" data-label="${escapeHtml(slot.label)}"
+      title="${escapeHtml(slot.label)}${p ? " — " + escapeHtml(p.name) : ""}">
+    <span class="ct-piece-tag">${escapeHtml(slot.label)}</span>
+    <div class="button-disc" style="background:${discBg};">${discContent}</div>
+    <span class="btn-name">${escapeHtml(nameText)}${problem ? " ⚠️" : ""}</span>
   </div>`;
 }
 function renderPitch() {
   const slots = FORMATIONS[CAREER.lineup.formation].map(([grp, label], i) => ({ grp, label, i }));
-  const html = ["F", "M", "D", "G"].map((g) => {
-    const items = slots.filter((s) => s.grp === g);
-    if (!items.length) return "";
-    return `<div class="ct-line">${items.map((s) => slotHTML(s.i, s.label)).join("")}</div>`;
-  }).join("");
-  document.getElementById("pitchLines").innerHTML = html;
-  document.getElementById("pitchLines").querySelectorAll(".ct-slot").forEach((el) => {
+  const gradient = teamGradientStops(CAREER.clubColors);
+  // Ataque em cima, goleiro embaixo — mesma orientação do campinho já
+  // usado no resto do site (column-reverse em .button-pitch, ver
+  // css/style.css).
+  const rows = ["G", "D", "M", "F"].map((g) => slots.filter((s) => s.grp === g)).filter((r) => r.length);
+  document.getElementById("pitchLines").innerHTML = `
+    <div class="button-pitch">
+      ${rows.map((row) => `<div class="button-row">${row.map((s) => pitchPieceHTML(s, gradient)).join("")}</div>`).join("")}
+    </div>`;
+  document.getElementById("pitchLines").querySelectorAll(".ct-piece").forEach((el) => {
     el.addEventListener("click", () => openPicker({ type: "slot", index: Number(el.dataset.index) }, `Escolher — ${el.dataset.label}`));
   });
 }
@@ -667,14 +781,14 @@ function renderPickerList(filter) {
   let pool = CAREER.squad.filter((p) => p.status === "ok" && (!usedIds.has(p.id) || p.id === currentId));
   const f = filter.trim().toLowerCase();
   if (f) pool = pool.filter((p) => p.name.toLowerCase().includes(f));
-  pool.sort((a, b) => b.overall - a.overall);
+  pool.sort((a, b) => squadSortKey(a) - squadSortKey(b));
   const showClear = PICKER_CTX.type === "slot" || (PICKER_CTX.type === "bench" && PICKER_CTX.currentId);
   const clearRow = showClear ? `<div class="ct-pick-row" data-clear="1"><span class="nm">— deixar vazio —</span></div>` : "";
   const list = document.getElementById("pickerList");
   list.innerHTML = clearRow + (pool.length ? pool.map((p) => `
     <div class="ct-pick-row" data-id="${p.id}">
       <span class="nm">${escapeHtml(p.name)}${p.id === currentId ? " (atual)" : ""}</span>
-      <span class="meta">${GROUP_LABEL[p.group] || "?"} · OVR ${p.overall} · ${p.origin === "base" ? "base" : "principal"}</span>
+      <span class="meta">${subPositionOf(p)} · OVR ${p.overall} · ${p.origin === "base" ? "base" : "principal"}</span>
     </div>`).join("") : `<p class="ct-empty">Nenhum jogador disponível.</p>`);
   list.querySelectorAll("[data-clear]").forEach((el) => el.addEventListener("click", () => pickerChoose(null)));
   list.querySelectorAll("[data-id]").forEach((el) => el.addEventListener("click", () => pickerChoose(el.dataset.id)));
