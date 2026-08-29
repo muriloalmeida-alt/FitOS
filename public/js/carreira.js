@@ -232,6 +232,23 @@ function abbreviateName(name) {
   if (parts.length <= 1) return name || "?";
   return `${parts[0][0].toUpperCase()}. ${parts[parts.length - 1]}`;
 }
+// FASE 2 (b) — mesmo formatador de dinheiro do site principal (fmtBRL
+// em app.js, duplicado aqui pelo mesmo motivo de sempre — esta página
+// não carrega app.js). Aceita negativo (caixa pode ficar no vermelho).
+function fmtBRL(v) {
+  return (v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+}
+// Versão curta ("R$ 35 mi") pros KPIs de caixa/folha na Central — a
+// caixa de KPI (.ct-kpi .v, ver carreira.html) é estreita demais pro
+// valor cheio em reais sem espremer.
+function fmtBRLShort(v) {
+  const n = v || 0;
+  const abs = Math.abs(n);
+  const sign = n < 0 ? "-" : "";
+  if (abs >= 1_000_000) return `${sign}R$ ${(abs / 1_000_000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mi`;
+  if (abs >= 1_000) return `${sign}R$ ${(abs / 1_000).toLocaleString("pt-BR", { maximumFractionDigits: 0 })} mil`;
+  return fmtBRL(n);
+}
 
 /* ---------- Elenco: jogadores reais (mesma fonte do BR Data) + base gerada ---------- */
 async function fetchRealPlayers(teamId) {
@@ -259,6 +276,30 @@ function mapPositionGroup(raw) {
 // hoje não preenche nota — ver aviso em providers/sportmonks.js — cai
 // num valor neutro nesse caso). Jitter (rng) garante que 2 jogadores
 // com a mesma estatística não fiquem clones um do outro.
+/* ---------- FASE 2 (b) — contrato, salário e valor de mercado ----------
+   Pedido do usuário. Curva exponencial em cima do overall (mesma ideia
+   de "overall" de qualquer FIFA/Football Manager: a diferença de
+   salário/valor entre um jogador OVR 60 e OVR 90 é de ordens de
+   grandeza, não linear) — ajustada por idade (pico 24-27, queda depois
+   dos 30) e, pra jogador de base com potencial, um bônus de valor (vale
+   mais pela promessa do que pelo overall atual). Números calibrados
+   pra ficarem na faixa plausível de Brasileirão (milhares a dezenas de
+   milhões), não uma modelagem financeira de verdade.
+   contractUntil é uma TEMPORADA (ver LIVE_SEASON), não uma data. */
+function computeContractFields(overall, age, potential, rng) {
+  let ageMult = 1;
+  if (age <= 20) ageMult = 0.8;
+  else if (age <= 23) ageMult = 1.0;
+  else if (age <= 27) ageMult = 1.25;
+  else if (age <= 30) ageMult = 1.0;
+  else if (age <= 33) ageMult = 0.6;
+  else ageMult = 0.35;
+  const potBoost = potential ? 1 + clamp(potential - overall, 0, 40) / 40 * 0.5 : 1;
+  const wage = Math.round(Math.pow(1.145, overall - 50) * 2500 * ageMult / 100) * 100;
+  const value = Math.round(Math.pow(1.16, overall - 50) * 120000 * ageMult * potBoost / 1000) * 1000;
+  const contractUntil = LIVE_SEASON + 1 + Math.floor(rng() * 4); // 1 a 4 temporadas de contrato
+  return { wage, value, contractUntil };
+}
 function buildRealPlayer(raw, club, rng) {
   const group = mapPositionGroup(raw.position) || ["D", "M", "F"][Math.floor(rng() * 3)];
   const ratingBase = raw.rating != null ? clamp((raw.rating - 5) / 4, 0, 1) : 0.5;
@@ -277,6 +318,7 @@ function buildRealPlayer(raw, club, rng) {
     origin: "principal", real: true,
     status: "ok", outUntilRound: null, yellowCards: 0, condition: 100,
     goalsCareer: 0, assistsCareer: 0, apps: 0,
+    ...computeContractFields(overall, age, null, rng),
   };
 }
 // Composição fixa (não sorteada) pra GARANTIR pelo menos 2 goleiros na
@@ -301,6 +343,7 @@ function buildBasePlayer(club, idx, rng) {
     origin: "base", real: false,
     status: "ok", outUntilRound: null, yellowCards: 0, condition: 100,
     goalsCareer: 0, assistsCareer: 0, apps: 0,
+    ...computeContractFields(overall, age, potential, rng),
   };
 }
 // Composição usada só pra COMPLETAR o elenco principal quando o
@@ -328,6 +371,7 @@ function buildGeneratedProPlayer(club, idx, rng) {
     origin: "principal", real: false,
     status: "ok", outUntilRound: null, yellowCards: 0, condition: 100,
     goalsCareer: 0, assistsCareer: 0, apps: 0,
+    ...computeContractFields(overall, age, null, rng),
   };
 }
 // Elenco principal: usa TODOS os jogadores reais que o fornecedor
@@ -354,6 +398,27 @@ async function buildSquad(club) {
   const filler = Array.from({ length: missing }, (_, i) => buildGeneratedProPlayer(club, i, rng));
   const base = Array.from({ length: 16 }, (_, i) => buildBasePlayer(club, i, rng));
   return [...realPlayers, ...filler, ...base];
+}
+
+/* ---------- FASE 2 (b) — orçamento do clube ----------
+   Pedido do usuário: contrato/salário/valor "pra valer", limitando o
+   que dá pra fazer. Folha salarial só conta o elenco PRINCIPAL (padrão
+   real de clube de futebol: categoria de base tem contrato de
+   formação, não entra no teto salarial do profissional) — ver
+   wageBillOf, usado tanto pra mostrar o gasto atual quanto pra
+   bloquear promoção que estouraria o teto (ver handlePlayerAction).
+   Orçamento inicial nasce do próprio elenco (folga de 35% sobre a
+   folha atual pro teto, caixa de ~6 meses de folha) em vez de um valor
+   fixo pra todo mundo — clube com elenco real mais caro (por ter
+   jogadores de overall mais alto) já começa com orçamento maior,
+   proporcional, sem precisar de uma 2ª fonte de "tamanho do clube". */
+function wageBillOf(squad) {
+  return squad.filter((p) => p.origin === "principal").reduce((s, p) => s + (p.wage || 0), 0);
+}
+function initialFinances(squad) {
+  const wageCap = Math.round(wageBillOf(squad) * 1.35 / 1000) * 1000;
+  const cash = Math.round(wageCap * 6 / 1000) * 1000;
+  return { cash, wageCap };
 }
 
 /* ---------- FASE 2 (a) — elenco individual pra TODOS os times ----------
@@ -519,6 +584,9 @@ async function startCareer(clubId) {
       // Agregado da temporada pra aba Estatísticas (gols já vêm de
       // standings[clubId].gp, não precisa duplicar aqui).
       teamStats: { assists: 0, yellow: 0, red: 0 },
+      // FASE 2 (b) — pedido do usuário: contrato/salário/valor com
+      // orçamento real limitando ação (ver initialFinances/wageBillOf).
+      finances: initialFinances(squad),
     };
     await persistCareer();
     showGameScreen();
@@ -725,7 +793,14 @@ function simulateRound() {
   refreshAvailability(nextRound);
   const lineupChanges = autoFixLineup(nextRound);
   CAREER.currentRound = nextRound;
-  return { round, humanMatch, allResults, lineupChanges };
+  // FASE 2 (b) — paga a folha salarial do elenco PRINCIPAL a cada
+  // rodada simulada (aproximação: ~4 rodadas por mês numa temporada de
+  // 38 rodadas, então 1/4 da folha mensal por rodada) — o caixa vai
+  // diminuindo de verdade ao longo da temporada mesmo antes de existir
+  // mercado de transferências (fase seguinte) pra gastar nele.
+  const wagePaid = Math.round(wageBillOf(CAREER.squad) / 4);
+  CAREER.finances.cash -= wagePaid;
+  return { round, humanMatch, allResults, lineupChanges, wagePaid };
 }
 
 /* ---------- Renderização: Central ---------- */
@@ -765,6 +840,21 @@ function renderCentral() {
   document.getElementById("squadKpis").innerHTML = [
     ["Elenco", squad.length], ["Disponíveis", ok], ["Contundidos", hurt], ["Suspensos", susp],
   ].map(([l, v]) => kpiHTML(l, v)).join("");
+
+  // FASE 2 (b) — card "Financeiro": caixa e uso do teto salarial (só
+  // elenco PRINCIPAL conta pro teto, ver wageBillOf).
+  const wageBill = wageBillOf(squad);
+  const { cash, wageCap } = CAREER.finances;
+  document.getElementById("financeKpis").innerHTML = [
+    ["Caixa", fmtBRLShort(cash)], ["Folha salarial", fmtBRLShort(wageBill)],
+  ].map(([l, v]) => kpiHTML(l, v)).join("");
+  const wagePct = wageCap ? clamp(Math.round((wageBill / wageCap) * 100), 0, 100) : 0;
+  const wageFill = document.getElementById("wageCapFill");
+  wageFill.style.width = `${wagePct}%`;
+  wageFill.classList.toggle("warn", wagePct >= 80 && wagePct < 100);
+  wageFill.classList.toggle("over", wagePct >= 100);
+  document.getElementById("wageCapLabel").textContent =
+    `Folha salarial: ${fmtBRL(wageBill)} de ${fmtBRL(wageCap)} (${wagePct}%)`;
 
   const lastCard = document.getElementById("lastResultCard");
   const last = CAREER.resultsByRound[round - 1];
@@ -855,6 +945,11 @@ function openDetail(id) {
   document.getElementById("detailIcon").textContent = subpos === "GOL" ? "🧤" : "⚽";
   document.getElementById("detailName").textContent = p.name;
   document.getElementById("detailSub").textContent = `${groupFull} · ${p.age} anos · ${p.origin === "principal" ? "Elenco principal" : "Categoria de base"}${p.real ? "" : " (gerado)"}`;
+  // FASE 2 (b) — promover um jogador de base soma o salário dele na
+  // folha do elenco PRINCIPAL (ver wageBillOf) — bloqueia se estourar
+  // o teto salarial do clube (CAREER.finances.wageCap).
+  const wageAfterPromote = wageBillOf(CAREER.squad) + (p.origin === "base" ? p.wage : 0);
+  const promoteBlocked = p.origin === "base" && wageAfterPromote > CAREER.finances.wageCap;
   document.getElementById("detailBody").innerHTML = `
     <div class="ct-kpis" style="margin-bottom:12px;">
       <div class="ct-kpi"><div class="v">${p.overall}</div><div class="l">Geral</div></div>
@@ -863,13 +958,17 @@ function openDetail(id) {
       <div class="ct-kpi"><div class="v">${p.phys}</div><div class="l">Físico</div></div>
     </div>
     <p class="ct-sub">Condição: ${Math.round(p.condition)}% · Jogos: ${p.apps || 0} · Gols na carreira: ${p.goalsCareer || 0} · Cartões amarelos (ciclo atual): ${p.yellowCards || 0}</p>
+    <p class="ct-sub">Salário: ${fmtBRL(p.wage)}/mês · Contrato até: ${p.contractUntil} · Valor de mercado: ${fmtBRL(p.value)}</p>
     <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;">
       ${inStarters ? `<button class="ct-btn small" data-act="removeStarter">Tirar do time titular</button>` : ""}
       ${!inStarters && inBench ? `<button class="ct-btn small" data-act="removeBench">Tirar do banco</button>` : ""}
       ${!inStarters && !inBench && p.status === "ok" ? `<button class="ct-btn small" data-act="addBench" ${CAREER.lineup.bench.length >= MAX_BENCH ? "disabled" : ""}>Colocar no banco</button>` : ""}
-      ${p.origin === "base" ? `<button class="ct-btn small primary" data-act="promote">Promover ao elenco principal</button>` : `<button class="ct-btn small" data-act="demote">Enviar pra base</button>`}
+      ${p.origin === "base"
+        ? `<button class="ct-btn small primary" data-act="promote" ${promoteBlocked ? "disabled" : ""} ${promoteBlocked ? `title="Estouraria o teto salarial (${fmtBRL(CAREER.finances.wageCap)}) — libere espaço dispensando ou enviando alguém pra base antes."` : ""}>Promover ao elenco principal</button>`
+        : `<button class="ct-btn small" data-act="demote">Enviar pra base</button>`}
       <button class="ct-btn small danger" data-act="release">Dispensar</button>
-    </div>`;
+    </div>
+    ${promoteBlocked ? `<p class="ct-sub" style="color:var(--brd-red); margin-top:8px;">⚠️ Promover esse jogador levaria a folha salarial a ${fmtBRL(wageAfterPromote)}, acima do teto de ${fmtBRL(CAREER.finances.wageCap)}.</p>` : ""}`;
   document.getElementById("detailBody").querySelectorAll("[data-act]").forEach((btn) => {
     btn.addEventListener("click", () => handlePlayerAction(p.id, btn.dataset.act));
   });
@@ -885,6 +984,13 @@ function handlePlayerAction(id, act) {
   } else if (act === "addBench") {
     if (CAREER.lineup.bench.length < MAX_BENCH) CAREER.lineup.bench.push(id);
   } else if (act === "promote") {
+    // FASE 2 (b) — mesmo teto salarial checado em openDetail (que já
+    // desabilita o botão) — reforçado aqui pro caso de handlePlayerAction
+    // ser chamado de algum outro lugar no futuro sem passar por lá.
+    if (wageBillOf(CAREER.squad) + p.wage > CAREER.finances.wageCap) {
+      toast(`Promover esse jogador estouraria o teto salarial (${fmtBRL(CAREER.finances.wageCap)}).`);
+      return;
+    }
     p.origin = "principal";
   } else if (act === "demote") {
     p.origin = "base";
@@ -1185,6 +1291,12 @@ function showRoundResultsModal(summary) {
   }).join("");
   document.getElementById("roundResultsChanges").textContent = (summary.lineupChanges && summary.lineupChanges.length)
     ? `Mudanças no time pra próxima rodada: ${summary.lineupChanges.join("; ")}.`
+    : "";
+  // FASE 2 (b) — folha salarial paga nessa rodada (ver simulateRound)
+  // e caixa restante, pra dar pra acompanhar o orçamento sem precisar
+  // ir até a Central toda vez.
+  document.getElementById("roundResultsFinance").textContent = summary.wagePaid
+    ? `Salários pagos: ${fmtBRL(summary.wagePaid)} · Caixa: ${fmtBRL(CAREER.finances.cash)}`
     : "";
   PENDING_ROUND_SUMMARY = null;
   document.getElementById("roundResultsOverlay").classList.add("open");

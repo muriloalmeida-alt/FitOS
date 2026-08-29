@@ -168,6 +168,13 @@
 
   .ct-cond-track{ width:60px; height:6px; border-radius:100px; background:var(--border); overflow:hidden; display:inline-block; vertical-align:middle; }
   .ct-cond-fill{ height:100%; background:var(--brd-green); }
+  /* FASE 2 (b) — barra de uso do teto salarial, card "Financeiro" da
+     Central (largura cheia, diferente de .ct-cond-track que é pra
+     dentro de célula de tabela). Vira vermelha perto do limite. */
+  .ct-wagecap-track{ width:100%; height:8px; border-radius:100px; background:var(--border); overflow:hidden; }
+  .ct-wagecap-fill{ display:block; height:100%; background:var(--brd-blue); transition:width .3s; }
+  .ct-wagecap-fill.warn{ background:#D97706; }
+  .ct-wagecap-fill.over{ background:var(--brd-red); }
 
   /* Nome do jogador (Elenco/Banco/picker) — pedido do usuário: nome
      abreviado (ver abbreviateName em carreira.js, ex.: "K. Viveiros")
@@ -309,6 +316,14 @@
         <div class="ct-card">
           <h2>Situação do elenco</h2>
           <div class="ct-kpis" id="squadKpis"></div>
+        </div>
+        <!-- FASE 2 (b) — pedido do usuário: contrato/salário/valor com
+             orçamento real (ver CAREER.finances em carreira.js). -->
+        <div class="ct-card">
+          <h2>Financeiro</h2>
+          <div class="ct-kpis" id="financeKpis"></div>
+          <div class="ct-wagecap-track"><span class="ct-wagecap-fill" id="wageCapFill" style="width:0%"></span></div>
+          <p class="ct-sub" id="wageCapLabel" style="margin-top:6px;"></p>
         </div>
         <div class="ct-card" id="lastResultCard" style="display:none;">
           <h2>Resultado da última rodada</h2>
@@ -466,6 +481,7 @@
     <div class="ct-modal-body">
       <div id="roundResultsList"></div>
       <div class="ct-sub" id="roundResultsChanges" style="margin-top:10px;"></div>
+      <div class="ct-sub" id="roundResultsFinance"></div>
       <button class="ct-btn primary full" id="btnRoundResultsContinue" style="margin-top:14px;">Ver tabela atualizada</button>
     </div>
   </div>
