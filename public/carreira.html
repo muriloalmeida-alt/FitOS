@@ -335,10 +335,14 @@
           <p class="ct-sub" id="lineupWarning"></p>
           <div style="text-align:center;">
             <button class="ct-btn accent" id="btnSimulate">▶ Simular rodada</button>
+            <!-- FASE 3 (c) — pedido do usuário: seguir jogando ano após
+                 ano (multitemporadas) — só aparece quando a temporada
+                 termina, ver renderCentral/advanceSeason. -->
+            <button class="ct-btn accent hidden" id="btnAdvanceSeason">🏆 Avançar para a próxima temporada</button>
           </div>
         </div>
         <div class="ct-card">
-          <h2>Situação do elenco</h2>
+          <h2>Situação do elenco <span class="ct-round-inline" id="seasonYearLabel"></span></h2>
           <div class="ct-kpis" id="squadKpis"></div>
         </div>
         <!-- FASE 2 (b) — pedido do usuário: contrato/salário/valor com
@@ -550,6 +554,30 @@
       <div class="ct-sub" id="roundResultsFinance"></div>
       <div class="ct-sub" id="roundResultsOffer" style="color:var(--brd-blue); font-weight:700;"></div>
       <button class="ct-btn primary full" id="btnRoundResultsContinue" style="margin-top:14px;">Ver tabela atualizada</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= Modal: nova temporada (Fase 3c) =================
+     Mostrado ao clicar em "Avançar para a próxima temporada" (Central,
+     só aparece com a temporada anterior encerrada) — resume o que
+     mudou (ver advanceSeason em carreira.js): quem saiu por fim de
+     contrato, quantos novos chegaram na base/principal, novo teto
+     salarial. "Começar a temporada" fecha e recarrega tudo já com a
+     Rodada 1 da temporada nova. -->
+<div class="ct-modal-overlay" id="seasonOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header">
+      <span class="ct-modal-icon">🏆</span>
+      <div class="ct-modal-header-text">
+        <h3 id="seasonModalTitle">Nova temporada!</h3>
+        <div class="ct-modal-sub" id="seasonModalSub"></div>
+      </div>
+    </div>
+    <div class="ct-modal-body">
+      <p class="ct-sub" id="seasonSummaryText"></p>
+      <div id="seasonDepartures"></div>
+      <button class="ct-btn primary full" id="btnSeasonContinue" style="margin-top:14px;">Começar a temporada</button>
     </div>
   </div>
 </div>

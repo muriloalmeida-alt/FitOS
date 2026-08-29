@@ -528,6 +528,89 @@ function computeTicketRevenue(club) {
   return { capacity, attendance, pct, price, revenue };
 }
 
+/* ---------- FASE 3 (c) — multitemporadas ----------
+   Pedido do usuário: ao encerrar a temporada, seguir jogando ano após
+   ano — novo orçamento, elenco envelhece, contrato vence, base
+   renova. TODOS os 20 elencos envelhecem juntos (decisão do usuário) —
+   não só o seu, ver renewLeagueSquad pros outros 19.
+   CAREER.seasonYear é o "ano da carreira" (começa em LIVE_SEASON, a
+   temporada real que os dados vieram) — contractUntil dos jogadores é
+   comparado contra ele, não contra LIVE_SEASON (que é fixo, a
+   temporada real da API, e não teria por que mudar só porque a
+   carreira avançou um ano). */
+const MAX_SEASON_HISTORY = 15;
+// Elenco de um time CPU: envelhece, quem venceu contrato sai, repõe
+// até o mínimo jogável com "contratações" novas (mesmo gerador
+// profissional adulto de sempre — CPU não tem categoria de base
+// própria, ver Fase 2a).
+function renewLeagueSquad(club, squad) {
+  squad.forEach((p) => { p.age += 1; });
+  const kept = squad.filter((p) => p.contractUntil >= CAREER.seasonYear);
+  const rng = seededRngFromKey(`renew-league:${club.id}:${CAREER.seasonYear}`);
+  const missing = Math.max(0, MIN_LEAGUE_SQUAD - kept.length);
+  const fresh = Array.from({ length: missing }, (_, i) => buildGeneratedProPlayer(club, i, rng));
+  return [...kept, ...fresh];
+}
+// Elenco do SEU clube: envelhece, quem venceu contrato sai de graça
+// (limpa da escalação também), repõe a base até 16 com jovens novos
+// (mesmo gerador de sempre, ver buildBasePlayer) e o principal até o
+// mínimo jogável se caiu abaixo por causa das saídas.
+function renewHumanSquad() {
+  CAREER.squad.forEach((p) => { p.age += 1; });
+  const leavingNames = [];
+  CAREER.squad = CAREER.squad.filter((p) => {
+    if (p.contractUntil < CAREER.seasonYear) { leavingNames.push(p.name); return false; }
+    return true;
+  });
+  const remainingIds = new Set(CAREER.squad.map((p) => p.id));
+  CAREER.lineup.starters = CAREER.lineup.starters.map((id) => (id && remainingIds.has(id) ? id : null));
+  CAREER.lineup.bench = CAREER.lineup.bench.filter((id) => remainingIds.has(id));
+
+  const club = teamById(CAREER.clubId);
+  const rng = seededRngFromKey(`renew-human:${CAREER.clubId}:${CAREER.seasonYear}`);
+  const baseCount = CAREER.squad.filter((p) => p.origin === "base").length;
+  const newBase = Array.from({ length: Math.max(0, 16 - baseCount) }, (_, i) => buildBasePlayer(club, i, rng));
+  const principalCount = CAREER.squad.filter((p) => p.origin === "principal").length;
+  const newPrincipal = Array.from({ length: Math.max(0, MIN_PRINCIPAL - principalCount) }, (_, i) => buildGeneratedProPlayer(club, i, rng));
+  CAREER.squad.push(...newBase, ...newPrincipal);
+  return { leavingNames, newBaseCount: newBase.length, newPrincipalCount: newPrincipal.length };
+}
+// Só pode ser chamada com a temporada realmente encerrada (round > 38,
+// ver renderCentral) — devolve o resumo pro modal de nova temporada
+// (ver showSeasonModal).
+function advanceSeason() {
+  if (CAREER.currentRound <= 38) return null;
+  const finishedYear = CAREER.seasonYear;
+  const finishedPos = myLeaguePosition();
+  const finishedPts = (CAREER.standings[CAREER.clubId] || {}).pts || 0;
+  CAREER.seasonHistory = CAREER.seasonHistory || [];
+  CAREER.seasonHistory.unshift({ year: finishedYear, position: finishedPos, points: finishedPts });
+  if (CAREER.seasonHistory.length > MAX_SEASON_HISTORY) CAREER.seasonHistory.length = MAX_SEASON_HISTORY;
+
+  CAREER.seasonYear += 1;
+  const humanRenewal = renewHumanSquad();
+  Object.keys(CAREER.leagueSquads).forEach((clubId) => {
+    CAREER.leagueSquads[clubId] = renewLeagueSquad(teamById(clubId), CAREER.leagueSquads[clubId]);
+  });
+
+  // "Novo orçamento" (pedido do usuário) — teto recalculado pelo
+  // elenco renovado; caixa NÃO reseta, transfere pro ano que vem
+  // (também pedido do usuário: "com transferência para o próximo ano").
+  CAREER.finances.wageCap = Math.round(wageBillOf(CAREER.squad) * 1.35 / 1000) * 1000;
+
+  CAREER.schedule = generateAllRounds(LEAGUE_TEAMS.map((t) => t.id)); // global de js/data.js
+  const standings = {};
+  LEAGUE_TEAMS.forEach((t) => { standings[t.id] = { id: t.id, j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 }; });
+  CAREER.standings = standings;
+  CAREER.currentRound = 1;
+  CAREER.resultsByRound = {};
+  CAREER.recentForm = [];
+  CAREER.teamStats = { assists: 0, yellow: 0, red: 0 }; // estatísticas da Estatísticas são "da temporada", zeram junto com a tabela
+  pushTransferLog(`Início da Temporada ${CAREER.seasonYear}.`, 1);
+
+  return { finishedYear, finishedPos, newYear: CAREER.seasonYear, humanRenewal };
+}
+
 /* ---------- FASE 2 (a) — elenco individual pra TODOS os times ----------
    Pedido do usuário: "estatísticas reais de todos os times" (não só o
    seu). Antes disso, os outros 19 clubes eram só um número de força
@@ -759,6 +842,10 @@ async function startCareer(clubId) {
       // FASE 3 (b) — forma recente pro público do estádio (ver
       // pushRecentForm/currentAttendancePct).
       recentForm: [],
+      // FASE 3 (c) — multitemporadas (ver advanceSeason). seasonYear
+      // começa em LIVE_SEASON (a temporada real dos dados) e só sobe
+      // quando VOCÊ avança de temporada — LIVE_SEASON em si é fixo.
+      seasonYear: LIVE_SEASON, seasonHistory: [],
     };
     await persistCareer();
     showGameScreen();
@@ -1020,9 +1107,15 @@ function renderCentral() {
   const btn = document.getElementById("btnSimulate");
   const round = CAREER.currentRound;
   if (round > 38) {
-    box.innerHTML = `<p class="ct-empty">Temporada encerrada! Confira sua posição final na Tabela, ou reinicie pra jogar outra carreira.</p>`;
-    btn.disabled = true;
+    // FASE 3 (c) — pedido do usuário: multitemporadas — em vez de só
+    // "acabou, reinicie", dá pra seguir jogando ano após ano (ver
+    // advanceSeason). "Simular rodada" some, entra o botão de avançar.
+    box.innerHTML = `<p class="ct-empty">Temporada ${CAREER.seasonYear} encerrada! Confira sua posição final na Tabela, ou avance pra próxima temporada.</p>`;
+    btn.classList.add("hidden");
+    document.getElementById("btnAdvanceSeason").classList.remove("hidden");
   } else {
+    btn.classList.remove("hidden");
+    document.getElementById("btnAdvanceSeason").classList.add("hidden");
     const fx = (CAREER.schedule[round] || []).find((m) => String(m.home) === String(CAREER.clubId) || String(m.away) === String(CAREER.clubId));
     if (fx) {
       const home = teamById(fx.home), away = teamById(fx.away);
@@ -1046,6 +1139,9 @@ function renderCentral() {
   document.getElementById("squadKpis").innerHTML = [
     ["Elenco", squad.length], ["Disponíveis", ok], ["Contundidos", hurt], ["Suspensos", susp],
   ].map(([l, v]) => kpiHTML(l, v)).join("");
+  // FASE 3 (c) — ano da carreira sempre visível (não só no modal de
+  // transição), mesmo padrão do "(X / 38)" ao lado de "Próximo jogo".
+  document.getElementById("seasonYearLabel").textContent = `(Temporada ${CAREER.seasonYear})`;
 
   // FASE 2 (b) — card "Financeiro": caixa e uso do teto salarial (só
   // elenco PRINCIPAL conta pro teto, ver wageBillOf).
@@ -1697,6 +1793,24 @@ function showRoundResultsModal(summary) {
   PENDING_ROUND_SUMMARY = null;
   document.getElementById("roundResultsOverlay").classList.add("open");
 }
+// FASE 3 (c) — modal de resumo ao avançar de temporada (ver
+// advanceSeason). Sem botão X de propósito — só "Começar a temporada"
+// mesmo, igual às outras 2 modais do fluxo de "Simular rodada".
+function showSeasonModal(result) {
+  const { finishedYear, finishedPos, newYear, humanRenewal } = result;
+  document.getElementById("seasonModalSub").textContent = `Temporada ${newYear}`;
+  const leaving = humanRenewal.leavingNames;
+  const parts = [
+    `Temporada ${finishedYear} terminou em ${finishedPos}º lugar.`,
+    `Novo teto salarial: ${fmtBRL(CAREER.finances.wageCap)} · Caixa: ${fmtBRL(CAREER.finances.cash)}.`,
+    `${humanRenewal.newBaseCount} jovem(ns) novo(s) na base` + (humanRenewal.newPrincipalCount ? ` e ${humanRenewal.newPrincipalCount} contratação(ões) no principal` : "") + ".",
+  ];
+  document.getElementById("seasonSummaryText").textContent = parts.join(" ");
+  document.getElementById("seasonDepartures").innerHTML = leaving.length
+    ? `<p class="ct-sub"><b>Saíram por fim de contrato:</b> ${leaving.map((n) => escapeHtml(abbreviateName(n))).join(", ")}.</p>`
+    : "";
+  document.getElementById("seasonOverlay").classList.add("open");
+}
 
 /* ---------- Listeners estáticos (uma vez, no boot) ---------- */
 function populateSelect(id, options) {
@@ -1795,6 +1909,20 @@ function wireStaticListeners() {
   document.getElementById("btnAcceptOffer").addEventListener("click", acceptOffer);
   document.getElementById("btnDeclineOffer").addEventListener("click", declineOffer);
   document.getElementById("btnAskBoard").addEventListener("click", askBoard);
+
+  // FASE 3 (c) — multitemporadas: avança a temporada (ver
+  // advanceSeason) e mostra o resumo antes de liberar a Rodada 1 nova.
+  document.getElementById("btnAdvanceSeason").addEventListener("click", () => {
+    if (!confirm(`Avançar pra Temporada ${CAREER.seasonYear + 1}? O elenco envelhece, contratos vencidos saem e a base renova.`)) return;
+    const result = advanceSeason();
+    if (!result) return;
+    persistCareer();
+    showSeasonModal(result);
+  });
+  document.getElementById("btnSeasonContinue").addEventListener("click", () => {
+    document.getElementById("seasonOverlay").classList.remove("open");
+    renderAll();
+  });
 
   document.getElementById("pickerClose").addEventListener("click", () => document.getElementById("pickerOverlay").classList.remove("open"));
   document.getElementById("pickerOverlay").addEventListener("click", (e) => { if (e.target.id === "pickerOverlay") e.currentTarget.classList.remove("open"); });
