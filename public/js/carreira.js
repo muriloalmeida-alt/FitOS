@@ -481,6 +481,53 @@ function askBoard() {
   renderCentral();
 }
 
+/* ---------- FASE 3 (b) — renda de ingressos ----------
+   Pedido do usuário: todo jogo em CASA rende dinheiro pela venda de
+   ingressos, e o estádio enche mais numa fase boa e menos numa ruim.
+   Sem dado de capacidade de estádio vindo da API (nenhum provider hoje
+   expõe isso pro front, ver adapter.js/providers/) — capacidade e
+   preço médio do ingresso são estimados a partir da força do clube
+   (mesmo princípio já usado pro orçamento inicial, ver initialFinances),
+   com seed fixa por clube (seededRngFromKey) pra não mudar toda hora.
+   "Fase boa/ruim" = média de pontos dos últimos 5 jogos SEUS (ver
+   CAREER.recentForm, atualizado a cada rodada em simulateRound) — só
+   pontos, não posição na tabela (um time no meio da tabela numa
+   sequência de vitórias enche o estádio do mesmo jeito). */
+function stadiumCapacityFor(club) {
+  const rng = seededRngFromKey(`stadium:${club.id}`);
+  const base = 15000 + rng() * 20000; // 15 a 35 mil de base
+  const bonus = clamp((club.atk || 1.3) - 1, 0, 1) * 45000; // clube forte chega a +45 mil
+  return Math.round((base + bonus) / 1000) * 1000;
+}
+function avgTicketPriceFor(club) {
+  return Math.round(25 + clamp((club.atk || 1.3) - 1, 0, 1) * 65);
+}
+function currentAttendancePct() {
+  const form = CAREER.recentForm || [];
+  if (!form.length) return 0.6; // sem histórico ainda (início de carreira) — nem cheio nem vazio
+  const avgPts = form.reduce((s, x) => s + x, 0) / form.length; // 0 (só derrotas) a 3 (só vitórias)
+  return clamp(0.35 + (avgPts / 3) * 0.6, 0.25, 0.98);
+}
+// Atualiza a sequência de forma (últimos 5 jogos, só pontos ganhos)
+// depois de cada rodada — usada tanto pra público do estádio quanto,
+// no futuro, pra qualquer outra coisa que dependa de "fase boa/ruim".
+const RECENT_FORM_MAX = 5;
+function pushRecentForm(pts) {
+  CAREER.recentForm = CAREER.recentForm || [];
+  CAREER.recentForm.push(pts);
+  if (CAREER.recentForm.length > RECENT_FORM_MAX) CAREER.recentForm.shift();
+}
+// Renda de ingressos do jogo em CASA — devolve null se o clube jogou
+// fora ou teve folga (sem receita nesses casos).
+function computeTicketRevenue(club) {
+  const capacity = stadiumCapacityFor(club);
+  const pct = currentAttendancePct();
+  const price = avgTicketPriceFor(club);
+  const attendance = Math.round(capacity * pct);
+  const revenue = attendance * price;
+  return { capacity, attendance, pct, price, revenue };
+}
+
 /* ---------- FASE 2 (a) — elenco individual pra TODOS os times ----------
    Pedido do usuário: "estatísticas reais de todos os times" (não só o
    seu). Antes disso, os outros 19 clubes eram só um número de força
@@ -709,6 +756,9 @@ async function startCareer(clubId) {
       transferLog: [], pendingOffer: null,
       // FASE 3 (a) — diretoria (ver askBoard/evaluateBoardRequest).
       lastBoardRequestRound: null, boardDecision: "",
+      // FASE 3 (b) — forma recente pro público do estádio (ver
+      // pushRecentForm/currentAttendancePct).
+      recentForm: [],
     };
     await persistCareer();
     showGameScreen();
@@ -909,7 +959,24 @@ function simulateRound() {
     applyResultToStandings(result);
     (CAREER.resultsByRound[round] = CAREER.resultsByRound[round] || []).push(result);
     allResults.push(result);
-    if (isHome || isAway) humanMatch = { ...result, isHome };
+    // FASE 3 (b) — renda de ingressos quando joga em CASA (fora de casa
+    // não rende, só o mandante fatura o dia do jogo) — calculada ANTES
+    // de atualizar a forma recente com o resultado desse jogo, porque o
+    // público que compareceu reflete a fase de ANTES de entrar em
+    // campo, não o resultado que ainda vai sair (ingresso se compra
+    // antes do apito, não depois).
+    let ticketRevenue = null;
+    if (isHome) {
+      ticketRevenue = computeTicketRevenue(home);
+      CAREER.finances.cash += ticketRevenue.revenue;
+    }
+    if (isHome || isAway) humanMatch = { ...result, isHome, ticketRevenue };
+    // Forma recente (últimos 5 jogos SEUS, só pontos — ver
+    // currentAttendancePct) atualiza DEPOIS, pro próximo jogo em casa.
+    if (isHome || isAway) {
+      const myGoals = isHome ? gh : ga, oppGoals = isHome ? ga : gh;
+      pushRecentForm(myGoals > oppGoals ? 3 : myGoals === oppGoals ? 1 : 0);
+    }
   });
   // BUG CORRIGIDO: resultsByRound guardava o placar (e os eventos) de
   // TODOS os 380 jogos da temporada pra sempre, mas só a rodada
@@ -1581,7 +1648,7 @@ function switchToPanel(name) {
 // pula direto pro modal de resultados, não tem jogo pra detalhar).
 function showMatchDetailModal(summary) {
   if (!summary.humanMatch) { showRoundResultsModal(summary); return; }
-  const { home, away, gh, ga, events } = summary.humanMatch;
+  const { home, away, gh, ga, events, ticketRevenue } = summary.humanMatch;
   const homeTeam = teamById(home), awayTeam = teamById(away);
   document.getElementById("matchDetailRound").textContent = summary.round;
   document.getElementById("matchDetailScore").innerHTML = `
@@ -1590,6 +1657,12 @@ function showMatchDetailModal(summary) {
     <div class="side">${crestImg(awayTeam)}<span class="n">${escapeHtml(awayTeam.name)}</span></div>`;
   document.getElementById("matchDetailEvents").innerHTML = matchEventsSummaryHTML(events)
     || `<p class="ct-empty">Nenhum gol, cartão ou assistência nesse jogo.</p>`;
+  // FASE 3 (b) — pedido do usuário: renda de ingressos em jogo em casa
+  // (público que compareceu vs. capacidade do estádio, refletindo a
+  // fase recente do time — ver currentAttendancePct).
+  document.getElementById("matchDetailTickets").textContent = ticketRevenue
+    ? `🎟️ Público: ${ticketRevenue.attendance.toLocaleString("pt-BR")} / ${ticketRevenue.capacity.toLocaleString("pt-BR")} (${Math.round(ticketRevenue.pct * 100)}%) · Renda: ${fmtBRL(ticketRevenue.revenue)}`
+    : "";
   PENDING_ROUND_SUMMARY = summary;
   document.getElementById("matchDetailOverlay").classList.add("open");
 }
