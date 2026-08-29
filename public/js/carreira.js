@@ -421,6 +421,66 @@ function initialFinances(squad) {
   return { cash, wageCap };
 }
 
+/* ---------- FASE 3 (a) — diretoria (pedido de orçamento) ----------
+   Pedido do usuário: treinador pode pedir mais dinheiro quando o
+   orçamento aperta, e a diretoria avalia risco de rebaixamento ou
+   disputa de título antes de responder — não é só "sim sempre".
+   Zona de rebaixamento = últimos 4 do Brasileirão (20 times); disputa
+   de título = G4. Fora dessas 2 situações, ainda existe uma chance
+   pequena de aprovação (diretoria sendo generosa sem motivo forte),
+   mas a maioria dos pedidos "no meio da tabela" é negada — do
+   contrário o botão seria só um "dinheiro grátis" sem risco nenhum de
+   recusa, o que não seria "avaliar risco" de verdade.
+   BOARD_REQUEST_COOLDOWN evita pedir toda rodada — precisa esperar
+   depois de uma resposta (aprovada ou negada). */
+const BOARD_REQUEST_COOLDOWN = 4;
+function evaluateBoardRequest() {
+  const pos = myLeaguePosition();
+  const total = Object.keys(CAREER.standings).length || 20;
+  const relegationZone = pos > total - 4;
+  const titleRace = pos > 0 && pos <= 4;
+  let approved, boost, reason;
+  if (relegationZone) {
+    approved = true;
+    boost = 0.4 + Math.random() * 0.3;
+    reason = `A diretoria, preocupada com o risco de rebaixamento (${pos}º lugar), liberou recursos extras pro elenco.`;
+  } else if (titleRace) {
+    approved = true;
+    boost = 0.3 + Math.random() * 0.3;
+    reason = `Animada com a briga pelo título (${pos}º lugar), a diretoria decidiu investir mais no elenco.`;
+  } else {
+    approved = Math.random() < 0.15;
+    boost = 0.12;
+    reason = approved
+      ? `Mesmo sem urgência (${pos}º lugar, meio de tabela), a diretoria aprovou um aporte pontual.`
+      : `A diretoria negou o pedido — ${pos}º lugar não justifica risco de rebaixamento nem disputa de título no momento.`;
+  }
+  const raise = approved ? Math.round(CAREER.finances.wageCap * boost / 1000) * 1000 : 0;
+  const cashBoost = approved ? raise * 3 : 0;
+  return { approved, raise, cashBoost, reason, pos };
+}
+function askBoard() {
+  const last = CAREER.lastBoardRequestRound;
+  if (last != null && CAREER.currentRound - last < BOARD_REQUEST_COOLDOWN) {
+    const wait = BOARD_REQUEST_COOLDOWN - (CAREER.currentRound - last);
+    toast(`A diretoria já respondeu recentemente — espere mais ${wait} rodada${wait > 1 ? "s" : ""}.`);
+    return;
+  }
+  const result = evaluateBoardRequest();
+  CAREER.lastBoardRequestRound = CAREER.currentRound;
+  if (result.approved) {
+    CAREER.finances.wageCap += result.raise;
+    CAREER.finances.cash += result.cashBoost;
+    CAREER.boardDecision = `✅ ${result.reason} Teto salarial +${fmtBRLShort(result.raise)}, caixa +${fmtBRLShort(result.cashBoost)}.`;
+    toast("A diretoria aprovou o pedido!");
+  } else {
+    CAREER.boardDecision = `❌ ${result.reason}`;
+    toast("A diretoria negou o pedido.");
+  }
+  persistCareer();
+  renderCentral();
+}
+
 /* ---------- FASE 2 (a) — elenco individual pra TODOS os times ----------
    Pedido do usuário: "estatísticas reais de todos os times" (não só o
    seu). Antes disso, os outros 19 clubes eram só um número de força
@@ -647,6 +707,8 @@ async function startCareer(clubId) {
       // FASE 2 (c) — mercado de transferências (ver simulateAiTransfers/
       // maybeGenerateOffer/pushTransferLog).
       transferLog: [], pendingOffer: null,
+      // FASE 3 (a) — diretoria (ver askBoard/evaluateBoardRequest).
+      lastBoardRequestRound: null, boardDecision: "",
     };
     await persistCareer();
     showGameScreen();
@@ -786,6 +848,17 @@ function applyConditionRecovery(starterIds) {
     if (!set.has(p.id)) p.condition = clamp((p.condition == null ? 100 : p.condition) + (10 + Math.random() * 12) + bonus, 0, 100);
   });
 }
+// Classificação ordenada (mesmo critério de desempate de sempre:
+// pontos, vitórias, saldo, gols pró) — extraído da Estatísticas
+// (renderEstatisticas) pra reaproveitar na diretoria (Fase 3a, ver
+// evaluateBoardRequest) sem duplicar o critério de ordenação.
+function sortedStandings() {
+  return Object.values(CAREER.standings).slice()
+    .sort((a, b) => (b.pts - a.pts) || (b.v - a.v) || (b.sg - a.sg) || (b.gp - a.gp));
+}
+function myLeaguePosition() {
+  return sortedStandings().findIndex((r) => String(r.id) === String(CAREER.clubId)) + 1;
+}
 function applyResultToStandings(r) {
   const H = CAREER.standings[r.home], A = CAREER.standings[r.away];
   if (!H || !A) return;
@@ -921,6 +994,15 @@ function renderCentral() {
   wageFill.classList.toggle("over", wagePct >= 100);
   document.getElementById("wageCapLabel").textContent =
     `Folha salarial: ${fmtBRL(wageBill)} de ${fmtBRL(wageCap)} (${wagePct}%)`;
+  // FASE 3 (a) — botão de pedir orçamento fica desabilitado durante o
+  // cooldown (ver askBoard/BOARD_REQUEST_COOLDOWN); última decisão da
+  // diretoria fica visível até o próximo pedido.
+  const lastBoardRound = CAREER.lastBoardRequestRound;
+  const cooldownLeft = lastBoardRound != null ? BOARD_REQUEST_COOLDOWN - (CAREER.currentRound - lastBoardRound) : 0;
+  const btnBoard = document.getElementById("btnAskBoard");
+  btnBoard.disabled = cooldownLeft > 0;
+  btnBoard.title = cooldownLeft > 0 ? `A diretoria responde de novo em ${cooldownLeft} rodada(s).` : "";
+  document.getElementById("boardDecisionText").textContent = CAREER.boardDecision || "";
 
   const lastCard = document.getElementById("lastResultCard");
   const last = CAREER.resultsByRound[round - 1];
@@ -1266,8 +1348,8 @@ function renderEstatisticas() {
     ["Melhor defesa", bestDef ? `${teamById(bestDef.id).short || teamById(bestDef.id).name} (${bestDef.gc})` : "—"],
   ].map(([l, v]) => kpiHTML(l, v)).join("");
 
-  const sorted = rows.slice().sort((a, b) => (b.pts - a.pts) || (b.v - a.v) || (b.sg - a.sg) || (b.gp - a.gp));
-  const myPos = sorted.findIndex((r) => String(r.id) === String(CAREER.clubId)) + 1;
+  const sorted = sortedStandings();
+  const myPos = myLeaguePosition();
   const myRow = CAREER.standings[CAREER.clubId] || { gp: 0 };
   const stats = CAREER.teamStats || { assists: 0, yellow: 0, red: 0 };
   document.getElementById("teamStatsKpis").innerHTML = [
@@ -1639,6 +1721,7 @@ function wireStaticListeners() {
   document.getElementById("marketPosFilter").addEventListener("change", renderMercado);
   document.getElementById("btnAcceptOffer").addEventListener("click", acceptOffer);
   document.getElementById("btnDeclineOffer").addEventListener("click", declineOffer);
+  document.getElementById("btnAskBoard").addEventListener("click", askBoard);
 
   document.getElementById("pickerClose").addEventListener("click", () => document.getElementById("pickerOverlay").classList.remove("open"));
   document.getElementById("pickerOverlay").addEventListener("click", (e) => { if (e.target.id === "pickerOverlay") e.currentTarget.classList.remove("open"); });
