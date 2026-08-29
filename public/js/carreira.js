@@ -432,7 +432,17 @@ async function startCareer(clubId) {
     LEAGUE_TEAMS.forEach((t) => { standings[t.id] = { id: t.id, j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 }; });
     CAREER = {
       version: 1,
-      clubId: club.id, clubName: club.name, clubShort: club.short || club.name.slice(0, 3).toUpperCase(),
+      // BUG CORRIGIDO ("erro 400 — Formato de save inválido." toda vez
+      // que tentava salvar, só em produção com dados reais, nunca no
+      // Modo Exemplo): careerStore.js exige typeof clubId === "string"
+      // (server/src/careerStore.js, isValidCareerShape). Com dados
+      // reais (API-Sports/Sportmonks), club.id vem NÚMERO puro da API —
+      // no Modo Exemplo os ids já são string ("fla", "pal"...), por
+      // isso nunca reproduzia testando aqui. String() garante o mesmo
+      // formato nos dois casos (o resto do código já compara clubId com
+      // String() dos dois lados em todo lugar, então não muda nada além
+      // de deixar de quebrar o save).
+      clubId: String(club.id), clubName: club.name, clubShort: club.short || club.name.slice(0, 3).toUpperCase(),
       clubLogo: club.logo || null, clubColors: { c1: club.c1, c2: club.c2, c3: club.c3 },
       liveMode: LIVE_MODE, createdAt: Date.now(), updatedAt: Date.now(),
       squad, lineup, trainingFocus: "equilibrado",
