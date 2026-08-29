@@ -396,7 +396,13 @@ async function persistCareer() {
     } else if (err.status === 413) {
       toast("O save dessa carreira ficou grande demais — reinicie a carreira pra continuar salvando.");
     } else {
-      toast("Não deu pra salvar o progresso agora — tente de novo em instantes.");
+      // Código/motivo aparecem no toast de propósito (mesmo sendo mais
+      // "técnico" do que o ideal pro usuário final): sem acesso aos
+      // logs do servidor daqui, é a forma mais rápida de descobrir a
+      // causa real de um erro que não é nem sessão expirada nem save
+      // grande demais — quem estiver vendo isso pode repassar o texto.
+      const detail = err.status ? `erro ${err.status}${err.message ? " — " + err.message : ""}` : (err.message || "sem conexão com o servidor");
+      toast(`Não deu pra salvar o progresso agora (${detail}) — tente de novo em instantes.`);
     }
     return false;
   }
