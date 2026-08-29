@@ -751,11 +751,16 @@ function renderPitch() {
   });
 }
 function renderBench() {
-  const html = CAREER.lineup.bench.map((id) => {
-    const p = CAREER.squad.find((x) => x.id === id);
-    if (!p) return "";
-    return `<div class="ct-bench-slot" data-id="${id}"><b>${escapeHtml(p.name)}</b><br>OVR ${p.overall}</div>`;
-  }).join("");
+  // Mesma ordenação por posição do Elenco (ver squadSortKey) — só pra
+  // exibição, não muda a ordem guardada em CAREER.lineup.bench (não
+  // faz diferença nenhuma pra troca/auto-substituição, ver
+  // autoFixLineup, que já procura por grupo em vez de depender de
+  // posição no array).
+  const benchPlayers = CAREER.lineup.bench
+    .map((id) => CAREER.squad.find((x) => x.id === id))
+    .filter(Boolean)
+    .sort((a, b) => squadSortKey(a) - squadSortKey(b));
+  const html = benchPlayers.map((p) => `<div class="ct-bench-slot" data-id="${p.id}"><b>${escapeHtml(p.name)}</b><br>${subPositionOf(p)} · OVR ${p.overall}</div>`).join("");
   const canAdd = CAREER.lineup.bench.length < 7;
   document.getElementById("benchList").innerHTML = html + (canAdd ? `<div class="ct-bench-slot" id="benchAddSlot" style="color:var(--text-2);">+ adicionar</div>` : "");
   document.getElementById("benchList").querySelectorAll(".ct-bench-slot[data-id]").forEach((el) => {
