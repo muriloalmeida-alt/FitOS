@@ -194,4 +194,4 @@ function mapOdds(response) {
   return { bookmaker: preferred.name, home: pick("Home"), draw: pick("Draw"), away: pick("Away") };
 }
 
-module.exports = { mapTeam, mapStandingRow, mapFixture, mapStatistics, mapEvents, mapSubstitutions, mapLineups, mapOdds, mapPlayerEntry, parseRoundNumber };
+module.exports = { mapTeam, mapStandingRow, mapFixture, mapStatistics, mapEvents, mapSubstitutions, mapLineups, mapOdds, mapPlayerEntry, parseRoundNumber, normalizeLogoUrl };
