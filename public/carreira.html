@@ -32,41 +32,41 @@
   @keyframes ct-spin{ to{ transform:rotate(360deg); } }
 
   /* ---------- Topbar ----------
-     AJUSTE (pedido do usuário: "ao invés da logo do BR Data no header
-     podemos usar a do clube"): a marca genérica do BR Data (+ o título
-     "Modo Técnico" grande) competia com o escudo do clube por atenção,
-     sendo que depois de escolher o clube ELE é o protagonista da tela,
-     não o app. Virou 1 linha só: seta de voltar bem discreta, escudo
-     grande (com bolha branca atrás — escudo com fundo transparente
-     ficava apagado direto no azul-marinho) e nome do clube como
-     identidade principal, "Modo Técnico" como legenda pequena embaixo.
-     Degradê igual ao das modais (mesma identidade visual do resto do
-     app). A pill da rodada saiu daqui (ver #roundPill agora do lado de
-     "Próximo jogo" na Central, pedido do usuário). */
+     AJUSTE (pedido do usuário: "isso é um jogo. Temos que ter um
+     cabeçalho mais bonito e menos poluído" — layout ditado por ele:
+     esquerda = logo BR Data, centro = "Modo Carreira", direita = menu
+     hambúrguer com Reiniciar/Sair): as duas versões anteriores (marca
+     do app OU escudo do clube, sempre com botão(ões) de ação já
+     visíveis) ainda competiam por atenção. Essa é enxuta de propósito
+     — só 3 elementos fixos, nenhuma informação do clube nem da rodada
+     aqui (foram pro card "Próximo jogo" na Central, pedido do
+     usuário). */
   .ct-topbar{
-    display:flex; align-items:center; gap:12px;
-    padding:12px 18px; background:linear-gradient(135deg, var(--brd-navy), #030d1e);
+    display:flex; align-items:center; gap:10px; position:relative;
+    padding:14px 18px; background:linear-gradient(135deg, var(--brd-navy), #030d1e);
     color:#fff; box-shadow:0 4px 14px rgba(0,0,0,.2);
   }
-  .ct-back{ color:rgba(255,255,255,.55); text-decoration:none; font-size:19px; line-height:1; flex-shrink:0; }
-  .ct-back:hover{ color:#fff; }
-  .ct-club-crest-wrap{ width:38px; height:38px; border-radius:50%; background:#fff; display:flex; align-items:center; justify-content:center; flex-shrink:0; box-shadow:0 2px 6px rgba(0,0,0,.3); }
-  .ct-club-crest-wrap img{ height:27px; width:27px; object-fit:contain; }
-  .ct-topbar-identity{ display:flex; flex-direction:column; min-width:0; flex:1; }
-  #clubName{ font-size:16px; font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .ct-topbar-subtitle{ font-size:11px; font-weight:600; color:rgba(255,255,255,.55); }
-  .ct-icon-btn{ background:rgba(255,255,255,.08); border:1px solid rgba(255,255,255,.2); color:#fff; border-radius:9px; padding:7px 13px; font-size:12px; font-weight:700; cursor:pointer; flex-shrink:0; }
-  .ct-icon-btn:hover{ background:rgba(255,255,255,.2); }
-  @media (max-width:360px){
-    .ct-topbar{ padding:10px 14px; gap:9px; }
-    .ct-club-crest-wrap{ width:32px; height:32px; }
-    .ct-club-crest-wrap img{ height:22px; width:22px; }
-    #clubName{ font-size:14px; }
-    .ct-icon-btn{ padding:6px 10px; font-size:11px; }
+  .ct-topbar-logo{ display:flex; align-items:center; flex-shrink:0; }
+  .ct-topbar-logo img{ height:24px; display:block; }
+  .ct-topbar-title{ flex:1; text-align:center; font-weight:800; font-size:15px; }
+  .ct-menu-btn{ background:none; border:none; padding:8px 4px; cursor:pointer; display:flex; flex-direction:column; gap:4px; flex-shrink:0; }
+  .ct-menu-btn span{ width:20px; height:2px; background:#fff; border-radius:2px; display:block; }
+  .ct-topbar-menu{
+    position:absolute; top:100%; right:14px; margin-top:6px; z-index:60;
+    background:var(--bg-surface); border:1px solid var(--border); border-radius:10px;
+    box-shadow:0 10px 28px rgba(0,0,0,.22); min-width:170px; padding:6px; display:none;
   }
-  /* Pill da rodada, agora ao lado do título "Próximo jogo" (fundo
-     claro do card, não mais a barra escura do topo). */
-  .ct-round-pill{ background:rgba(0,87,184,.1); color:var(--brd-blue); border-radius:100px; padding:5px 13px; font-size:11.5px; font-weight:700; flex-shrink:0; white-space:nowrap; }
+  .ct-topbar-menu.open{ display:block; }
+  .ct-topbar-menu-item{ display:block; width:100%; text-align:left; background:none; border:none; padding:10px 12px; border-radius:8px; font-size:13px; font-weight:700; color:var(--text-0); cursor:pointer; }
+  .ct-topbar-menu-item:hover{ background:var(--bg-app); }
+  .ct-topbar-menu-item.danger{ color:var(--brd-red); }
+  @media (max-width:360px){
+    .ct-topbar{ padding:12px 14px; }
+    .ct-topbar-title{ font-size:13.5px; }
+  }
+  /* Rodada, agora inline no título "Próximo jogo" (pedido do usuário:
+     "Próximo Jogo (XX / XX)") em vez de pill separada. */
+  .ct-round-inline{ font-weight:600; color:var(--text-2); font-size:13px; }
 
   /* ---------- Tabs ---------- */
   .ct-tabs{ display:flex; gap:4px; padding:8px 14px 0; background:var(--bg-app); overflow-x:auto; }
@@ -275,13 +275,15 @@
   <!-- ================= Jogo ================= -->
   <div class="hidden" id="screenGame" style="display:flex; flex-direction:column; flex:1;">
     <div class="ct-topbar">
-      <a class="ct-back" href="/" title="Voltar pro BR Data">←</a>
-      <span class="ct-club-crest-wrap"><img id="clubCrest" src="" alt=""></span>
-      <div class="ct-topbar-identity">
-        <span id="clubName">—</span>
-        <span class="ct-topbar-subtitle">⚽ Modo Técnico</span>
+      <a class="ct-topbar-logo" href="/" title="Voltar pro BR Data"><img src="img/logo.png" alt="BR Data"></a>
+      <span class="ct-topbar-title">Modo Carreira</span>
+      <button class="ct-menu-btn" id="btnTopbarMenu" aria-label="Menu" aria-expanded="false" aria-controls="topbarMenu">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="ct-topbar-menu" id="topbarMenu">
+        <button class="ct-topbar-menu-item" id="btnRestart">↺ Reiniciar</button>
+        <button class="ct-topbar-menu-item danger" id="btnLogout">⎋ Sair</button>
       </div>
-      <button class="ct-icon-btn" id="btnRestart" title="Abandonar e começar outra carreira">↺ Reiniciar</button>
     </div>
 
     <nav class="ct-tabs">
@@ -297,10 +299,7 @@
       <!-- ---------- Central ---------- -->
       <section class="ct-panel active" id="panel-central">
         <div class="ct-card">
-          <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px;">
-            <h2 style="margin:0;">Próximo jogo</h2>
-            <span class="ct-round-pill" id="roundPill">Rodada 1/38</span>
-          </div>
+          <h2>Próximo jogo <span class="ct-round-inline" id="roundPill">(1 / 38)</span></h2>
           <div class="ct-next-match" id="nextMatchBox"></div>
           <p class="ct-sub" id="lineupWarning"></p>
           <div style="text-align:center;">

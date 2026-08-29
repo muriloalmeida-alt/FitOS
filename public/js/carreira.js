@@ -672,13 +672,12 @@ function simulateRound() {
 }
 
 /* ---------- Renderização: Central ---------- */
-function renderTopbar() {
-  document.getElementById("roundPill").textContent = `Rodada ${Math.min(CAREER.currentRound, 38)}/38`;
-  document.getElementById("clubName").textContent = CAREER.clubName;
-  document.getElementById("clubCrest").src = CAREER.clubLogo || "img/logo.png";
-}
 function renderCentral() {
   refreshAvailability();
+  // Pedido do usuário: número da rodada saiu do header (agora só logo
+  // + "Modo Carreira" + menu, ver ct-topbar) e virou parte do título
+  // deste card: "Próximo jogo (X / 38)".
+  document.getElementById("roundPill").textContent = `(${Math.min(CAREER.currentRound, 38)} / 38)`;
   const box = document.getElementById("nextMatchBox");
   const btn = document.getElementById("btnSimulate");
   const round = CAREER.currentRound;
@@ -1050,7 +1049,7 @@ function renderEstatisticas() {
 
 /* ---------- Tela do jogo ---------- */
 function renderAll() {
-  renderTopbar(); renderCentral(); renderElenco(); renderEscalacao(); renderTabela(); renderEstatisticas();
+  renderCentral(); renderElenco(); renderEscalacao(); renderTabela(); renderEstatisticas();
 }
 function showGameScreen() {
   show("screenGame");
@@ -1156,12 +1155,37 @@ function wireStaticListeners() {
   });
 
   document.getElementById("btnRestart").addEventListener("click", async () => {
+    document.getElementById("topbarMenu").classList.remove("open");
     if (!CAREER) return;
     if (!confirm(`Isso vai apagar sua carreira atual no ${CAREER.clubName} e começar do zero. Continuar?`)) return;
     await fetchJSON("/api/career", { method: "DELETE" }).catch(() => {});
     CAREER = null;
     renderClubPicker();
     show("screenPicker");
+  });
+
+  // Menu hambúrguer (pedido do usuário: header enxuto, ações que
+  // ficavam soltas no header — Reiniciar — mais Sair (novo) dentro de
+  // um menu). Fecha ao clicar em qualquer item, ao clicar fora, ou de
+  // novo no próprio botão.
+  document.getElementById("btnTopbarMenu").addEventListener("click", (e) => {
+    e.stopPropagation();
+    const menu = document.getElementById("topbarMenu");
+    const willOpen = !menu.classList.contains("open");
+    menu.classList.toggle("open", willOpen);
+    document.getElementById("btnTopbarMenu").setAttribute("aria-expanded", String(willOpen));
+  });
+  document.addEventListener("click", (e) => {
+    const menu = document.getElementById("topbarMenu");
+    if (menu.classList.contains("open") && !menu.contains(e.target) && e.target.id !== "btnTopbarMenu") {
+      menu.classList.remove("open");
+      document.getElementById("btnTopbarMenu").setAttribute("aria-expanded", "false");
+    }
+  });
+  document.getElementById("btnLogout").addEventListener("click", async () => {
+    document.getElementById("topbarMenu").classList.remove("open");
+    try { await fetchJSON("/api/auth/logout", { method: "POST" }); } catch { /* segue mesmo se falhar */ }
+    location.href = "/";
   });
 
   document.getElementById("pickerClose").addEventListener("click", () => document.getElementById("pickerOverlay").classList.remove("open"));
