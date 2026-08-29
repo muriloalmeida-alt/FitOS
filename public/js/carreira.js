@@ -1977,6 +1977,45 @@ async function submitCtLogin(e) {
 // Parte do boot que só roda DEPOIS de confirmar sessão válida —
 // extraída à parte pra ser reaproveitada pelo login inline
 // (submitCtLogin acima) sem precisar recarregar a página inteira.
+// BUG CORRIGIDO ("não deu pra carregar o Modo Técnico" — relato do
+// usuário logo depois do merge da Fase 3c): quem tem uma carreira
+// ativa desde ANTES de alguma das fases 2/3 (bem provável numa
+// carreira de teste que nunca foi reiniciada ao longo de várias
+// sessões) carrega um save sem os campos novos dessas fases —
+// CAREER.finances, por exemplo, nem existia antes da Fase 2b.
+// renderCentral() faz `const { cash, wageCap } = CAREER.finances`
+// direto (sem checar undefined antes) — com um save desses, essa
+// linha lança exceção assim que a tela do jogo tenta renderizar,
+// pega no catch genérico do boot() e mostra só "não deu pra carregar",
+// sem dar nenhuma pista de qual campo faltava. Preenche todo campo que
+// alguma fase adicionou desde o save mais simples de sempre (só
+// clubId+squad+lineup+schedule+standings+currentRound), pra abrir sem
+// quebrar não importa de qual fase seja o save.
+function migrateCareerDefaults() {
+  if (!CAREER.leagueSquads) CAREER.leagueSquads = {};
+  // Jogador criado antes da Fase 2b não tem wage/value/contractUntil
+  // nenhum (esses campos só existem desde que buildRealPlayer/
+  // buildBasePlayer/buildGeneratedProPlayer passaram a chamar
+  // computeContractFields) — sem isso, wageBillOf soma 0 pra ele
+  // (`p.wage || 0`) e o orçamento migrado abaixo nasceria zerado.
+  const backfillContract = (p) => {
+    if (p.wage == null) {
+      const rng = seededRngFromKey(`contract-backfill:${p.id}`);
+      Object.assign(p, computeContractFields(p.overall, p.age, p.potential || null, rng));
+    }
+  };
+  CAREER.squad.forEach(backfillContract);
+  Object.values(CAREER.leagueSquads).forEach((squad) => squad.forEach(backfillContract));
+  if (!CAREER.finances) CAREER.finances = initialFinances(CAREER.squad);
+  if (!CAREER.teamStats) CAREER.teamStats = { assists: 0, yellow: 0, red: 0 };
+  if (!CAREER.transferLog) CAREER.transferLog = [];
+  if (CAREER.pendingOffer === undefined) CAREER.pendingOffer = null;
+  if (CAREER.lastBoardRequestRound === undefined) CAREER.lastBoardRequestRound = null;
+  if (CAREER.boardDecision == null) CAREER.boardDecision = "";
+  if (!CAREER.recentForm) CAREER.recentForm = [];
+  if (!CAREER.seasonYear) CAREER.seasonYear = LIVE_SEASON;
+  if (!CAREER.seasonHistory) CAREER.seasonHistory = [];
+}
 async function enterAfterAuth() {
   show("screenLoading");
   document.getElementById("screenLoading").innerHTML = `<div class="ct-spinner"></div><p>Carregando o Modo Técnico...</p>`;
@@ -1984,6 +2023,8 @@ async function enterAfterAuth() {
   const saved = await fetchJSON("/api/career").catch(() => ({ career: null }));
   if (saved && saved.career) {
     CAREER = saved.career;
+    migrateCareerDefaults();
+    persistCareer(); // grava os campos novos pra não migrar de novo (e de novo) a cada load
     showGameScreen();
   } else {
     renderClubPicker();
@@ -2000,7 +2041,14 @@ async function boot() {
   } catch (err) {
     console.error("[carreira] falha no boot:", err);
     show("screenLoading");
-    document.getElementById("screenLoading").innerHTML = `<p>Não deu pra carregar o Modo Técnico agora. <a href="/carreira">Tentar de novo</a></p>`;
+    // BUG CORRIGIDO (relato do usuário: "não deu pra carregar" sem
+    // detalhe nenhum, sem acesso ao console do celular pra saber o
+    // motivo real): mostra a mensagem/stack do erro na própria tela,
+    // igual já fizemos antes pro toast de "não deu pra salvar".
+    document.getElementById("screenLoading").innerHTML =
+      `<p>Não deu pra carregar o Modo Técnico agora.</p>
+       <p class="ct-sub" style="max-width:340px; word-break:break-word;">${escapeHtml(err && (err.stack || err.message) || String(err))}</p>
+       <p><a href="/carreira">Tentar de novo</a></p>`;
   }
 }
 
