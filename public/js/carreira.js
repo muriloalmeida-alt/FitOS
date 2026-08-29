@@ -623,8 +623,21 @@ function simulateRound() {
     let events = null;
     if (isHome || isAway) {
       const myGoals = isHome ? gh : ga;
+      const oppGoals = isHome ? ga : gh;
+      const oppName = isHome ? away.name : home.name;
       const myStarters = isHome ? hs.starters : as.starters;
       events = simulatePlayerEvents(myStarters, myGoals, round);
+      // BUG CORRIGIDO (relato do usuário: modal mostrando "3 × 0" pro
+      // adversário e "Nenhum gol, cartão ou assistência nesse jogo" ao
+      // mesmo tempo — parecia bug, mas os gols eram TODOS do
+      // adversário): o time rival é simulado só por força agregada
+      // (atk/def), sem elenco individual (ver comentário "CPU x CPU não
+      // tem elenco com identidade" logo abaixo) — cada gol dele virava
+      // 1 gol "sem dono" no placar mas NENHUM evento na lista. Sem dar
+      // nome de jogador (não existe um jogador de verdade por trás),
+      // pelo menos credita o gol ao time (ver matchEventsSummaryHTML),
+      // pra lista bater com o placar sempre.
+      for (let i = 0; i < oppGoals; i++) events.push({ type: "gol", team: oppName });
       tallyTeamStats(events);
       applyConditionRecovery(myStarters.map((p) => p.id));
     }
@@ -727,10 +740,14 @@ function matchEventsSummaryHTML(events) {
   if (!events || !events.length) return "";
   const rows = events.map((e) => {
     const meta = MATCH_EVENT_META[e.type] || { icon: "•", label: e.type };
+    // Gol do adversário (ver simulateRound: time rival não tem elenco
+    // individual, só teve "e.player" quando é ALGUÉM do seu time) —
+    // credita ao time em vez de um nome de jogador que não existe.
+    const nm = e.player ? escapeHtml(abbreviateName(e.player)) : `Gol do ${escapeHtml(e.team)}`;
     return `<div class="ct-event-row">
       <span class="ct-event-icon">${meta.icon}</span>
-      <span class="nm">${escapeHtml(abbreviateName(e.player))}</span>
-      <span class="tp">${meta.label}</span>
+      <span class="nm">${nm}</span>
+      <span class="tp">${e.player ? meta.label : ""}</span>
     </div>`;
   }).join("");
   return `<div class="ct-event-list">${rows}</div>`;
