@@ -356,6 +356,70 @@ async function buildSquad(club) {
   return [...realPlayers, ...filler, ...base];
 }
 
+/* ---------- FASE 2 (a) — elenco individual pra TODOS os times ----------
+   Pedido do usuário: "estatísticas reais de todos os times" (não só o
+   seu). Antes disso, os outros 19 clubes eram só um número de força
+   (atk/def calibrado — ver LEAGUE_TEAMS/calibrateStrengths), sem
+   jogador nenhum de verdade por trás, então todo gol deles virava
+   "Gol do <Time>" sem autor (ver comentário em simulateRound). Agora
+   TODO clube tem elenco real (mesmo buildRealPlayer do seu time), e
+   cada partida da rodada — não só a sua — credita gol/assistência/
+   cartão a um jogador de verdade, alimentando o ranking de artilheiros
+   da competição inteira (ver renderEstatisticas).
+
+   Deliberadamente mais ENXUTO que o elenco do próprio clube (ver
+   MAX_LEAGUE_SQUAD abaixo, sem categoria de base): CPU não promove,
+   não negocia (ainda — fase seguinte), não tem banco gerenciável pelo
+   usuário, só precisa de nomes plausíveis pra estatística e pra
+   escalar 11 a cada rodada (ver pickCpuXI). Elenco cheio (principal +
+   base, como o seu) pros 20 times deixaria o save ~20x maior à toa. */
+const MAX_LEAGUE_SQUAD = 26;
+const MIN_LEAGUE_SQUAD = 16;
+async function buildLeagueSquad(club) {
+  const rng = seededRngFromKey(`league-squad:${club.id}:${LIVE_SEASON}`);
+  const raw = await fetchRealPlayers(club.id).catch(() => []);
+  const realPlayers = raw.slice(0, MAX_LEAGUE_SQUAD).map((p) => buildRealPlayer(p, club, rng));
+  const missing = Math.max(0, MIN_LEAGUE_SQUAD - realPlayers.length);
+  const filler = Array.from({ length: missing }, (_, i) => buildGeneratedProPlayer(club, i, rng));
+  return [...realPlayers, ...filler];
+}
+// Constrói o elenco dos outros 19 times de uma vez (em paralelo — cada
+// busca já é cacheada 12h no servidor, ver TTL.teams em server.js, o
+// mesmo endpoint que /api/teams/:id/players sempre usou, então o custo
+// real de fornecedor só existe na 1ª carreira criada depois do cache
+// vencer, não a cada carreira nova). Falha isolada por time (ver catch
+// dentro de buildLeagueSquad) não derruba a criação da carreira.
+async function buildLeagueSquads(humanClubId) {
+  const others = LEAGUE_TEAMS.filter((t) => String(t.id) !== String(humanClubId));
+  const entries = await Promise.all(others.map(async (club) => [String(club.id), await buildLeagueSquad(club)]));
+  return Object.fromEntries(entries);
+}
+function leagueSquadFor(clubId) {
+  return (CAREER.leagueSquads && CAREER.leagueSquads[String(clubId)]) || [];
+}
+// Escala uma XI plausível pro time CPU essa rodada — sem tática/
+// formação (isso é só pro SEU time, ver computeHumanStrength), só uma
+// mistura de posições razoável priorizando quem está "ok" (jogador CPU
+// também sofre lesão/suspensão via simulatePlayerEvents, reaproveitado
+// tal e qual do seu time).
+const CPU_XI_MIX = { G: 1, D: 4, M: 4, F: 2 };
+function pickCpuXI(squad) {
+  if (!squad.length) return [];
+  const okFirst = squad.filter((p) => p.status === "ok");
+  const pool = okFirst.length >= 11 ? okFirst : squad; // sem gente "ok" suficiente, usa todo mundo mesmo
+  const used = new Set();
+  const xi = [];
+  Object.entries(CPU_XI_MIX).forEach(([g, n]) => {
+    pool.filter((p) => p.group === g && !used.has(p.id)).sort((a, b) => b.overall - a.overall)
+      .slice(0, n).forEach((p) => { xi.push(p); used.add(p.id); });
+  });
+  if (xi.length < 11) {
+    pool.filter((p) => !used.has(p.id)).sort((a, b) => b.overall - a.overall)
+      .slice(0, 11 - xi.length).forEach((p) => { xi.push(p); used.add(p.id); });
+  }
+  return xi;
+}
+
 /* ---------- Escalação automática (usada ao criar a carreira) ---------- */
 function autoLineup(squad, formation) {
   const slots = FORMATIONS[formation];
@@ -429,7 +493,7 @@ async function startCareer(clubId) {
   document.getElementById("clubGrid").style.opacity = "0.5";
   document.getElementById("clubGrid").style.pointerEvents = "none";
   try {
-    const squad = await buildSquad(club);
+    const [squad, leagueSquads] = await Promise.all([buildSquad(club), buildLeagueSquads(club.id)]);
     const formation = "4-3-3";
     const lineup = autoLineup(squad, formation);
     const schedule = generateAllRounds(LEAGUE_TEAMS.map((t) => t.id)); // global de js/data.js
@@ -450,7 +514,7 @@ async function startCareer(clubId) {
       clubId: String(club.id), clubName: club.name, clubShort: club.short || club.name.slice(0, 3).toUpperCase(),
       clubLogo: club.logo || null, clubColors: { c1: club.c1, c2: club.c2, c3: club.c3 },
       liveMode: LIVE_MODE, createdAt: Date.now(), updatedAt: Date.now(),
-      squad, lineup, trainingFocus: "equilibrado",
+      squad, lineup, trainingFocus: "equilibrado", leagueSquads,
       schedule, currentRound: 1, standings, resultsByRound: {},
       // Agregado da temporada pra aba Estatísticas (gols já vêm de
       // standings[clubId].gp, não precisa duplicar aqui).
@@ -619,35 +683,28 @@ function simulateRound() {
   fixtures.forEach((fx) => {
     const home = teamById(fx.home), away = teamById(fx.away);
     const isHome = String(fx.home) === String(CAREER.clubId), isAway = String(fx.away) === String(CAREER.clubId);
-    const hs = isHome ? computeHumanStrength(home) : { atk: home.atk, def: home.def, starters: [] };
-    const as = isAway ? computeHumanStrength(away) : { atk: away.atk, def: away.def, starters: [] };
+    const hs = isHome ? computeHumanStrength(home) : { atk: home.atk, def: home.def, starters: pickCpuXI(leagueSquadFor(fx.home)) };
+    const as = isAway ? computeHumanStrength(away) : { atk: away.atk, def: away.def, starters: pickCpuXI(leagueSquadFor(fx.away)) };
     const lambdaHome = clamp((hs.atk / as.def) * 1.12, 0.05, 6);
     const lambdaAway = clamp(as.atk / hs.def, 0.05, 6);
     const gh = poissonSample(lambdaHome, Math.random); // global de js/data.js
     const ga = poissonSample(lambdaAway, Math.random);
-    let events = null;
-    if (isHome || isAway) {
-      const myGoals = isHome ? gh : ga;
-      const oppGoals = isHome ? ga : gh;
-      const oppName = isHome ? away.name : home.name;
-      const myStarters = isHome ? hs.starters : as.starters;
-      events = simulatePlayerEvents(myStarters, myGoals, round);
-      // BUG CORRIGIDO (relato do usuário: modal mostrando "3 × 0" pro
-      // adversário e "Nenhum gol, cartão ou assistência nesse jogo" ao
-      // mesmo tempo — parecia bug, mas os gols eram TODOS do
-      // adversário): o time rival é simulado só por força agregada
-      // (atk/def), sem elenco individual (ver comentário "CPU x CPU não
-      // tem elenco com identidade" logo abaixo) — cada gol dele virava
-      // 1 gol "sem dono" no placar mas NENHUM evento na lista. Sem dar
-      // nome de jogador (não existe um jogador de verdade por trás),
-      // pelo menos credita o gol ao time (ver matchEventsSummaryHTML),
-      // pra lista bater com o placar sempre.
-      for (let i = 0; i < oppGoals; i++) events.push({ type: "gol", team: oppName });
-      tallyTeamStats(events);
-      applyConditionRecovery(myStarters.map((p) => p.id));
-    }
+    // FASE 2 (a) — pedido do usuário: "estatísticas reais de todos os
+    // times". Antes só o SEU time tinha elenco individual — o
+    // adversário virava "Gol do <Time>" sem autor (ver histórico desse
+    // comentário no git). Agora TODO clube tem elenco (ver
+    // buildLeagueSquads/pickCpuXI), então toda partida da rodada —
+    // não só a sua — credita gol/assistência/cartão a um jogador de
+    // verdade, alimentando o ranking de artilheiros da competição
+    // inteira (ver renderEstatisticas) mesmo em jogos CPU x CPU.
+    const homeEvents = simulatePlayerEvents(hs.starters, gh, round);
+    const awayEvents = simulatePlayerEvents(as.starters, ga, round);
+    applyConditionRecovery(hs.starters.map((p) => p.id));
+    applyConditionRecovery(as.starters.map((p) => p.id));
+    if (isHome || isAway) tallyTeamStats(isHome ? homeEvents : awayEvents); // "Minha equipe" nas Estatísticas só soma o SEU lado
+    const events = [...homeEvents, ...awayEvents];
     const result = { home: fx.home, away: fx.away, gh, ga };
-    if (events) result.events = events; // só o jogo do clube carrega eventos — CPU x CPU não tem elenco com identidade
+    if (events.length) result.events = events;
     applyResultToStandings(result);
     (CAREER.resultsByRound[round] = CAREER.resultsByRound[round] || []).push(result);
     allResults.push(result);
@@ -1045,6 +1102,41 @@ function renderEstatisticas() {
   </tr>`).join("");
   document.getElementById("teamTopPlayersTable").querySelector("tbody").innerHTML =
     tbody || `<tr><td colspan="4" class="ct-empty">Ninguém marcou gol ou deu assistência ainda.</td></tr>`;
+
+  // FASE 2 (a) — pedido do usuário: "estatísticas reais de todos os
+  // times". Artilheiros/garçons da LIGA INTEIRA (seu elenco +
+  // CAREER.leagueSquads dos outros 19 — ver buildLeagueSquads),
+  // possível agora que todo clube tem elenco individual de verdade.
+  const allLeaguePlayers = [
+    ...CAREER.squad.map((p) => ({ p, teamId: CAREER.clubId })),
+    ...Object.entries(CAREER.leagueSquads || {}).flatMap(([teamId, squad]) => squad.map((p) => ({ p, teamId }))),
+  ];
+  const topLeague = allLeaguePlayers
+    .filter(({ p }) => (p.goalsCareer || 0) > 0 || (p.assistsCareer || 0) > 0)
+    .sort((a, b) => (b.p.goalsCareer || 0) - (a.p.goalsCareer || 0) || (b.p.assistsCareer || 0) - (a.p.assistsCareer || 0))
+    .slice(0, 15);
+  const leagueTbody = topLeague.map(({ p, teamId }) => {
+    const t = teamById(teamId);
+    return `<tr>
+      <td class="ct-name-cell">${escapeHtml(abbreviateName(p.name))}</td><td>${escapeHtml(t.short || t.name)}</td>
+      <td><b>${p.goalsCareer || 0}</b></td><td>${p.assistsCareer || 0}</td>
+    </tr>`;
+  }).join("");
+  document.getElementById("leagueTopScorersTable").querySelector("tbody").innerHTML =
+    leagueTbody || `<tr><td colspan="4" class="ct-empty">Ninguém marcou gol ou deu assistência ainda.</td></tr>`;
+
+  // Times da competição — ranking por gols/cartões usando os dados já
+  // reais de CAREER.standings (isso já vinha da API antes da Fase 2,
+  // só não tinha uma tabela dedicada mostrando os 20 times).
+  const teamRows = sorted.map((r) => {
+    const t = teamById(r.id);
+    const aprov = r.j ? Math.round((r.pts / (r.j * 3)) * 100) : 0;
+    return `<tr class="${String(r.id) === String(CAREER.clubId) ? "me" : ""}">
+      <td class="ct-name-cell">${escapeHtml(t.short || t.name)}</td><td>${r.j}</td>
+      <td>${r.gp}</td><td>${r.gc}</td><td>${r.sg}</td><td>${aprov}%</td>
+    </tr>`;
+  }).join("");
+  document.getElementById("leagueTeamStatsTable").querySelector("tbody").innerHTML = teamRows;
 }
 
 /* ---------- Tela do jogo ---------- */
