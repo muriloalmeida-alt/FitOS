@@ -72,34 +72,20 @@ const TRAINING_MOD = {
   equilibrado: { atk: 1, def: 1 }, ataque: { atk: 1.03, def: 0.99 },
   defesa: { atk: 0.99, def: 1.03 }, fisico: { atk: 1, def: 1 },
 };
-// Sub-posição só pra ORDENAR/rotular o elenco (pedido do usuário:
-// "Goleiros, Defensores, Volantes, Meio Campo, Atacante e
-// Centroavante") — não existe endpoint de dado esportivo que devolva
-// essa granularidade (nem API-Sports nem Sportmonks vão além de
-// Goleiro/Defensor/Meio/Atacante, ver mapPositionGroup), então Volante
-// vs Meio-campo e Atacante vs Centroavante são inferidos de forma
-// determinística a partir dos próprios atributos já calculados do
-// jogador (def/atk) — não é uma posição "oficial", é só um critério
-// estável de agrupamento visual.
-const SUBPOS_ORDER = { GOL: 0, DEF: 1, VOL: 2, MEI: 3, ATA: 4, CA: 5 };
-const SUBPOS_LABEL = { GOL: "Goleiro", DEF: "Defensor", VOL: "Volante", MEI: "Meio-campo", ATA: "Atacante", CA: "Centroavante" };
-// Usa o atributo físico (independente de atk/def) como critério de
-// desempate — comparar atk com def do MESMO jogador não funciona aqui
-// porque a forma como esses 2 atributos são calculados (ver
-// buildRealPlayer/buildBasePlayer/buildGeneratedProPlayer) já embute
-// um viés fixo por grupo (todo meio-campo sai com atk > def, todo
-// atacante sai com atk MUITO > def) — isso tornava "VOL"/"ATA"
-// praticamente inalcançáveis. Físico alto tende a Volante/Centroavante
-// (jogo de referência/duelo), físico mais baixo tende a Meia/Atacante
-// (mais técnico/veloz) — não é uma regra "oficial", só um critério
-// estável que dá variedade real de verdade entre as 2 opções de cada
-// grupo.
+// Posição pra ORDENAR/rotular o elenco — limitada ao que os
+// fornecedores de dado esportivo REALMENTE informam (Goleiro/Defensor/
+// Meio-campo/Atacante, ver mapPositionGroup logo abaixo; nem
+// API-Sports nem Sportmonks vão além disso). Uma versão anterior deste
+// arquivo tentava separar Volante de Meio-campo, e Centroavante de
+// Atacante, inferindo isso a partir de atributos calculados por nós
+// (físico) em vez de dado real — relatado pelo usuário como "as
+// posições não refletem a posição real que o jogador joga". Removido:
+// melhor mostrar as 4 posições que a gente sabe de verdade do que 6
+// "de mentira".
+const SUBPOS_ORDER = { GOL: 0, DEF: 1, MEI: 2, ATA: 3 };
+const SUBPOS_LABEL = { GOL: "Goleiro", DEF: "Defensor", MEI: "Meio-campo", ATA: "Atacante" };
 function subPositionOf(p) {
-  if (p.group === "G") return "GOL";
-  if (p.group === "D") return "DEF";
-  if (p.group === "M") return p.phys >= 68 ? "VOL" : "MEI";
-  if (p.group === "F") return p.phys >= 68 ? "CA" : "ATA";
-  return "DEF";
+  return { G: "GOL", D: "DEF", M: "MEI", F: "ATA" }[p.group] || "DEF";
 }
 function squadSortKey(p) { return (SUBPOS_ORDER[subPositionOf(p)] ?? 9) * 1000 - p.overall; }
 
@@ -297,11 +283,13 @@ function buildBasePlayer(club, idx, rng) {
   };
 }
 // Composição usada só pra COMPLETAR o elenco principal quando o
-// fornecedor devolve menos jogadores reais do que o alvo (ver
-// TARGET_PRINCIPAL em buildSquad) — jogador adulto/profissional
-// (diferente de buildBasePlayer, que é sempre jovem/baixo overall),
-// só pra fechar o elenco. Cicla numa composição típica de time
-// profissional (mais defensor/meio do que goleiro/atacante).
+// fornecedor devolve MENOS jogadores reais do que o mínimo jogável
+// (ver MIN_PRINCIPAL em buildSquad — isso só acontece se a busca real
+// falhar/vier incompleta, não é o caminho normal) — jogador adulto/
+// profissional (diferente de buildBasePlayer, que é sempre jovem/
+// baixo overall), só pra fechar o elenco. Cicla numa composição
+// típica de time profissional (mais defensor/meio do que goleiro/
+// atacante).
 const FILLER_COMPOSITION = ["G", "D", "D", "D", "D", "D", "M", "M", "M", "M", "M", "M", "F", "F", "F", "F"];
 function buildGeneratedProPlayer(club, idx, rng) {
   const group = FILLER_COMPOSITION[idx % FILLER_COMPOSITION.length];
@@ -321,18 +309,27 @@ function buildGeneratedProPlayer(club, idx, rng) {
     goalsCareer: 0, assistsCareer: 0, apps: 0,
   };
 }
-// Elenco principal: prioriza TODOS os jogadores reais que o fornecedor
-// devolver (sem cortar em N, como acontecia antes) — só completa com
-// jogadores gerados quando não houver TARGET_PRINCIPAL (50) reais.
-// TARGET_PRINCIPAL também funciona como teto (elenco raramente passa
-// disso na vida real) pra não deixar o save gigante num caso
-// excepcional de fornecedor devolvendo elenco enorme.
-const TARGET_PRINCIPAL = 50;
+// Elenco principal: usa TODOS os jogadores reais que o fornecedor
+// devolver — sem cortar em N, e sem "completar" até bater um número
+// redondo só por completar. BUG CORRIGIDO (pedido do usuário: "estamos
+// colocando jogadores gerados sendo que no elenco tem jogadores
+// reais"): a versão anterior enchia o elenco até 50 SEMPRE, mesmo
+// quando o elenco real já estava completo (ex.: Modo Exemplo, onde
+// DEMO_PLAYERS sempre tem exatamente 24 jogadores reais por time) —
+// resultado: mais da metade do elenco "principal" saía com jogador
+// inventado por engano, mesmo sem faltar nenhum real. Agora só entra
+// jogador GERADO quando o real vier abaixo do mínimo jogável
+// (MIN_PRINCIPAL = 11 titulares + 7 banco) — sinal de que a busca
+// real veio truncada/incompleta de verdade (falha pontual da API),
+// não o caminho normal. MAX_PRINCIPAL só existe pra não deixar o save
+// gigante no caso raro de um fornecedor devolver um elenco enorme.
+const MIN_PRINCIPAL = 18;
+const MAX_PRINCIPAL = 60;
 async function buildSquad(club) {
   const rng = seededRngFromKey(`squad:${club.id}:${LIVE_SEASON}`); // global de js/data.js
   const raw = await fetchRealPlayers(club.id);
-  const realPlayers = raw.slice(0, TARGET_PRINCIPAL).map((p) => buildRealPlayer(p, club, rng));
-  const missing = Math.max(0, TARGET_PRINCIPAL - realPlayers.length);
+  const realPlayers = raw.slice(0, MAX_PRINCIPAL).map((p) => buildRealPlayer(p, club, rng));
+  const missing = Math.max(0, MIN_PRINCIPAL - realPlayers.length);
   const filler = Array.from({ length: missing }, (_, i) => buildGeneratedProPlayer(club, i, rng));
   const base = Array.from({ length: 16 }, (_, i) => buildBasePlayer(club, i, rng));
   return [...realPlayers, ...filler, ...base];
@@ -632,10 +629,9 @@ function playerRow(p) {
 }
 function renderElenco() {
   refreshAvailability();
-  // Ordenado por posição (Goleiros, Defensores, Volantes, Meio Campo,
-  // Atacante, Centroavante — ver SUBPOS_ORDER) e, dentro da mesma
-  // posição, por overall — dentro de cada grupo (principal/base),
-  // pedido do usuário.
+  // Ordenado por posição (Goleiros, Defensores, Meio-campo, Atacantes —
+  // ver SUBPOS_ORDER) e, dentro da mesma posição, por overall — dentro
+  // de cada grupo (principal/base), pedido do usuário.
   const principal = CAREER.squad.filter((p) => p.origin === "principal").sort((a, b) => squadSortKey(a) - squadSortKey(b));
   const base = CAREER.squad.filter((p) => p.origin === "base").sort((a, b) => squadSortKey(a) - squadSortKey(b));
   const mt = document.getElementById("squadMainTable");
