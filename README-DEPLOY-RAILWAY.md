@@ -4,7 +4,7 @@ Este projeto roda em dois ambientes Railway dentro do mesmo projeto:
 
 | Ambiente | Papel | Deploy |
 |---|---|---|
-| **HML** (homologação) | Ambiente de teste — branch `claude/subir-projeto-q6vj0z` | **Automático** a cada push |
+| **HML** (homologação) | Ambiente de teste — branch `main` | **Automático** a cada push |
 | **PRD** (produção) | Ambiente real, usado pelos clientes | **Manual** — só atualiza quando alguém manda explicitamente |
 
 ---
@@ -47,3 +47,5 @@ curl https://SEU-DOMINIO-PRD/api/health
 ```
 
 Ambos devem responder `{"ok":true, ...}`. Se quiser, me manda as duas URLs que eu confiro isso pra você.
+
+O mesmo `/api/health` também devolve `deployVersion` — um valor calculado uma vez no boot do processo (`Date.now()` em base 36, ver `DEPLOY_VERSION` em `server/server.js`), então muda sozinho a cada deploy (o Railway reinicia o processo). Comparar esse valor antes/depois de um push é a forma mais rápida de confirmar que um deploy específico realmente rodou, sem precisar abrir o painel do Railway.
