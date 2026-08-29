@@ -1070,22 +1070,7 @@ function handlePlayerAction(id, act) {
     CAREER.lineup.starters = CAREER.lineup.starters.map((x) => (x === id ? null : x));
     CAREER.lineup.bench = CAREER.lineup.bench.filter((x) => x !== id);
   } else if (act === "sell") {
-    // FASE 2 (c) — mesma trava de mínimo do elenco principal do
-    // "release", só que aqui você RECEBE o valor de mercado (ver
-    // "release" pra dispensa sem receber nada).
-    const principalCount = CAREER.squad.filter((x) => x.origin === "principal").length;
-    if (principalCount <= 14) { toast("O elenco principal não pode ficar com menos de 14 jogadores."); return; }
-    if (!confirm(`Vender ${p.name} por ${fmtBRL(p.value)}?`)) return;
-    const buyer = pickRandomOtherClub(CAREER.clubId);
-    CAREER.finances.cash += p.value;
-    CAREER.squad = CAREER.squad.filter((x) => x.id !== id);
-    CAREER.lineup.starters = CAREER.lineup.starters.map((x) => (x === id ? null : x));
-    CAREER.lineup.bench = CAREER.lineup.bench.filter((x) => x !== id);
-    if (buyer) {
-      (CAREER.leagueSquads[String(buyer.id)] = CAREER.leagueSquads[String(buyer.id)] || []).push(p);
-      pushTransferLog(`Você vendeu ${p.name} pro ${buyer.name} por ${fmtBRL(p.value)}.`, CAREER.currentRound);
-    }
-    toast(`${abbreviateName(p.name)} vendido por ${fmtBRL(p.value)}.`);
+    if (!sellPlayer(id)) return; // cancelado ou bloqueado — mantém o modal aberto
   }
   document.getElementById("detailOverlay").classList.remove("open");
   persistCareer();
@@ -1330,14 +1315,20 @@ function renderEstatisticas() {
 }
 
 /* ---------- FASE 2 (c) — Mercado de transferências ---------- */
-// Todos os jogadores dos outros 19 times, achatados numa lista só com
-// o clube já anexado (id/nome/sigla) — reconstruída a cada render (a
-// lista muda a cada transferência AI ou compra sua, não vale a pena
-// cachear).
+// Pedido do usuário: Mercado mostra o SEU elenco (pra vender) junto
+// com os outros 19 times (pra contratar) numa lista só — cada item já
+// vem com o clube anexado e "mine" pra decidir Comprar/Vender na hora
+// de desenhar a linha (ver renderMercado). Só o elenco PRINCIPAL entra
+// (base não tem presença de mercado, mesmo critério do botão "Vender"
+// no detalhe do jogador). Reconstruída a cada render — a lista muda a
+// cada transferência AI ou ação sua, não vale a pena cachear.
 function allMarketPlayers() {
-  return Object.entries(CAREER.leagueSquads || {}).flatMap(([clubId, squad]) =>
-    squad.map((p) => ({ p, club: teamById(clubId) }))
+  const mine = CAREER.squad.filter((p) => p.origin === "principal")
+    .map((p) => ({ p, club: teamById(CAREER.clubId), mine: true }));
+  const others = Object.entries(CAREER.leagueSquads || {}).flatMap(([clubId, squad]) =>
+    squad.map((p) => ({ p, club: teamById(clubId), mine: false }))
   );
+  return [...mine, ...others];
 }
 function renderMercado() {
   const offer = CAREER.pendingOffer;
@@ -1361,20 +1352,32 @@ function renderMercado() {
   // Sem busca, mostra só os 40 mais valiosos (evita renderizar ~500
   // linhas à toa) — buscando, mostra até 60 resultados batendo o termo.
   const capped = list.slice(0, search || posFilter ? 60 : 40);
-  // Nome+pos+OVR numa célula só (em vez de 3 colunas) — junto com o
-  // preço encurtado (fmtBRLShort), dá pra caber Nome/Time/Preço/Ação
-  // sem precisar rolar de lado pra alcançar o botão "Contratar" (o que
-  // acontecia com 6 colunas, ver histórico desse comentário no git).
-  const rows = capped.map(({ p, club }) => `<tr>
-    <td class="ct-name-cell">${escapeHtml(abbreviateName(p.name))}<br><span style="font-size:10px; color:var(--text-2); font-weight:600;">${subPositionOf(p)} · OVR ${p.overall}</span></td>
-    <td>${escapeHtml(club.short || club.name)}</td>
-    <td>${fmtBRLShort(p.value)}</td>
-    <td><button class="ct-btn small primary" data-buy="${p.id}" data-club="${escapeHtml(String(club.id))}">Contratar</button></td>
-  </tr>`).join("");
-  document.getElementById("marketBuyTable").querySelector("tbody").innerHTML =
-    rows || `<tr><td colspan="4" class="ct-empty">Nenhum jogador encontrado.</td></tr>`;
-  document.getElementById("marketBuyTable").querySelectorAll("[data-buy]").forEach((btn) => {
+  // Pedido do usuário: cada jogador em 2 linhas — nome/time/posição/
+  // overall em cima, salário/valor/ação embaixo. Ação muda pra "Vender"
+  // quando é jogador do SEU elenco (ver "mine" em allMarketPlayers).
+  const rows = capped.map(({ p, club, mine }) => `<div class="ct-market-row">
+    <div class="ct-market-row-top">
+      <span class="nm">${escapeHtml(abbreviateName(p.name))}</span>
+      <span class="tm">${escapeHtml(club.short || club.name)}</span>
+      <span class="pos">${subPositionOf(p)}</span>
+      <span class="ovr">${p.overall}</span>
+    </div>
+    <div class="ct-market-row-bottom">
+      <div class="money">
+        <div>Salário: ${fmtBRLShort(p.wage)}/mês</div>
+        <div>Valor: ${fmtBRLShort(p.value)}</div>
+      </div>
+      ${mine
+        ? `<button class="ct-btn small" data-sell="${p.id}">Vender</button>`
+        : `<button class="ct-btn small primary" data-buy="${p.id}" data-club="${escapeHtml(String(club.id))}">Comprar</button>`}
+    </div>
+  </div>`).join("");
+  document.getElementById("marketList").innerHTML = rows || `<p class="ct-empty">Nenhum jogador encontrado.</p>`;
+  document.getElementById("marketList").querySelectorAll("[data-buy]").forEach((btn) => {
     btn.addEventListener("click", () => buyPlayer(btn.dataset.club, btn.dataset.buy));
+  });
+  document.getElementById("marketList").querySelectorAll("[data-sell]").forEach((btn) => {
+    btn.addEventListener("click", () => sellFromMarket(btn.dataset.sell));
   });
 
   const feed = CAREER.transferLog || [];
@@ -1407,6 +1410,38 @@ function buyPlayer(clubId, playerId) {
   CAREER.squad.push(p);
   pushTransferLog(`Você contratou ${p.name} do ${teamById(clubId).name} por ${fmtBRL(p.value)}.`, CAREER.currentRound);
   toast(`${abbreviateName(p.name)} contratado!`);
+  persistCareer();
+  renderMercado(); renderElenco(); renderCentral();
+}
+// Vende um jogador SEU pelo valor de mercado (mesma trava de mínimo do
+// elenco principal do "release", só que aqui você RECEBE o dinheiro —
+// ver "release" pra dispensa de graça). Usado tanto pelo botão
+// "Vender" do detalhe do jogador (ver handlePlayerAction) quanto pela
+// aba Mercado (ver sellFromMarket) — devolve false sem mexer em nada
+// se cancelado ou bloqueado, pra quem chamou saber se deve continuar.
+function sellPlayer(id) {
+  const p = CAREER.squad.find((x) => x.id === id);
+  if (!p) return false;
+  const principalCount = CAREER.squad.filter((x) => x.origin === "principal").length;
+  if (principalCount <= 14) { toast("O elenco principal não pode ficar com menos de 14 jogadores."); return false; }
+  if (!confirm(`Vender ${p.name} por ${fmtBRL(p.value)}?`)) return false;
+  const buyer = pickRandomOtherClub(CAREER.clubId);
+  CAREER.finances.cash += p.value;
+  CAREER.squad = CAREER.squad.filter((x) => x.id !== id);
+  CAREER.lineup.starters = CAREER.lineup.starters.map((x) => (x === id ? null : x));
+  CAREER.lineup.bench = CAREER.lineup.bench.filter((x) => x !== id);
+  if (buyer) {
+    (CAREER.leagueSquads[String(buyer.id)] = CAREER.leagueSquads[String(buyer.id)] || []).push(p);
+    pushTransferLog(`Você vendeu ${p.name} pro ${buyer.name} por ${fmtBRL(p.value)}.`, CAREER.currentRound);
+  }
+  toast(`${abbreviateName(p.name)} vendido por ${fmtBRL(p.value)}.`);
+  return true;
+}
+// Botão "Vender" direto na aba Mercado (fora do detalhe do jogador,
+// que já fecha/persiste/re-renderiza sozinho no fluxo de
+// handlePlayerAction) — precisa persistir e re-renderizar aqui.
+function sellFromMarket(id) {
+  if (!sellPlayer(id)) return;
   persistCareer();
   renderMercado(); renderElenco(); renderCentral();
 }

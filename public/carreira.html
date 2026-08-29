@@ -174,6 +174,21 @@
   .ct-transfer-feed-item{ padding:8px 0; border-bottom:1px solid var(--border); font-size:12.5px; color:var(--text-1); }
   .ct-transfer-feed-item:last-child{ border-bottom:none; }
   .ct-transfer-feed-item b{ color:var(--text-0); }
+  /* FASE 2 (c) — pedido do usuário: cada jogador do Mercado em 2 linhas
+     (nome/time/posição/overall em cima, salário/valor/ação embaixo) em
+     vez de tabela — cabe no celular sem precisar rolar de lado, e olha
+     melhor pra uma lista com bem mais informação por item do que as
+     outras tabelas do Elenco/Estatísticas. */
+  .ct-market-row{ padding:10px 6px; border-radius:9px; }
+  .ct-market-row:nth-child(even){ background:var(--bg-app); }
+  .ct-market-row-top{ display:flex; align-items:baseline; gap:8px; margin-bottom:4px; }
+  .ct-market-row-top .nm{ font-weight:700; color:var(--text-0); font-size:13px; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ct-market-row-top .tm{ font-size:11px; color:var(--text-2); font-weight:700; flex-shrink:0; }
+  .ct-market-row-top .pos{ font-size:11px; color:var(--text-2); flex-shrink:0; }
+  .ct-market-row-top .ovr{ font-size:11px; font-weight:800; color:var(--brd-blue); flex-shrink:0; }
+  .ct-market-row-bottom{ display:flex; align-items:center; gap:10px; font-size:11px; color:var(--text-2); }
+  .ct-market-row-bottom .money{ flex-shrink:1; min-width:0; line-height:1.5; }
+  .ct-market-row-bottom button{ margin-left:auto; flex-shrink:0; }
   .ct-cond-track{ width:60px; height:6px; border-radius:100px; background:var(--border); overflow:hidden; display:inline-block; vertical-align:middle; }
   .ct-cond-fill{ height:100%; background:var(--brd-green); }
   /* FASE 2 (b) — barra de uso do teto salarial, card "Financeiro" da
@@ -430,8 +445,8 @@
           </div>
         </div>
         <div class="ct-card">
-          <h2>Contratar jogadores</h2>
-          <p class="ct-sub">Jogadores dos outros 19 times da competição. Contratar soma o salário na sua folha (mesmo teto do Financeiro).</p>
+          <h2>Mercado de jogadores</h2>
+          <p class="ct-sub">Seu elenco (pra vender) e os outros 19 times da competição (pra contratar). Contratar soma o salário na sua folha (mesmo teto do Financeiro).</p>
           <input class="ct-search" id="marketSearch" placeholder="Buscar por nome ou time...">
           <div class="ct-market-filters">
             <select id="marketPosFilter">
@@ -442,7 +457,7 @@
               <option value="F">Atacantes</option>
             </select>
           </div>
-          <div class="ct-scroll-x"><table class="ct-table" id="marketBuyTable"><thead><tr><th>Nome</th><th>Time</th><th>Preço</th><th></th></tr></thead><tbody></tbody></table></div>
+          <div id="marketList"></div>
         </div>
         <div class="ct-card">
           <h2>Transferências recentes</h2>
