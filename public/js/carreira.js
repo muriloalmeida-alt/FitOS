@@ -376,12 +376,29 @@ function autoLineup(squad, formation) {
 
 /* ---------- Persistência ---------- */
 async function persistCareer() {
-  if (!CAREER) return;
+  if (!CAREER) return false;
   CAREER.updatedAt = Date.now();
   try {
     await fetchJSON("/api/career", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(CAREER) });
-  } catch {
-    toast("Não deu pra salvar o progresso agora — tente de novo em instantes.");
+    return true;
+  } catch (err) {
+    // BUG CORRIGIDO: qualquer falha (sessão expirada, save grande
+    // demais, rede) caía nessa mesma mensagem genérica de "tente de
+    // novo em instantes" — mas sessão expirada NUNCA se resolve
+    // tentando de novo, só logando de novo (relato real do usuário:
+    // erro ao simular rodada, sem conseguir salvar mais nada depois).
+    // Loga o motivo real no console pra dar pra investigar sem precisar
+    // acesso ao servidor, e distingue sessão expirada do resto.
+    console.error("[carreira] falha ao salvar progresso:", err.status, err.message);
+    if (err.status === 401) {
+      toast("Sua sessão expirou — faça login de novo pra continuar salvando.");
+      show("screenLoginRequired");
+    } else if (err.status === 413) {
+      toast("O save dessa carreira ficou grande demais — reinicie a carreira pra continuar salvando.");
+    } else {
+      toast("Não deu pra salvar o progresso agora — tente de novo em instantes.");
+    }
+    return false;
   }
 }
 
@@ -601,6 +618,17 @@ function simulateRound() {
     (CAREER.resultsByRound[round] = CAREER.resultsByRound[round] || []).push(result);
     allResults.push(result);
     if (isHome || isAway) humanMatch = { ...result, isHome };
+  });
+  // BUG CORRIGIDO: resultsByRound guardava o placar (e os eventos) de
+  // TODOS os 380 jogos da temporada pra sempre, mas só a rodada
+  // imediatamente anterior é lida em algum lugar (renderCentral, "Último
+  // jogo"). Isso fazia o save crescer sem parar e, num relato real de
+  // "não dá pra salvar o progresso" ao simular rodada, passar do limite
+  // de 400KB do careerStore (server/src/careerStore.js) depois de
+  // algumas dezenas de rodadas — daí em diante TODO PUT /api/career
+  // falhava (413). Mantém só a rodada atual e a anterior.
+  Object.keys(CAREER.resultsByRound).forEach((k) => {
+    if (Number(k) < round - 1) delete CAREER.resultsByRound[k];
   });
   const nextRound = round + 1;
   refreshAvailability(nextRound);
@@ -1071,7 +1099,12 @@ function wireStaticListeners() {
     const btn = document.getElementById("btnSimulate");
     btn.disabled = true;
     const summary = simulateRound();
-    await persistCareer();
+    const saved = await persistCareer();
+    // Se não deu pra salvar (ex.: sessão expirada — ver persistCareer),
+    // não mostra o modal do jogo por cima da tela de login: ela já foi
+    // trocada lá dentro, e ao logar de novo o save do servidor (sem
+    // essa rodada) é recarregado mesmo.
+    if (!saved) { btn.disabled = false; return; }
     renderAll();
     if (summary) showMatchDetailModal(summary);
   });
