@@ -860,7 +860,16 @@ function serveStatic(req, res) {
     // service worker já busca isso com cache:"no-store" quando ativo,
     // isso aqui cobre quem ainda não tem o service worker registrado
     // ou não suporta).
-    if (ext === ".html") headers["Cache-Control"] = "no-cache";
+    // BUG CORRIGIDO ("o header não está atualizado" mesmo depois de
+    // vários deploys): .js/.css não tinham NENHUM Cache-Control, e o
+    // service worker (única coisa forçando rede sempre) só é registrado
+    // em index.html — quem visita direto uma página sem esse registro
+    // (ex.: carreira.html, ver registro adicionado lá) nunca teria o
+    // JS/CSS revalidado, o navegador (ou um proxy no meio) podia
+    // guardar a versão antiga por tempo indefinido. Mesmo tratamento do
+    // .html: sempre revalida com o servidor, nunca serve do cache local
+    // sem perguntar.
+    if (ext === ".html" || ext === ".js" || ext === ".css") headers["Cache-Control"] = "no-cache";
     res.writeHead(200, headers);
     // Todo .html (raiz, privacidade, admin) leva a checagem de
     // homologação — ver withRobotsMetaIfHomolog acima.

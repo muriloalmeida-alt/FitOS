@@ -434,5 +434,25 @@
 
 <script src="js/data.js"></script>
 <script src="js/carreira.js"></script>
+<script>
+  // Registra o service worker (ver sw.js) — mesmo registro de
+  // index.html (não reaproveitado direto porque essa página não carrega
+  // app.js, ver header do arquivo). BUG CORRIGIDO ("o header não está
+  // atualizado" mesmo depois de deploy): quem entra direto por
+  // carreira.html (bookmark, link direto) sem nunca ter passado pela
+  // Home nunca registrava o service worker nessa aba — o único
+  // mecanismo que força buscar JS/CSS sempre da rede (ver sw.js) ficava
+  // inativo, e o navegador podia manter a versão antiga dos arquivos
+  // por tempo indefinido. Sem o aviso de "nova versão" da Home aqui de
+  // propósito (o próprio registro já resolve a causa: a rede pra
+  // sempre — o aviso é só um "plus" pra quem já está com a aba aberta).
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("/sw.js").catch((err) => {
+        console.warn("[pwa] não foi possível registrar o service worker:", err.message);
+      });
+    });
+  }
+</script>
 </body>
 </html>
