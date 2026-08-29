@@ -35,6 +35,11 @@
      de elenco pra quem o usuário não está comandando.
 =================================================================== */
 
+// Tamanho máximo do banco de reservas (pedido do usuário) — usado em
+// todo lugar que cria/valida/exibe o banco, ver renderBench/pickerChoose/
+// openDetail/autoLineup abaixo, pra nunca ficar um número solto.
+const MAX_BENCH = 11;
+
 /* ---------- Constantes de tática/formação ---------- */
 const FORMATIONS = {
   "4-4-2":   [["G","GOL"],["D","LAT D"],["D","ZAG"],["D","ZAG"],["D","LAT E"],["M","MEI D"],["M","VOL"],["M","VOL"],["M","MEI E"],["F","ATA"],["F","ATA"]],
@@ -354,7 +359,7 @@ function autoLineup(squad, formation) {
     if (pick) used.add(pick.id);
     return pick ? pick.id : null;
   });
-  const bench = principalPool.filter((p) => !used.has(p.id)).slice(0, 7).map((p) => p.id);
+  const bench = principalPool.filter((p) => !used.has(p.id)).slice(0, MAX_BENCH).map((p) => p.id);
   return { formation, starters, bench, tactics: { mentality: "equilibrada", marking: "zona", tempo: "normal" } };
 }
 
@@ -661,7 +666,7 @@ function openDetail(id) {
     <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;">
       ${inStarters ? `<button class="ct-btn small" data-act="removeStarter">Tirar do time titular</button>` : ""}
       ${!inStarters && inBench ? `<button class="ct-btn small" data-act="removeBench">Tirar do banco</button>` : ""}
-      ${!inStarters && !inBench && p.status === "ok" ? `<button class="ct-btn small" data-act="addBench" ${CAREER.lineup.bench.length >= 7 ? "disabled" : ""}>Colocar no banco</button>` : ""}
+      ${!inStarters && !inBench && p.status === "ok" ? `<button class="ct-btn small" data-act="addBench" ${CAREER.lineup.bench.length >= MAX_BENCH ? "disabled" : ""}>Colocar no banco</button>` : ""}
       ${p.origin === "base" ? `<button class="ct-btn small primary" data-act="promote">Promover ao elenco principal</button>` : `<button class="ct-btn small" data-act="demote">Enviar pra base</button>`}
       <button class="ct-btn small danger" data-act="release">Dispensar</button>
     </div>`;
@@ -678,7 +683,7 @@ function handlePlayerAction(id, act) {
   } else if (act === "removeBench") {
     CAREER.lineup.bench = CAREER.lineup.bench.filter((x) => x !== id);
   } else if (act === "addBench") {
-    if (CAREER.lineup.bench.length < 7) CAREER.lineup.bench.push(id);
+    if (CAREER.lineup.bench.length < MAX_BENCH) CAREER.lineup.bench.push(id);
   } else if (act === "promote") {
     p.origin = "principal";
   } else if (act === "demote") {
@@ -751,19 +756,25 @@ function renderBench() {
   // exibição, não muda a ordem guardada em CAREER.lineup.bench (não
   // faz diferença nenhuma pra troca/auto-substituição, ver
   // autoFixLineup, que já procura por grupo em vez de depender de
-  // posição no array).
+  // posição no array). Pedido do usuário: tabela (Nome/Posição/
+  // Overall) em vez de cards, e até 11 reservas (era 7) — ver
+  // MAX_BENCH.
   const benchPlayers = CAREER.lineup.bench
     .map((id) => CAREER.squad.find((x) => x.id === id))
     .filter(Boolean)
     .sort((a, b) => squadSortKey(a) - squadSortKey(b));
-  const html = benchPlayers.map((p) => `<div class="ct-bench-slot" data-id="${p.id}"><b>${escapeHtml(p.name)}</b><br>${subPositionOf(p)} · OVR ${p.overall}</div>`).join("");
-  const canAdd = CAREER.lineup.bench.length < 7;
-  document.getElementById("benchList").innerHTML = html + (canAdd ? `<div class="ct-bench-slot" id="benchAddSlot" style="color:var(--text-2);">+ adicionar</div>` : "");
-  document.getElementById("benchList").querySelectorAll(".ct-bench-slot[data-id]").forEach((el) => {
+  const rows = benchPlayers.map((p) => `<tr data-id="${p.id}" style="cursor:pointer;">
+    <td>${escapeHtml(p.name)}</td><td>${subPositionOf(p)}</td><td><b>${p.overall}</b></td>
+  </tr>`).join("");
+  const canAdd = CAREER.lineup.bench.length < MAX_BENCH;
+  const addRow = canAdd ? `<tr id="benchAddRow" style="cursor:pointer; color:var(--text-2);"><td colspan="3">+ adicionar reserva</td></tr>` : "";
+  const emptyRow = (!benchPlayers.length && !canAdd) ? `<tr><td colspan="3" class="ct-empty">Banco vazio.</td></tr>` : "";
+  document.getElementById("benchList").innerHTML = rows + addRow + emptyRow;
+  document.getElementById("benchList").querySelectorAll("tr[data-id]").forEach((el) => {
     el.addEventListener("click", () => openPicker({ type: "bench", currentId: el.dataset.id }, "Trocar reserva"));
   });
-  const addSlot = document.getElementById("benchAddSlot");
-  if (addSlot) addSlot.addEventListener("click", () => openPicker({ type: "bench" }, "Adicionar reserva"));
+  const addRowEl = document.getElementById("benchAddRow");
+  if (addRowEl) addRowEl.addEventListener("click", () => openPicker({ type: "bench" }, "Adicionar reserva"));
 }
 
 /* ---------- Modal: escolher jogador ---------- */
@@ -808,10 +819,10 @@ function pickerChoose(playerId) {
       const idx = CAREER.lineup.bench.indexOf(PICKER_CTX.currentId);
       if (idx >= 0) {
         if (playerId) CAREER.lineup.bench[idx] = playerId; else CAREER.lineup.bench.splice(idx, 1);
-      } else if (playerId && CAREER.lineup.bench.length < 7) {
+      } else if (playerId && CAREER.lineup.bench.length < MAX_BENCH) {
         CAREER.lineup.bench.push(playerId);
       }
-    } else if (playerId && CAREER.lineup.bench.length < 7) {
+    } else if (playerId && CAREER.lineup.bench.length < MAX_BENCH) {
       CAREER.lineup.bench.push(playerId);
     }
   }
