@@ -317,6 +317,24 @@
   .ct-pot-hint{ font-size:9.5px; color:var(--text-2); white-space:nowrap; }
   .ct-cond-track{ width:60px; height:6px; border-radius:100px; background:var(--border); overflow:hidden; display:inline-block; vertical-align:middle; }
   .ct-cond-fill{ height:100%; background:var(--brd-green); }
+  /* Pedido do usuário: condição vira nota de 01 a 05 (5 bolinhas, em
+     vez da barra de %) — cor por faixa (ver conditionRating em
+     carreira.js), preenchida = boa/média/baixa, vazia = --border. */
+  .ct-cond-dots{ display:inline-flex; gap:2px; vertical-align:middle; }
+  .ct-cond-dot{ width:7px; height:7px; border-radius:50%; background:var(--border); }
+  .ct-cond-dot.good{ background:var(--brd-green); }
+  .ct-cond-dot.mid{ background:var(--gold); }
+  .ct-cond-dot.low{ background:var(--brd-red); }
+  /* Pedido do usuário: textos explicativos (ex.: abaixo de "Elenco
+     principal"/"Categoria de base") saem da tela por padrão — vira um
+     "?" ao lado do título do card, clicável, que revela a explicação
+     (ver .ct-help-text[hidden]/wireHelpToggles em carreira.js). */
+  .ct-card-head{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px; }
+  .ct-card-head h2{ margin:0; }
+  .ct-help-btn{ width:22px; height:22px; border-radius:50%; border:1px solid var(--border); background:transparent; color:var(--text-2); font-size:12px; font-weight:700; cursor:pointer; flex-shrink:0; display:flex; align-items:center; justify-content:center; line-height:1; padding:0; }
+  .ct-help-btn:hover{ color:var(--text-0); border-color:var(--text-2); }
+  .ct-help-text{ margin-top:-6px; margin-bottom:12px; }
+  .ct-help-text[hidden]{ display:none; }
   /* FASE 2 (b) — barra de uso do teto salarial, card "Financeiro" da
      Central (largura cheia, diferente de .ct-cond-track que é pra
      dentro de célula de tabela). Vira vermelha perto do limite. */
@@ -561,13 +579,19 @@
       <!-- ---------- Elenco ---------- -->
       <section class="ct-panel" id="panel-elenco">
         <div class="ct-card">
-          <h2>Elenco principal</h2>
-          <p class="ct-sub">Clique num jogador pra ver detalhes, escalar, promover a titular do banco, ou dispensar.</p>
+          <div class="ct-card-head">
+            <h2>Elenco principal</h2>
+            <button class="ct-help-btn" data-help="helpElencoPrincipal" aria-label="Ajuda">?</button>
+          </div>
+          <p class="ct-sub ct-help-text" id="helpElencoPrincipal" hidden>Clique num jogador pra ver detalhes, escalar, promover a titular do banco, ou dispensar.</p>
           <div class="ct-scroll-x"><table class="ct-table" id="squadMainTable"><thead></thead><tbody></tbody></table></div>
         </div>
         <div class="ct-card">
-          <h2>Categoria de base</h2>
-          <p class="ct-sub">Jogadores da base (gerados — a API de dados não cobre elenco sub-20 do Brasileirão hoje). Promova os destaques pro elenco principal.</p>
+          <div class="ct-card-head">
+            <h2>Categoria de base</h2>
+            <button class="ct-help-btn" data-help="helpCategoriaBase" aria-label="Ajuda">?</button>
+          </div>
+          <p class="ct-sub ct-help-text" id="helpCategoriaBase" hidden>Jogadores da base (gerados — a API de dados não cobre elenco sub-20 do Brasileirão hoje). Promova os destaques pro elenco principal.</p>
           <div class="ct-scroll-x"><table class="ct-table" id="squadBaseTable"><thead></thead><tbody></tbody></table></div>
         </div>
       </section>
@@ -602,7 +626,10 @@
           <div class="ct-scroll-x"><table class="ct-table" id="benchTable"><thead><tr><th>Nome</th><th>Posição</th><th>Overall</th></tr></thead><tbody id="benchList"></tbody></table></div>
         </div>
         <div class="ct-card">
-          <h2>Instruções táticas</h2>
+          <div class="ct-card-head">
+            <h2>Instruções táticas</h2>
+            <button class="ct-help-btn" data-help="helpInstrucoesTaticas" aria-label="Ajuda">?</button>
+          </div>
           <div class="ct-tactics">
             <div class="ct-field"><label>Mentalidade</label><select id="tacticMentality"></select></div>
             <div class="ct-field"><label>Marcação</label><select id="tacticMarking"></select></div>
@@ -615,7 +642,7 @@
                rodada (ver applyTrainingEvolution) — aviso curto pra
                deixar isso claro sem precisar de uma aba nova só pra
                isso. -->
-          <p class="ct-sub" style="margin-top:8px;">O foco também guia a evolução de longo prazo do elenco — o atributo escolhido cresce com mais chance a cada rodada jogada.</p>
+          <p class="ct-sub ct-help-text" id="helpInstrucoesTaticas" style="margin-top:8px;" hidden>O foco também guia a evolução de longo prazo do elenco — o atributo escolhido cresce com mais chance a cada rodada jogada.</p>
           <div style="margin-top:14px;"><button class="ct-btn primary" id="btnSaveLineup">Salvar escalação e táticas</button></div>
         </div>
       </section>
@@ -623,8 +650,11 @@
       <!-- ---------- Tabela ---------- -->
       <section class="ct-panel" id="panel-tabela">
         <div class="ct-card">
-          <h2>Tabela da carreira</h2>
-          <p class="ct-sub">Classificação própria dessa carreira (não é a tabela real do Brasileirão) — atualizada a cada rodada simulada.</p>
+          <div class="ct-card-head">
+            <h2>Tabela da carreira</h2>
+            <button class="ct-help-btn" data-help="helpTabelaCarreira" aria-label="Ajuda">?</button>
+          </div>
+          <p class="ct-sub ct-help-text" id="helpTabelaCarreira" hidden>Classificação própria dessa carreira (não é a tabela real do Brasileirão) — atualizada a cada rodada simulada.</p>
           <div class="ct-scroll-x"><table class="ct-table" id="standingsTable"><thead></thead><tbody></tbody></table></div>
         </div>
         <!-- FASE 2 (a) — Copa do Brasil (mata-mata entre os 16 elencos
@@ -687,8 +717,11 @@
              poluir a tela com "janela aberta" o tempo todo. -->
         <div class="ct-window-banner hidden" id="marketWindowBanner"></div>
         <div class="ct-card">
-          <h2>Mercado de jogadores</h2>
-          <p class="ct-sub">Seu elenco (pra vender) e os outros 19 times da competição (pra contratar). Contratar soma o salário na sua folha (mesmo teto do Financeiro).</p>
+          <div class="ct-card-head">
+            <h2>Mercado de jogadores</h2>
+            <button class="ct-help-btn" data-help="helpMercado" aria-label="Ajuda">?</button>
+          </div>
+          <p class="ct-sub ct-help-text" id="helpMercado" hidden>Seu elenco (pra vender) e os outros 19 times da competição (pra contratar). Contratar soma o salário na sua folha (mesmo teto do Financeiro).</p>
           <input class="ct-search" id="marketSearch" placeholder="Buscar por nome ou time...">
           <div class="ct-market-filters">
             <select id="marketPosFilter">

@@ -1537,7 +1537,16 @@ function refreshAvailability(uptoRound) {
   const r = uptoRound != null ? uptoRound : CAREER.currentRound;
   CAREER.squad.forEach((p) => {
     if (p.status !== "ok" && p.outUntilRound != null && r > p.outUntilRound) {
-      p.status = "ok"; p.outUntilRound = null;
+      // Pedido do usuário: retorno de lesão baixa a condição (o
+      // jogador não está com ritmo de jogo, mesmo tendo passado a
+      // lesão toda descansando — ver INJURY_RETURN_CONDITION). Só
+      // lesão, não suspensão — suspenso treinava normal, só não podia
+      // entrar em campo.
+      if (p.status === "contundido") {
+        const cap = INJURY_RETURN_CONDITION[p.injurySeverity] ?? 60;
+        p.condition = Math.min(p.condition == null ? 100 : p.condition, cap);
+      }
+      p.status = "ok"; p.outUntilRound = null; p.injurySeverity = null;
     }
   });
 }
@@ -1687,6 +1696,30 @@ const INJURY_SEVERITY = [
 ];
 function injurySeverityLabel(type) {
   return (INJURY_SEVERITY.find((t) => t.type === type) || INJURY_SEVERITY[0]).label;
+}
+// Pedido do usuário: retorno de lesão baixa a condição — quanto mais
+// grave, mais longe da forma plena o jogador volta (ver
+// refreshAvailability, que aplica isso na transição contundido -> ok).
+const INJURY_RETURN_CONDITION = { leve: 75, media: 60, grave: 45 };
+// Pedido do usuário: "condição pode ser uma nota de 01 a 05" em vez da
+// barra de porcentagem de sempre — mantém p.condition (0-100) como o
+// número de VERDADE usado na simulação (computeHumanStrength, chance
+// de lesão, etc.), só a EXIBIÇÃO virou essa nota derivada.
+function conditionRating(condition) {
+  const c = condition == null ? 100 : condition;
+  if (c >= 90) return 5;
+  if (c >= 70) return 4;
+  if (c >= 50) return 3;
+  if (c >= 30) return 2;
+  return 1;
+}
+const CONDITION_RATING_LABEL = { 5: "Ótima", 4: "Boa", 3: "Regular", 2: "Baixa", 1: "Péssima" };
+function conditionDotsHTML(condition) {
+  const rating = conditionRating(condition);
+  const cls = rating >= 4 ? "good" : rating === 3 ? "mid" : "low";
+  let dots = "";
+  for (let i = 1; i <= 5; i++) dots += `<span class="ct-cond-dot${i <= rating ? ` ${cls}` : ""}"></span>`;
+  return `<span class="ct-cond-dots" title="Condição: nota ${rating}/5 (${CONDITION_RATING_LABEL[rating]})">${dots}</span>`;
 }
 function rollInjurySeverity() {
   const roll = Math.random();
@@ -2402,7 +2435,7 @@ function playerRow(p) {
   return `<tr data-id="${p.id}" style="cursor:pointer;">
     <td class="ct-name-cell">${escapeHtml(abbreviateName(p.name))}${(!p.real && p.origin !== "base") ? ' <span class="ct-pill base" style="margin-left:4px;">gerado</span>' : ""}${contractTag}${moraleTag}${loanTag}</td>
     <td>${subPositionOf(p)}</td><td>${p.age}</td><td><b>${p.overall}</b>${potHint}</td>
-    <td><span class="ct-cond-track"><span class="ct-cond-fill" style="width:${Math.round(p.condition)}%"></span></span></td>
+    <td>${conditionDotsHTML(p.condition)}</td>
     <td>${statusPill}</td>
     <td style="text-align:right; color:var(--text-2);">▸</td>
   </tr>`;
@@ -2568,7 +2601,7 @@ function openDetail(id) {
       <div class="ct-kpi"><div class="v${moraleVariant ? ` ${moraleVariant}` : ""}">${morale}</div><div class="l">Moral</div></div>
     </div>
     ${potRange ? `<p class="ct-sub" style="color:var(--gold); font-weight:700;">🔭 Avaliação do olheiro: potencial entre ${potRange.lo} e ${potRange.hi}.</p>` : ""}
-    <p class="ct-sub">Condição: ${Math.round(p.condition)}% · Jogos: ${p.apps || 0} · Gols na carreira: ${p.goalsCareer || 0} · Cartões amarelos (ciclo atual): ${p.yellowCards || 0}</p>
+    <p class="ct-sub">Condição: ${conditionRating(p.condition)}/5 (${CONDITION_RATING_LABEL[conditionRating(p.condition)]}) · Jogos: ${p.apps || 0} · Gols na carreira: ${p.goalsCareer || 0} · Cartões amarelos (ciclo atual): ${p.yellowCards || 0}</p>
     <p class="ct-sub">Salário: ${fmtBRL(p.wage)}/mês · Contrato até: ${p.contractUntil} · Valor de mercado: ${fmtBRL(p.value)}</p>
     <!-- FASE 1 (item 1 da especificação "BR Data Treinador") — pedido
          do usuário: aviso visível de final de contrato, com
@@ -3425,6 +3458,16 @@ function wireStaticListeners() {
 
   document.querySelectorAll(".ct-tab").forEach((btn) => {
     btn.addEventListener("click", () => switchToPanel(btn.dataset.panel));
+  });
+  // Pedido do usuário: textos explicativos (ex.: "Clique num jogador
+  // pra ver detalhes..." abaixo de Elenco principal/Categoria de base)
+  // saem fixos da tela — viram um "?" ao lado do título, clicável, que
+  // revela/esconde a explicação (ver .ct-help-text[hidden] no CSS).
+  document.querySelectorAll(".ct-help-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const target = document.getElementById(btn.dataset.help);
+      if (target) target.hidden = !target.hidden;
+    });
   });
 
   document.getElementById("formationSelect").addEventListener("change", (e) => {
