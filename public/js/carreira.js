@@ -518,6 +518,164 @@ function boardGoalMet(position, goal) {
 // clube, sem deixar a meta sem consequência nenhuma.
 const DISMISSAL_STREAK = 3;
 
+/* ---------- FASE 2 (a) — Copa do Brasil ----------
+   Pedido do usuário (Fase 2 do Modo Carreira, item que a própria
+   especificação da Fase 1 já tinha deixado reservado pra "fase
+   seguinte" — meta da diretoria com objetivo de copa): competição
+   secundária em mata-mata, rodando em paralelo ao Brasileirão.
+
+   Simplificações deliberadas (mesmo espírito de "menor esforço" da
+   Fase 1): mata-mata de jogo ÚNICO (sem ida e volta — decide no
+   agregado de 1 jogo só, com pênaltis se empatar), 16 times (não 20 —
+   precisa ser potência de 2 pra fechar oitavas/quartas/semi/final sem
+   sobra; os 4 elencos mais fracos da temporada ficam de fora, como se
+   tivessem caído numa fase classificatória que esse jogo não simula).
+   4 rodadas fixas do Brasileirão viram "dia de Copa" também (ver
+   CUP_ROUNDS) — nelas, ALÉM do jogo do Brasileirão normal (o
+   calendário do Brasileirão não muda em nada), se seu clube ainda
+   estiver vivo na Copa, o confronto daquela fase também é resolvido
+   no mesmo clique de "Simular rodada" (ver resolveCupPhase, chamado de
+   dentro de simulateRound). */
+const CUP_PHASES = ["r16", "qf", "sf", "final"];
+const CUP_ROUNDS = { r16: 6, qf: 14, sf: 22, final: 30 };
+const CUP_PHASE_LABEL = { r16: "Oitavas de final", qf: "Quartas de final", sf: "Semifinal", final: "Final" };
+const CUP_PRIZE = { qf: 500000, sf: 1500000, final: 4000000, champion: 10000000, runnerUp: 3000000 };
+function squadAvgOverallOf(clubId) {
+  if (String(clubId) === String(CAREER.clubId)) return averageOverall(CAREER.squad.filter((p) => p.origin === "principal"));
+  return averageOverall(CAREER.leagueSquads[String(clubId)] || []);
+}
+function shuffleWithRng(arr, rng) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+// Sorteio da 1ª fase: os 16 elencos com maior overall médio entram —
+// classificação "de fase anterior" que esse jogo não modela, só usa a
+// força do elenco pra decidir quem entra direto (bem mais forte que
+// aleatório puro, e ainda deixa o SEU clube fora em temporadas ruins,
+// dando um motivo a mais pra reforçar o elenco). Sorteio embaralhado
+// com RNG determinístico da temporada (mesmo padrão de renew-league/
+// renew-human) — mesmo clube, mesmo ano, sempre cai no mesmo chaveamento.
+function setupCup(fastForwardFromRound) {
+  const strengths = LEAGUE_TEAMS.map((t) => ({ id: t.id, avg: squadAvgOverallOf(t.id) }));
+  strengths.sort((a, b) => b.avg - a.avg);
+  const qualifiers = strengths.slice(0, 16).map((s) => s.id);
+  const humanIn = qualifiers.some((id) => String(id) === String(CAREER.clubId));
+  const rng = seededRngFromKey(`cup-draw:${CAREER.clubId}:${CAREER.seasonYear}`);
+  const shuffled = shuffleWithRng(qualifiers, rng);
+  const r16 = [];
+  for (let i = 0; i < shuffled.length; i += 2) r16.push({ home: shuffled[i], away: shuffled[i + 1], gh: null, ga: null, winner: null, penalties: false });
+  CAREER.cup = {
+    active: humanIn,
+    phase: "r16",
+    humanAlive: humanIn,
+    humanEliminatedAtRound: null,
+    humanEliminatedStage: null,
+    champion: null,
+    championIsHuman: false,
+    ties: { r16, qf: [], sf: [], final: [] },
+  };
+  // Migração de save no meio de uma temporada em andamento (ver
+  // migrateCareerDefaults): fases cujo round já passou não podem ser
+  // "jogadas de verdade" retroativamente — resolve elas por trás
+  // (silent:true, sem prêmio nem log) só pra fechar o chaveamento até a
+  // fase que ainda está por vir, e a Copa volta ao normal dali em diante.
+  if (fastForwardFromRound != null) {
+    while (CAREER.cup.phase !== "done" && CUP_ROUNDS[CAREER.cup.phase] < fastForwardFromRound) {
+      resolveCupPhase(CUP_ROUNDS[CAREER.cup.phase], { silent: true });
+    }
+  }
+}
+// Mesma fórmula de gol (ataque/defesa calibrados -> Poisson) já usada
+// pra todo jogo do Brasileirão (ver simulateRound) — reaproveitada
+// aqui pra não inventar um 2º motor de partida. Só o lado HUMANO gera
+// evento individual (gol/cartão/lesão) — CPU x CPU na Copa não precisa
+// de autor pro gol, só do placar pra decidir quem avança.
+function simulateCupTie(homeId, awayId, round) {
+  const home = teamById(homeId), away = teamById(awayId);
+  const isHome = String(homeId) === String(CAREER.clubId), isAway = String(awayId) === String(CAREER.clubId);
+  const hs = isHome ? computeHumanStrength(home) : { atk: home.atk, def: home.def, starters: pickCpuXI(leagueSquadFor(homeId)) };
+  const as = isAway ? computeHumanStrength(away) : { atk: away.atk, def: away.def, starters: pickCpuXI(leagueSquadFor(awayId)) };
+  const lambdaHome = clamp((hs.atk / as.def) * 1.12, 0.05, 6);
+  const lambdaAway = clamp(as.atk / hs.def, 0.05, 6);
+  const gh = poissonSample(lambdaHome, Math.random);
+  const ga = poissonSample(lambdaAway, Math.random);
+  if (isHome) applyConditionRecovery(hs.starters.map((p) => p.id));
+  if (isAway) applyConditionRecovery(as.starters.map((p) => p.id));
+  if (isHome) simulatePlayerEvents(hs.starters, gh, round);
+  if (isAway) simulatePlayerEvents(as.starters, ga, round);
+  let winner, penalties = false;
+  if (gh > ga) winner = homeId;
+  else if (ga > gh) winner = awayId;
+  else {
+    // Empate no jogo único -> pênaltis (sem prorrogação simulada, vai
+    // direto pra decisão). Levemente enviesado pelo overall médio dos
+    // 2 elencos, mas ainda bem sujeito ao acaso — pênalti é loteria
+    // até no futebol de verdade.
+    penalties = true;
+    const pHome = clamp(0.5 + (squadAvgOverallOf(homeId) - squadAvgOverallOf(awayId)) / 100, 0.25, 0.75);
+    winner = Math.random() < pHome ? homeId : awayId;
+  }
+  return { gh, ga, penalties, winner };
+}
+// Resolve TODOS os confrontos da fase atual da Copa (não só o seu —
+// mesmo espírito de "estatísticas reais de todos os times" da Fase
+// 2a) e já monta o chaveamento da fase seguinte com quem avançou.
+// silent:true (só usado por setupCup pra fast-forward de migração) não
+// gera prêmio, log nem marca a rodada real da eliminação — é só
+// fechamento estrutural de uma fase que ficou pra trás antes da Copa
+// existir no save.
+function resolveCupPhase(round, { silent = false } = {}) {
+  const cup = CAREER.cup;
+  if (!cup || !cup.active || cup.phase === "done") return null;
+  const phase = cup.phase;
+  if (!silent && CUP_ROUNDS[phase] !== round) return null;
+  const ties = cup.ties[phase];
+  ties.forEach((tie) => {
+    const r = silent
+      ? { gh: 0, ga: 0, penalties: true, winner: (squadAvgOverallOf(tie.home) + Math.random() * 10) >= (squadAvgOverallOf(tie.away) + Math.random() * 10) ? tie.home : tie.away }
+      : simulateCupTie(tie.home, tie.away, round);
+    tie.gh = r.gh; tie.ga = r.ga; tie.winner = r.winner; tie.penalties = r.penalties;
+    const humanInvolved = String(tie.home) === String(CAREER.clubId) || String(tie.away) === String(CAREER.clubId);
+    if (!humanInvolved) return;
+    const humanWon = String(r.winner) === String(CAREER.clubId);
+    if (humanWon) {
+      if (!silent) {
+        const prize = phase === "final" ? CUP_PRIZE.champion : CUP_PRIZE[CUP_PHASES[CUP_PHASES.indexOf(phase) + 1]];
+        if (prize) {
+          CAREER.finances.cash += prize;
+          pushTransferLog(`Copa do Brasil: classificação${phase === "final" ? " como campeão" : ""} rendeu ${fmtBRL(prize)} aos cofres do clube.`, round);
+        }
+      }
+    } else {
+      cup.humanAlive = false;
+      cup.humanEliminatedAtRound = silent ? null : round;
+      cup.humanEliminatedStage = phase;
+      if (phase === "final" && !silent) {
+        CAREER.finances.cash += CUP_PRIZE.runnerUp;
+        pushTransferLog(`Copa do Brasil: vice-campeão rendeu ${fmtBRL(CUP_PRIZE.runnerUp)} aos cofres do clube.`, round);
+      }
+    }
+  });
+  const results = ties.map((t) => ({ ...t }));
+  if (phase === "final") {
+    cup.champion = ties[0].winner;
+    cup.championIsHuman = String(cup.champion) === String(CAREER.clubId);
+    cup.phase = "done";
+  } else {
+    const winners = ties.map((t) => t.winner);
+    const nextPhase = CUP_PHASES[CUP_PHASES.indexOf(phase) + 1];
+    const nextTies = [];
+    for (let i = 0; i < winners.length; i += 2) nextTies.push({ home: winners[i], away: winners[i + 1], gh: null, ga: null, winner: null, penalties: false });
+    cup.ties[nextPhase] = nextTies;
+    cup.phase = nextPhase;
+  }
+  return { phase, results };
+}
+
 /* ---------- FASE 3 (b) — renda de ingressos ----------
    Pedido do usuário: todo jogo em CASA rende dinheiro pela venda de
    ingressos, e o estádio enche mais numa fase boa e menos numa ruim.
@@ -674,6 +832,9 @@ function advanceSeason() {
   // FASE 1 (item 3) — meta da temporada nova, já em cima do elenco
   // RENOVADO (reflete quem saiu/chegou agora, não o elenco velho).
   CAREER.boardGoal = computeBoardGoal();
+  // FASE 2 (a) — novo chaveamento da Copa do Brasil, mesmo motivo do
+  // boardGoal acima (elenco renovado de todo mundo, não só o seu).
+  setupCup();
 
   return { dismissed: false, finishedYear, finishedPos, finishedGoal, goalWasMet, newYear: CAREER.seasonYear, humanRenewal, newGoal: CAREER.boardGoal };
 }
@@ -954,6 +1115,8 @@ async function startCareer(clubId) {
     // já com o elenco recém-montado (ver computeBoardGoal).
     CAREER.boardGoal = computeBoardGoal();
     CAREER.negativeSeasonsStreak = 0;
+    // FASE 2 (a) — chaveamento da Copa do Brasil da 1ª temporada.
+    setupCup();
     await persistCareer();
     showGameScreen();
   } finally {
@@ -1258,7 +1421,12 @@ function simulateRound() {
     simulateAiTransfers(round);
     maybeGenerateOffer(round);
   }
-  return { round, humanMatch, allResults, lineupChanges, wagePaid, newOffer: CAREER.pendingOffer };
+  // FASE 2 (a) — Copa do Brasil: só resolve alguma coisa nas 4 rodadas
+  // certas (ver CUP_ROUNDS) e só se seu clube ainda estiver na
+  // competição (resolveCupPhase devolve null em qualquer outro caso —
+  // ver comentário lá).
+  const cup = resolveCupPhase(round);
+  return { round, humanMatch, allResults, lineupChanges, wagePaid, newOffer: CAREER.pendingOffer, cup };
 }
 
 /* ---------- Renderização: Central ---------- */
@@ -1767,6 +1935,47 @@ function renderTabela() {
   table.querySelector("tbody").innerHTML = tbody;
 }
 
+/* ---------- FASE 2 (a) — Copa do Brasil: card de status/histórico
+   (ver #cupStatusText/#cupHistory, dentro do painel Tabela) ---------- */
+function renderCopa() {
+  const cup = CAREER.cup;
+  const statusEl = document.getElementById("cupStatusText");
+  const histEl = document.getElementById("cupHistory");
+  if (!cup || !cup.active) {
+    statusEl.textContent = "Seu elenco não se classificou pra Copa do Brasil essa temporada — só os 16 elencos mais fortes da competição disputam.";
+    histEl.innerHTML = "";
+    return;
+  }
+  const myTieInPhase = (phase) => (cup.ties[phase] || []).find((t) => String(t.home) === String(CAREER.clubId) || String(t.away) === String(CAREER.clubId));
+  if (cup.championIsHuman) {
+    statusEl.innerHTML = `🏆 <b style="color:var(--gold);">Campeão da Copa do Brasil ${CAREER.seasonYear}!</b>`;
+  } else if (!cup.humanAlive) {
+    statusEl.textContent = `Eliminado da Copa do Brasil nas ${CUP_PHASE_LABEL[cup.humanEliminatedStage] || cup.humanEliminatedStage}${cup.humanEliminatedAtRound ? ` (rodada ${cup.humanEliminatedAtRound})` : ""}.`;
+  } else if (cup.phase === "done") {
+    statusEl.textContent = `Copa do Brasil ${CAREER.seasonYear} encerrada. Campeão: ${teamById(cup.champion).name}.`;
+  } else {
+    const tie = myTieInPhase(cup.phase);
+    const oppId = tie ? (String(tie.home) === String(CAREER.clubId) ? tie.away : tie.home) : null;
+    statusEl.innerHTML = `Fase atual: <b>${CUP_PHASE_LABEL[cup.phase]}</b>. Próximo confronto: rodada ${CUP_ROUNDS[cup.phase]} contra <b>${oppId ? escapeHtml(teamById(oppId).name) : "?"}</b>.`;
+  }
+  const rows = CUP_PHASES.map((phase) => {
+    const tie = myTieInPhase(phase);
+    if (!tie || tie.gh == null) return "";
+    const isHomeMe = String(tie.home) === String(CAREER.clubId);
+    const opp = teamById(isHomeMe ? tie.away : tie.home);
+    const myScore = isHomeMe ? tie.gh : tie.ga;
+    const oppScore = isHomeMe ? tie.ga : tie.gh;
+    const won = String(tie.winner) === String(CAREER.clubId);
+    return `<div class="ct-round-result-row me">
+      <div class="ct-rr-team">${crestImg(teamById(CAREER.clubId), 22)}<span>Você</span></div>
+      <span class="ct-rr-score">${myScore} <small>x</small> ${oppScore}${tie.penalties ? " <small>(pên.)</small>" : ""}</span>
+      <div class="ct-rr-team right">${crestImg(opp, 22)}<span>${escapeHtml(opp.name)}</span></div>
+    </div>
+    <p class="ct-sub" style="margin:2px 0 8px;">${CUP_PHASE_LABEL[phase]}: ${won ? "✅ Classificado" : "❌ Eliminado"}</p>`;
+  }).join("");
+  histEl.innerHTML = rows || `<p class="ct-empty">Nenhum confronto disputado ainda.</p>`;
+}
+
 /* ---------- Renderização: Estatísticas ----------
    Pedido do usuário: substitui a aba Notícias — dados do campeonato
    (derivados da tabela da carreira, mesma fonte de sempre — ver
@@ -2053,7 +2262,7 @@ function declineOffer() {
 function renderAll() {
   [
     ["Central", renderCentral], ["Elenco", renderElenco], ["Escalação", renderEscalacao],
-    ["Tabela", renderTabela], ["Estatísticas", renderEstatisticas], ["Mercado", renderMercado],
+    ["Tabela", renderTabela], ["Copa do Brasil", renderCopa], ["Estatísticas", renderEstatisticas], ["Mercado", renderMercado],
   ].forEach(([name, fn]) => {
     try { fn(); } catch (err) {
       console.error(`[carreira] falha ao renderizar ${name}:`, err);
@@ -2121,8 +2330,37 @@ function showRoundResultsModal(summary) {
   document.getElementById("roundResultsOffer").textContent = summary.newOffer
     ? `💰 Proposta recebida: ${summary.newOffer.clubName} oferece ${fmtBRL(summary.newOffer.fee)} pelo jogador ${abbreviateName(summary.newOffer.playerName)} — veja na aba Mercado.`
     : "";
+  // FASE 2 (a) — Copa do Brasil: só existe summary.cup nas 4 rodadas
+  // certas com seu clube ainda vivo (ver resolveCupPhase).
+  document.getElementById("roundResultsCup").innerHTML = summary.cup ? cupRoundResultsHTML(summary.cup) : "";
   PENDING_ROUND_SUMMARY = null;
   document.getElementById("roundResultsOverlay").classList.add("open");
+}
+// Lista os confrontos da fase da Copa que acabou de rolar (mesmo
+// componente visual .ct-round-result-row/.me da lista de resultados do
+// Brasileirão) + uma linha de status (classificado/eliminado/campeão)
+// pro SEU confronto especificamente.
+function cupRoundResultsHTML(cupResult) {
+  const { phase, results } = cupResult;
+  const rows = results.map((tie) => {
+    const home = teamById(tie.home), away = teamById(tie.away);
+    const isMe = String(tie.home) === String(CAREER.clubId) || String(tie.away) === String(CAREER.clubId);
+    return `<div class="ct-round-result-row ${isMe ? "me" : ""}">
+      <div class="ct-rr-team">${crestImg(home, 22)}<span>${escapeHtml(home.short || home.name)}</span></div>
+      <span class="ct-rr-score">${tie.gh} <small>x</small> ${tie.ga}${tie.penalties ? " <small>(pên.)</small>" : ""}</span>
+      <div class="ct-rr-team right">${crestImg(away, 22)}<span>${escapeHtml(away.short || away.name)}</span></div>
+    </div>`;
+  }).join("");
+  const cup = CAREER.cup;
+  let statusLine = "";
+  if (cup.championIsHuman && phase === "final") {
+    statusLine = `<p class="ct-sub" style="color:var(--gold); font-weight:700; margin-top:8px;">🏆 Campeão da Copa do Brasil ${CAREER.seasonYear}!</p>`;
+  } else if (!cup.humanAlive && cup.humanEliminatedStage === phase) {
+    statusLine = `<p class="ct-sub" style="color:var(--brd-red); font-weight:700; margin-top:8px;">❌ Eliminado da Copa do Brasil nas ${CUP_PHASE_LABEL[phase]}.</p>`;
+  } else if (cup.humanAlive) {
+    statusLine = `<p class="ct-sub" style="color:var(--gold); font-weight:700; margin-top:8px;">✅ Classificado pra ${CUP_PHASE_LABEL[cup.phase]} da Copa do Brasil!</p>`;
+  }
+  return `<h3 class="ct-stats-table-title" style="margin-top:14px;">🏆 Copa do Brasil — ${CUP_PHASE_LABEL[phase]}</h3>${rows}${statusLine}`;
 }
 // FASE 3 (c) — modal de resumo ao avançar de temporada (ver
 // advanceSeason). Sem botão X de propósito — só "Começar a temporada"
@@ -2420,6 +2658,11 @@ function migrateCareerDefaults() {
   // vez de deixar sem meta pro resto da temporada em andamento.
   if (!CAREER.boardGoal) CAREER.boardGoal = computeBoardGoal();
   if (CAREER.negativeSeasonsStreak == null) CAREER.negativeSeasonsStreak = 0;
+  // FASE 2 (a) — carreira criada antes da Copa do Brasil existir: monta
+  // um chaveamento novo e fecha por trás (fast-forward, sem prêmio nem
+  // log) qualquer fase cujo round já passou nessa temporada em
+  // andamento — ver comentário em setupCup.
+  if (!CAREER.cup) setupCup(CAREER.currentRound);
 }
 async function enterAfterAuth() {
   show("screenLoading");

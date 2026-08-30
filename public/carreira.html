@@ -571,6 +571,16 @@
           <p class="ct-sub">Classificação própria dessa carreira (não é a tabela real do Brasileirão) — atualizada a cada rodada simulada.</p>
           <div class="ct-scroll-x"><table class="ct-table" id="standingsTable"><thead></thead><tbody></tbody></table></div>
         </div>
+        <!-- FASE 2 (a) — Copa do Brasil (mata-mata entre os 16 elencos
+             mais fortes, ver setupCup/CUP_ROUNDS em carreira.js).
+             Sem aba própria de propósito — a barra de abas já não cabe
+             inteira na tela (ver .ct-tabs overflow-x), e a Copa é
+             secundária ao Brasileirão; fica aqui, do lado da tabela. -->
+        <div class="ct-card">
+          <h2>Copa do Brasil</h2>
+          <p class="ct-sub" id="cupStatusText"></p>
+          <div id="cupHistory"></div>
+        </div>
       </section>
 
       <!-- ---------- Estatísticas ---------- -->
@@ -758,6 +768,11 @@
       <div class="ct-sub" id="roundResultsChanges" style="margin-top:10px;"></div>
       <div class="ct-sub" id="roundResultsFinance"></div>
       <div class="ct-sub" id="roundResultsOffer" style="color:var(--brd-blue); font-weight:700;"></div>
+      <!-- FASE 2 (a) — Copa do Brasil: só aparece nas 4 rodadas em que
+           uma fase se resolve (ver CUP_ROUNDS/resolveCupPhase em
+           carreira.js). Vazio (hidden por não ter innerHTML) no resto
+           das rodadas. -->
+      <div id="roundResultsCup"></div>
       <button class="ct-btn primary full" id="btnRoundResultsContinue" style="margin-top:14px;">Ver tabela atualizada</button>
     </div>
   </div>
