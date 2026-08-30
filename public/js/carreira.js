@@ -373,17 +373,120 @@ function moraleFactor(p) {
 // (insatisfeito por não jogar) + metade do efeito do resultado; quem
 // nem entrou na "folha de jogo" (nem titular, nem banco) perde mais,
 // sentindo que foi esquecido pelo treinador.
+// FASE 4 (item 1) — além do delta em si, agora também acumula
+// benchStreak (rodadas seguidas fora do time titular, zera assim que
+// volta a titular) e grava um motivo_atual/tendência legíveis (ver
+// "Modelo de dados" do documento: moral.tendencia/motivo_atual) —
+// mostrados na seção "Relacionamento" do detalhe do jogador.
 function applyMoraleAfterMatch(myGoals, oppGoals) {
   const resultDelta = myGoals > oppGoals ? 3 : myGoals === oppGoals ? 0 : -3;
   const starterIds = new Set(CAREER.lineup.starters.filter(Boolean));
   const benchIds = new Set(CAREER.lineup.bench);
   CAREER.squad.forEach((p) => {
     const base = p.morale == null ? 70 : p.morale;
-    const delta = starterIds.has(p.id) ? resultDelta + 2
-      : benchIds.has(p.id) ? Math.round(resultDelta / 2) - 1
-      : -2;
-    p.morale = clamp(base + delta, 0, 100);
+    let delta, reason;
+    if (starterIds.has(p.id)) {
+      delta = resultDelta + 2;
+      p.benchStreak = 0;
+      reason = resultDelta > 0 ? "Comemorando a vitória jogando entre os titulares"
+        : resultDelta < 0 ? "Abalado com a derrota jogando entre os titulares"
+        : "Neutro após o empate jogando entre os titulares";
+    } else {
+      p.benchStreak = (p.benchStreak || 0) + 1;
+      if (benchIds.has(p.id)) {
+        delta = Math.round(resultDelta / 2) - 1;
+        reason = p.benchStreak >= TALK_BENCH_STREAK_THRESHOLD
+          ? `Insatisfeito no banco há ${p.benchStreak} jogos seguidos`
+          : "Quer mais oportunidades como titular";
+      } else {
+        delta = -2;
+        reason = p.benchStreak >= TALK_BENCH_STREAK_THRESHOLD
+          ? `Contrariado por ficar fora da lista de jogo há ${p.benchStreak} rodadas`
+          : "Fora da lista de jogo nessa rodada";
+      }
+    }
+    const newMorale = clamp(base + delta, 0, 100);
+    p.moraleTrend = newMorale > base ? "subindo" : newMorale < base ? "caindo" : "estavel";
+    p.morale = newMorale;
+    p.moraleReason = reason;
+    // Consequência de moral prolongada baixa pedida no documento (além
+    // de já pesar no desempenho via moraleFactor, e de já poder travar
+    // renovação em proposeRenewal): fica marcado como "pede
+    // transferência" — só um alerta visível (Elenco + detalhe), sem
+    // forçar listagem automática no mercado, que exigiria uma reescrita
+    // maior do fluxo de vendas só pra essa flag.
+    p.wantsTransfer = p.benchStreak >= WANTS_TRANSFER_BENCH_STREAK && p.morale <= WANTS_TRANSFER_MORALE_MAX;
   });
+}
+// FASE 4 (item 1) — "conversa individual" pedida no documento: decisão
+// simples entre respostas pré-escritas com efeito imediato na moral,
+// sem sistema de diálogo dinâmico ("não precisa ser um sistema de
+// diálogo complexo, só uma decisão binária/ternária com efeito" — texto
+// do próprio documento). Fica disponível só "quando aplicável": jogador
+// insatisfeito (fora do time titular há TALK_BENCH_STREAK_THRESHOLD+
+// rodadas seguidas) ou já com moral muito baixa — e no máximo 1
+// conversa por rodada por jogador (lastTalkRound), pra não virar botão
+// de spam sem custo nenhum.
+const TALK_BENCH_STREAK_THRESHOLD = 3;
+const WANTS_TRANSFER_BENCH_STREAK = 5;
+const WANTS_TRANSFER_MORALE_MAX = 20;
+function canTalkTo(p) {
+  const morale = p.morale == null ? 70 : p.morale;
+  const eligible = (p.benchStreak || 0) >= TALK_BENCH_STREAK_THRESHOLD || morale <= 30;
+  return eligible && p.lastTalkRound !== CAREER.currentRound;
+}
+function moraleTrendArrowHTML(p) {
+  return p.moraleTrend === "subindo" ? ' <span style="color:var(--brd-green);" title="Moral subindo">▲</span>'
+    : p.moraleTrend === "caindo" ? ' <span style="color:var(--brd-red);" title="Moral caindo">▼</span>' : "";
+}
+let TALK_CTX = null;
+function openTalkModal(id) {
+  const p = CAREER.squad.find((x) => x.id === id);
+  if (!p || !canTalkTo(p)) return;
+  TALK_CTX = { playerId: id };
+  document.getElementById("talkSub").textContent = abbreviateName(p.name);
+  document.getElementById("talkContext").textContent = p.moraleReason || "Precisa de uma conversa.";
+  document.getElementById("talkOverlay").classList.add("open");
+}
+function closeTalkModal() {
+  document.getElementById("talkOverlay").classList.remove("open");
+  TALK_CTX = null;
+}
+// Efeito depende do contexto atual (documento pede "sobem ou descem
+// moral dependendo do contexto"): "cobrar postura" ajuda quem só está
+// desanimado, mas piora ainda mais quem já está muito infeliz — as
+// outras duas opções são sempre positivas, sem rastrear "promessa
+// cumprida ou não" depois (fora do escopo simples que o próprio
+// documento pede).
+function applyTalkOption(option) {
+  if (!TALK_CTX) return;
+  const p = CAREER.squad.find((x) => x.id === TALK_CTX.playerId);
+  if (!p) { closeTalkModal(); return; }
+  const morale = p.morale == null ? 70 : p.morale;
+  let delta, resultText;
+  if (option === "apoiar") {
+    delta = 12;
+    resultText = `${abbreviateName(p.name)} se sentiu ouvido e ficou mais tranquilo.`;
+  } else if (option === "prometer") {
+    delta = 10;
+    p.benchStreak = 0; // esperançoso com a promessa — reinicia a contagem de insatisfação
+    resultText = `${abbreviateName(p.name)} ficou esperançoso com a promessa de mais chances.`;
+  } else {
+    delta = morale <= 30 ? -8 : 6;
+    resultText = delta > 0
+      ? `${abbreviateName(p.name)} levou a cobrança na esportiva e prometeu se superar.`
+      : `${abbreviateName(p.name)} não gostou nada do tom — ficou ainda mais incomodado.`;
+  }
+  const newMorale = clamp(morale + delta, 0, 100);
+  p.moraleTrend = newMorale > morale ? "subindo" : newMorale < morale ? "caindo" : "estavel";
+  p.morale = newMorale;
+  p.moraleReason = "Conversou recentemente com o técnico";
+  p.wantsTransfer = p.benchStreak >= WANTS_TRANSFER_BENCH_STREAK && p.morale <= WANTS_TRANSFER_MORALE_MAX;
+  p.lastTalkRound = CAREER.currentRound;
+  closeTalkModal();
+  toast(resultText, 4500);
+  persistCareer();
+  if (document.getElementById("detailOverlay").classList.contains("open")) openDetail(p.id);
 }
 // Virada de temporada (chamada de dentro de renewHumanSquad): puxa a
 // moral de todo mundo um pouco de volta pro neutro (sem isso, ao longo
@@ -421,6 +524,10 @@ function buildRealPlayer(raw, club, rng) {
     group, age, overall, atk, def, phys,
     origin: "principal", real: true,
     status: "ok", outUntilRound: null, yellowCards: 0, condition: 100, morale: 70,
+    // FASE 4 (item 1) — relacionamento jogador-técnico, ver bloco de
+    // comentário logo acima de applyMoraleAfterMatch.
+    benchStreak: 0, moraleReason: "Neutro no clube", moraleTrend: "estavel",
+    wantsTransfer: false, lastTalkRound: null,
     goalsCareer: 0, assistsCareer: 0, apps: 0,
     ...computeContractFields(overall, age, null, rng),
   };
@@ -446,6 +553,8 @@ function buildBasePlayer(club, idx, rng) {
     group, age, overall, atk, def, phys, potential,
     origin: "base", real: false,
     status: "ok", outUntilRound: null, yellowCards: 0, condition: 100, morale: 70,
+    benchStreak: 0, moraleReason: "Neutro no clube", moraleTrend: "estavel",
+    wantsTransfer: false, lastTalkRound: null,
     goalsCareer: 0, assistsCareer: 0, apps: 0,
     ...computeContractFields(overall, age, potential, rng),
   };
@@ -498,6 +607,8 @@ function buildGeneratedProPlayer(club, idx, rng) {
     group, age, overall, atk, def, phys,
     origin: "principal", real: false,
     status: "ok", outUntilRound: null, yellowCards: 0, condition: 100, morale: 70,
+    benchStreak: 0, moraleReason: "Neutro no clube", moraleTrend: "estavel",
+    wantsTransfer: false, lastTalkRound: null,
     goalsCareer: 0, assistsCareer: 0, apps: 0,
     ...computeContractFields(overall, age, null, rng),
   };
@@ -2849,13 +2960,16 @@ function playerRow(p) {
   const moraleTag = morale >= 80 ? ` <span title="Moral ${morale} — feliz no clube">😊</span>`
     : morale <= 30 ? ` <span title="Moral ${morale} — infeliz no clube">😞</span>`
     : "";
+  // FASE 4 (item 1) — alerta visível de "pede transferência" (ver
+  // applyMoraleAfterMatch), mesma linguagem de pill das outras tags.
+  const wantsTransferTag = p.wantsTransfer ? ` <span class="ct-pill" style="margin-left:4px; background:var(--brd-red); color:#fff;" title="Moral muito baixa há várias rodadas seguidas fora do time titular">pede transferência</span>` : "";
   // Fase 2 (olheiro) — faixa de potencial junto do overall, só pra
   // quem tem potencial pra mostrar (base, e quem já foi promovido mas
   // ainda carrega o potencial de quando era da base).
   const potRange = scoutedPotentialRange(p);
   const potHint = potRange ? `<br><span class="ct-pot-hint" title="Faixa estimada por olheiro — o teto real é incerto até o jogador amadurecer">pot. ${potRange.lo}-${potRange.hi}</span>` : "";
   return `<tr data-id="${p.id}" style="cursor:pointer;">
-    <td class="ct-name-cell">${escapeHtml(abbreviateName(p.name))}${(!p.real && p.origin !== "base") ? ' <span class="ct-pill base" style="margin-left:4px;">gerado</span>' : ""}${contractTag}${moraleTag}${loanTag}</td>
+    <td class="ct-name-cell">${escapeHtml(abbreviateName(p.name))}${(!p.real && p.origin !== "base") ? ' <span class="ct-pill base" style="margin-left:4px;">gerado</span>' : ""}${contractTag}${moraleTag}${wantsTransferTag}${loanTag}</td>
     <td>${subPositionOf(p)}</td><td>${p.age}</td><td><b>${p.overall}</b>${potHint}</td>
     <td>${conditionDotsHTML(p.condition)}</td>
     <td>${statusPill}</td>
@@ -3024,6 +3138,10 @@ function openDetail(id) {
     </div>
     ${potRange ? `<p class="ct-sub" style="color:var(--gold); font-weight:700;">🔭 Avaliação do olheiro: potencial entre ${potRange.lo} e ${potRange.hi}.</p>` : ""}
     <p class="ct-sub">Condição: ${conditionRating(p.condition)}/5 (${CONDITION_RATING_LABEL[conditionRating(p.condition)]}) · Jogos: ${p.apps || 0} · Gols na carreira: ${p.goalsCareer || 0} · Cartões amarelos (ciclo atual): ${p.yellowCards || 0}</p>
+    <!-- FASE 4 (item 1) — seção "Relacionamento" pedida no documento:
+         motivo atual + tendência da moral, e alerta de "pede
+         transferência" quando aplicável (ver applyMoraleAfterMatch). -->
+    <p class="ct-sub">Relacionamento: ${escapeHtml(p.moraleReason || "Neutro no clube")}${moraleTrendArrowHTML(p)}${p.wantsTransfer ? ' · <span style="color:var(--brd-red); font-weight:700;">🏃 pede transferência</span>' : ""}</p>
     <p class="ct-sub">Salário: ${fmtBRL(p.wage)}/mês · Contrato até: ${p.contractUntil} · Valor de mercado: ${fmtBRL(p.value)}</p>
     <!-- FASE 1 (item 1 da especificação "BR Data Treinador") — pedido
          do usuário: aviso visível de final de contrato, com
@@ -3046,6 +3164,7 @@ function openDetail(id) {
          quebra e botão "small", que era o que ainda sobrava daqui de
          antes do ajuste de componentes. -->
     <div style="display:flex; flex-direction:column; gap:8px; margin-top:10px;">
+      ${canTalkTo(p) ? `<button class="ct-btn full" data-act="talk">💬 Conversar</button>` : ""}
       ${isContractExpiring(p) ? `<button class="ct-btn full primary" data-act="renew">✍️ Renovar contrato</button>` : ""}
       ${inStarters ? `<button class="ct-btn full" data-act="removeStarter">Tirar do time titular</button>` : ""}
       ${!inStarters && inBench ? `<button class="ct-btn full" data-act="removeBench">Tirar do banco</button>` : ""}
@@ -3080,6 +3199,9 @@ async function handlePlayerAction(id, act) {
   // qualquer outra modal já aberta) — não fecha nem mexe em nada aqui,
   // quem decide o que muda é proposeRenewal().
   if (act === "renew") { openRenewModal(id); return; }
+  // FASE 4 (item 1) — "conversa individual", mesmo padrão de sub-modal
+  // aberto POR CIMA do detalhe (ver openTalkModal/applyTalkOption).
+  if (act === "talk") { openTalkModal(id); return; }
   // FASE 3 (item 3) — mesmo padrão do "renew" acima: abre o sub-modal
   // de configuração do empréstimo POR CIMA do detalhe, sem mexer em
   // nada ainda — quem decide o que muda é confirmLoanFromModal().
@@ -4066,6 +4188,13 @@ function wireStaticListeners() {
   document.getElementById("renewClose").addEventListener("click", closeRenewModal);
   document.getElementById("renewOverlay").addEventListener("click", (e) => { if (e.target.id === "renewOverlay") closeRenewModal(); });
   document.getElementById("btnRenewPropose").addEventListener("click", proposeRenewal);
+  // FASE 4 (item 1) — sub-modal de conversa individual, mesmo padrão de
+  // fechamento dos outros (X e clique fora fecham sem aplicar nada).
+  document.getElementById("talkClose").addEventListener("click", closeTalkModal);
+  document.getElementById("talkOverlay").addEventListener("click", (e) => { if (e.target.id === "talkOverlay") closeTalkModal(); });
+  document.getElementById("talkOverlay").querySelectorAll("[data-talk]").forEach((btn) => {
+    btn.addEventListener("click", () => applyTalkOption(btn.dataset.talk));
+  });
   // FASE 3 (item 3) — sub-modal de configuração de empréstimo, mesmo
   // padrão de fechamento dos outros (X e clique fora fecham sem
   // confirmar nada). Campo de valor da cláusula só aparece quando a
@@ -4154,6 +4283,14 @@ function migrateCareerDefaults() {
     // FASE 2 (b) — jogador criado antes da moral existir nasce no
     // mesmo neutro (70) de quem é criado hoje.
     if (p.morale == null) p.morale = 70;
+    // FASE 4 (item 1) — jogador criado antes do relacionamento
+    // jogador-técnico existir nasce nos mesmos valores neutros de quem
+    // é criado hoje (sem histórico retroativo de banco pra reconstruir).
+    if (p.benchStreak == null) p.benchStreak = 0;
+    if (p.moraleReason == null) p.moraleReason = "Neutro no clube";
+    if (p.moraleTrend == null) p.moraleTrend = "estavel";
+    if (p.wantsTransfer == null) p.wantsTransfer = false;
+    if (p.lastTalkRound === undefined) p.lastTalkRound = null;
   };
   CAREER.squad.forEach(backfillContract);
   Object.values(CAREER.leagueSquads).forEach((squad) => squad.forEach(backfillContract));
