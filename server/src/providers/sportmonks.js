@@ -265,6 +265,24 @@ const TOPSCORER_TYPE = { GOALS: 208, ASSISTS: 209, CARDS: 210, RATING: 211 };
 // confirmado contra resposta real em LINEUP_POSITION/mapLineupPosition,
 // mais abaixo — 24=goleiro, 25=zagueiro, 26=meia, 27=atacante);
 // detailed_position_id como fallback pro raro caso de vir só ele.
+// AJUSTE (pedido do usuário: "a idade de todos os atletas está
+// incorreta... favor buscar a idade na API") — Sportmonks não devolve
+// idade pronta como a API-Sports (ver mapPlayerEntry em adapter.js),
+// só a data de nascimento no recurso Player ("date_of_birth", formato
+// YYYY-MM-DD) — calcula a idade a partir dela. Tolera variação de
+// nome de campo (snake_case é o documentado publicamente; camelCase
+// como rede de segurança, já que não dá pra confirmar contra resposta
+// real sem token pago, ver aviso no topo do arquivo).
+function ageFromBirthdate(dateStr) {
+  if (!dateStr) return null;
+  const birth = new Date(dateStr);
+  if (Number.isNaN(birth.getTime())) return null;
+  const now = new Date();
+  let age = now.getFullYear() - birth.getFullYear();
+  const monthDiff = now.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < birth.getDate())) age--;
+  return age >= 14 && age <= 50 ? age : null; // fora disso é dado claramente errado, melhor null que idade absurda
+}
 function mapPlayerFromSquad(item, stats) {
   const p = item.player;
   if (!p) return null;
@@ -276,6 +294,7 @@ function mapPlayerFromSquad(item, stats) {
     photo: p.image_path || null,
     teamId: item.team_id ?? null,
     position,
+    age: ageFromBirthdate(p.date_of_birth ?? p.dateOfBirth ?? p.birthdate),
     games: stats?.games ?? item.appearances ?? null,
     goals: stats?.goals ?? item.goals ?? null,
     assists: stats?.assists ?? item.assists ?? null,
@@ -541,6 +560,7 @@ async function getPlayer({ playerId }) {
   return {
     id: p.id, name: p.display_name || p.name, photo: p.image_path || null,
     teamId: null, position,
+    age: ageFromBirthdate(p.date_of_birth ?? p.dateOfBirth ?? p.birthdate),
     games: null, goals: null, assists: null, yellow: null, red: null, rating: null,
   };
 }
