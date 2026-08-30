@@ -1106,6 +1106,9 @@ function advanceSeason() {
   CAREER.currentRound = 1;
   CAREER.resultsByRound = {};
   CAREER.recentForm = [];
+  // FASE 4 (item 3) — jejum de vitória zera junto com a tabela (é "da
+  // temporada", mesmo critério de CAREER.teamStats logo abaixo).
+  CAREER.teamWinlessStreak = {};
   CAREER.teamStats = { assists: 0, yellow: 0, red: 0 }; // estatísticas da Estatísticas são "da temporada", zeram junto com a tabela
   pushTransferLog(`Início da Temporada ${CAREER.seasonYear}.`, 1);
 
@@ -1658,6 +1661,9 @@ async function startCareer(clubId) {
       // começa em LIVE_SEASON (a temporada real dos dados) e só sobe
       // quando VOCÊ avança de temporada — LIVE_SEASON em si é fixo.
       seasonYear: LIVE_SEASON, seasonHistory: [],
+      // FASE 4 (item 3) — jejum de vitória por time, pra manchete
+      // "encerra jejum de X jogos" (ver updateWinlessStreaks).
+      teamWinlessStreak: {},
     };
     // FASE 1 (item 3) — meta da diretoria da 1ª temporada, calculada
     // já com o elenco recém-montado (ver computeBoardGoal).
@@ -2010,6 +2016,127 @@ function applyResultToStandings(r) {
   else { H.e++; A.e++; H.pts++; A.pts++; }
   H.sg = H.gp - H.gc; A.sg = A.gp - A.gc;
 }
+function cloneStandings(standings) {
+  const copy = {};
+  Object.keys(standings).forEach((id) => { copy[id] = { ...standings[id] }; });
+  return copy;
+}
+
+/* ---------- FASE 4 (item 3 da especificação "BR Data Treinador") —
+   notícias da rodada (formato RSS) ----------
+   "Gerador de manchetes" com templates fixos preenchidos por dado que
+   já existe (placar + tabela antes/depois) — NÃO é texto gerado por IA
+   em tempo real, exatamente como a especificação pede ("mais barato,
+   mais previsível, mais fácil de revisar"). Chamado de dentro de
+   finishRoundTail, depois que a Copa/tabela dessa rodada já estão
+   atualizadas, mas usando o standingsBefore capturado no INÍCIO de
+   simulateRound (antes de qualquer resultado dessa rodada mexer na
+   tabela — ver applyResultToStandings) pra comparar posição antes/
+   depois.
+
+   Adaptação nossa pro gatilho "mandante segura o empate, dado que
+   esteve em desvantagem em algum momento": esse jogo NÃO progride
+   minuto a minuto pra times CPU x CPU (só a SUA partida tem tempos de
+   verdade, ver LIVE_MATCH_CHUNK_MINUTES) — não existe uma "linha do
+   tempo" de verdade pra saber se o mandante esteve atrás em algum
+   momento. Troca por um proxy com dado que JÁ existe: empate em que o
+   visitante tem overall médio bem maior (mandante seguraria um
+   resultado "melhor que o esperado" contra favorito) — mesmo espírito
+   da manchete, sem inventar timeline que a simulação não tem. */
+const NEWS_ICON = { lider: "📈", zebra: "⚡", goleada: "🥅", jejum_quebrado: "🔥", lanterna_reage: "🆙", empate_defendido: "🛡️", generico: "📰" };
+const NEWS_PRIORITY = { lider: 1, zebra: 2, lanterna_reage: 3, goleada: 4, empate_defendido: 5, jejum_quebrado: 6, generico: 9 };
+const WINLESS_STREAK_THRESHOLD = 5; // rodadas sem vencer pra "jejum" valer manchete
+const ZEBRA_OVR_GAP = 6; // diferença mínima de overall médio pra contar como zebra/empate-defendido
+function rankByPoints(standings) {
+  const rows = Object.values(standings).sort((a, b) => (b.pts - a.pts) || (b.v - a.v) || (b.sg - a.sg) || (b.gp - a.gp));
+  const pos = {};
+  rows.forEach((r, i) => { pos[r.id] = i + 1; });
+  return pos;
+}
+// Atualiza o jejum de vitória de TODOS os times que jogaram essa
+// rodada (zera pra quem venceu, soma 1 pra quem empatou/perdeu) — lido
+// ANTES de mexer (ver generateRoundNews, streaksBefore) pra saber
+// havia quanto tempo o time que venceu agora estava sem vencer.
+function updateWinlessStreaks(allResults) {
+  CAREER.teamWinlessStreak = CAREER.teamWinlessStreak || {};
+  allResults.forEach((r) => {
+    const homeId = String(r.home), awayId = String(r.away);
+    if (r.gh > r.ga) { CAREER.teamWinlessStreak[homeId] = 0; CAREER.teamWinlessStreak[awayId] = (CAREER.teamWinlessStreak[awayId] || 0) + 1; }
+    else if (r.ga > r.gh) { CAREER.teamWinlessStreak[awayId] = 0; CAREER.teamWinlessStreak[homeId] = (CAREER.teamWinlessStreak[homeId] || 0) + 1; }
+    else { CAREER.teamWinlessStreak[homeId] = (CAREER.teamWinlessStreak[homeId] || 0) + 1; CAREER.teamWinlessStreak[awayId] = (CAREER.teamWinlessStreak[awayId] || 0) + 1; }
+  });
+}
+function generateRoundNews(round, allResults, standingsBefore) {
+  const headlines = [];
+  const isMine = (...ids) => ids.some((id) => String(id) === String(CAREER.clubId));
+  if (standingsBefore) {
+    const posBefore = rankByPoints(standingsBefore);
+    const posAfter = rankByPoints(CAREER.standings);
+    const total = Object.keys(posAfter).length;
+    // Líder novo — pedido do usuário: comparação é por TIME (não por
+    // partida), então checa os 20 de uma vez só; sem manchete na
+    // rodada 1 (todo mundo empatado em 0, "virar líder" não diz nada).
+    if (round > 1) {
+      Object.keys(posAfter).forEach((id) => {
+        if (posAfter[id] === 1 && posBefore[id] !== 1) {
+          headlines.push({ type: "lider", mine: isMine(id), texto: `${teamById(id).name} é o novo líder` });
+        }
+      });
+    }
+    const streaksBefore = { ...(CAREER.teamWinlessStreak || {}) };
+    allResults.forEach((r) => {
+      const home = teamById(r.home), away = teamById(r.away);
+      const mine = isMine(r.home, r.away);
+      if (r.gh === r.ga) {
+        // Empate — ver adaptação no comentário do bloco acima.
+        const homeOvr = squadAvgOverallOf(r.home), awayOvr = squadAvgOverallOf(r.away);
+        if (homeOvr != null && awayOvr != null && awayOvr >= homeOvr + ZEBRA_OVR_GAP) {
+          headlines.push({ type: "empate_defendido", mine, texto: `${home.name} segura o empate em casa` });
+        }
+        return;
+      }
+      const winnerId = r.gh > r.ga ? r.home : r.away;
+      const loserId = r.gh > r.ga ? r.away : r.home;
+      const winner = teamById(winnerId), loser = teamById(loserId);
+      const margin = Math.abs(r.gh - r.ga);
+      if (margin >= 3) {
+        headlines.push({ type: "goleada", mine, texto: `${winner.name} aplica goleada sobre ${loser.name} (${Math.max(r.gh, r.ga)} x ${Math.min(r.gh, r.ga)})` });
+      }
+      const winnerOvr = squadAvgOverallOf(winnerId), loserOvr = squadAvgOverallOf(loserId);
+      if (winnerOvr != null && loserOvr != null && winnerOvr <= loserOvr - ZEBRA_OVR_GAP) {
+        headlines.push({ type: "zebra", mine, texto: `Zebra: ${winner.name} surpreende e vence ${loser.name}` });
+      }
+      if (posBefore[String(winnerId)] === total) {
+        const zoneClause = posAfter[String(winnerId)] <= total - 4 ? " e sai da zona de rebaixamento" : "";
+        headlines.push({ type: "lanterna_reage", mine, texto: `Reação: lanterna ${winner.name} vence${zoneClause}` });
+      }
+      const streak = streaksBefore[String(winnerId)] || 0;
+      if (streak >= WINLESS_STREAK_THRESHOLD) {
+        headlines.push({ type: "jejum_quebrado", mine, texto: `${winner.name} encerra jejum de ${streak} jogos sem vitória` });
+      }
+    });
+  }
+  updateWinlessStreaks(allResults);
+  if (!headlines.length) {
+    headlines.push({ type: "generico", mine: false, texto: `Rodada ${round} não teve grandes surpresas na tabela.` });
+  }
+  // Prioridade pedida: manchete do SEU clube sempre primeiro,
+  // independente do tipo — depois disso, líder > zebra > lanterna
+  // reage > goleada > empate defendido > jejum quebrado > genérico.
+  headlines.sort((a, b) => ((b.mine ? 1 : 0) - (a.mine ? 1 : 0)) || (NEWS_PRIORITY[a.type] - NEWS_PRIORITY[b.type]));
+  return headlines.slice(0, 6);
+}
+// Feed dentro do modal "Resultados da rodada" (ver showRoundResultsModal)
+// — nome de fonte fictícia (pedido opcional da especificação) só pra
+// dar sabor de jornal de verdade.
+function roundNewsHTML(news) {
+  if (!news || !news.length) return "";
+  const rows = news.map((n) => `<div class="ct-transfer-feed-item">${NEWS_ICON[n.type] || "📰"} ${escapeHtml(n.texto)}</div>`).join("");
+  return `<div style="margin-top:16px;">
+    <p class="ct-sub" style="font-weight:700; margin-bottom:6px;">📻 Rádio Data FM — Notícias da rodada</p>
+    ${rows}
+  </div>`;
+}
 
 // Resolve UMA partida CPU x CPU do zero, do sorteio de gols até
 // aplicar tudo no estado (extraído de simulateRound pra reaproveitar
@@ -2047,7 +2174,7 @@ function resolveCpuFixture(fx, round) {
 // jogo seu (resolveRoundInstant) ou depois da SUA partida terminar na
 // tela Ao Vivo (finishLiveMatch). Monta o summary estruturado de
 // sempre (ver showMatchDetailModal/showRoundResultsModal).
-function finishRoundTail(round, allResults, humanMatch) {
+function finishRoundTail(round, allResults, humanMatch, standingsBefore) {
   // BUG CORRIGIDO: resultsByRound guardava o placar (e os eventos) de
   // TODOS os 380 jogos da temporada pra sempre, mas só a rodada
   // imediatamente anterior é lida em algum lugar (renderCentral, "Último
@@ -2101,16 +2228,22 @@ function finishRoundTail(round, allResults, humanMatch) {
   // competição (resolveCupPhase devolve null em qualquer outro caso —
   // ver comentário lá).
   const cup = resolveCupPhase(round);
-  return { round, humanMatch, allResults, lineupChanges, wagePaid, sponsorIncome, newOffer: CAREER.pendingOffer, cup };
+  // FASE 4 (item 3) — notícias da rodada (ver generateRoundNews) — só
+  // faz sentido calcular DEPOIS de tudo (tabela e Copa já atualizadas
+  // pra essa rodada), mas usando o standingsBefore capturado no início
+  // de simulateRound (ANTES de qualquer resultado dessa rodada mexer
+  // na tabela) pra saber quem virou líder etc.
+  const news = generateRoundNews(round, allResults, standingsBefore);
+  return { round, humanMatch, allResults, lineupChanges, wagePaid, sponsorIncome, newOffer: CAREER.pendingOffer, cup, news };
 }
 // Fallback pra uma rodada em que o SEU clube não jogue (não deveria
 // acontecer no returno completo de pontos corridos, mas o calendário é
 // gerado à parte — ver generateAllRounds — então mantém esse caminho
 // como rede de segurança em vez de assumir que sempre existe fixture
 // sua).
-function resolveRoundInstant(round, fixtures) {
+function resolveRoundInstant(round, fixtures, standingsBefore) {
   const allResults = fixtures.map((fx) => resolveCpuFixture(fx, round));
-  return finishRoundTail(round, allResults, null);
+  return finishRoundTail(round, allResults, null, standingsBefore);
 }
 /* ---------- Simular a rodada corrente ----------
    Devolve um resumo ESTRUTURADO (não mais um texto de toast pronto) —
@@ -2132,9 +2265,14 @@ function simulateRound() {
   const round = CAREER.currentRound;
   if (round > 38) return null;
   const fixtures = CAREER.schedule[round] || [];
+  // FASE 4 (item 3) — cópia da tabela ANTES de qualquer resultado dessa
+  // rodada aplicar (ver applyResultToStandings, chamado fixture a
+  // fixture) — sem isso não dá pra saber quem "virou líder" nessa
+  // rodada especificamente (ver generateRoundNews).
+  const standingsBefore = cloneStandings(CAREER.standings);
   const humanFx = fixtures.find((fx) => String(fx.home) === String(CAREER.clubId) || String(fx.away) === String(CAREER.clubId));
-  if (!humanFx) return resolveRoundInstant(round, fixtures);
-  startLiveMatch(round, fixtures, humanFx);
+  if (!humanFx) return resolveRoundInstant(round, fixtures, standingsBefore);
+  startLiveMatch(round, fixtures, humanFx, standingsBefore);
   return "live";
 }
 
@@ -2178,7 +2316,7 @@ const LIVE_MATCH_CHUNK_MINUTES = [15, 30, 45, 60, 75, 90];
 const MAX_SUBS_PER_MATCH = 5;
 const LIVE_TACTICS_FAMILIARITY_PENALTY_CHUNKS = 2;
 let LIVE_MATCH = null; // estado transitório do jogo ao vivo — nunca persistido (não é parte de CAREER)
-function startLiveMatch(round, fixtures, humanFx) {
+function startLiveMatch(round, fixtures, humanFx, standingsBefore) {
   const isHome = String(humanFx.home) === String(CAREER.clubId);
   const home = teamById(humanFx.home), away = teamById(humanFx.away);
   const cpuTeamId = isHome ? humanFx.away : humanFx.home;
@@ -2189,7 +2327,7 @@ function startLiveMatch(round, fixtures, humanFx) {
   const cpuXI = pickCpuXI(leagueSquadFor(cpuTeamId));
   const otherResults = fixtures.filter((fx) => fx !== humanFx).map((fx) => resolveCpuFixture(fx, round));
   LIVE_MATCH = {
-    round, humanFx, isHome, home, away, cpuXI, otherResults,
+    round, humanFx, isHome, home, away, cpuXI, otherResults, standingsBefore,
     chunkIndex: 0, gh: 0, ga: 0, events: [], appeared: new Set(),
     subsUsed: 0, subsBonus: 0, formationPenaltyChunksLeft: 0,
     lastHsStarters: [], lastAsStarters: [],
@@ -2306,7 +2444,7 @@ async function finishLiveMatch() {
   // partida em campo do seu lado (após eventuais substituições).
   applyTrainingEvolution(lm.isHome ? lm.lastHsStarters : lm.lastAsStarters);
   const allResults = [...lm.otherResults, result];
-  const summary = finishRoundTail(lm.round, allResults, humanMatch);
+  const summary = finishRoundTail(lm.round, allResults, humanMatch, lm.standingsBefore);
   document.getElementById("liveMatchOverlay").classList.remove("open");
   LIVE_MATCH = null;
   const saved = await persistCareer();
@@ -3494,6 +3632,9 @@ function showRoundResultsModal(summary) {
   // FASE 2 (a) — Copa do Brasil: só existe summary.cup nas 4 rodadas
   // certas com seu clube ainda vivo (ver resolveCupPhase).
   document.getElementById("roundResultsCup").innerHTML = summary.cup ? cupRoundResultsHTML(summary.cup) : "";
+  // FASE 4 (item 3) — notícias da rodada, logo abaixo da lista de
+  // placares (ver generateRoundNews/roundNewsHTML).
+  document.getElementById("roundResultsNews").innerHTML = roundNewsHTML(summary.news);
   PENDING_ROUND_SUMMARY = null;
   document.getElementById("roundResultsOverlay").classList.add("open");
 }
@@ -3904,6 +4045,11 @@ function migrateCareerDefaults() {
   // nenhum contrato (advanceSponsorshipSeason só MEXE em contrato que
   // já existe, não cria um do zero fora da virada de temporada).
   if (!CAREER.sponsorship) initSponsorship();
+  // FASE 4 (item 3) — carreira criada antes das notícias da rodada:
+  // sem histórico de jejum nenhum ainda, começa zerado (não tem como
+  // reconstruir retroativamente quantas rodadas cada time já ficou sem
+  // vencer).
+  if (!CAREER.teamWinlessStreak) CAREER.teamWinlessStreak = {};
 }
 async function enterAfterAuth() {
   show("screenLoading");
