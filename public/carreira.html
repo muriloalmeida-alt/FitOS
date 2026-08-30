@@ -931,6 +931,30 @@
   </div>
 </div>
 
+<!-- FASE 4 (item 2) — coletiva de imprensa pós-jogo: pergunta fixa da
+     PRESS_LIBRARY (biblioteca fornecida pelo usuário) + 2-3 respostas
+     pré-escritas, cada uma com efeito de reputação/moral já calibrado
+     no arquivo (ver determineMatchPressTrigger/applyPressAnswer em
+     carreira.js). Aberta ENTRE o modal "Seu jogo" e o de Resultados da
+     rodada (ver btnMatchDetailContinue) — mensagem curta, mantém
+     tamanho compacto. -->
+<div class="ct-modal-overlay" id="pressOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header">
+      <span class="ct-modal-icon">🎙️</span>
+      <div class="ct-modal-header-text">
+        <h3>Coletiva de imprensa</h3>
+        <div class="ct-modal-sub">Um jornalista pede sua palavra</div>
+      </div>
+      <button class="ct-modal-close" id="pressClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <p class="ct-sub" id="pressQuestion" style="font-weight:700; color:var(--text-0); margin-bottom:14px;"></p>
+      <div id="pressOptions" style="display:flex; flex-direction:column; gap:8px;"></div>
+    </div>
+  </div>
+</div>
+
 <!-- FASE 3 (item 3) — configuração de empréstimo (dar ou pegar),
      aberto de dentro do Mercado ou do detalhe do jogador (ver
      openLoanOutModal/openLoanInModal em carreira.js). Mesmo padrão do

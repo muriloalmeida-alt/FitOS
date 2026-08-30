@@ -901,14 +901,12 @@ const DISMISSAL_STREAK = 3;
    Especificação "BR Data Treinador — Fase 4", último item da fase
    (o próprio documento diz que depende de metas da diretoria + moral/
    coletiva como insumo). Fórmula respondida pelo usuário: "50% Meta
-   20% Títulos 10% Entrevistas" — só soma 80% porque o item "Coletiva
-   de imprensa" (Fase 4 item 2) segue bloqueado (usuário disse que
-   mandaria a lista de perguntas em anexo, que nunca chegou nessa
-   conversa) — o peso de 10% de Entrevistas fica reservado, sem
-   contribuir nada (nem positivo nem negativo) até esse item existir de
-   verdade; dá pra ligar depois sem mexer no resto da fórmula. Escala
-   0-100, todo técnico nasce em 50 (neutro) — mesmo espírito da moral
-   (Fase 2b) nascendo em 70.
+   20% Títulos 10% Entrevistas" — os 10% de Entrevistas ficaram
+   reservados aqui (sem contribuir nada) até a Coletiva de Imprensa
+   (Fase 4 item 2) existir de verdade; agora que existe (ver
+   PRESS_LIBRARY/applyPressAnswer mais abaixo, REPUTATION_INTERVIEW_*),
+   o peso está ativo. Escala 0-100, todo técnico nasce em 50 (neutro) —
+   mesmo espírito da moral (Fase 2b) nascendo em 70.
 
    Diferente de moral (por jogador, dentro de CAREER.squad), reputação
    e histórico de clubes são do TÉCNICO, não do clube atual — por isso
@@ -923,6 +921,15 @@ const REPUTATION_TITLE_WEIGHT = 0.2;
 const REPUTATION_META_POINTS = { met: 14, missed: -10 };
 const REPUTATION_TITLE_POINTS = 30; // por título (Brasileirão e Copa do Brasil contam separado)
 const REPUTATION_DISMISSAL_PENALTY = 25;
+// FASE 4 (item 2) — peso de "Entrevistas" da fórmula (10%): a
+// biblioteca de coletivas (PRESS_LIBRARY, mais abaixo) já vem com um
+// "Efeito Reputação" calibrado por resposta na escala -3 a +3 (ver
+// aba "Legenda" do arquivo fornecido pelo usuário) — 10 pontos por
+// unidade × peso 0.1 = 1 ponto de reputação por unidade do arquivo,
+// então uma resposta extrema (+3/-3) mexe uns 3 pontos, do mesmo porte
+// de 1 meta batida/não batida (ver REPUTATION_META_POINTS acima).
+const REPUTATION_INTERVIEW_POINTS = 10;
+const REPUTATION_INTERVIEW_WEIGHT = 0.1;
 function countTitlesThisSeason(award) {
   let n = 0;
   if (award.brasileirao.campeao != null && String(award.brasileirao.campeao) === String(CAREER.clubId)) n++;
@@ -2123,6 +2130,10 @@ async function startCareer(clubId) {
       // AJUSTE — feed navegável de notícias (ver renderNewsScreen),
       // nasce vazio (nova carreira, nenhuma rodada simulada ainda).
       newsFeed: [],
+      // FASE 4 (item 2) — histórico de coletivas respondidas (ver
+      // applyPressAnswer) — "tecnico.historico_coletivas" do documento.
+      pressLog: [],
+      metaRiskWarnedSeason: null,
     };
     TECHNICIAN_CARRY = null;
     // FASE 1 (item 3) — meta da diretoria da 1ª temporada, calculada
@@ -2651,6 +2662,278 @@ function closeNewsScreen() {
   document.getElementById("newsOverlay").classList.remove("open");
 }
 
+/* ---------- FASE 4 (item 2) — coletiva de imprensa pós-jogo ----------
+   Biblioteca de perguntas/respostas fornecida pelo usuário ("BR Data —
+   Biblioteca de Coletivas.xlsx", aba "Coletivas", 21 situações) —
+   transcrita literalmente abaixo (id, gatilho, pergunta e as respostas
+   A/B/C com o Efeito Reputação/Moral exatos do arquivo). Pergunta e
+   respostas são sempre as mesmas por gatilho (texto pré-escrito, sem
+   geração dinâmica nenhuma — exatamente como o documento original da
+   Fase 4 pedia: "sem precisar de geração de texto dinâmica").
+
+   Efeito Reputação alimenta CAREER.reputation (ver
+   REPUTATION_INTERVIEW_POINTS/WEIGHT acima — fecha o peso de 10%
+   "Entrevistas" que ficava reservado). Efeito Moral (ver
+   MORAL_INTERVIEW_SCALE abaixo) mexe na moral de TODO o elenco
+   principal de uma vez (o arquivo não distingue jogador nenhum — é
+   "moral geral do elenco", igual o documento original da Fase 4 já
+   dizia: "em menor grau... elogiar publicamente o time sobe moral
+   geral"). */
+const PRESS_LIBRARY = [
+  { id: "01", gatilho: "Pós-vitória (jogo comum)", pergunta: "Como avalia a vitória de hoje?", respostas: [
+    { letra: "A", texto: "Fizemos o trabalho que planejamos, e o time merece o crédito.", reputacao: 1, moral: 1 },
+    { letra: "B", texto: "Vitória importante, mas o foco já é o próximo jogo.", reputacao: 0, moral: 0 },
+    { letra: "C", texto: "Vencemos, mas ainda temos muito o que corrigir.", reputacao: -1, moral: -1 },
+  ] },
+  { id: "02", gatilho: "Pós-derrota (jogo comum)", pergunta: "O que faltou pra evitar a derrota hoje?", respostas: [
+    { letra: "A", texto: "Erramos em detalhes, mas a postura do time foi correta.", reputacao: 0, moral: 1 },
+    { letra: "B", texto: "Faltou eficiência nas finalizações, vamos trabalhar isso.", reputacao: 0, moral: 0 },
+    { letra: "C", texto: "Fomos superados, e isso preocupa pra próxima rodada.", reputacao: -1, moral: -2 },
+  ] },
+  { id: "03", gatilho: "Pós-empate segurando resultado fora", pergunta: "Um ponto fora de casa, como avalia?", respostas: [
+    { letra: "A", texto: "Achamos que o ponto foi justo pelo que o time apresentou.", reputacao: 1, moral: 1 },
+    { letra: "B", texto: "Queríamos os três pontos, mas empatar fora não é ruim.", reputacao: 0, moral: 0 },
+    { letra: "C", texto: "Empate parece pouco pra qualidade que temos no elenco.", reputacao: -1, moral: -1 },
+  ] },
+  { id: "04", gatilho: "Clássico vencido", pergunta: "Vencer o clássico muda alguma coisa na temporada?", respostas: [
+    { letra: "A", texto: "Todo clássico tem peso extra, e o time respondeu à altura.", reputacao: 2, moral: 2 },
+    { letra: "B", texto: "Foram 3 pontos importantes, como qualquer outro jogo.", reputacao: 0, moral: 1 },
+    { letra: "C", texto: "Já viramos a página, o próximo jogo é o que importa agora.", reputacao: 0, moral: 0 },
+  ] },
+  { id: "05", gatilho: "Clássico perdido", pergunta: "Como lidar com a pressão da torcida após perder o clássico?", respostas: [
+    { letra: "A", texto: "Entendo a cobrança, e vamos trabalhar pra reverter isso.", reputacao: 0, moral: 0 },
+    { letra: "B", texto: "Foi um jogo só, não vou dramatizar o resultado.", reputacao: -1, moral: 0 },
+    { letra: "C", texto: "A arbitragem prejudicou o time em lances decisivos.", reputacao: -2, moral: 1 },
+  ] },
+  { id: "06", gatilho: "Título conquistado", pergunta: "O que representa esse título pra sua carreira?", respostas: [
+    { letra: "A", texto: "É o resultado de um trabalho coletivo, divido esse mérito com o elenco.", reputacao: 3, moral: 3 },
+    { letra: "B", texto: "É uma conquista importante, mas já penso na próxima temporada.", reputacao: 2, moral: 1 },
+    { letra: "C", texto: "Mereço esse título depois de tudo que construí aqui.", reputacao: 1, moral: -1 },
+  ] },
+  { id: "07", gatilho: "Vice-campeonato", pergunta: "Ficar em segundo lugar é uma frustração?", respostas: [
+    { letra: "A", texto: "Chegar à final já mostra a evolução do time neste ano.", reputacao: 1, moral: 2 },
+    { letra: "B", texto: "É frustrante, mas vamos aprender com isso.", reputacao: 0, moral: 0 },
+    { letra: "C", texto: "Perder a taça assim dói, e o elenco sabe disso.", reputacao: -1, moral: -1 },
+  ] },
+  { id: "08", gatilho: "Zona de rebaixamento", pergunta: "O time está na zona de rebaixamento, qual é o plano?", respostas: [
+    { letra: "A", texto: "Confio no elenco, e vamos reagir rodada a rodada.", reputacao: 0, moral: 1 },
+    { letra: "B", texto: "Precisamos de reforços urgentes pra sair dessa situação.", reputacao: 0, moral: 0 },
+    { letra: "C", texto: "A situação é grave, e cobranças internas vão acontecer.", reputacao: -1, moral: -2 },
+  ] },
+  { id: "09", gatilho: "Lanterna vence e reage", pergunta: "Essa vitória muda o cenário do time na tabela?", respostas: [
+    { letra: "A", texto: "É o primeiro passo de uma reação que o elenco acredita ser possível.", reputacao: 1, moral: 2 },
+    { letra: "B", texto: "Um resultado positivo, mas a tabela ainda preocupa.", reputacao: 0, moral: 0 },
+    { letra: "C", texto: "Vencer não resolve tudo, ainda há muito trabalho pela frente.", reputacao: -1, moral: -1 },
+  ] },
+  { id: "10", gatilho: "Zebra sofrida (perdeu pra time azarão)", pergunta: "Como explica a derrota pra um adversário mais fraco no papel?", respostas: [
+    { letra: "A", texto: "Futebol não se joga no papel, e o adversário mereceu.", reputacao: 0, moral: 0 },
+    { letra: "B", texto: "Foi um dia ruim, vamos analisar o que houve.", reputacao: 0, moral: -1 },
+    { letra: "C", texto: "Time entrou desmotivado, e isso é inaceitável.", reputacao: -1, moral: -2 },
+  ] },
+  { id: "11", gatilho: "Zebra aplicada (venceu favorito)", pergunta: "Essa vitória sobre um adversário mais forte surpreende?", respostas: [
+    { letra: "A", texto: "O time acreditou do início ao fim, e mereceu o resultado.", reputacao: 2, moral: 2 },
+    { letra: "B", texto: "Jogamos dentro do nosso plano, e deu certo.", reputacao: 1, moral: 1 },
+    { letra: "C", texto: "Foi sorte em alguns lances, mas vamos aproveitar o resultado.", reputacao: 0, moral: 0 },
+  ] },
+  { id: "12", gatilho: "Goleada aplicada", pergunta: "Uma goleada dessas fortalece o time pra sequência?", respostas: [
+    { letra: "A", texto: "É um resultado que mostra o potencial do elenco quando tudo funciona.", reputacao: 2, moral: 2 },
+    { letra: "B", texto: "Bom resultado, mas cada jogo é uma história diferente.", reputacao: 1, moral: 0 },
+    { letra: "C", texto: "Aproveitamos os erros do adversário, nada mais que isso.", reputacao: 0, moral: 0 },
+  ] },
+  { id: "13", gatilho: "Goleada sofrida", pergunta: "Como o vestiário reage a uma derrota tão elástica?", respostas: [
+    { letra: "A", texto: "Vamos conversar internamente e corrigir o que for necessário.", reputacao: 0, moral: 0 },
+    { letra: "B", texto: "Foi um resultado muito acima do que o jogo mostrou.", reputacao: -1, moral: -1 },
+    { letra: "C", texto: "Resultado inaceitável pra um time com esse elenco.", reputacao: -2, moral: -2 },
+  ] },
+  { id: "14", gatilho: "Fim de jejum sem vitória", pergunta: "Depois de tantos jogos sem vencer, o que mudou hoje?", respostas: [
+    { letra: "A", texto: "O time trabalhou a semana toda pra reverter essa fase.", reputacao: 1, moral: 2 },
+    { letra: "B", texto: "Uma vitória importante pra aliviar a pressão recente.", reputacao: 0, moral: 1 },
+    { letra: "C", texto: "Já estava demorando, mas o resultado é o que importa.", reputacao: 0, moral: 0 },
+  ] },
+  { id: "15", gatilho: "Contratação polêmica anunciada", pergunta: "A torcida reagiu dividida à contratação, como você vê isso?", respostas: [
+    { letra: "A", texto: "Confio no trabalho de análise que nos trouxe até esse nome.", reputacao: 1, moral: 0 },
+    { letra: "B", texto: "Toda contratação gera opinião dividida, o campo vai responder.", reputacao: 0, moral: 0 },
+    { letra: "C", texto: "Não decido escalação com base em opinião de torcida.", reputacao: -1, moral: 0 },
+  ] },
+  { id: "16", gatilho: "Venda de jogador querido pela torcida", pergunta: "Como justifica a saída de um ídolo recente do elenco?", respostas: [
+    { letra: "A", texto: "Foi uma decisão difícil, mas necessária pro planejamento do clube.", reputacao: 0, moral: -1 },
+    { letra: "B", texto: "Entendemos o carinho da torcida, mas o negócio fazia sentido.", reputacao: 0, moral: -1 },
+    { letra: "C", texto: "Decisões de mercado não cabem a mim, é decisão da diretoria.", reputacao: -1, moral: -1 },
+  ] },
+  { id: "17", gatilho: "Jovem da base estreando bem", pergunta: "O que esperar desse jovem que se destacou hoje?", respostas: [
+    { letra: "A", texto: "É fruto de um trabalho de formação que o clube vem fazendo.", reputacao: 2, moral: 2 },
+    { letra: "B", texto: "Tem potencial, mas o caminho ainda é longo.", reputacao: 1, moral: 1 },
+    { letra: "C", texto: "Vamos com cautela pra não queimar etapas dele.", reputacao: 0, moral: 0 },
+  ] },
+  { id: "18", gatilho: "Lesão de jogador-chave", pergunta: "Qual o impacto da lesão do titular pro restante da temporada?", respostas: [
+    { letra: "A", texto: "É uma perda sensível, mas o elenco está preparado pra repor.", reputacao: 0, moral: 0 },
+    { letra: "B", texto: "Vamos aguardar o diagnóstico antes de qualquer conclusão.", reputacao: 0, moral: 0 },
+    { letra: "C", texto: "É um golpe duro, e isso vai pesar nos próximos jogos.", reputacao: -1, moral: -2 },
+  ] },
+  { id: "19", gatilho: "Renovação de contrato recusada por jogador", pergunta: "Como lida com a recusa de renovação de um titular?", respostas: [
+    { letra: "A", texto: "Respeito a decisão, e o foco continua sendo o time.", reputacao: 0, moral: 0 },
+    { letra: "B", texto: "Vamos seguir conversando até o fim do vínculo atual.", reputacao: 0, moral: 0 },
+    { letra: "C", texto: "É frustrante perder um jogador importante dessa forma.", reputacao: -1, moral: -1 },
+  ] },
+  { id: "20", gatilho: "Meta da diretoria em risco", pergunta: "A diretoria estabeleceu uma meta pra temporada, ela está em risco?", respostas: [
+    { letra: "A", texto: "Ainda temos rodadas suficientes pra buscar o que foi combinado.", reputacao: 0, moral: 1 },
+    { letra: "B", texto: "A meta é desafiadora, mas seguimos trabalhando pra alcançá-la.", reputacao: 0, moral: 0 },
+    { letra: "C", texto: "A cobrança existe, e sei que meu cargo depende do resultado.", reputacao: -1, moral: -1 },
+  ] },
+  { id: "21", gatilho: "Virada dramática nos acréscimos", pergunta: "Um gol nos acréscimos, como descreve esse momento?", respostas: [
+    { letra: "A", texto: "É a recompensa pela insistência do time até o apito final.", reputacao: 2, moral: 3 },
+    { letra: "B", texto: "Foi emocionante, mas vamos manter os pés no chão.", reputacao: 1, moral: 1 },
+    { letra: "C", texto: "Tivemos sorte no lance, mas o resultado ficou com a gente.", reputacao: 0, moral: 0 },
+  ] },
+];
+function pressLibraryEntry(id) {
+  return PRESS_LIBRARY.find((e) => e.id === id) || null;
+}
+// Prioridade quando MAIS de uma situação bate no mesmo gatilho (ex.:
+// zebra aplicada + fim de jejum na mesma vitória) — só UMA coletiva
+// por vez, escolhe a de maior "peso" segundo o próprio documento
+// (título/vice > clássico > lanterna/lesão/virada > resultados
+// especiais > resultados comuns). Ordem é decisão nossa (não estava no
+// documento nem no arquivo) — critério: quanto mais raro/dramático o
+// gatilho, maior a prioridade.
+const PRESS_PRIORITY = { "06": 1, "07": 2, "04": 3, "05": 4, "09": 5, "18": 6, "21": 7, "11": 8, "12": 9, "17": 10, "08": 11, "10": 12, "13": 13, "14": 14, "20": 15, "03": 16, "01": 17, "02": 18 };
+// "Não acontece toda partida" (documento: "evita virar repetitivo/
+// cansativo") — mesmo os gatilhos "especiais" (zebra, goleada, jejum,
+// zona de rebaixamento...) podem se repetir bastante ao longo de uma
+// temporada de 38 rodadas (um time mal na zona de rebaixamento, por
+// exemplo, bateria esse gatilho toda rodada) — só título/vice/clássico
+// são raros e importantes o bastante pra sempre virar coletiva.
+// Tudo mais passa por uma chance de disparar (mais alta pro que é
+// genuinamente raro, mais baixa pro que pode se repetir toda rodada).
+const PRESS_ALWAYS_IDS = new Set(["06", "07", "04", "05"]);
+const PRESS_CHANCE_BY_ID = {
+  "18": 0.6, "21": 0.6, "11": 0.6, "12": 0.6, "17": 0.6, "10": 0.6, "13": 0.6, "14": 0.6,
+  "08": 0.3, "20": 0.3, "03": 0.3, "01": 0.3, "02": 0.3,
+};
+// Proxy de "clássico": times tradicionalmente grandes do futebol
+// brasileiro entre si — não existe conceito de rivalidade/clube-rival
+// no modelo de dados hoje (só nome/escudo/força calibrada), então usa
+// nome do clube pra aproximar (mesma ideia de squadAvgOverallOf/
+// isMine: dado que já existe, sem inventar campo novo no save).
+const BIG_CLUB_NAME_FRAGMENTS = ["flamengo", "palmeiras", "corinthians", "são paulo", "sao paulo", "grêmio", "gremio", "internacional", "cruzeiro", "atlético-mg", "atletico-mg", "atlético mineiro", "atletico mineiro", "vasco", "botafogo", "fluminense", "santos"];
+function isBigClub(clubId) {
+  const name = (teamById(clubId).name || "").toLowerCase();
+  return BIG_CLUB_NAME_FRAGMENTS.some((f) => name.includes(f));
+}
+const PRESS_META_RISK_GAP = 4; // posições abaixo da meta pra contar como "em risco" (ver gatilho 20)
+// Decide qual (se algum) gatilho dispara depois do SEU jogo — chamada
+// de dentro de finishLiveMatch, com o contexto daquela partida
+// específica (ver ctx abaixo). Reaproveita helpers que já existem pra
+// notícias da rodada (squadAvgOverallOf/rankByPoints/ZEBRA_OVR_GAP/
+// WINLESS_STREAK_THRESHOLD) — mesmo espírito de gatilho, dado que já é
+// calculado, sem inventar fonte nova.
+function determineMatchPressTrigger(ctx) {
+  const { myGoals, oppGoals, isHome, myClubId, oppClubId, winlessBefore, injuredBeforeIds, events, roundPlayed } = ctx;
+  const won = myGoals > oppGoals, lost = myGoals < oppGoals, drew = myGoals === oppGoals;
+  const margin = Math.abs(myGoals - oppGoals);
+  const myOvr = squadAvgOverallOf(myClubId), oppOvr = squadAvgOverallOf(oppClubId);
+  const posAfter = rankByPoints(CAREER.standings);
+  const total = Object.keys(posAfter).length;
+  const myPosAfter = posAfter[String(myClubId)];
+  const candidates = [];
+  // Título/vice só na última rodada da temporada (proxy: posição final
+  // na tabela — clinch matemático antecipado exigiria simular as
+  // rodadas restantes, fora de escopo).
+  if (roundPlayed >= 38) {
+    if (myPosAfter === 1) candidates.push("06");
+    else if (myPosAfter === 2) candidates.push("07");
+  }
+  if (isBigClub(oppClubId)) { if (won) candidates.push("04"); else if (lost) candidates.push("05"); }
+  // Lesão de jogador-chave: alguém ficou contundido NESSA partida (não
+  // estava contundido antes, ver injuredBeforeIds) e é "chave" (entre
+  // os titulares de maior overall do elenco principal).
+  const chaveIds = new Set(CAREER.squad.filter((p) => p.origin === "principal").sort((a, b) => b.overall - a.overall).slice(0, 5).map((p) => p.id));
+  const newlyInjured = CAREER.squad.some((p) => p.status === "contundido" && chaveIds.has(p.id) && !injuredBeforeIds.has(p.id));
+  if (newlyInjured) candidates.push("18");
+  // Virada dramática: gol MEU nos acréscimos (minuto 90, ver
+  // LIVE_MATCH_CHUNK_MINUTES) que não terminou em derrota.
+  const lateMineGoal = (events || []).some((e) => e.type === "gol" && e.mine === true && e.minute === 90);
+  if (lateMineGoal && !lost) candidates.push("21");
+  if (won && myOvr != null && oppOvr != null && myOvr <= oppOvr - ZEBRA_OVR_GAP) candidates.push("11");
+  if (won && margin >= 3) candidates.push("12");
+  // Jovem da base estreando bem: marcou ou deu assistência NESSE jogo,
+  // é da base e é literalmente o primeiro jogo dele (apps já
+  // incrementado pra 1 pelo wear chunk desse mesmo jogo).
+  const debutStar = (events || []).some((e) => (e.type === "gol" || e.type === "assistencia") && e.mine === true
+    && CAREER.squad.some((p) => p.name === e.player && p.origin === "base" && p.apps === 1));
+  if (debutStar) candidates.push("17");
+  if (myPosAfter != null && myPosAfter > total - 4) candidates.push("08");
+  if (lost && myOvr != null && oppOvr != null && myOvr >= oppOvr + ZEBRA_OVR_GAP) candidates.push("10");
+  if (lost && margin >= 3) candidates.push("13");
+  if (won && winlessBefore >= WINLESS_STREAK_THRESHOLD) candidates.push("14");
+  // Meta em risco: só dispara 1x por temporada (senão repetiria toda
+  // rodada enquanto o time seguir mal na tabela) — marca
+  // metaRiskWarnedSeason só quando REALMENTE dispara (não quando só
+  // virou candidata e perdeu a prioridade ou o sorteio de chance pra
+  // outro gatilho), senão a temporada ficaria "queimada" sem o
+  // jornalista ter perguntado nada sobre isso ainda.
+  const goal = CAREER.boardGoal;
+  const metaEmRisco = goal && myPosAfter != null && myPosAfter > goal.target + PRESS_META_RISK_GAP && CAREER.metaRiskWarnedSeason !== CAREER.seasonYear;
+  if (metaEmRisco) candidates.push("20");
+  if (drew && !isHome) candidates.push("03");
+  if (won) candidates.push("01");
+  if (lost) candidates.push("02");
+  if (!candidates.length) return null;
+  candidates.sort((a, b) => PRESS_PRIORITY[a] - PRESS_PRIORITY[b]);
+  const chosen = candidates[0];
+  if (!PRESS_ALWAYS_IDS.has(chosen) && Math.random() > (PRESS_CHANCE_BY_ID[chosen] || 0.3)) return null;
+  if (chosen === "20") CAREER.metaRiskWarnedSeason = CAREER.seasonYear;
+  return pressLibraryEntry(chosen);
+}
+const PRESS_LOG_MAX = 40;
+const MORAL_INTERVIEW_SCALE = 3; // Efeito Moral do arquivo (-3..+3) vira -9..+9 de moral geral do elenco
+let PENDING_PRESS = null; // { entry, roundPlayed } aguardando resposta, ver openPressConferenceModal
+let PRESS_CHAIN_TO_ROUND_RESULTS = false; // true só quando disparada de dentro do fluxo pós-jogo (ver finishLiveMatch)
+function firePressConference(id, roundPlayed, chainToRoundResults) {
+  const entry = pressLibraryEntry(id);
+  if (!entry) return;
+  PENDING_PRESS = { entry, roundPlayed: roundPlayed != null ? roundPlayed : CAREER.currentRound };
+  PRESS_CHAIN_TO_ROUND_RESULTS = !!chainToRoundResults;
+}
+function openPressConferenceModal() {
+  if (!PENDING_PRESS) return;
+  const { entry } = PENDING_PRESS;
+  document.getElementById("pressQuestion").textContent = entry.pergunta;
+  document.getElementById("pressOptions").innerHTML = entry.respostas.map((r, i) =>
+    `<button class="ct-btn full${i === 0 ? " primary" : ""}" data-press="${r.letra}">${escapeHtml(r.texto)}</button>`).join("");
+  document.getElementById("pressOverlay").classList.add("open");
+}
+// Pedido geral do app (toda modal fecha no X) — fechar sem responder
+// conta como "sem comentário": nenhum efeito de reputação/moral, mas
+// ainda segue o fluxo normal (round results, se era o caso).
+function closePressConferenceModal() {
+  document.getElementById("pressOverlay").classList.remove("open");
+  const chain = PRESS_CHAIN_TO_ROUND_RESULTS;
+  PENDING_PRESS = null;
+  PRESS_CHAIN_TO_ROUND_RESULTS = false;
+  if (chain && PENDING_ROUND_SUMMARY) showRoundResultsModal(PENDING_ROUND_SUMMARY);
+}
+function applyPressAnswer(letra) {
+  if (!PENDING_PRESS) { closePressConferenceModal(); return; }
+  const { entry, roundPlayed } = PENDING_PRESS;
+  const resposta = entry.respostas.find((r) => r.letra === letra);
+  if (!resposta) { closePressConferenceModal(); return; }
+  const repDelta = Math.round(resposta.reputacao * REPUTATION_INTERVIEW_POINTS * REPUTATION_INTERVIEW_WEIGHT);
+  CAREER.reputation = clamp((CAREER.reputation == null ? 50 : CAREER.reputation) + repDelta, 0, 100);
+  const moralDelta = resposta.moral * MORAL_INTERVIEW_SCALE;
+  if (moralDelta) {
+    CAREER.squad.filter((p) => p.origin === "principal").forEach((p) => {
+      p.morale = clamp((p.morale == null ? 70 : p.morale) + moralDelta, 0, 100);
+    });
+  }
+  CAREER.pressLog = CAREER.pressLog || [];
+  CAREER.pressLog.unshift({ round: roundPlayed, gatilho: entry.gatilho, pergunta: entry.pergunta, letra, texto: resposta.texto, reputacao: repDelta, moral: moralDelta });
+  if (CAREER.pressLog.length > PRESS_LOG_MAX) CAREER.pressLog.length = PRESS_LOG_MAX;
+  toast(`Reputação ${repDelta >= 0 ? "+" : ""}${repDelta} · Moral do elenco ${moralDelta >= 0 ? "+" : ""}${moralDelta}`, 4000);
+  persistCareer();
+  closePressConferenceModal();
+}
+
 // Resolve UMA partida CPU x CPU do zero, do sorteio de gols até
 // aplicar tudo no estado (extraído de simulateRound pra reaproveitar
 // tanto no fallback sem jogo seu quanto na tela Ao Vivo, que resolve
@@ -2856,6 +3139,11 @@ function startLiveMatch(round, fixtures, humanFx, standingsBefore) {
     subsUsed: 0, subsBonus: 0, formationPenaltyChunksLeft: 0,
     lastHsStarters: [], lastAsStarters: [],
     timerId: null, paused: false, finished: false,
+    // FASE 4 (item 2) — coletiva de imprensa: quem já estava contundido
+    // ANTES dessa partida, pra distinguir de quem se machucou NELA (ver
+    // gatilho "18" em determineMatchPressTrigger, chamada de dentro de
+    // finishLiveMatch).
+    injuredBeforeIds: new Set(CAREER.squad.filter((p) => p.status === "contundido").map((p) => p.id)),
   };
   renderLiveMatch();
   document.getElementById("liveMatchOverlay").classList.add("open");
@@ -2967,8 +3255,24 @@ async function finishLiveMatch() {
   // FASE 3 (item 4) — evolução por treino considera quem terminou a
   // partida em campo do seu lado (após eventuais substituições).
   applyTrainingEvolution(lm.isHome ? lm.lastHsStarters : lm.lastAsStarters);
+  // FASE 4 (item 2) — jejum ANTES de finishRoundTail rodar (ver
+  // updateWinlessStreaks, chamada de dentro de generateRoundNews logo
+  // abaixo, que ZERA o jejum de quem venceu) — sem capturar aqui, não
+  // dava mais pra saber "estava há quantos jogos sem vencer" depois.
+  const winlessBefore = (CAREER.teamWinlessStreak || {})[String(CAREER.clubId)] || 0;
   const allResults = [...lm.otherResults, result];
   const summary = finishRoundTail(lm.round, allResults, humanMatch, lm.standingsBefore);
+  // FASE 4 (item 2) — coletiva de imprensa pós-jogo (documento original
+  // da Fase 4): decide se alguma situação da PRESS_LIBRARY bateu com
+  // essa partida específica — se bateu, "Continuar" do modal "Seu
+  // jogo" abre a coletiva ANTES de seguir pros Resultados da rodada
+  // (ver btnMatchDetailContinue/closePressConferenceModal).
+  const oppClubId = lm.isHome ? lm.humanFx.away : lm.humanFx.home;
+  const trigger = determineMatchPressTrigger({
+    myGoals, oppGoals, isHome: lm.isHome, myClubId: CAREER.clubId, oppClubId,
+    winlessBefore, injuredBeforeIds: lm.injuredBeforeIds, events: lm.events, roundPlayed: lm.round,
+  });
+  if (trigger) firePressConference(trigger.id, lm.round, true);
   document.getElementById("liveMatchOverlay").classList.remove("open");
   LIVE_MATCH = null;
   const saved = await persistCareer();
@@ -3360,16 +3664,22 @@ function proposeRenewal() {
   if (morale < 30) {
     closeRenewModal();
     toast(`${abbreviateName(p.name)} recusou a proposta — está infeliz no clube e não quer renovar agora.`, 5000);
+    firePressConference("19", CAREER.currentRound, false);
+    openPressConferenceModal();
     return;
   }
   if (newWage < minWage) {
     closeRenewModal();
     toast(`${abbreviateName(p.name)} recusou a proposta — quer pelo menos ${fmtBRL(minWage)}/mês.`, 5000);
+    firePressConference("19", CAREER.currentRound, false);
+    openPressConferenceModal();
     return;
   }
   if (duration === 1 && (p.age <= 23 || p.overall >= 85 || morale >= 85)) {
     closeRenewModal();
     toast(`${abbreviateName(p.name)} recusou a proposta — quer um contrato mais longo (pelo menos 2 anos).`, 5000);
+    firePressConference("19", CAREER.currentRound, false);
+    openPressConferenceModal();
     return;
   }
   p.wage = Math.max(p.wage, newWage);
@@ -4024,6 +4334,11 @@ async function buyPlayer(clubId, playerId) {
   CAREER.squad.push(p);
   pushTransferLog(`Você contratou ${p.name} do ${teamById(clubId).name} por ${fmtBRL(p.value)}.`, CAREER.currentRound);
   toast(`${abbreviateName(p.name)} contratado!`);
+  // FASE 4 (item 2) — "contratação polêmica anunciada" (PRESS_LIBRARY
+  // id 15): proxy pra polêmica é o próprio overall — contratação de
+  // craque sempre puxa opinião dividida de torcida na vida real,
+  // barato/plausível o bastante sem inventar um "índice de polêmica".
+  if (p.overall >= 82) { firePressConference("15", CAREER.currentRound, false); openPressConferenceModal(); }
   persistCareer();
   renderMercado(); renderElenco(); renderCentral();
 }
@@ -4053,6 +4368,11 @@ async function sellPlayer(id) {
   (CAREER.leagueSquads[String(buyer.id)] = CAREER.leagueSquads[String(buyer.id)] || []).push(p);
   pushTransferLog(`Você vendeu ${p.name} pro ${buyer.name} por ${fmtBRL(p.value)}.`, CAREER.currentRound);
   toast(`${abbreviateName(p.name)} vendido por ${fmtBRL(p.value)}.`);
+  // FASE 4 (item 2) — "venda de jogador querido pela torcida"
+  // (PRESS_LIBRARY id 16): mesmo proxy de overall alto (craque/titular
+  // de peso) usado na contratação polêmica acima — quem rende bastante
+  // em campo é quem a torcida sente falta de verdade.
+  if (p.overall >= 80) { firePressConference("16", CAREER.currentRound, false); openPressConferenceModal(); }
   return true;
 }
 // Botão "Vender" direto na aba Mercado (fora do detalhe do jogador,
@@ -4371,7 +4691,25 @@ function wireStaticListeners() {
   document.getElementById("btnLiveTacticsConfirm").addEventListener("click", confirmLiveTactics);
   document.getElementById("btnMatchDetailContinue").addEventListener("click", () => {
     document.getElementById("matchDetailOverlay").classList.remove("open");
+    // FASE 4 (item 2) — coletiva de imprensa entra ENTRE o modal "Seu
+    // jogo" e o modal de Resultados da rodada (ver
+    // determineMatchPressTrigger/firePressConference, chamados de
+    // dentro de finishLiveMatch) — só quando alguma situação bateu
+    // nessa partida específica.
+    if (PENDING_PRESS) { openPressConferenceModal(); return; }
     if (PENDING_ROUND_SUMMARY) showRoundResultsModal(PENDING_ROUND_SUMMARY);
+  });
+  // FASE 4 (item 2) — sub-modal de coletiva de imprensa: X fecha sem
+  // aplicar efeito nenhum (conta como "sem comentário"), mas ainda
+  // segue o fluxo normal pros Resultados da rodada quando aplicável
+  // (ver closePressConferenceModal). Opções de resposta são recriadas
+  // a cada abertura (texto vem da PRESS_LIBRARY), por isso o listener
+  // é delegado no container em vez de um por botão.
+  document.getElementById("pressClose").addEventListener("click", closePressConferenceModal);
+  document.getElementById("pressOverlay").addEventListener("click", (e) => { if (e.target.id === "pressOverlay") closePressConferenceModal(); });
+  document.getElementById("pressOptions").addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-press]");
+    if (btn) applyPressAnswer(btn.dataset.press);
   });
   document.getElementById("btnRoundResultsContinue").addEventListener("click", () => {
     document.getElementById("roundResultsOverlay").classList.remove("open");
@@ -4666,6 +5004,11 @@ function migrateCareerDefaults() {
   // AJUSTE — carreira criada antes do feed de notícias existir nasce
   // vazio (não tem como reconstruir manchetes de rodadas já passadas).
   if (!CAREER.newsFeed) CAREER.newsFeed = [];
+  // FASE 4 (item 2) — carreira criada antes da coletiva de imprensa
+  // existir nasce sem histórico nenhum (não tem como reconstruir
+  // coletivas de jogos já passados retroativamente).
+  if (!CAREER.pressLog) CAREER.pressLog = [];
+  if (CAREER.metaRiskWarnedSeason === undefined) CAREER.metaRiskWarnedSeason = null;
 }
 async function enterAfterAuth() {
   show("screenLoading");
