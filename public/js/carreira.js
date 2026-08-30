@@ -691,6 +691,24 @@ function pushTransferLog(text, round) {
   CAREER.transferLog.unshift({ round, text });
   if (CAREER.transferLog.length > TRANSFER_LOG_MAX) CAREER.transferLog.length = TRANSFER_LOG_MAX;
 }
+// FASE 1 (item 2 da especificação "BR Data Treinador") — pedido do
+// usuário: janela de transferências com prazo (2 por temporada, ex.:
+// rodadas 1–3 e 20–22, valores sugeridos no próprio documento) — sem
+// isso o Mercado ficava sempre aberto pra contratar, sem nenhuma
+// tensão de "última chance antes de fechar". Puramente derivado da
+// rodada atual (mesmo padrão do "(X / 38)" da Central) — não precisa
+// de campo novo no save nem migração. Vender continua liberado fora
+// da janela (decisão do documento: "geralmente sim, só não comprar");
+// empréstimo não existe como mecânica nesse jogo, então a outra
+// pergunta em aberto do documento não se aplica aqui.
+const TRANSFER_WINDOWS = [[1, 3], [20, 22]];
+function transferWindowStatus(round) {
+  for (const [open, close] of TRANSFER_WINDOWS) {
+    if (round >= open && round <= close) return { open: true, closesAtRound: close };
+  }
+  const next = TRANSFER_WINDOWS.find(([open]) => open > round);
+  return { open: false, opensAtRound: next ? next[0] : null };
+}
 function pickRandomOtherClub(excludeId) {
   const pool = LEAGUE_TEAMS.filter((t) => String(t.id) !== String(excludeId));
   if (!pool.length) return null;
@@ -1091,8 +1109,15 @@ function simulateRound() {
   // negociam entre si (ver simulateAiTransfers) e, de vez em quando,
   // um deles propõe comprar um jogador SEU (ver maybeGenerateOffer,
   // resolvido em Mercado com aceitar/recusar).
-  simulateAiTransfers(round);
-  maybeGenerateOffer(round);
+  // FASE 1 (item 2) — só roda dentro da janela de transferências (ver
+  // transferWindowStatus): fora da janela o mercado inteiro esfria,
+  // não só a sua ação de comprar — senão os outros 19 times
+  // continuariam negociando por baixo dos panos, minando a mesma
+  // tensão de prazo que a janela existe pra criar.
+  if (transferWindowStatus(round).open) {
+    simulateAiTransfers(round);
+    maybeGenerateOffer(round);
+  }
   return { round, humanMatch, allResults, lineupChanges, wagePaid, newOffer: CAREER.pendingOffer };
 }
 
@@ -1608,6 +1633,18 @@ function renderMercado() {
       `${offer.clubName} oferece ${fmtBRL(offer.fee)} pelo seu jogador ${offer.playerName}.`;
   }
 
+  // FASE 1 (item 2) — banner só aparece com a janela FECHADA (ver
+  // .ct-window-banner em carreira.html); "Comprar" fica desabilitado
+  // nesse período, "Vender" continua liberado (ver transferWindowStatus).
+  const mktWindow = transferWindowStatus(CAREER.currentRound);
+  const windowBanner = document.getElementById("marketWindowBanner");
+  windowBanner.classList.toggle("hidden", mktWindow.open);
+  if (!mktWindow.open) {
+    windowBanner.textContent = mktWindow.opensAtRound
+      ? `🔒 Janela de transferências fechada — reabre na rodada ${mktWindow.opensAtRound}. Dá pra vender, mas não contratar.`
+      : `🔒 Janela de transferências encerrada por essa temporada — reabre na próxima.`;
+  }
+
   const search = (document.getElementById("marketSearch").value || "").trim().toLowerCase();
   const posFilter = document.getElementById("marketPosFilter").value;
   let list = allMarketPlayers();
@@ -1638,7 +1675,7 @@ function renderMercado() {
       </div>
       ${mine
         ? `<button class="ct-btn small" data-sell="${p.id}">Vender</button>`
-        : `<button class="ct-btn small primary" data-buy="${p.id}" data-club="${escapeHtml(String(club.id))}">Comprar</button>`}
+        : `<button class="ct-btn small${mktWindow.open ? " primary" : ""}" data-buy="${p.id}" data-club="${escapeHtml(String(club.id))}" ${mktWindow.open ? "" : `disabled title="Janela de transferências fechada"`}>Comprar</button>`}
     </div>
   </div>`).join("");
   document.getElementById("marketList").innerHTML = rows || `<p class="ct-empty">Nenhum jogador encontrado.</p>`;
@@ -1659,6 +1696,13 @@ function renderMercado() {
 // folha, com o MESMO teto salarial da promoção (ver wageBillOf/
 // CAREER.finances.wageCap em Fase 2b).
 async function buyPlayer(clubId, playerId) {
+  // FASE 1 (item 2) — trava de novo aqui (o botão já vem desabilitado
+  // fora da janela, ver renderMercado) só por segurança contra estado
+  // desatualizado na tela.
+  if (!transferWindowStatus(CAREER.currentRound).open) {
+    toast("Janela de transferências fechada — não dá pra contratar agora.");
+    return;
+  }
   const squad = leagueSquadFor(clubId);
   const idx = squad.findIndex((x) => x.id === playerId);
   if (idx < 0) return;
