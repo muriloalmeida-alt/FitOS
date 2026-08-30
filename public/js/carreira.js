@@ -1283,15 +1283,21 @@ function openDetail(id) {
     </div>
     <p class="ct-sub">Condição: ${Math.round(p.condition)}% · Jogos: ${p.apps || 0} · Gols na carreira: ${p.goalsCareer || 0} · Cartões amarelos (ciclo atual): ${p.yellowCards || 0}</p>
     <p class="ct-sub">Salário: ${fmtBRL(p.wage)}/mês · Contrato até: ${p.contractUntil} · Valor de mercado: ${fmtBRL(p.value)}</p>
-    <div style="display:flex; flex-wrap:wrap; gap:8px; margin-top:10px;">
-      ${inStarters ? `<button class="ct-btn small" data-act="removeStarter">Tirar do time titular</button>` : ""}
-      ${!inStarters && inBench ? `<button class="ct-btn small" data-act="removeBench">Tirar do banco</button>` : ""}
-      ${!inStarters && !inBench && p.status === "ok" ? `<button class="ct-btn small" data-act="addBench" ${CAREER.lineup.bench.length >= MAX_BENCH ? "disabled" : ""}>Colocar no banco</button>` : ""}
+    <!-- AJUSTE (pedido do usuário: "a modal de detalhes do jogador segue
+         com os botões diferentes" — mockup empilha os botões cheios,
+         em coluna, cada um do tamanho normal (ver .btn/.btn-outline/
+         .btn-blue/.btn-red-outline do documento) — não em linha com
+         quebra e botão "small", que era o que ainda sobrava daqui de
+         antes do ajuste de componentes. -->
+    <div style="display:flex; flex-direction:column; gap:8px; margin-top:10px;">
+      ${inStarters ? `<button class="ct-btn full" data-act="removeStarter">Tirar do time titular</button>` : ""}
+      ${!inStarters && inBench ? `<button class="ct-btn full" data-act="removeBench">Tirar do banco</button>` : ""}
+      ${!inStarters && !inBench && p.status === "ok" ? `<button class="ct-btn full" data-act="addBench" ${CAREER.lineup.bench.length >= MAX_BENCH ? "disabled" : ""}>Colocar no banco</button>` : ""}
       ${p.origin === "base"
-        ? `<button class="ct-btn small primary" data-act="promote" ${promoteBlocked ? "disabled" : ""} ${promoteBlocked ? `title="Estouraria o teto salarial (${fmtBRL(CAREER.finances.wageCap)}) — libere espaço dispensando ou enviando alguém pra base antes."` : ""}>Promover ao elenco principal</button>`
-        : `<button class="ct-btn small" data-act="demote">Enviar pra base</button>`}
-      ${p.origin === "principal" ? `<button class="ct-btn small primary" data-act="sell">Vender por ${fmtBRL(p.value)}</button>` : ""}
-      <button class="ct-btn small danger" data-act="release">Dispensar</button>
+        ? `<button class="ct-btn full primary" data-act="promote" ${promoteBlocked ? "disabled" : ""} ${promoteBlocked ? `title="Estouraria o teto salarial (${fmtBRL(CAREER.finances.wageCap)}) — libere espaço dispensando ou enviando alguém pra base antes."` : ""}>Promover ao elenco principal</button>`
+        : `<button class="ct-btn full" data-act="demote">Enviar pra base</button>`}
+      ${p.origin === "principal" ? `<button class="ct-btn full primary" data-act="sell">Vender por ${fmtBRL(p.value)}</button>` : ""}
+      <button class="ct-btn full danger" data-act="release">Dispensar</button>
     </div>
     ${promoteBlocked ? `<p class="ct-sub" style="color:var(--brd-red); margin-top:8px;">⚠️ Promover esse jogador levaria a folha salarial a ${fmtBRL(wageAfterPromote)}, acima do teto de ${fmtBRL(CAREER.finances.wageCap)}.</p>` : ""}`;
   document.getElementById("detailBody").querySelectorAll("[data-act]").forEach((btn) => {
