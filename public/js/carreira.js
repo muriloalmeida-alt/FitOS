@@ -42,12 +42,29 @@ const MAX_BENCH = 11;
 
 /* ---------- Constantes de tática/formação ---------- */
 const FORMATIONS = {
-  "4-4-2":   [["G","GOL"],["D","LAT D"],["D","ZAG"],["D","ZAG"],["D","LAT E"],["M","MEI D"],["M","VOL"],["M","VOL"],["M","MEI E"],["F","ATA"],["F","ATA"]],
-  "4-3-3":   [["G","GOL"],["D","LAT D"],["D","ZAG"],["D","ZAG"],["D","LAT E"],["M","VOL"],["M","MEI"],["M","MEI"],["F","PONTA D"],["F","CENTROAV."],["F","PONTA E"]],
-  "4-2-3-1": [["G","GOL"],["D","LAT D"],["D","ZAG"],["D","ZAG"],["D","LAT E"],["M","VOL"],["M","VOL"],["M","MEIA D"],["M","MEIA C"],["M","MEIA E"],["F","CENTROAV."]],
-  "3-5-2":   [["G","GOL"],["D","ZAG"],["D","ZAG"],["D","ZAG"],["M","ALA D"],["M","VOL"],["M","MEI"],["M","VOL"],["M","ALA E"],["F","ATA"],["F","ATA"]],
-  "4-5-1":   [["G","GOL"],["D","LAT D"],["D","ZAG"],["D","ZAG"],["D","LAT E"],["M","MEI D"],["M","VOL"],["M","MEI"],["M","VOL"],["M","MEI E"],["F","CENTROAV."]],
-  "5-3-2":   [["G","GOL"],["D","ALA D"],["D","ZAG"],["D","ZAG"],["D","ZAG"],["D","ALA E"],["M","VOL"],["M","MEI"],["M","VOL"],["F","ATA"],["F","ATA"]],
+  "4-4-2":     [["G","GOL"],["D","LAT D"],["D","ZAG"],["D","ZAG"],["D","LAT E"],["M","MEI D"],["M","VOL"],["M","VOL"],["M","MEI E"],["F","ATA"],["F","ATA"]],
+  "4-3-3":     [["G","GOL"],["D","LAT D"],["D","ZAG"],["D","ZAG"],["D","LAT E"],["M","VOL"],["M","MEI"],["M","MEI"],["F","PONTA D"],["F","CENTROAV."],["F","PONTA E"]],
+  "4-2-3-1":   [["G","GOL"],["D","LAT D"],["D","ZAG"],["D","ZAG"],["D","LAT E"],["M","VOL"],["M","VOL"],["M","MEIA D"],["M","MEIA C"],["M","MEIA E"],["F","CENTROAV."]],
+  "3-5-2":     [["G","GOL"],["D","ZAG"],["D","ZAG"],["D","ZAG"],["M","ALA D"],["M","VOL"],["M","MEI"],["M","VOL"],["M","ALA E"],["F","ATA"],["F","ATA"]],
+  "4-5-1":     [["G","GOL"],["D","LAT D"],["D","ZAG"],["D","ZAG"],["D","LAT E"],["M","MEI D"],["M","VOL"],["M","MEI"],["M","VOL"],["M","MEI E"],["F","CENTROAV."]],
+  "5-3-2":     [["G","GOL"],["D","ALA D"],["D","ZAG"],["D","ZAG"],["D","ZAG"],["D","ALA E"],["M","VOL"],["M","MEI"],["M","VOL"],["F","ATA"],["F","ATA"]],
+  // Pedido do usuário ("precisamos expandir as formações, existem
+  // outras várias que não estão disponíveis") — mesmo padrão de sempre
+  // (grupo real G/D/M/F + rótulo só ilustrativo do rótulo da vaga, ver
+  // comentário de SUBPOS_ORDER acima sobre por que não existe posição
+  // mais fina que isso). Cobre esquemas clássicos do futebol brasileiro
+  // que ainda não tinham representante (linha de 5 só tinha o mais
+  // defensivo 5-3-2; faltava toda a família 3-4-X; faltava um losango
+  // de meio-campo e o "quadrado mágico", os dois bem característicos
+  // do Brasileirão).
+  "4-1-4-1":   [["G","GOL"],["D","LAT D"],["D","ZAG"],["D","ZAG"],["D","LAT E"],["M","VOL"],["M","MEI D"],["M","MEI"],["M","MEI"],["M","MEI E"],["F","CENTROAV."]],
+  "4-4-1-1":   [["G","GOL"],["D","LAT D"],["D","ZAG"],["D","ZAG"],["D","LAT E"],["M","MEI D"],["M","VOL"],["M","VOL"],["M","MEI E"],["F","SEGUNDO ATA"],["F","CENTROAV."]],
+  "3-4-3":     [["G","GOL"],["D","ZAG"],["D","ZAG"],["D","ZAG"],["M","ALA D"],["M","VOL"],["M","VOL"],["M","ALA E"],["F","PONTA D"],["F","CENTROAV."],["F","PONTA E"]],
+  "4-1-3-2":   [["G","GOL"],["D","LAT D"],["D","ZAG"],["D","ZAG"],["D","LAT E"],["M","VOL"],["M","MEIA D"],["M","MEIA C"],["M","MEIA E"],["F","ATA"],["F","ATA"]],
+  "3-4-2-1":   [["G","GOL"],["D","ZAG"],["D","ZAG"],["D","ZAG"],["M","ALA D"],["M","VOL"],["M","VOL"],["M","ALA E"],["F","MEIA D"],["F","MEIA E"],["F","CENTROAV."]],
+  "4-3-1-2":   [["G","GOL"],["D","LAT D"],["D","ZAG"],["D","ZAG"],["D","LAT E"],["M","VOL"],["M","MEI D"],["M","MEI E"],["M","ENGANCHE"],["F","ATA"],["F","ATA"]],
+  "4-2-2-2":   [["G","GOL"],["D","LAT D"],["D","ZAG"],["D","ZAG"],["D","LAT E"],["M","VOL"],["M","VOL"],["M","MEIA D"],["M","MEIA E"],["F","ATA"],["F","ATA"]],
+  "5-4-1":     [["G","GOL"],["D","ALA D"],["D","ZAG"],["D","ZAG"],["D","ZAG"],["D","ALA E"],["M","MEI D"],["M","VOL"],["M","VOL"],["M","MEI E"],["F","CENTROAV."]],
 };
 // Modificadores puramente ilustrativos (não vieram de dado nenhum,
 // são só "sabor tático" pra formação/instrução importar de verdade no
@@ -61,6 +78,14 @@ const FORMATION_MOD = {
   "3-5-2": { atk: 1.05, def: 0.95 },
   "4-5-1": { atk: 0.93, def: 1.07 },
   "5-3-2": { atk: 0.90, def: 1.10 },
+  "4-1-4-1": { atk: 0.97, def: 1.05 },
+  "4-4-1-1": { atk: 0.98, def: 1.03 },
+  "3-4-3": { atk: 1.10, def: 0.88 },
+  "4-1-3-2": { atk: 1.07, def: 0.95 },
+  "3-4-2-1": { atk: 1.04, def: 0.94 },
+  "4-3-1-2": { atk: 1.05, def: 0.96 },
+  "4-2-2-2": { atk: 1.08, def: 0.92 },
+  "5-4-1": { atk: 0.88, def: 1.12 },
 };
 const TACTIC_OPTIONS = {
   mentality: [["defensiva", "Defensiva"], ["equilibrada", "Equilibrada"], ["ofensiva", "Ofensiva"]],
@@ -2627,6 +2652,21 @@ function renderEscalacao() {
   renderPitch();
   renderBench();
 }
+// Pedido do usuário (item 1, evolução da Escalação): botão "escalar
+// automaticamente" — reaproveita autoLineup (já existia, mas só
+// rodava uma vez na criação da carreira, ver buildSquad) pra
+// preencher a escalação ATUAL de novo, do zero, com os melhores
+// overalls disponíveis por posição. Só mexe em titulares/banco — o
+// esquema, as instruções táticas e o foco de treino que o usuário já
+// tinha escolhido continuam do jeito que estavam.
+function autoFillLineup() {
+  const result = autoLineup(CAREER.squad, CAREER.lineup.formation);
+  CAREER.lineup.starters = result.starters;
+  CAREER.lineup.bench = result.bench;
+  renderPitch(); renderBench();
+  persistCareer();
+  toast("Escalação automática aplicada — melhores overalls por posição.");
+}
 // Desenha a escalação no campinho "jogo de botão" — mesmas classes
 // .button-pitch/.button-row/.button-disc/.btn-name já usadas na
 // Escalação titular do último jogo do dashboard principal (ver
@@ -2709,44 +2749,78 @@ function openPicker(ctx, title) {
   renderPickerList("");
   document.getElementById("pickerOverlay").classList.add("open");
 }
+// Pedido do usuário (item 3, evolução da Escalação): "ao clicar pra
+// substituir um titular ou reserva deve ser possível escalar jogadores
+// que já estão em alguma posição, efetuando com isso uma troca
+// simples". Antes, renderPickerList (ver comportamento antigo abaixo)
+// FILTRAVA de fora qualquer jogador já escalado noutro lugar — dava
+// pra ver que ele "sumia" da lista, sem explicação, e não tinha como
+// pegar alguém que já era titular pra virar titular de outra posição
+// sem passar pelo banco no meio do caminho. Agora aparece na lista
+// (com a tag do lugar onde já está) e escolher ele faz os dois lados
+// trocarem de lugar de uma vez.
+function locateInLineup(playerId) {
+  if (!playerId) return null;
+  const si = CAREER.lineup.starters.indexOf(playerId);
+  if (si >= 0) return { kind: "starter", idx: si };
+  const bi = CAREER.lineup.bench.indexOf(playerId);
+  if (bi >= 0) return { kind: "bench", idx: bi };
+  return null;
+}
+// playerId null só faz sentido pra "starter" (esvazia a vaga) — banco
+// não guarda vaga vazia, tirar de lá encolhe a lista (ver splice).
+function placeAt(loc, playerId) {
+  if (!loc) return;
+  if (loc.kind === "starter") CAREER.lineup.starters[loc.idx] = playerId;
+  else if (playerId) CAREER.lineup.bench[loc.idx] = playerId;
+  else CAREER.lineup.bench.splice(loc.idx, 1);
+}
 function renderPickerList(filter) {
-  const usedIds = new Set([...CAREER.lineup.starters.filter(Boolean), ...CAREER.lineup.bench]);
   const currentId = PICKER_CTX.type === "slot" ? CAREER.lineup.starters[PICKER_CTX.index] : (PICKER_CTX.currentId || null);
-  let pool = CAREER.squad.filter((p) => p.status === "ok" && (!usedIds.has(p.id) || p.id === currentId));
+  // Sem o filtro de "já escalado" de antes — só continua de fora quem
+  // está fisicamente indisponível (lesionado/suspenso).
+  let pool = CAREER.squad.filter((p) => p.status === "ok");
   const f = filter.trim().toLowerCase();
   if (f) pool = pool.filter((p) => p.name.toLowerCase().includes(f));
   pool.sort((a, b) => squadSortKey(a) - squadSortKey(b));
   const showClear = PICKER_CTX.type === "slot" || (PICKER_CTX.type === "bench" && PICKER_CTX.currentId);
   const clearRow = showClear ? `<div class="ct-pick-row" data-clear="1"><span class="nm">— deixar vazio —</span></div>` : "";
   const list = document.getElementById("pickerList");
-  list.innerHTML = clearRow + (pool.length ? pool.map((p) => `
-    <div class="ct-pick-row" data-id="${p.id}">
-      <span class="nm" style="white-space:nowrap;">${escapeHtml(abbreviateName(p.name))}${p.id === currentId ? " (atual)" : ""}</span>
+  list.innerHTML = clearRow + (pool.length ? pool.map((p) => {
+    const loc = p.id === currentId ? null : locateInLineup(p.id);
+    // Tag do lugar onde já está — escolher alguém marcado "titular" ou
+    // "banco" faz a troca (ver pickerChoose), não só remove ele de lá.
+    const tag = p.id === currentId ? " (atual)" : loc && loc.kind === "starter" ? " (titular)" : loc && loc.kind === "bench" ? " (banco)" : "";
+    return `<div class="ct-pick-row" data-id="${p.id}">
+      <span class="nm" style="white-space:nowrap;">${escapeHtml(abbreviateName(p.name))}${tag}</span>
       <span class="meta">${subPositionOf(p)} · OVR <b>${p.overall}</b> · ${p.origin === "base" ? "base" : p.origin === "loan" ? "emprestado" : "principal"}</span>
-    </div>`).join("") : `<p class="ct-empty">Nenhum jogador disponível.</p>`);
+    </div>`;
+  }).join("") : `<p class="ct-empty">Nenhum jogador disponível.</p>`);
   list.querySelectorAll("[data-clear]").forEach((el) => el.addEventListener("click", () => pickerChoose(null)));
   list.querySelectorAll("[data-id]").forEach((el) => el.addEventListener("click", () => pickerChoose(el.dataset.id)));
 }
-function removePlayerFromLineup(playerId) {
-  CAREER.lineup.starters = CAREER.lineup.starters.map((x) => (x === playerId ? null : x));
-  CAREER.lineup.bench = CAREER.lineup.bench.filter((x) => x !== playerId);
-}
 function pickerChoose(playerId) {
-  if (PICKER_CTX.type === "slot") {
-    if (playerId) removePlayerFromLineup(playerId);
-    CAREER.lineup.starters[PICKER_CTX.index] = playerId;
-  } else if (PICKER_CTX.type === "bench") {
-    if (playerId) removePlayerFromLineup(playerId);
-    if (PICKER_CTX.currentId) {
-      const idx = CAREER.lineup.bench.indexOf(PICKER_CTX.currentId);
-      if (idx >= 0) {
-        if (playerId) CAREER.lineup.bench[idx] = playerId; else CAREER.lineup.bench.splice(idx, 1);
-      } else if (playerId && CAREER.lineup.bench.length < MAX_BENCH) {
-        CAREER.lineup.bench.push(playerId);
-      }
-    } else if (playerId && CAREER.lineup.bench.length < MAX_BENCH) {
-      CAREER.lineup.bench.push(playerId);
+  // "target" é a vaga que abriu o modal (o slot clicado no campinho,
+  // ou a linha do banco clicada — null só no caso de "+ adicionar
+  // reserva", que não tem vaga nenhuma pra abrir mão de alguém).
+  const target = PICKER_CTX.type === "slot" ? { kind: "starter", idx: PICKER_CTX.index }
+    : PICKER_CTX.currentId ? locateInLineup(PICKER_CTX.currentId) : null;
+  const outgoingId = target ? (target.kind === "starter" ? CAREER.lineup.starters[target.idx] : CAREER.lineup.bench[target.idx]) : null;
+  if (playerId) {
+    const source = locateInLineup(playerId);
+    // TROCA SIMPLES: o escolhido já ocupa outra vaga (titular ou
+    // banco) — quem estava na vaga-alvo (outgoingId, pode ser null)
+    // vai pro lugar que o escolhido está deixando.
+    if (source && !(target && source.kind === target.kind && source.idx === target.idx)) {
+      placeAt(source, outgoingId);
     }
+  }
+  if (target) {
+    placeAt(target, playerId);
+  } else if (playerId && CAREER.lineup.bench.length < MAX_BENCH) {
+    // "+ adicionar reserva": sem vaga pra liberar, só entra se ainda
+    // couber no banco (mesmo teto de sempre, ver MAX_BENCH).
+    CAREER.lineup.bench.push(playerId);
   }
   document.getElementById("pickerOverlay").classList.remove("open");
   renderPitch(); renderBench();
@@ -3312,6 +3386,7 @@ function wireStaticListeners() {
     CAREER.lineup.formation = e.target.value;
     renderPitch();
   });
+  document.getElementById("btnAutoLineup").addEventListener("click", autoFillLineup);
   document.getElementById("btnSaveLineup").addEventListener("click", () => {
     CAREER.lineup.tactics.mentality = document.getElementById("tacticMentality").value;
     CAREER.lineup.tactics.marking = document.getElementById("tacticMarking").value;
