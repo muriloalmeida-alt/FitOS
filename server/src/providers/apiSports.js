@@ -102,13 +102,25 @@ async function getTeamPlayers({ teamId, season }) {
     // a estatística tiver, melhor um elenco incompleto do que nenhum.
     return Array.from(statsById.values());
   }
-  return squad.map((sp) => statsById.get(sp.id) || {
-    id: sp.id,
-    name: sp.name,
-    photo: normalizeLogoUrl(sp.photo),
-    teamId: Number(teamId),
-    position: sp.position || null,
-    games: 0, goals: 0, assists: 0, yellow: 0, red: 0, rating: null,
+  // AJUSTE (pedido do usuário: idade real de verdade, não sorteada) —
+  // /players/squads devolve "age" pronto pra CADA jogador do elenco
+  // (comentário no topo desse arquivo já citava isso, só nunca tinha
+  // sido lido) — prioriza esse valor sobre o de /players?season (que
+  // também tem age agora, ver mapPlayerEntry, mas pode vir de uma
+  // temporada mais antiga se o jogador não tiver estatística na atual).
+  return squad.map((sp) => {
+    const statEntry = statsById.get(sp.id);
+    const age = Number.isFinite(sp.age) ? sp.age : (statEntry ? statEntry.age : null);
+    if (statEntry) return { ...statEntry, age };
+    return {
+      id: sp.id,
+      name: sp.name,
+      photo: normalizeLogoUrl(sp.photo),
+      teamId: Number(teamId),
+      position: sp.position || null,
+      age,
+      games: 0, goals: 0, assists: 0, yellow: 0, red: 0, rating: null,
+    };
   });
 }
 

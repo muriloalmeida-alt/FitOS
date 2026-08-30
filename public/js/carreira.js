@@ -368,6 +368,26 @@ function moraleFactor(p) {
   const m = p.morale == null ? 70 : p.morale;
   return clamp(1 + (m - 70) / 100, 0.6, 1.3);
 }
+// AJUSTE (pedido do usuário: "a idade é fundamental pra moral do
+// atleta — atletas mais velhos, mais novos e com overall mais baixo
+// não reclamam tanto") — quanto esse jogador "reclama" de verdade:
+// jogador em idade de pico (24-30) e overall alto é o mais exigente
+// (maior expectativa de protagonismo); fora da faixa de pico
+// (jovem em formação ou veterano em fim de carreira) ou com overall
+// mais baixo (jogador de time, sabe que não é titular garantido) —
+// reclama bem menos do mesmo evento. Usado tanto pra amortecer perda
+// de moral por banco/fora da lista (applyMoraleAfterMatch) quanto pra
+// decidir recusa de empréstimo (isLoanOutRefused, ver seção de
+// empréstimos) — mesmo fator, os dois efeitos pedidos juntos na
+// mesma frase pelo usuário.
+const PRIME_AGE_MIN = 24, PRIME_AGE_MAX = 30;
+function playerComplaintFactor(p) {
+  const age = p.age == null ? PRIME_AGE_MIN : p.age;
+  const ageGap = age < PRIME_AGE_MIN ? (PRIME_AGE_MIN - age) : age > PRIME_AGE_MAX ? (age - PRIME_AGE_MAX) : 0;
+  const ageFactor = clamp(1 - ageGap * 0.06, 0.25, 1);
+  const overallFactor = clamp((p.overall - 55) / 30, 0.25, 1);
+  return clamp(ageFactor * overallFactor, 0.15, 1);
+}
 // Chamada de dentro de simulateRound, só quando SEU clube jogou —
 // titular ganha por ter jogado + resultado; banco perde um pouco
 // (insatisfeito por não jogar) + metade do efeito do resultado; quem
@@ -393,13 +413,20 @@ function applyMoraleAfterMatch(myGoals, oppGoals) {
         : "Neutro após o empate jogando entre os titulares";
     } else {
       p.benchStreak = (p.benchStreak || 0) + 1;
+      // AJUSTE (pedido do usuário) — só a parte NEGATIVA de banco/fora
+      // da lista é amortecida pelo quanto esse jogador reclama; o
+      // resultado da partida em si (resultDelta, quando aparece
+      // metade dele pro banco) não muda com idade/overall — isso é só
+      // "reclamar de não jogar", não reação ao placar.
+      const complaint = playerComplaintFactor(p);
       if (benchIds.has(p.id)) {
-        delta = Math.round(resultDelta / 2) - 1;
+        const benchPenalty = Math.round(-1 * complaint);
+        delta = Math.round(resultDelta / 2) + benchPenalty;
         reason = p.benchStreak >= TALK_BENCH_STREAK_THRESHOLD
           ? `Insatisfeito no banco há ${p.benchStreak} jogos seguidos`
           : "Quer mais oportunidades como titular";
       } else {
-        delta = -2;
+        delta = Math.round(-2 * complaint);
         reason = p.benchStreak >= TALK_BENCH_STREAK_THRESHOLD
           ? `Contrariado por ficar fora da lista de jogo há ${p.benchStreak} rodadas`
           : "Fora da lista de jogo nessa rodada";
@@ -518,7 +545,14 @@ function buildRealPlayer(raw, club, rng) {
   const atk = clamp(Math.round(overall + (group === "F" ? 6 : group === "M" ? 2 : -10) + Math.round(rng() * 6 - 3)), 30, 96);
   const def = clamp(Math.round(overall + (group === "D" || group === "G" ? 6 : -10) + Math.round(rng() * 6 - 3)), 30, 96);
   const phys = clamp(Math.round(58 + rng() * 30), 40, 92);
-  const age = 18 + Math.floor(rng() * 18); // idade fictícia -- o endpoint de elenco não devolve data de nascimento
+  // AJUSTE (pedido do usuário: "a idade de todos os atletas está
+  // incorreta... buscar a idade na API, pois ela é fundamental pra
+  // moral do atleta") — raw.age agora vem de verdade do fornecedor
+  // (ver mapPlayerEntry em adapter.js / mapPlayerFromSquad em
+  // sportmonks.js) — o sorteio 18-35 continua só como rede de
+  // segurança pra quando o fornecedor não tiver esse dado (ex.: Modo
+  // Exemplo sem chave configurada, ou resposta incompleta da API).
+  const age = Number.isFinite(raw.age) && raw.age > 0 ? Math.round(raw.age) : 18 + Math.floor(rng() * 18);
   return {
     id: `real_${raw.id}`, name: raw.name || "Jogador", photo: raw.photo || null,
     group, age, overall, atk, def, phys,
@@ -1730,6 +1764,35 @@ function findInterestedBuyer(excludeId) {
    clique). Os dois casos reaproveitam settleLoanOut/settleLoanIn, que
    também resolvem a cláusula de compra quando existir. */
 const LOAN_HALF_SEASON_ROUNDS = 19; // "6 meses" ≈ metade das 38 rodadas
+// AJUSTE (pedido do usuário: "os empréstimos não estão realistas —
+// jogadores de destaque devem ter empréstimos recusados") — antes,
+// QUALQUER jogador (seu ou de outro clube) podia ser emprestado sem
+// nenhuma trava de qualidade, só de interesse/vaga (ver
+// findInterestedBuyer). Agora um jogador só topa ir emprestado (ou o
+// clube dono só topa ceder o dele) quando NÃO é bom/relevante o
+// bastante pra recusar — reaproveita playerComplaintFactor (mesmo
+// ajuste, pedido na mesma frase: "atletas mais velhos, mais novos e
+// com overall mais baixo não reclamam tanto") multiplicado pelo
+// overall bruto: um "efetivo" alto (craque em idade de pico) recusa;
+// veterano, garoto ou reserva de overall mais baixo — mesmo com
+// overall parecido — aceita numa boa. Vale nos dois sentidos: SEU
+// jogador recusando sair emprestado (finalizeLoanOut) e o clube
+// adversário recusando ceder o dele pra você (finalizeLoanIn).
+const LOAN_REFUSAL_EFFECTIVE_THRESHOLD = 55;
+function isLoanOutRefused(p) {
+  return p.overall * playerComplaintFactor(p) >= LOAN_REFUSAL_EFFECTIVE_THRESHOLD;
+}
+// Botão de empréstimo (Mercado, "Emprestar"/"Pegar emprestado") — a
+// recusa por destaque é determinística (ao contrário do "sem
+// comprador interessado", que é sorteio), então dá pra avisar ANTES do
+// clique em vez de deixar o usuário abrir o sub-modal inteiro só pra
+// ser recusado no fim — mesmo espírito de já desabilitar fora da
+// janela de contratações.
+function loanOutBtnAttrs(p, mktWindow) {
+  if (!mktWindow.open) return `disabled title="Janela de contratações encerrada"`;
+  if (isLoanOutRefused(p)) return `disabled title="Jogador de destaque demais — não aceita ser emprestado"`;
+  return "";
+}
 // Decide se uma cláusula de compra é acionada quando o empréstimo
 // termina. Obrigatória: sempre. Opcional do lado CPU (comprou um
 // jogador seu emprestado): sorteio, igual toda decisão de time CPU
@@ -1890,6 +1953,10 @@ async function confirmLoanFromModal() {
 async function finalizeLoanOut(id, { returnRound, buyOption }) {
   const p = CAREER.squad.find((x) => x.id === id);
   if (!p) return false;
+  if (isLoanOutRefused(p)) {
+    toast(`${abbreviateName(p.name)} recusou o empréstimo — quer continuar brigando por espaço no elenco principal.`, 5000);
+    return false;
+  }
   const buyer = findInterestedBuyer(CAREER.clubId);
   if (!buyer) {
     toast(`Nenhum time demonstrou interesse em pegar ${abbreviateName(p.name)} emprestado agora.`);
@@ -1917,6 +1984,10 @@ async function finalizeLoanIn(clubId, playerId, { returnRound, buyOption, wagePc
   const idx = squad.findIndex((x) => x.id === playerId);
   if (idx < 0) return false;
   const p = squad[idx];
+  if (isLoanOutRefused(p)) {
+    toast(`${teamById(clubId).name} recusou emprestar ${abbreviateName(p.name)} — é peça importante demais pro clube.`, 5000);
+    return false;
+  }
   const loanWage = Math.round((p.wage * (wagePct / 100)) / 100) * 100;
   if (wageBillOf(CAREER.squad) + loanWage > CAREER.finances.wageCap) {
     toast(`Pegar esse jogador emprestado estouraria o teto salarial (${fmtBRL(CAREER.finances.wageCap)}).`);
@@ -3827,7 +3898,7 @@ function openDetail(id) {
         ? `<button class="ct-btn full primary" data-act="promote" ${promoteBlocked ? "disabled" : ""} ${promoteBlocked ? `title="Estouraria o teto salarial (${fmtBRL(CAREER.finances.wageCap)}) — libere espaço dispensando ou enviando alguém pra base antes."` : ""}>Promover ao elenco principal</button>`
         : `<button class="ct-btn full" data-act="demote">Enviar pra base</button>`}
       ${p.origin === "principal" ? `<button class="ct-btn full primary" data-act="sell">Vender por ${fmtBRL(p.value)}</button>
-      <button class="ct-btn full" data-act="loanout">Emprestar</button>` : ""}
+      <button class="ct-btn full" data-act="loanout" ${isLoanOutRefused(p) ? `disabled title="Jogador de destaque demais — não aceita ser emprestado"` : ""}>Emprestar</button>` : ""}
       <!-- Empréstimo: sem vender/dispensar/renovar — o jogador não é
            seu, só está temporariamente no elenco (ver comentário na
            seção "empréstimo de jogadores" mais acima em carreira.js). -->
@@ -3990,6 +4061,57 @@ function renderBench() {
   });
   const addRowEl = document.getElementById("benchAddRow");
   if (addRowEl) addRowEl.addEventListener("click", () => openPicker({ type: "bench" }, "Adicionar reserva"));
+}
+
+/* ---------- AJUSTE (pedido do usuário: "ao clicar em simular rodada
+   deve abrir em tela cheia a modal para que o treinador confirme a
+   escalação do time e clique em ir para o jogo") ----------
+   Passo novo ANTES de qualquer simulação rodar: mostra o adversário,
+   avisa se a escalação está incompleta (mesmo aviso de sempre, ver
+   renderCentral/lineupWarning) e lista os 11 titulares (posição, nome,
+   overall — com destaque vermelho pra quem está indisponível ou pra
+   vaga vazia). Reaproveita FORMATIONS (mesma fonte da Escalação, ver
+   renderPitch) só que como lista simples em vez de campinho — mais
+   rápido de ler numa tela de confirmação, sem precisar do campinho
+   inteiro interativo de novo aqui. */
+function preMatchStarterRowHTML(slot) {
+  const id = CAREER.lineup.starters[slot.i];
+  const p = id ? CAREER.squad.find((x) => x.id === id) : null;
+  const problem = !p || p.status !== "ok";
+  return `<div class="ct-prematch-row">
+    <span class="pos">${escapeHtml(slot.label)}</span>
+    <span class="nm${problem ? " problem" : ""}">${p ? escapeHtml(abbreviateName(p.name)) : "— vaga vazia —"}${problem && p ? " ⚠️" : ""}</span>
+    <span class="ovr">${p ? p.overall : ""}</span>
+  </div>`;
+}
+function renderPreMatchConfirm() {
+  const round = CAREER.currentRound;
+  document.getElementById("preMatchRound").textContent = round;
+  const box = document.getElementById("preMatchOpponent");
+  const fx = (CAREER.schedule[round] || []).find((m) => String(m.home) === String(CAREER.clubId) || String(m.away) === String(CAREER.clubId));
+  if (fx) {
+    const home = teamById(fx.home), away = teamById(fx.away);
+    box.innerHTML = `
+      <div class="side">${crestImg(home)}<span class="n">${escapeHtml(home.name)}</span></div>
+      <span class="vs">×</span>
+      <div class="side">${crestImg(away)}<span class="n">${escapeHtml(away.name)}</span></div>`;
+  } else {
+    box.innerHTML = `<p class="ct-empty">Sem jogo do seu time nessa rodada (folga) — pode simular direto.</p>`;
+  }
+  const filled = CAREER.lineup.starters.filter(Boolean).length;
+  document.getElementById("preMatchWarning").textContent = filled < 11
+    ? `⚠️ Escalação incompleta: ${filled}/11 titulares definidos — o time entra com força reduzida.`
+    : "";
+  document.getElementById("preMatchMeta").textContent = `Esquema ${CAREER.lineup.formation} · Banco: ${CAREER.lineup.bench.length} jogador(es)`;
+  const slots = FORMATIONS[CAREER.lineup.formation].map(([grp, label], i) => ({ grp, label, i }));
+  document.getElementById("preMatchLineup").innerHTML = slots.map(preMatchStarterRowHTML).join("");
+}
+function openPreMatchConfirm() {
+  renderPreMatchConfirm();
+  document.getElementById("preMatchOverlay").classList.add("open");
+}
+function closePreMatchConfirm() {
+  document.getElementById("preMatchOverlay").classList.remove("open");
 }
 
 /* ---------- Modal: escolher jogador ---------- */
@@ -4329,9 +4451,9 @@ function renderMercado() {
       <div class="ct-market-actions">
         ${mine
           ? `<button class="ct-btn small" data-sell="${p.id}">Vender</button>
-             <button class="ct-btn small" data-loanout="${p.id}" ${mktWindow.open ? "" : `disabled title="Janela de contratações encerrada"`}>Emprestar</button>`
+             <button class="ct-btn small" data-loanout="${p.id}" ${loanOutBtnAttrs(p, mktWindow)}>Emprestar</button>`
           : `<button class="ct-btn small${mktWindow.open ? " primary" : ""}" data-buy="${p.id}" data-club="${escapeHtml(String(club.id))}" ${mktWindow.open ? "" : `disabled title="Janela de contratações encerrada"`}>Comprar</button>
-             <button class="ct-btn small" data-loanin="${p.id}" data-club="${escapeHtml(String(club.id))}" ${mktWindow.open ? "" : `disabled title="Janela de contratações encerrada"`}>Pegar emprestado</button>`}
+             <button class="ct-btn small" data-loanin="${p.id}" data-club="${escapeHtml(String(club.id))}" ${loanOutBtnAttrs(p, mktWindow)}>Pegar emprestado</button>`}
       </div>
     </div>
   </div>`).join("");
@@ -4698,12 +4820,27 @@ function wireStaticListeners() {
     renderCentral();
   });
 
-  // Fluxo de "Simular rodada" (pedido do usuário): modal com o jogo do
-  // clube (resultado/gols/assistências/cartões) -> "Continuar" -> modal
-  // com o resultado da rodada inteira (+ trocas forçadas de escalação,
-  // se houve) -> "Continuar" -> aba Tabela já atualizada. Ver
-  // showMatchDetailModal/showRoundResultsModal.
-  document.getElementById("btnSimulate").addEventListener("click", async () => {
+  // Fluxo de "Simular rodada" (pedido do usuário): confirmar escalação
+  // em tela cheia (ver openPreMatchConfirm) -> "Ir para o jogo" -> modal
+  // com o jogo do clube (resultado/gols/assistências/cartões) ->
+  // "Continuar" -> modal com o resultado da rodada inteira (+ trocas
+  // forçadas de escalação, se houve) -> "Continuar" -> aba Tabela já
+  // atualizada. Ver showMatchDetailModal/showRoundResultsModal.
+  document.getElementById("btnSimulate").addEventListener("click", () => {
+    openPreMatchConfirm();
+  });
+  // AJUSTE — X e "Ajustar escalação" só fecham a confirmação sem
+  // simular nada (mesmo padrão de sempre: nenhum passo avança sozinho
+  // sem o usuário clicar no botão de continuar/ir); "Ajustar
+  // escalação" já leva direto pra aba certa, poupando 1 clique.
+  document.getElementById("preMatchClose").addEventListener("click", closePreMatchConfirm);
+  document.getElementById("preMatchOverlay").addEventListener("click", (e) => { if (e.target.id === "preMatchOverlay") closePreMatchConfirm(); });
+  document.getElementById("btnPreMatchAdjust").addEventListener("click", () => {
+    closePreMatchConfirm();
+    switchToPanel("escalacao");
+  });
+  document.getElementById("btnPreMatchGo").addEventListener("click", async () => {
+    closePreMatchConfirm();
     const btn = document.getElementById("btnSimulate");
     btn.disabled = true;
     const summary = simulateRound();

@@ -309,6 +309,15 @@
      emprestado, Vender/Emprestar) empilhadas em vez de lado a lado —
      largura de celular não sobra pra 2 botões na horizontal. */
   .ct-market-actions{ display:flex; flex-direction:column; gap:4px; margin-left:auto; flex-shrink:0; }
+  /* AJUSTE — linha de titular no modal de confirmar escalação (ver
+     #preMatchLineup em carreira.js), mesmo espírito de separador do
+     .ct-market-row acima. */
+  .ct-prematch-row{ display:flex; align-items:center; gap:10px; padding:8px 6px; border-bottom:1px solid rgba(255,255,255,.05); }
+  .ct-prematch-row:last-child{ border-bottom:none; }
+  .ct-prematch-row .pos{ width:64px; flex-shrink:0; font-size:10.5px; color:var(--text-2); font-weight:700; text-transform:uppercase; letter-spacing:.3px; }
+  .ct-prematch-row .nm{ flex:1; min-width:0; font-weight:700; color:var(--text-0); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ct-prematch-row .nm.problem{ color:var(--brd-red); }
+  .ct-prematch-row .ovr{ font-weight:800; color:var(--gold); flex-shrink:0; }
   /* FASE 4 (item 5) — linha de patrocínio (Financeiro/Central), mesmo
      espírito de separador do .ct-market-row acima. */
   .ct-sponsor-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 0; border-bottom:1px solid rgba(255,255,255,.05); }
@@ -1110,6 +1119,39 @@
         <div class="ct-field"><label>Ritmo de jogo</label><select id="liveTacticsTempo"></select></div>
       </div>
       <button class="ct-btn full primary" style="margin-top:16px;" id="btnLiveTacticsConfirm">Aplicar</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= Modal: confirmar escalação (ao clicar em Simular
+     rodada) =================
+     AJUSTE (pedido do usuário: "ao clicar em simular rodada deve abrir
+     em tela cheia a modal para que o treinador confirme a escalação
+     do time e clique em ir para o jogo") — passo NOVO, antes de
+     qualquer simulação rodar de verdade (ver openPreMatchConfirm,
+     chamada agora de dentro do clique de "Simular rodada" em vez de
+     simulateRound() direto). "Ir para o jogo" só então dispara a
+     simulação de sempre; "Ajustar escalação" fecha e leva pra aba
+     Escalação; o X só fecha, sem simular nada. -->
+<div class="ct-modal-overlay ct-modal-fullscreen" id="preMatchOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header">
+      <span class="ct-modal-icon">🏟️</span>
+      <div class="ct-modal-header-text">
+        <h3>Confirmar escalação</h3>
+        <div class="ct-modal-sub">Rodada <span id="preMatchRound"></span></div>
+      </div>
+      <button class="ct-modal-close" id="preMatchClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <div class="ct-next-match" id="preMatchOpponent"></div>
+      <p class="ct-sub" id="preMatchWarning" style="color:var(--brd-red); font-weight:700;"></p>
+      <p class="ct-sub" id="preMatchMeta" style="font-weight:700; color:var(--text-0);"></p>
+      <div id="preMatchLineup" style="margin:10px 0 16px;"></div>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <button class="ct-btn full primary" id="btnPreMatchGo">▶ Ir para o jogo</button>
+        <button class="ct-btn full" id="btnPreMatchAdjust">✏️ Ajustar escalação</button>
+      </div>
     </div>
   </div>
 </div>
