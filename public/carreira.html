@@ -295,7 +295,10 @@
   .ct-market-row-top .ovr{ font-size:11px; font-weight:800; color:var(--gold); flex-shrink:0; }
   .ct-market-row-bottom{ display:flex; align-items:center; gap:10px; font-size:11px; color:var(--text-2); }
   .ct-market-row-bottom .money{ flex-shrink:1; min-width:0; line-height:1.5; }
-  .ct-market-row-bottom button{ margin-left:auto; flex-shrink:0; }
+  /* Empréstimo de jogadores — 2 ações por linha (Comprar/Pegar
+     emprestado, Vender/Emprestar) empilhadas em vez de lado a lado —
+     largura de celular não sobra pra 2 botões na horizontal. */
+  .ct-market-actions{ display:flex; flex-direction:column; gap:4px; margin-left:auto; flex-shrink:0; }
   .ct-cond-track{ width:60px; height:6px; border-radius:100px; background:var(--border); overflow:hidden; display:inline-block; vertical-align:middle; }
   .ct-cond-fill{ height:100%; background:var(--brd-green); }
   /* FASE 2 (b) — barra de uso do teto salarial, card "Financeiro" da
