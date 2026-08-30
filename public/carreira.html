@@ -732,6 +732,54 @@
   </div>
 </div>
 
+<!-- FASE 3 (item 3) — configuração de empréstimo (dar ou pegar),
+     aberto de dentro do Mercado ou do detalhe do jogador (ver
+     openLoanOutModal/openLoanInModal em carreira.js). Mesmo padrão do
+     modal de renovação acima: "Confirmar" já decide na hora, sem passo
+     intermediário, ver confirmLoanFromModal. -->
+<div class="ct-modal-overlay" id="loanOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header">
+      <span class="ct-modal-icon">🔄</span>
+      <div class="ct-modal-header-text">
+        <h3 id="loanTitle">Empréstimo</h3>
+        <div class="ct-modal-sub" id="loanSub"></div>
+      </div>
+      <button class="ct-modal-close" id="loanClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <div class="ct-field" style="margin-bottom:12px;">
+        <label>Duração do empréstimo</label>
+        <select id="loanDurationSelect">
+          <option value="temporada">Temporada inteira</option>
+          <option value="meia">6 meses (metade da temporada)</option>
+        </select>
+      </div>
+      <div class="ct-field" style="margin-bottom:12px;" id="loanWagePctField">
+        <label>Percentual do salário que você paga</label>
+        <select id="loanWagePctSelect">
+          <option value="50">50%</option>
+          <option value="75">75%</option>
+          <option value="100">100%</option>
+        </select>
+      </div>
+      <div class="ct-field" style="margin-bottom:12px;">
+        <label>Cláusula de compra ao fim do empréstimo</label>
+        <select id="loanBuyClauseSelect">
+          <option value="nenhuma">Nenhuma</option>
+          <option value="opcional">Opcional</option>
+          <option value="obrigatoria">Obrigatória</option>
+        </select>
+      </div>
+      <div class="ct-field" style="margin-bottom:16px;" id="loanBuyValueField">
+        <label>Valor da cláusula</label>
+        <input type="number" class="ct-search" id="loanBuyValueInput" style="margin-bottom:0;" min="0" step="1000">
+      </div>
+      <button class="ct-btn full primary" id="btnLoanConfirm">Confirmar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ================= Modal: detalhe do jogo (ao simular rodada) =================
      1º passo do fluxo "Simular rodada" (pedido do usuário): mostra o
      jogo do PRÓPRIO clube (resultado, gols, assistências, cartões) —
