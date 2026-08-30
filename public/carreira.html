@@ -251,8 +251,16 @@
   .ct-market-filters{ margin-bottom:10px; }
   .ct-market-filters select{ padding:11px 12px; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--navy-card2); color:var(--text-0); font-family:var(--font); font-size:13px; }
   .ct-market-filters select:focus{ outline:none; border-color:var(--gold); }
-  /* FASE 1 (item 2) — banner de janela de transferências fechada. */
-  .ct-window-banner{ background:rgba(226,185,63,.12); border:1px solid var(--accent-yellow); color:var(--gold); padding:10px 12px; border-radius:9px; font-weight:700; margin:0 0 12px; }
+  /* FASE 1 (item 2) — banner de janela de transferências fechada.
+     AJUSTE (pedido do usuário: "layout do aviso de janela fechada tá
+     horrível" — a 1ª versão era uma caixa cheia de amarelo com borda
+     grossa, destoando do resto da tela (o dourado aqui é usado só em
+     detalhe, nunca em bloco inteiro). Vira uma tarja discreta no tom
+     dos cards "encaixados" (--navy-card2, mesmo tom de KPI/busca),
+     com um risco dourado só na lateral — só o trecho principal
+     (ver <b> no texto, montado em JS) fica em dourado. */
+  .ct-window-banner{ background:var(--navy-card2); border:1px solid var(--border); border-left:3px solid var(--gold); border-radius:var(--radius-sm); padding:10px 14px; margin:0 0 12px; color:var(--text-1); font-size:12.5px; font-weight:600; }
+  .ct-window-banner b{ color:var(--gold); font-weight:800; }
   .ct-transfer-feed-item{ padding:8px 0; border-bottom:1px solid var(--border); font-size:12.5px; color:var(--text-1); }
   .ct-transfer-feed-item:last-child{ border-bottom:none; }
   .ct-transfer-feed-item b{ color:var(--text-0); }
@@ -585,7 +593,7 @@
              carreira.js). Só aparece quando a janela está FECHADA —
              quando aberta fica escondido de propósito (.hidden), sem
              poluir a tela com "janela aberta" o tempo todo. -->
-        <p class="ct-sub ct-window-banner hidden" id="marketWindowBanner"></p>
+        <div class="ct-window-banner hidden" id="marketWindowBanner"></div>
         <div class="ct-card">
           <h2>Mercado de jogadores</h2>
           <p class="ct-sub">Seu elenco (pra vender) e os outros 19 times da competição (pra contratar). Contratar soma o salário na sua folha (mesmo teto do Financeiro).</p>
