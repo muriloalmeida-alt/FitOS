@@ -965,6 +965,31 @@
   </div>
 </div>
 
+<!-- Pedido do usuário: "ao clicar em ver tabela atualizada, abrir
+     tabela em modal tela cheia e não redirecionar para a página" — os
+     ids aqui são só uma CÓPIA dos da aba Tabela (#standingsTable/
+     #cupStatusText/#cupHistory), preenchida por renderTabela/
+     renderCopa com o id certo passado (ver openTabelaModal em
+     carreira.js) — a aba Tabela em si continua existindo do jeito que
+     sempre foi, esse modal só dá uma segunda forma de ver a mesma
+     informação sem trocar de aba. -->
+<div class="ct-modal-overlay ct-modal-fullscreen" id="tabelaModalOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header">
+      <span class="ct-modal-icon">📊</span>
+      <div class="ct-modal-header-text"><h3>Tabela da carreira</h3></div>
+      <button class="ct-modal-close" id="tabelaModalClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <p class="ct-sub">Classificação própria dessa carreira (não é a tabela real do Brasileirão).</p>
+      <div class="ct-scroll-x"><table class="ct-table" id="standingsTableModal"><thead></thead><tbody></tbody></table></div>
+      <h2 style="font-family:'Barlow Condensed', var(--font); font-weight:700; font-size:14.5px; margin:22px 0 12px; color:var(--text-0);">Copa do Brasil</h2>
+      <p class="ct-sub" id="cupStatusTextModal"></p>
+      <div id="cupHistoryModal"></div>
+    </div>
+  </div>
+</div>
+
 <!-- ================= Modal: nova temporada (Fase 3c) =================
      Mostrado ao clicar em "Avançar para a próxima temporada" (Central,
      só aparece com a temporada anterior encerrada) — resume o que
