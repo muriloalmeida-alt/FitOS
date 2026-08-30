@@ -492,7 +492,9 @@ async function buildSquad(club) {
    jogadores de overall mais alto) já começa com orçamento maior,
    proporcional, sem precisar de uma 2ª fonte de "tamanho do clube". */
 function wageBillOf(squad) {
-  return squad.filter((p) => p.origin === "principal").reduce((s, p) => s + (p.wage || 0), 0);
+  // "loan" conta pro teto igual "principal" — você paga o salário
+  // (reduzido) de quem pega emprestado, ver loanInPlayer.
+  return squad.filter((p) => p.origin === "principal" || p.origin === "loan").reduce((s, p) => s + (p.wage || 0), 0);
 }
 function initialFinances(squad) {
   const wageCap = Math.round(wageBillOf(squad) * 1.35 / 1000) * 1000;
@@ -892,6 +894,11 @@ function advanceSeason() {
   }
 
   CAREER.seasonYear += 1;
+  // FASE 2 (c) — empréstimos (nos dois sentidos) sempre voltam pro dono
+  // de origem na virada de temporada — ANTES da renovação normal, pra
+  // quem voltou também envelhecer/ter o contrato checado como qualquer
+  // outro jogador do elenco (ver resolveLoanReturns).
+  resolveLoanReturns();
   const humanRenewal = renewHumanSquad();
   Object.keys(CAREER.leagueSquads).forEach((clubId) => {
     CAREER.leagueSquads[clubId] = renewLeagueSquad(teamById(clubId), CAREER.leagueSquads[clubId]);
@@ -1042,6 +1049,134 @@ function findInterestedBuyer(excludeId) {
   if (!eligible.length) return null;
   if (Math.random() < 0.2) return null; // 20% de chance de ninguém topar agora, mesmo com vaga
   return eligible[Math.floor(Math.random() * eligible.length)];
+}
+
+/* ---------- Fase 2 do Modo Carreira — empréstimo de jogadores ----------
+   Pedido do usuário (item escolhido entre 4 opções propostas — a
+   própria janela de transferências, Fase 1 item 2, tinha deixado essa
+   pergunta em aberto por não existir essa mecânica ainda). Ceder ou
+   pegar um jogador emprestado, sem venda definitiva, até o FIM DA
+   TEMPORADA (sem contador de rodadas próprio — usa o mesmo limite
+   natural de contrato/lesão/tudo mais nesse jogo; ver
+   resolveLoanReturns, chamado de dentro de advanceSeason ANTES da
+   renovação normal, pra quem voltou envelhecer/ter contrato checado
+   como qualquer outro jogador do elenco no mesmo clique). Só dá pra
+   negociar dentro da janela de contratações — mesma trava de comprar
+   (ver transferWindowStatus).
+
+   Jogador que VOCÊ empresta: sai do CAREER.squad, entra no elenco de
+   um clube CPU com interesse (mesma checagem de vaga/interesse da
+   venda, ver findInterestedBuyer) marcado com onLoanFromClubId — só
+   essa marca já é suficiente pra saber que é seu no fim da temporada
+   E pra impedir comprar/pegar de volta emprestado ele mesmo entre isso
+   e lá (ver allMarketPlayers, que filtra ele fora da lista de
+   "outros"). Salário dele não conta mais pro seu teto enquanto estiver
+   fora (CPU não tem folha salarial, então não precisa zerar nada).
+
+   Jogador que VOCÊ pega emprestado: origin vira "loan" (nem principal
+   nem base) — sem botão de vender/dispensar/promover/renovar contrato
+   no detalhe (ver openDetail: você não é dono, só usuário temporário),
+   só ação de escalação normal. Salário reduzido (metade do valor de
+   mercado, ver loanInPlayer) CONTA pro seu teto (ver wageBillOf) —
+   você paga o clube emprestando o atleta, é o trato. */
+function loanOutPlayer(id) {
+  if (!transferWindowStatus(CAREER.currentRound).open) {
+    toast("Janela de contratações encerrada — não dá pra negociar empréstimo agora.");
+    return Promise.resolve(false);
+  }
+  const p = CAREER.squad.find((x) => x.id === id);
+  if (!p) return Promise.resolve(false);
+  if (p.origin !== "principal") {
+    toast("Só dá pra emprestar jogador do elenco principal.");
+    return Promise.resolve(false);
+  }
+  const principalCount = CAREER.squad.filter((x) => x.origin === "principal").length;
+  if (principalCount <= 14) {
+    toast("O elenco principal não pode ficar com menos de 14 jogadores.");
+    return Promise.resolve(false);
+  }
+  return (async () => {
+    if (!(await confirmModal(`Emprestar ${p.name} até o fim da temporada?`, "Emprestar"))) return false;
+    const buyer = findInterestedBuyer(CAREER.clubId);
+    if (!buyer) {
+      toast(`Nenhum time demonstrou interesse em pegar ${abbreviateName(p.name)} emprestado agora.`);
+      return false;
+    }
+    CAREER.squad = CAREER.squad.filter((x) => x.id !== id);
+    CAREER.lineup.starters = CAREER.lineup.starters.map((x) => (x === id ? null : x));
+    CAREER.lineup.bench = CAREER.lineup.bench.filter((x) => x !== id);
+    p.onLoanFromClubId = CAREER.clubId;
+    (CAREER.leagueSquads[String(buyer.id)] = CAREER.leagueSquads[String(buyer.id)] || []).push(p);
+    // Taxa de empréstimo — bem menor que uma venda de verdade (10% do valor de mercado).
+    const fee = Math.round((p.value * 0.10) / 1000) * 1000;
+    CAREER.finances.cash += fee;
+    pushTransferLog(`Você emprestou ${p.name} pro ${buyer.name} até o fim da temporada por ${fmtBRL(fee)}.`, CAREER.currentRound);
+    toast(`${abbreviateName(p.name)} emprestado por ${fmtBRL(fee)} — volta no fim da temporada.`);
+    return true;
+  })();
+}
+// Botão "Emprestar" direto na aba Mercado (fora do detalhe do jogador
+// — ver handlePlayerAction pro caminho de dentro do detalhe).
+async function loanOutFromMarket(id) {
+  if (!(await loanOutPlayer(id))) return;
+  persistCareer();
+  renderMercado(); renderElenco(); renderCentral();
+}
+async function loanInPlayer(clubId, playerId) {
+  if (!transferWindowStatus(CAREER.currentRound).open) {
+    toast("Janela de contratações encerrada — não dá pra pegar jogador emprestado agora.");
+    return;
+  }
+  const squad = leagueSquadFor(clubId);
+  const idx = squad.findIndex((x) => x.id === playerId);
+  if (idx < 0) return;
+  const p = squad[idx];
+  const loanWage = Math.round((p.wage * 0.5) / 100) * 100;
+  if (wageBillOf(CAREER.squad) + loanWage > CAREER.finances.wageCap) {
+    toast(`Pegar esse jogador emprestado estouraria o teto salarial (${fmtBRL(CAREER.finances.wageCap)}).`);
+    return;
+  }
+  if (CAREER.squad.length >= MAX_PRINCIPAL + 20) { toast("Elenco já está muito grande — dispense ou negocie alguém antes."); return; }
+  if (!(await confirmModal(`Pegar ${p.name} emprestado até o fim da temporada (salário reduzido: ${fmtBRL(loanWage)}/mês)?`, "Pegar emprestado"))) return;
+  squad.splice(idx, 1);
+  p.loanFromClubId = String(clubId);
+  p.loanOriginalWage = p.wage;
+  p.wage = loanWage;
+  p.origin = "loan";
+  CAREER.squad.push(p);
+  pushTransferLog(`Você pegou ${p.name} emprestado do ${teamById(clubId).name} até o fim da temporada.`, CAREER.currentRound);
+  toast(`${abbreviateName(p.name)} chegou emprestado!`);
+  persistCareer();
+  renderMercado(); renderElenco(); renderCentral();
+}
+// Chamada de dentro de advanceSeason, antes da renovação normal (ver
+// comentário lá) — devolve os 2 lados do empréstimo pro dono de
+// origem. Empréstimo QUE VOCÊ DEU: procura em todo leagueSquads quem
+// tem onLoanFromClubId apontando pro seu clube. Empréstimo QUE VOCÊ
+// PEGOU: procura no seu squad quem tem origin "loan".
+function resolveLoanReturns() {
+  Object.keys(CAREER.leagueSquads).forEach((clubId) => {
+    const squad = CAREER.leagueSquads[clubId];
+    const returning = squad.filter((p) => p.onLoanFromClubId && String(p.onLoanFromClubId) === String(CAREER.clubId));
+    if (!returning.length) return;
+    CAREER.leagueSquads[clubId] = squad.filter((p) => !returning.includes(p));
+    returning.forEach((p) => { delete p.onLoanFromClubId; });
+    CAREER.squad.push(...returning);
+  });
+  const cameBack = CAREER.squad.filter((p) => p.origin === "loan");
+  if (cameBack.length) {
+    CAREER.squad = CAREER.squad.filter((p) => p.origin !== "loan");
+    cameBack.forEach((p) => {
+      const fromId = String(p.loanFromClubId);
+      p.origin = "principal";
+      if (p.loanOriginalWage != null) p.wage = p.loanOriginalWage;
+      delete p.loanFromClubId; delete p.loanOriginalWage;
+      (CAREER.leagueSquads[fromId] = CAREER.leagueSquads[fromId] || []).push(p);
+    });
+    const remainingIds = new Set(CAREER.squad.map((p) => p.id));
+    CAREER.lineup.starters = CAREER.lineup.starters.map((id) => (id && remainingIds.has(id) ? id : null));
+    CAREER.lineup.bench = CAREER.lineup.bench.filter((id) => remainingIds.has(id));
+  }
 }
 // 0 a 2 transferências entre times CPU por rodada (chance decrescente
 // — a maioria das rodadas não tem nenhuma, imitando janela de
@@ -1246,7 +1381,10 @@ function autoFixLineup(round) {
 
 /* ---------- Força do time (escalação → ataque/defesa efetivos) ---------- */
 function computeHumanStrength(club) {
-  const principal = CAREER.squad.filter((p) => p.origin === "principal");
+  // "loan" conta junto com "principal" aqui — jogador emprestado é
+  // força de verdade do seu elenco enquanto estiver com você (mesmo
+  // critério de wageBillOf).
+  const principal = CAREER.squad.filter((p) => p.origin === "principal" || p.origin === "loan");
   const baselineAtk = avg(principal.map((p) => p.atk)) || 60;
   const baselineDef = avg(principal.map((p) => p.def)) || 60;
   const starters = CAREER.lineup.starters.map((id) => id && CAREER.squad.find((p) => p.id === id)).filter((p) => p && p.status === "ok");
@@ -1667,6 +1805,9 @@ function playerRow(p) {
   // no card do jogador (aqui, na lista do Elenco também, não só no
   // detalhe) — ver isContractExpiring em carreira.js.
   const contractTag = isContractExpiring(p) ? ' <span class="ct-pill contract" style="margin-left:4px;" title="Sai de graça se a temporada acabar sem renovar">Fim de contrato</span>' : "";
+  // Empréstimo — mesma linguagem visual do "gerado" (pill neutro), só
+  // pra deixar claro na lista que esse jogador não é seu de verdade.
+  const loanTag = p.origin === "loan" ? ' <span class="ct-pill base" style="margin-left:4px;" title="Volta pro clube de origem no fim da temporada">emprestado</span>' : "";
   // FASE 2 (b) — só marca os EXTREMOS (feliz/infeliz) — moral neutra
   // (a maioria do elenco, na prática) não precisa de ícone nenhum, só
   // poluiria a lista à toa.
@@ -1675,7 +1816,7 @@ function playerRow(p) {
     : morale <= 30 ? ` <span title="Moral ${morale} — infeliz no clube">😞</span>`
     : "";
   return `<tr data-id="${p.id}" style="cursor:pointer;">
-    <td class="ct-name-cell">${escapeHtml(abbreviateName(p.name))}${(!p.real && p.origin !== "base") ? ' <span class="ct-pill base" style="margin-left:4px;">gerado</span>' : ""}${contractTag}${moraleTag}</td>
+    <td class="ct-name-cell">${escapeHtml(abbreviateName(p.name))}${(!p.real && p.origin !== "base") ? ' <span class="ct-pill base" style="margin-left:4px;">gerado</span>' : ""}${contractTag}${moraleTag}${loanTag}</td>
     <td>${subPositionOf(p)}</td><td>${p.age}</td><td><b>${p.overall}</b></td>
     <td><span class="ct-cond-track"><span class="ct-cond-fill" style="width:${Math.round(p.condition)}%"></span></span></td>
     <td>${statusPill}</td>
@@ -1687,7 +1828,10 @@ function renderElenco() {
   // Ordenado por posição (Goleiros, Defensores, Meio-campo, Atacantes —
   // ver SUBPOS_ORDER) e, dentro da mesma posição, por overall — dentro
   // de cada grupo (principal/base), pedido do usuário.
-  const principal = CAREER.squad.filter((p) => p.origin === "principal").sort((a, b) => squadSortKey(a) - squadSortKey(b));
+  // BUG CORRIGIDO: jogador emprestado (origin "loan") não entrava em
+  // NENHUMA das 2 tabelas (nem principal, nem base) — ficava invisível
+  // no Elenco mesmo estando disponível pra escalar.
+  const principal = CAREER.squad.filter((p) => p.origin === "principal" || p.origin === "loan").sort((a, b) => squadSortKey(a) - squadSortKey(b));
   const base = CAREER.squad.filter((p) => p.origin === "base").sort((a, b) => squadSortKey(a) - squadSortKey(b));
   const mt = document.getElementById("squadMainTable");
   mt.querySelector("thead").innerHTML = squadTableHead();
@@ -1711,7 +1855,9 @@ function renderElenco() {
    lacuna de verdade, ver moraleFactor/suggestedRenewalWage/
    proposeRenewal, que agora usam p.morale direto. */
 function isContractExpiring(p) {
-  return p.contractUntil === CAREER.seasonYear;
+  // Jogador emprestado (origin "loan") não é seu pra renovar contrato
+  // nenhum — o contractUntil dele é do clube DONO, não seu.
+  return p.origin !== "loan" && p.contractUntil === CAREER.seasonYear;
 }
 // Documento sugere "mínimo = salário atual × 1.05" como piso pra não
 // levar recusa na certa — vira o valor sugerido no campo do sub-modal.
@@ -1804,7 +1950,8 @@ function openDetail(id) {
   // tag não dizia nada de novo ali, só poluía. Continua aparecendo só
   // pro elenco PRINCIPAL gerado (jogador extra criado quando a busca
   // real veio incompleta — esse sim é uma exceção que vale marcar).
-  document.getElementById("detailSub").textContent = `${groupFull} · ${p.age} anos · ${p.origin === "principal" ? "Elenco principal" : "Categoria de base"}${(!p.real && p.origin !== "base") ? " (gerado)" : ""}`;
+  const originLabel = p.origin === "principal" ? "Elenco principal" : p.origin === "loan" ? "Emprestado" : "Categoria de base";
+  document.getElementById("detailSub").textContent = `${groupFull} · ${p.age} anos · ${originLabel}${(!p.real && p.origin !== "base") ? " (gerado)" : ""}`;
   // FASE 2 (b) — promover um jogador de base soma o salário dele na
   // folha do elenco PRINCIPAL (ver wageBillOf) — bloqueia se estourar
   // o teto salarial do clube (CAREER.finances.wageCap).
@@ -1851,11 +1998,17 @@ function openDetail(id) {
       ${inStarters ? `<button class="ct-btn full" data-act="removeStarter">Tirar do time titular</button>` : ""}
       ${!inStarters && inBench ? `<button class="ct-btn full" data-act="removeBench">Tirar do banco</button>` : ""}
       ${!inStarters && !inBench && p.status === "ok" ? `<button class="ct-btn full" data-act="addBench" ${CAREER.lineup.bench.length >= MAX_BENCH ? "disabled" : ""}>Colocar no banco</button>` : ""}
-      ${p.origin === "base"
+      ${p.origin === "loan" ? "" : p.origin === "base"
         ? `<button class="ct-btn full primary" data-act="promote" ${promoteBlocked ? "disabled" : ""} ${promoteBlocked ? `title="Estouraria o teto salarial (${fmtBRL(CAREER.finances.wageCap)}) — libere espaço dispensando ou enviando alguém pra base antes."` : ""}>Promover ao elenco principal</button>`
         : `<button class="ct-btn full" data-act="demote">Enviar pra base</button>`}
-      ${p.origin === "principal" ? `<button class="ct-btn full primary" data-act="sell">Vender por ${fmtBRL(p.value)}</button>` : ""}
-      <button class="ct-btn full danger" data-act="release">Dispensar</button>
+      ${p.origin === "principal" ? `<button class="ct-btn full primary" data-act="sell">Vender por ${fmtBRL(p.value)}</button>
+      <button class="ct-btn full" data-act="loanout">Emprestar</button>` : ""}
+      <!-- Empréstimo: sem vender/dispensar/renovar — o jogador não é
+           seu, só está temporariamente no elenco (ver comentário na
+           seção "empréstimo de jogadores" mais acima em carreira.js). -->
+      ${p.origin === "loan"
+        ? `<p class="ct-sub" style="text-align:center;">📋 Emprestado do ${escapeHtml(teamById(p.loanFromClubId).name)} até o fim da temporada — só dá pra escalar.</p>`
+        : `<button class="ct-btn full danger" data-act="release">Dispensar</button>`}
     </div>
     ${promoteBlocked ? `<p class="ct-sub" style="color:var(--brd-red); margin-top:8px;">⚠️ Promover esse jogador levaria a folha salarial a ${fmtBRL(wageAfterPromote)}, acima do teto de ${fmtBRL(CAREER.finances.wageCap)}.</p>` : ""}`;
   document.getElementById("detailBody").querySelectorAll("[data-act]").forEach((btn) => {
@@ -1898,6 +2051,8 @@ async function handlePlayerAction(id, act) {
     CAREER.lineup.bench = CAREER.lineup.bench.filter((x) => x !== id);
   } else if (act === "sell") {
     if (!(await sellPlayer(id))) return; // cancelado ou bloqueado — mantém o modal aberto
+  } else if (act === "loanout") {
+    if (!(await loanOutPlayer(id))) return; // cancelado ou bloqueado — mantém o modal aberto
   }
   document.getElementById("detailOverlay").classList.remove("open");
   persistCareer();
@@ -2010,7 +2165,7 @@ function renderPickerList(filter) {
   list.innerHTML = clearRow + (pool.length ? pool.map((p) => `
     <div class="ct-pick-row" data-id="${p.id}">
       <span class="nm" style="white-space:nowrap;">${escapeHtml(abbreviateName(p.name))}${p.id === currentId ? " (atual)" : ""}</span>
-      <span class="meta">${subPositionOf(p)} · OVR <b>${p.overall}</b> · ${p.origin === "base" ? "base" : "principal"}</span>
+      <span class="meta">${subPositionOf(p)} · OVR <b>${p.overall}</b> · ${p.origin === "base" ? "base" : p.origin === "loan" ? "emprestado" : "principal"}</span>
     </div>`).join("") : `<p class="ct-empty">Nenhum jogador disponível.</p>`);
   list.querySelectorAll("[data-clear]").forEach((el) => el.addEventListener("click", () => pickerChoose(null)));
   list.querySelectorAll("[data-id]").forEach((el) => el.addEventListener("click", () => pickerChoose(el.dataset.id)));
@@ -2198,8 +2353,12 @@ function renderEstatisticas() {
 function allMarketPlayers() {
   const mine = CAREER.squad.filter((p) => p.origin === "principal")
     .map((p) => ({ p, club: teamById(CAREER.clubId), mine: true }));
+  // Empréstimo: um jogador que VOCÊ deu emprestado (onLoanFromClubId)
+  // fica temporariamente no elenco de outro clube, mas não é oferta de
+  // mercado de verdade — filtra fora pra não aparecer como se fosse
+  // "à venda" um jogador que já é seu (ver resolveLoanReturns).
   const others = Object.entries(CAREER.leagueSquads || {}).flatMap(([clubId, squad]) =>
-    squad.map((p) => ({ p, club: teamById(clubId), mine: false }))
+    squad.filter((p) => !p.onLoanFromClubId).map((p) => ({ p, club: teamById(clubId), mine: false }))
   );
   return [...mine, ...others];
 }
@@ -2257,9 +2416,16 @@ function renderMercado() {
         <div>Salário: ${fmtBRLShort(p.wage)}/mês</div>
         <div>Valor: ${fmtBRLShort(p.value)}</div>
       </div>
-      ${mine
-        ? `<button class="ct-btn small" data-sell="${p.id}">Vender</button>`
-        : `<button class="ct-btn small${mktWindow.open ? " primary" : ""}" data-buy="${p.id}" data-club="${escapeHtml(String(club.id))}" ${mktWindow.open ? "" : `disabled title="Janela de contratações encerrada"`}>Comprar</button>`}
+      <!-- Empréstimo: 2º botão pequeno embaixo do 1º (ver
+           .ct-market-actions) — Emprestar/Pegar emprestado só some
+           junto com Vender/Comprar, mesma trava de janela. -->
+      <div class="ct-market-actions">
+        ${mine
+          ? `<button class="ct-btn small" data-sell="${p.id}">Vender</button>
+             <button class="ct-btn small" data-loanout="${p.id}" ${mktWindow.open ? "" : `disabled title="Janela de contratações encerrada"`}>Emprestar</button>`
+          : `<button class="ct-btn small${mktWindow.open ? " primary" : ""}" data-buy="${p.id}" data-club="${escapeHtml(String(club.id))}" ${mktWindow.open ? "" : `disabled title="Janela de contratações encerrada"`}>Comprar</button>
+             <button class="ct-btn small" data-loanin="${p.id}" data-club="${escapeHtml(String(club.id))}" ${mktWindow.open ? "" : `disabled title="Janela de contratações encerrada"`}>Pegar emprestado</button>`}
+      </div>
     </div>
   </div>`).join("");
   document.getElementById("marketList").innerHTML = rows || `<p class="ct-empty">Nenhum jogador encontrado.</p>`;
@@ -2268,6 +2434,12 @@ function renderMercado() {
   });
   document.getElementById("marketList").querySelectorAll("[data-sell]").forEach((btn) => {
     btn.addEventListener("click", () => sellFromMarket(btn.dataset.sell));
+  });
+  document.getElementById("marketList").querySelectorAll("[data-loanout]").forEach((btn) => {
+    btn.addEventListener("click", () => loanOutFromMarket(btn.dataset.loanout));
+  });
+  document.getElementById("marketList").querySelectorAll("[data-loanin]").forEach((btn) => {
+    btn.addEventListener("click", () => loanInPlayer(btn.dataset.club, btn.dataset.loanin));
   });
 
   const feed = CAREER.transferLog || [];
