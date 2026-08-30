@@ -519,6 +519,10 @@
         <span></span><span></span><span></span>
       </button>
       <div class="ct-topbar-menu" id="topbarMenu">
+        <!-- FASE 4 (item 6) — tela própria de histórico de premiações
+             (ver openAwardsScreen em carreira.js), pedido do usuário:
+             "uma tela que armazena os resultados de cada ano". -->
+        <button class="ct-topbar-menu-item" id="btnOpenAwards">🏆 Premiações</button>
         <button class="ct-topbar-menu-item" id="btnRestart">↺ Reiniciar</button>
         <button class="ct-topbar-menu-item danger" id="btnLogout">⎋ Sair</button>
       </div>
@@ -1058,6 +1062,25 @@
       <p class="ct-sub" id="cupStatusTextModal"></p>
       <div id="cupHistoryModal"></div>
     </div>
+  </div>
+</div>
+
+<!-- FASE 4 (item 6) — hall da fama de premiações, uma tela própria
+     (pedido do usuário) acessível pelo menu "≡" (ver btnOpenAwards) —
+     não é mais um bloco dentro do modal de nova temporada, guarda o
+     histórico de TODAS as temporadas já fechadas (ver
+     computeSeasonAwards/renderAwardsScreen em carreira.js). -->
+<div class="ct-modal-overlay ct-modal-fullscreen" id="awardsOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header">
+      <span class="ct-modal-icon">🏆</span>
+      <div class="ct-modal-header-text">
+        <h3>Premiações</h3>
+        <div class="ct-modal-sub">Histórico de cada temporada encerrada</div>
+      </div>
+      <button class="ct-modal-close" id="awardsClose">✕</button>
+    </div>
+    <div class="ct-modal-body" id="awardsList"></div>
   </div>
 </div>
 

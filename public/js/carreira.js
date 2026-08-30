@@ -1015,7 +1015,9 @@ function renewLeagueSquad(club, squad) {
   // aconteceu) — ficava fora de combate o ano inteiro sem chance
   // nenhuma de voltar, mesmo o campeonato tendo terminado fazia tempo.
   // Entressafra é tempo de sobra pra qualquer lesão/suspensão resolver.
-  squad.forEach((p) => { p.age += 1; p.status = "ok"; p.outUntilRound = null; p.injurySeverity = null; p.yellowCards = 0; });
+  // FASE 4 (item 6) — goalsSeason/assistsSeason também zeram aqui (são
+  // "da temporada", ver attributeGoals/computeSeasonAwards).
+  squad.forEach((p) => { p.age += 1; p.status = "ok"; p.outUntilRound = null; p.injurySeverity = null; p.yellowCards = 0; p.goalsSeason = 0; p.assistsSeason = 0; });
   const kept = squad.filter((p) => p.contractUntil >= CAREER.seasonYear);
   const rng = seededRngFromKey(`renew-league:${club.id}:${CAREER.seasonYear}`);
   const missing = Math.max(0, MIN_LEAGUE_SQUAD - kept.length);
@@ -1028,7 +1030,8 @@ function renewLeagueSquad(club, squad) {
 // mínimo jogável se caiu abaixo por causa das saídas.
 function renewHumanSquad() {
   // BUG CORRIGIDO — mesmo problema/motivo do renewLeagueSquad acima.
-  CAREER.squad.forEach((p) => { p.age += 1; p.status = "ok"; p.outUntilRound = null; p.injurySeverity = null; p.yellowCards = 0; });
+  // FASE 4 (item 6) — goalsSeason/assistsSeason também zeram aqui.
+  CAREER.squad.forEach((p) => { p.age += 1; p.status = "ok"; p.outUntilRound = null; p.injurySeverity = null; p.yellowCards = 0; p.goalsSeason = 0; p.assistsSeason = 0; });
   const leavingNames = [];
   CAREER.squad = CAREER.squad.filter((p) => {
     if (p.contractUntil < CAREER.seasonYear) { leavingNames.push(p.name); return false; }
@@ -1051,6 +1054,101 @@ function renewHumanSquad() {
   CAREER.squad.push(...newBase, ...newPrincipal);
   return { leavingNames, newBaseCount: newBase.length, newPrincipalCount: newPrincipal.length };
 }
+/* ---------- FASE 4 (item 6 da especificação "BR Data Treinador") —
+   premiações de final de temporada ----------
+   Calculada dentro de advanceSeason, ANTES de qualquer reset (tabela,
+   goalsSeason/assistsSeason, Copa) — usa os dados da temporada que
+   ACABOU de terminar. Brasileirão sempre tem os 5 prêmios (campeão/
+   vice/artilheiro/assistências/melhor jogador, com os 20 clubes
+   participando de verdade). Copa do Brasil só tem campeão/vice —
+   decisão nossa: a Copa só roda de verdade quando o SEU clube se
+   classifica (ver setupCup/resolveCupPhase, cup.active), e mesmo
+   quando roda, só o lado HUMANO tem gol/assistência atribuídos a
+   jogador de verdade (ver simulateCupTie) — não dá pra apurar
+   artilheiro/melhor jogador da Copa sem estatística real dos outros
+   15 clubes, então fica só com os 2 prêmios que a própria estrutura
+   do chaveamento já garante de verdade.
+   Desempate (pedido do usuário): quem jogou MENOS partidas vence. */
+function computeSeasonAwards() {
+  const sortedStandings = Object.values(CAREER.standings).sort((a, b) => (b.pts - a.pts) || (b.v - a.v) || (b.sg - a.sg) || (b.gp - a.gp));
+  const campeao = sortedStandings[0] ? sortedStandings[0].id : null;
+  const vice = sortedStandings[1] ? sortedStandings[1].id : null;
+
+  const allPlayers = [];
+  CAREER.squad.filter((p) => p.origin === "principal" || p.origin === "loan").forEach((p) => allPlayers.push({ p, clubId: CAREER.clubId }));
+  Object.entries(CAREER.leagueSquads || {}).forEach(([clubId, squad]) => {
+    squad.forEach((p) => allPlayers.push({ p, clubId }));
+  });
+  const awardEntry = (e, valor) => ({ jogadorId: e.p.id, nome: e.p.name, clubeId: e.clubId, clubeName: teamById(e.clubId).name, valor });
+  const pickBestBy = (statKey) => {
+    const withStat = allPlayers.filter((e) => (e.p[statKey] || 0) > 0);
+    if (!withStat.length) return null;
+    withStat.sort((a, b) => (b.p[statKey] - a.p[statKey]) || ((a.p.apps || 0) - (b.p.apps || 0)));
+    return awardEntry(withStat[0], withStat[0].p[statKey]);
+  };
+  const artilheiro = pickBestBy("goalsSeason");
+  const assistencias = pickBestBy("assistsSeason");
+  const melhorRanked = allPlayers.slice().sort((a, b) => (b.p.overall - a.p.overall) || ((a.p.apps || 0) - (b.p.apps || 0)));
+  const melhorJogador = melhorRanked.length ? awardEntry(melhorRanked[0], melhorRanked[0].p.overall) : null;
+
+  const cup = CAREER.cup;
+  const cupDone = !!(cup && cup.active && cup.phase === "done" && cup.ties.final[0]);
+  const copaDoBrasil = cupDone
+    ? { disputou: true, campeao: cup.champion, vice: String(cup.ties.final[0].home) === String(cup.champion) ? cup.ties.final[0].away : cup.ties.final[0].home }
+    : { disputou: false, campeao: null, vice: null };
+
+  return { seasonYear: CAREER.seasonYear, brasileirao: { campeao, vice, artilheiro, assistencias, melhorJogador }, copaDoBrasil };
+}
+// Tela própria (pedido do usuário) com o histórico de premiações de
+// TODAS as temporadas já fechadas (ver CAREER.seasonAwards, mais novo
+// primeiro) — aberta pelo menu "≡" (ver btnOpenAwards). Destaque
+// dourado quando o prêmio é do SEU clube/jogador.
+function awardLineHTML(label, name, mine, extra) {
+  return `<div class="ct-sub"${mine ? ' style="color:var(--gold); font-weight:700;"' : ""}>${label}: ${escapeHtml(name)}${extra ? ` (${escapeHtml(extra)})` : ""}</div>`;
+}
+function renderAwardsScreen() {
+  const list = CAREER.seasonAwards || [];
+  const box = document.getElementById("awardsList");
+  if (!list.length) {
+    box.innerHTML = `<p class="ct-empty">Nenhuma temporada encerrada ainda — as premiações aparecem aqui ao fim de cada temporada (ver "Avançar para a próxima temporada" na Central).</p>`;
+    return;
+  }
+  box.innerHTML = list.map((a) => {
+    const b = a.brasileirao;
+    const rows = [
+      awardLineHTML("🏆 Campeão", b.campeao ? teamById(b.campeao).name : "—", String(b.campeao) === String(CAREER.clubId)),
+      awardLineHTML("🥈 Vice", b.vice ? teamById(b.vice).name : "—", String(b.vice) === String(CAREER.clubId)),
+      b.artilheiro ? awardLineHTML("⚽ Artilheiro", abbreviateName(b.artilheiro.nome), String(b.artilheiro.clubeId) === String(CAREER.clubId), `${b.artilheiro.clubeName} · ${b.artilheiro.valor} gols`) : "",
+      b.assistencias ? awardLineHTML("🅰️ Mais assistências", abbreviateName(b.assistencias.nome), String(b.assistencias.clubeId) === String(CAREER.clubId), `${b.assistencias.clubeName} · ${b.assistencias.valor} assist.`) : "",
+      b.melhorJogador ? awardLineHTML("⭐ Melhor do torneio", abbreviateName(b.melhorJogador.nome), String(b.melhorJogador.clubeId) === String(CAREER.clubId), `${b.melhorJogador.clubeName} · OVR ${b.melhorJogador.valor}`) : "",
+    ].join("");
+    const cup = a.copaDoBrasil;
+    const cupHTML = cup.disputou
+      ? awardLineHTML("🏆 Copa do Brasil — Campeão", teamById(cup.campeao).name, String(cup.campeao) === String(CAREER.clubId))
+        + awardLineHTML("🥈 Copa do Brasil — Vice", teamById(cup.vice).name, String(cup.vice) === String(CAREER.clubId))
+      : `<p class="ct-sub">Copa do Brasil: não disputada essa temporada.</p>`;
+    return `<div class="ct-card" style="margin-bottom:14px;">
+      <h2>Temporada ${a.seasonYear}</h2>
+      ${rows}
+      ${cupHTML}
+    </div>`;
+  }).join("");
+}
+function applySeasonAwardMoraleBoost(award) {
+  const b = award.brasileirao;
+  [b.artilheiro, b.assistencias, b.melhorJogador].forEach((entry) => {
+    if (!entry || String(entry.clubeId) !== String(CAREER.clubId)) return;
+    const p = CAREER.squad.find((x) => x.id === entry.jogadorId);
+    if (p) p.morale = clamp((p.morale == null ? 70 : p.morale) + 15, 0, 100);
+  });
+}
+function openAwardsScreen() {
+  renderAwardsScreen();
+  document.getElementById("awardsOverlay").classList.add("open");
+}
+function closeAwardsScreen() {
+  document.getElementById("awardsOverlay").classList.remove("open");
+}
 // Só pode ser chamada com a temporada realmente encerrada (round > 38,
 // ver renderCentral) — devolve o resumo pro modal de nova temporada
 // (ver showSeasonModal).
@@ -1068,6 +1166,14 @@ function advanceSeason() {
   CAREER.seasonHistory = CAREER.seasonHistory || [];
   CAREER.seasonHistory.unshift({ year: finishedYear, position: finishedPos, points: finishedPts, goalLabel: finishedGoal.label, goalWasMet });
   if (CAREER.seasonHistory.length > MAX_SEASON_HISTORY) CAREER.seasonHistory.length = MAX_SEASON_HISTORY;
+  // FASE 4 (item 6) — premiações da temporada que ACABOU de terminar
+  // (ver computeSeasonAwards) — guarda mesmo numa temporada de
+  // demissão (ver DISMISSAL_STREAK logo abaixo), o que aconteceu NA
+  // temporada vale pro hall da fama independente do que acontece com
+  // o técnico depois.
+  CAREER.seasonAwards = CAREER.seasonAwards || [];
+  CAREER.seasonAwards.unshift(computeSeasonAwards());
+  if (CAREER.seasonAwards.length > MAX_SEASON_HISTORY) CAREER.seasonAwards.length = MAX_SEASON_HISTORY;
 
   CAREER.negativeSeasonsStreak = goalWasMet ? 0 : (CAREER.negativeSeasonsStreak || 0) + 1;
   // FASE 1 (item 3) — demissão: a diretoria não segue com o treinador
@@ -1090,6 +1196,15 @@ function advanceSeason() {
   // outro jogador do elenco (ver resolveLoanReturns).
   resolveLoanReturns();
   const humanRenewal = renewHumanSquad();
+  // FASE 4 (item 6) — efeito em cascata já possível hoje: moral já
+  // existe desde a Fase 2 (b), mesmo sem o sistema completo de
+  // "relacionamento jogador-técnico" da Fase 4 item 1 ainda existir —
+  // prêmio individual pro SEU jogador sobe a moral dele. Depois do
+  // reset de moral de renewHumanSquad acima (senão o boost seria
+  // parcialmente engolido pela regressão ao neutro da própria virada
+  // de temporada). Patrocínio já escala sozinho com título/posição
+  // (ver sponsorshipTier), sem precisar de nada extra aqui.
+  applySeasonAwardMoraleBoost(CAREER.seasonAwards[0]);
   Object.keys(CAREER.leagueSquads).forEach((clubId) => {
     CAREER.leagueSquads[clubId] = renewLeagueSquad(teamById(clubId), CAREER.leagueSquads[clubId]);
   });
@@ -1664,6 +1779,9 @@ async function startCareer(clubId) {
       // FASE 4 (item 3) — jejum de vitória por time, pra manchete
       // "encerra jejum de X jogos" (ver updateWinlessStreaks).
       teamWinlessStreak: {},
+      // FASE 4 (item 6) — hall da fama de premiações por temporada (ver
+      // computeSeasonAwards).
+      seasonAwards: [],
     };
     // FASE 1 (item 3) — meta da diretoria da 1ª temporada, calculada
     // já com o elenco recém-montado (ver computeBoardGoal).
@@ -1920,6 +2038,17 @@ function attributeGoals(starters, goals) {
   for (let i = 0; i < goals; i++) {
     const scorer = weightedPick(starters, atkWeights);
     scorer.goalsCareer = (scorer.goalsCareer || 0) + 1;
+    // FASE 4 (item 6) — contador SÓ da temporada atual, zerado na
+    // virada de ano (ver renewHumanSquad/renewLeagueSquad), pra dar pra
+    // apurar o artilheiro DESSA temporada — goalsCareer nunca zera (é
+    // "na carreira", ver Elenco/detalhe do jogador), não serve pra
+    // isso. Nota: chamada pela Copa do Brasil (ver simulateCupTie) só
+    // pro lado HUMANO também soma aqui, misturando um pouco de gol de
+    // Copa no total "da temporada" do SEU jogador (mesma mistura que
+    // goalsCareer já tinha) — sem impacto pros outros 19 clubes, cuja
+    // Copa nunca chama isso pro lado deles (ver comentário em
+    // simulateCupTie).
+    scorer.goalsSeason = (scorer.goalsSeason || 0) + 1;
     events.push({ type: "gol", player: scorer.name });
     // ~72% dos gols saem com assistência de um companheiro (nunca o
     // próprio artilheiro) — meio-campista pesa mais no sorteio, mas
@@ -1929,6 +2058,7 @@ function attributeGoals(starters, goals) {
       const assistWeights = assistPool.map((p) => ({ M: 3, F: 1.5, D: 0.8, G: 0.05 }[p.group] || 1) * moraleFactor(p));
       const assister = weightedPick(assistPool, assistWeights);
       assister.assistsCareer = (assister.assistsCareer || 0) + 1;
+      assister.assistsSeason = (assister.assistsSeason || 0) + 1;
       events.push({ type: "assistencia", player: assister.name });
     }
   }
@@ -3839,6 +3969,13 @@ function wireStaticListeners() {
   document.getElementById("sponsorProposalsClose").addEventListener("click", closeSponsorProposalsModal);
   document.getElementById("sponsorProposalsOverlay").addEventListener("click", (e) => { if (e.target.id === "sponsorProposalsOverlay") closeSponsorProposalsModal(); });
 
+  // FASE 4 (item 6) — tela de premiações, aberta pelo menu "≡".
+  document.getElementById("btnOpenAwards").addEventListener("click", () => {
+    document.getElementById("topbarMenu").classList.remove("open");
+    openAwardsScreen();
+  });
+  document.getElementById("awardsClose").addEventListener("click", closeAwardsScreen);
+  document.getElementById("awardsOverlay").addEventListener("click", (e) => { if (e.target.id === "awardsOverlay") closeAwardsScreen(); });
   document.getElementById("btnRestart").addEventListener("click", async () => {
     document.getElementById("topbarMenu").classList.remove("open");
     if (!CAREER) return;
@@ -4050,6 +4187,10 @@ function migrateCareerDefaults() {
   // reconstruir retroativamente quantas rodadas cada time já ficou sem
   // vencer).
   if (!CAREER.teamWinlessStreak) CAREER.teamWinlessStreak = {};
+  // FASE 4 (item 6) — carreira criada antes das premiações existirem:
+  // sem histórico nenhum ainda (não tem como reconstruir temporadas
+  // passadas retroativamente).
+  if (!CAREER.seasonAwards) CAREER.seasonAwards = [];
 }
 async function enterAfterAuth() {
   show("screenLoading");
