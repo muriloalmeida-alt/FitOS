@@ -787,6 +787,85 @@
   </div>
 </div>
 
+<!-- FASE 3 (itens 1 e 2 da especificação "BR Data Treinador") — tela
+     "Ao Vivo". Substitui a resolução instantânea da SUA partida (as
+     outras ~9 da rodada continuam resolvendo na hora, sem interesse
+     pro treinador) por uma progressão em "tempos" de 15 minutos (ver
+     LIVE_MATCH_CHUNK_MINUTES/resolveLiveChunk em carreira.js) — cada
+     tempo resolvido atualiza o placar/feed aqui e agenda o próximo
+     sozinho; os botões abaixo pausam essa progressão pra decidir
+     substituição ou tática, exatamente como pedido ("afeta o cálculo
+     da simulação daquele momento em diante"). Sem X pra fechar de
+     propósito — sair no meio perderia o jogo, então só acaba sozinho
+     (ver finishLiveMatch), que já emenda direto no modal "Seu jogo"
+     de sempre. -->
+<div class="ct-modal-overlay" id="liveMatchOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header">
+      <span class="ct-modal-icon">⚽</span>
+      <div class="ct-modal-header-text">
+        <h3>Ao vivo</h3>
+        <div class="ct-modal-sub" id="liveMatchMinute">0'</div>
+      </div>
+    </div>
+    <div class="ct-modal-body">
+      <div class="ct-next-match" id="liveMatchScore"></div>
+      <div id="liveMatchFeed" style="max-height:220px; overflow-y:auto; margin-top:10px;"></div>
+      <div style="display:flex; gap:8px; margin-top:14px;">
+        <button class="ct-btn full" id="btnLiveSub">🔄 Substituir</button>
+        <button class="ct-btn full" id="btnLiveTactics">⚙ Ajustar tática</button>
+      </div>
+      <!-- Não é da especificação — sem isso, cada rodada custaria ~6s
+           de espera real mesmo pra quem só quer avançar a temporada
+           sem interagir (ver skipLiveMatch). -->
+      <button class="ct-btn full" id="btnLiveSkip" style="margin-top:8px;">⏩ Pular pro fim</button>
+    </div>
+  </div>
+</div>
+
+<!-- Sub-modal de substituição, aberto POR CIMA do Ao Vivo (mesmo
+     padrão de renew/loan) — pausa a progressão enquanto está aberto
+     (ver openLiveSubModal/pauseLiveMatch). Só titular disponível pra
+     sair, só banco disponível pra entrar (lesionado/suspenso já não
+     aparece em nenhuma das duas listas). -->
+<div class="ct-modal-overlay" id="liveSubOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header">
+      <span class="ct-modal-icon">🔄</span>
+      <div class="ct-modal-header-text"><h3>Substituição</h3></div>
+      <button class="ct-modal-close" id="liveSubClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <div class="ct-field" style="margin-bottom:12px;"><label>Sai</label><select id="liveSubOutSelect"></select></div>
+      <div class="ct-field" style="margin-bottom:16px;"><label>Entra</label><select id="liveSubInSelect"></select></div>
+      <button class="ct-btn full primary" id="btnLiveSubConfirm">Confirmar substituição</button>
+    </div>
+  </div>
+</div>
+
+<!-- Sub-modal de ajuste tático, mesmos 4 campos da aba Escalação (só
+     que num contexto reduzido, ver especificação item 2) — trocar o
+     ESQUEMA aplica um pequeno custo de familiaridade nos próximos 2
+     tempos (ver confirmLiveTactics/formationPenaltyChunksLeft). -->
+<div class="ct-modal-overlay" id="liveTacticsOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header">
+      <span class="ct-modal-icon">⚙️</span>
+      <div class="ct-modal-header-text"><h3>Ajustar tática</h3></div>
+      <button class="ct-modal-close" id="liveTacticsClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <div class="ct-tactics">
+        <div class="ct-field"><label>Esquema tático</label><select id="liveTacticsFormation"></select></div>
+        <div class="ct-field"><label>Mentalidade</label><select id="liveTacticsMentality"></select></div>
+        <div class="ct-field"><label>Marcação</label><select id="liveTacticsMarking"></select></div>
+        <div class="ct-field"><label>Ritmo de jogo</label><select id="liveTacticsTempo"></select></div>
+      </div>
+      <button class="ct-btn full primary" style="margin-top:16px;" id="btnLiveTacticsConfirm">Aplicar</button>
+    </div>
+  </div>
+</div>
+
 <!-- ================= Modal: detalhe do jogo (ao simular rodada) =================
      1º passo do fluxo "Simular rodada" (pedido do usuário): mostra o
      jogo do PRÓPRIO clube (resultado, gols, assistências, cartões) —

@@ -1673,10 +1673,24 @@ function injuryChanceFor(p) {
    usada pelo modal de detalhe do jogo (ver matchEventsSummaryHTML) e
    pela Central ("Resultado da última rodada"). Lesão continua afetando
    o jogador (status/outUntilRound) mas não entra na lista — pedido do
-   usuário listou só gol/cartão/assistência. ---------- */
-function simulatePlayerEvents(starters, goals, round) {
+   usuário listou só gol/cartão/assistência.
+
+   FASE 3 (itens 1 e 2 da especificação "BR Data Treinador") — tela
+   "Ao Vivo": pra dar pra progredir a SUA partida em pedaços (ver
+   LIVE_MATCH_CHUNK_MINUTES/resolveLiveChunk mais abaixo) e ainda
+   assim manter CPU x CPU resolvendo tudo de uma vez só (como sempre),
+   esta função foi separada em duas metades reaproveitáveis:
+   attributeGoals (só artilheiro/assistência, chamável várias vezes
+   com goals menor por chamada) e applyMatchWearChunk (cartão/lesão/
+   condição/jogos, agora aceitando uma FRAÇÃO da partida — 1 = partida
+   inteira, mantendo o comportamento de sempre pro caminho antigo
+   abaixo). simulatePlayerEvents continua existindo com a MESMA
+   assinatura/comportamento de antes (chunkShare implícito = 1) — CPU x
+   CPU e o fallback de rodada sem jogo seu (resolveCpuFixture) não
+   mudam em nada. */
+function attributeGoals(starters, goals) {
   const events = [];
-  if (!starters || !starters.length) return events;
+  if (!starters || !starters.length || !goals) return events;
   // FASE 2 (b) — moral pesa no sorteio (ver moraleFactor); factor 1
   // pra quem nunca teve moral mexida (CPU/moral neutra), não muda nada.
   const atkWeights = starters.map((p) => ({ F: 4, M: 2, D: 0.6, G: 0.02 }[p.group] || 1) * moraleFactor(p));
@@ -1695,27 +1709,50 @@ function simulatePlayerEvents(starters, goals, round) {
       events.push({ type: "assistencia", player: assister.name });
     }
   }
+  return events;
+}
+// chunkShare = fração da partida coberta por essa chamada (1 = jogo
+// inteiro, comportamento de sempre). Cartão/lesão escalam linearmente
+// pela fração (números pequenos, erro de composição desprezível);
+// "apps" só soma uma vez por partida mesmo com várias chamadas — usa
+// appearedSet (compartilhado entre AMBOS os lados da partida) pra
+// saber se é a primeira vez que esse jogador é visto nessa partida.
+function applyMatchWearChunk(starters, round, chunkShare, appearedSet) {
+  const events = [];
+  const redCardIds = [];
+  if (!starters || !starters.length) return { events, redCardIds };
   starters.forEach((p) => {
-    p.apps = (p.apps || 0) + 1;
+    if (appearedSet && !appearedSet.has(p.id)) {
+      p.apps = (p.apps || 0) + 1;
+      appearedSet.add(p.id);
+    }
     const roll = Math.random();
-    if (roll < 0.012) {
+    if (roll < 0.012 * chunkShare) {
       p.status = "suspenso"; p.outUntilRound = round + 1; p.yellowCards = 0;
       events.push({ type: "vermelho", player: p.name });
-    } else if (roll < 0.11) {
+      redCardIds.push(p.id);
+    } else if (roll < 0.11 * chunkShare) {
       p.yellowCards = (p.yellowCards || 0) + 1;
       events.push({ type: "amarelo", player: p.name });
       if (p.yellowCards >= 3) {
         p.status = "suspenso"; p.outUntilRound = round + 1; p.yellowCards = 0;
+        redCardIds.push(p.id);
       }
     }
-    if (p.status === "ok" && Math.random() < injuryChanceFor(p)) {
+    if (p.status === "ok" && Math.random() < injuryChanceFor(p) * chunkShare) {
       const severity = rollInjurySeverity();
       const dur = severity.minRounds + Math.floor(Math.random() * (severity.maxRounds - severity.minRounds + 1));
       p.status = "contundido"; p.outUntilRound = round + dur; p.injurySeverity = severity.type;
     }
-    p.condition = clamp((p.condition == null ? 100 : p.condition) - (15 + Math.random() * 15), 25, 100);
+    p.condition = clamp((p.condition == null ? 100 : p.condition) - (15 + Math.random() * 15) * chunkShare, 25, 100);
   });
-  return events;
+  return { events, redCardIds };
+}
+function simulatePlayerEvents(starters, goals, round) {
+  if (!starters || !starters.length) return [];
+  const appeared = new Set(); // local — replica o "apps += 1 uma vez" de sempre numa chamada só
+  const wear = applyMatchWearChunk(starters, round, 1, appeared);
+  return [...attributeGoals(starters, goals), ...wear.events];
 }
 // Soma os eventos do jogo do clube pros KPIs da aba Estatísticas —
 // gols de "minha equipe" já vêm de standings[clubId].gp (fonte única),
@@ -1757,74 +1794,43 @@ function applyResultToStandings(r) {
   H.sg = H.gp - H.gc; A.sg = A.gp - A.gc;
 }
 
-/* ---------- Simular a rodada corrente ----------
-   Devolve um resumo ESTRUTURADO (não mais um texto de toast pronto) —
-   pedido do usuário: ao simular, mostrar um modal com o detalhe do
-   JOGO do clube (resultado/gols/assistências/cartões — ver
-   showMatchDetailModal), depois um modal com os RESULTADOS da rodada
-   inteira (ver showRoundResultsModal), só então a Tabela atualizada. */
-function simulateRound() {
-  const round = CAREER.currentRound;
-  if (round > 38) return null;
-  const fixtures = CAREER.schedule[round] || [];
-  const allResults = [];
-  let humanMatch = null; // { home, away, gh, ga, isHome, events } — só existe se o clube jogou essa rodada
-  fixtures.forEach((fx) => {
-    const home = teamById(fx.home), away = teamById(fx.away);
-    const isHome = String(fx.home) === String(CAREER.clubId), isAway = String(fx.away) === String(CAREER.clubId);
-    const hs = isHome ? computeHumanStrength(home) : { atk: home.atk, def: home.def, starters: pickCpuXI(leagueSquadFor(fx.home)) };
-    const as = isAway ? computeHumanStrength(away) : { atk: away.atk, def: away.def, starters: pickCpuXI(leagueSquadFor(fx.away)) };
-    const lambdaHome = clamp((hs.atk / as.def) * 1.12, 0.05, 6);
-    const lambdaAway = clamp(as.atk / hs.def, 0.05, 6);
-    const gh = poissonSample(lambdaHome, Math.random); // global de js/data.js
-    const ga = poissonSample(lambdaAway, Math.random);
-    // FASE 2 (a) — pedido do usuário: "estatísticas reais de todos os
-    // times". Antes só o SEU time tinha elenco individual — o
-    // adversário virava "Gol do <Time>" sem autor (ver histórico desse
-    // comentário no git). Agora TODO clube tem elenco (ver
-    // buildLeagueSquads/pickCpuXI), então toda partida da rodada —
-    // não só a sua — credita gol/assistência/cartão a um jogador de
-    // verdade, alimentando o ranking de artilheiros da competição
-    // inteira (ver renderEstatisticas) mesmo em jogos CPU x CPU.
-    const homeEvents = simulatePlayerEvents(hs.starters, gh, round);
-    const awayEvents = simulatePlayerEvents(as.starters, ga, round);
-    applyConditionRecovery(hs.starters.map((p) => p.id));
-    applyConditionRecovery(as.starters.map((p) => p.id));
-    if (isHome || isAway) tallyTeamStats(isHome ? homeEvents : awayEvents); // "Minha equipe" nas Estatísticas só soma o SEU lado
-    const events = [...homeEvents, ...awayEvents];
-    const result = { home: fx.home, away: fx.away, gh, ga };
-    if (events.length) result.events = events;
-    applyResultToStandings(result);
-    (CAREER.resultsByRound[round] = CAREER.resultsByRound[round] || []).push(result);
-    allResults.push(result);
-    // FASE 3 (b) — renda de ingressos quando joga em CASA (fora de casa
-    // não rende, só o mandante fatura o dia do jogo) — calculada ANTES
-    // de atualizar a forma recente com o resultado desse jogo, porque o
-    // público que compareceu reflete a fase de ANTES de entrar em
-    // campo, não o resultado que ainda vai sair (ingresso se compra
-    // antes do apito, não depois).
-    let ticketRevenue = null;
-    if (isHome) {
-      ticketRevenue = computeTicketRevenue(home);
-      CAREER.finances.cash += ticketRevenue.revenue;
-    }
-    if (isHome || isAway) humanMatch = { ...result, isHome, ticketRevenue };
-    // Forma recente (últimos 5 jogos SEUS, só pontos — ver
-    // currentAttendancePct) atualiza DEPOIS, pro próximo jogo em casa.
-    if (isHome || isAway) {
-      const myGoals = isHome ? gh : ga, oppGoals = isHome ? ga : gh;
-      pushRecentForm(myGoals > oppGoals ? 3 : myGoals === oppGoals ? 1 : 0);
-      // FASE 2 (b) — moral do elenco reage ao resultado + quem jogou
-      // (ver applyMoraleAfterMatch). Só o SEU clube — CPU não precisa.
-      applyMoraleAfterMatch(myGoals, oppGoals);
-      // FASE 3 (item 4 da especificação "BR Data Treinador") — evolução
-      // de atributos por treino: quem foi titular NESSA rodada (hs.
-      // starters do seu lado) tem mais chance de evoluir; o resto do
-      // elenco (banco, lesionado) estagna ou regride de leve (ver
-      // applyTrainingEvolution). Só o SEU clube, mesmo critério acima.
-      applyTrainingEvolution(isHome ? hs.starters : as.starters);
-    }
-  });
+// Resolve UMA partida CPU x CPU do zero, do sorteio de gols até
+// aplicar tudo no estado (extraído de simulateRound pra reaproveitar
+// tanto no fallback sem jogo seu quanto na tela Ao Vivo, que resolve
+// as ~9 outras partidas da rodada instantaneamente enquanto só a SUA
+// progride em tempos — ver startLiveMatch).
+function resolveCpuFixture(fx, round) {
+  const home = teamById(fx.home), away = teamById(fx.away);
+  const hs = { atk: home.atk, def: home.def, starters: pickCpuXI(leagueSquadFor(fx.home)) };
+  const as = { atk: away.atk, def: away.def, starters: pickCpuXI(leagueSquadFor(fx.away)) };
+  const lambdaHome = clamp((hs.atk / as.def) * 1.12, 0.05, 6);
+  const lambdaAway = clamp(as.atk / hs.def, 0.05, 6);
+  const gh = poissonSample(lambdaHome, Math.random); // global de js/data.js
+  const ga = poissonSample(lambdaAway, Math.random);
+  // FASE 2 (a) — pedido do usuário: "estatísticas reais de todos os
+  // times". Antes só o SEU time tinha elenco individual — o
+  // adversário virava "Gol do <Time>" sem autor (ver histórico desse
+  // comentário no git). Agora TODO clube tem elenco (ver
+  // buildLeagueSquads/pickCpuXI), então toda partida da rodada —
+  // não só a sua — credita gol/assistência/cartão a um jogador de
+  // verdade, alimentando o ranking de artilheiros da competição
+  // inteira (ver renderEstatisticas) mesmo em jogos CPU x CPU.
+  const homeEvents = simulatePlayerEvents(hs.starters, gh, round);
+  const awayEvents = simulatePlayerEvents(as.starters, ga, round);
+  applyConditionRecovery(hs.starters.map((p) => p.id));
+  applyConditionRecovery(as.starters.map((p) => p.id));
+  const events = [...homeEvents, ...awayEvents];
+  const result = { home: fx.home, away: fx.away, gh, ga };
+  if (events.length) result.events = events;
+  applyResultToStandings(result);
+  (CAREER.resultsByRound[round] = CAREER.resultsByRound[round] || []).push(result);
+  return result;
+}
+// Cauda comum de fim de rodada — roda IGUAL depois de uma rodada sem
+// jogo seu (resolveRoundInstant) ou depois da SUA partida terminar na
+// tela Ao Vivo (finishLiveMatch). Monta o summary estruturado de
+// sempre (ver showMatchDetailModal/showRoundResultsModal).
+function finishRoundTail(round, allResults, humanMatch) {
   // BUG CORRIGIDO: resultsByRound guardava o placar (e os eventos) de
   // TODOS os 380 jogos da temporada pra sempre, mas só a rodada
   // imediatamente anterior é lida em algum lugar (renderCentral, "Último
@@ -1872,6 +1878,314 @@ function simulateRound() {
   // ver comentário lá).
   const cup = resolveCupPhase(round);
   return { round, humanMatch, allResults, lineupChanges, wagePaid, newOffer: CAREER.pendingOffer, cup };
+}
+// Fallback pra uma rodada em que o SEU clube não jogue (não deveria
+// acontecer no returno completo de pontos corridos, mas o calendário é
+// gerado à parte — ver generateAllRounds — então mantém esse caminho
+// como rede de segurança em vez de assumir que sempre existe fixture
+// sua).
+function resolveRoundInstant(round, fixtures) {
+  const allResults = fixtures.map((fx) => resolveCpuFixture(fx, round));
+  return finishRoundTail(round, allResults, null);
+}
+/* ---------- Simular a rodada corrente ----------
+   Devolve um resumo ESTRUTURADO (não mais um texto de toast pronto) —
+   pedido do usuário: ao simular, mostrar um modal com o detalhe do
+   JOGO do clube (resultado/gols/assistências/cartões — ver
+   showMatchDetailModal), depois um modal com os RESULTADOS da rodada
+   inteira (ver showRoundResultsModal), só então a Tabela atualizada.
+
+   FASE 3 (itens 1 e 2 da especificação "BR Data Treinador") — quando
+   existe jogo seu na rodada, em vez de resolver na hora, entra na tela
+   "Ao Vivo" (ver startLiveMatch) — quem chamou recebe o sentinela
+   "live" e NÃO deve tratar como summary pronto (ver wireStaticListeners,
+   botão "Simular rodada"): o próprio fluxo Ao Vivo persiste/renderiza/
+   mostra os modais de sempre quando a partida termina (ver
+   finishLiveMatch). As outras ~9 partidas da rodada continuam
+   resolvendo instantaneamente (ninguém teria interesse em vê-las ao
+   vivo) — ver resolveCpuFixture, chamado de dentro de startLiveMatch. */
+function simulateRound() {
+  const round = CAREER.currentRound;
+  if (round > 38) return null;
+  const fixtures = CAREER.schedule[round] || [];
+  const humanFx = fixtures.find((fx) => String(fx.home) === String(CAREER.clubId) || String(fx.away) === String(CAREER.clubId));
+  if (!humanFx) return resolveRoundInstant(round, fixtures);
+  startLiveMatch(round, fixtures, humanFx);
+  return "live";
+}
+
+/* ---------- FASE 3 (itens 1 e 2 da especificação "BR Data Treinador")
+   — tela "Ao Vivo": substituição e troca de tática NO MEIO do jogo
+   ----------
+   A partida do seu clube progride em 6 "tempos" de 15 minutos (ver
+   LIVE_MATCH_CHUNK_MINUTES) em vez de ser sorteada inteira de uma vez
+   — cada tempo some um pedaço proporcional do gol/cartão/lesão
+   esperado pro jogo inteiro (ver applyMatchWearChunk/attributeGoals) e
+   recalcula a força do SEU time do zero (computeHumanStrength lê
+   CAREER.lineup/tactics AO VIVO), então uma substituição ou troca de
+   tática feita entre um tempo e outro já vale a partir do próximo —
+   exatamente o "afeta o cálculo da simulação daquele momento em
+   diante" pedido na especificação. Entre os tempos, o motor agenda
+   sozinho (setTimeout) o próximo — os botões de substituir/ajustar
+   tática PAUSAM essa progressão até o sub-modal fechar.
+
+   Decisões nossas pros pontos deixados em aberto na especificação:
+   - 6 janelas de pausa por partida (a cada 15 minutos simulados) —
+     dá pra reagir sem virar microgerenciamento minuto a minuto.
+   - Custo de familiaridade ao trocar ESQUEMA no meio do jogo: -8% de
+     ataque/defesa do SEU time nos 2 tempos seguintes à troca (ver
+     formationPenaltyChunksLeft) — trocar só mentalidade/marcação/ritmo
+     não tem esse custo (o time não precisa se re-posicionar em campo
+     pra isso).
+   - Expulsão (cartão vermelho direto ou 2º amarelo) libera 1
+     substituição extra automática, somada à cota de 5 sem contar nela
+     (ver subsBonus) — fica disponível, não é obrigatório usá-la.
+   - Cartão/lesão/condição são resolvidos POR TEMPO (ver
+     applyMatchWearChunk) pra aparecerem no feed ao vivo e pra a
+     expulsão liberar a substituição extra na hora; já
+     jogos/apps/desgaste de condição somam o mesmo total de sempre no
+     fim da partida (só distribuído ao longo dos tempos, não dobrado).
+   - Simplificação assumida: quem sai por substituição/lesão/expulsão
+     não concorre mais a cartão/lesão nos tempos seguintes (realista —
+     não está mais em campo); o "desgaste de fim de partida" (jogos
+     computados) considera só quem esteve em campo em ALGUM tempo (ver
+     appeared). */
+const LIVE_MATCH_CHUNK_MINUTES = [15, 30, 45, 60, 75, 90];
+const MAX_SUBS_PER_MATCH = 5;
+const LIVE_TACTICS_FAMILIARITY_PENALTY_CHUNKS = 2;
+let LIVE_MATCH = null; // estado transitório do jogo ao vivo — nunca persistido (não é parte de CAREER)
+function startLiveMatch(round, fixtures, humanFx) {
+  const isHome = String(humanFx.home) === String(CAREER.clubId);
+  const home = teamById(humanFx.home), away = teamById(humanFx.away);
+  const cpuTeamId = isHome ? humanFx.away : humanFx.home;
+  // XI do adversário CPU sorteado uma vez só e mantido fixo a partida
+  // inteira (pickCpuXI é determinístico pro squad atual — recalcular a
+  // cada tempo só re-selecionaria o mesmo time mesmo, mas fixar deixa
+  // a intenção clara: só o SEU lado pode mudar de gente em campo).
+  const cpuXI = pickCpuXI(leagueSquadFor(cpuTeamId));
+  const otherResults = fixtures.filter((fx) => fx !== humanFx).map((fx) => resolveCpuFixture(fx, round));
+  LIVE_MATCH = {
+    round, humanFx, isHome, home, away, cpuXI, otherResults,
+    chunkIndex: 0, gh: 0, ga: 0, events: [], appeared: new Set(),
+    subsUsed: 0, subsBonus: 0, formationPenaltyChunksLeft: 0,
+    lastHsStarters: [], lastAsStarters: [],
+    timerId: null, paused: false, finished: false,
+  };
+  renderLiveMatch();
+  document.getElementById("liveMatchOverlay").classList.add("open");
+  scheduleNextChunk();
+}
+function scheduleNextChunk() {
+  const lm = LIVE_MATCH;
+  if (!lm || lm.finished || lm.paused) return;
+  lm.timerId = setTimeout(resolveLiveChunk, 900);
+}
+function pauseLiveMatch() {
+  if (!LIVE_MATCH) return;
+  LIVE_MATCH.paused = true;
+  clearTimeout(LIVE_MATCH.timerId);
+}
+function resumeLiveMatch() {
+  if (!LIVE_MATCH || LIVE_MATCH.finished) return;
+  LIVE_MATCH.paused = false;
+  scheduleNextChunk();
+}
+function resolveLiveChunk() {
+  const lm = LIVE_MATCH;
+  if (!lm || lm.finished) return;
+  const round = lm.round;
+  const prevMinute = lm.chunkIndex === 0 ? 0 : LIVE_MATCH_CHUNK_MINUTES[lm.chunkIndex - 1];
+  const minute = LIVE_MATCH_CHUNK_MINUTES[lm.chunkIndex];
+  const chunkShare = (minute - prevMinute) / 90;
+  // computeHumanStrength lê CAREER.lineup/tactics NA HORA — é por isso
+  // que uma substituição/troca de tática feita na pausa já entra em
+  // vigor no próximo tempo sem precisar de nenhum código extra aqui.
+  const hs = lm.isHome ? computeHumanStrength(lm.home) : { atk: lm.home.atk, def: lm.home.def, starters: lm.cpuXI };
+  const as = lm.isHome ? { atk: lm.away.atk, def: lm.away.def, starters: lm.cpuXI } : computeHumanStrength(lm.away);
+  const humanSide = lm.isHome ? hs : as;
+  if (lm.formationPenaltyChunksLeft > 0) {
+    humanSide.atk *= 0.92; humanSide.def *= 0.92;
+    lm.formationPenaltyChunksLeft--;
+  }
+  const lambdaHome = clamp((hs.atk / as.def) * 1.12, 0.05, 6) * chunkShare;
+  const lambdaAway = clamp(as.atk / hs.def, 0.05, 6) * chunkShare;
+  const ghChunk = poissonSample(lambdaHome, Math.random);
+  const gaChunk = poissonSample(lambdaAway, Math.random);
+  const wearHome = applyMatchWearChunk(hs.starters, round, chunkShare, lm.appeared);
+  const wearAway = applyMatchWearChunk(as.starters, round, chunkShare, lm.appeared);
+  const myRedIds = lm.isHome ? wearHome.redCardIds : wearAway.redCardIds;
+  if (myRedIds.length) lm.subsBonus += myRedIds.length;
+  lm.gh += ghChunk; lm.ga += gaChunk;
+  const chunkEvents = [
+    ...attributeGoals(hs.starters, ghChunk).map((e) => ({ ...e, mine: lm.isHome })),
+    ...attributeGoals(as.starters, gaChunk).map((e) => ({ ...e, mine: !lm.isHome })),
+    ...wearHome.events.map((e) => ({ ...e, mine: lm.isHome })),
+    ...wearAway.events.map((e) => ({ ...e, mine: !lm.isHome })),
+  ].map((e) => ({ ...e, minute }));
+  lm.events.push(...chunkEvents);
+  lm.lastHsStarters = hs.starters; lm.lastAsStarters = as.starters;
+  lm.chunkIndex++;
+  renderLiveMatch();
+  if (lm.chunkIndex >= LIVE_MATCH_CHUNK_MINUTES.length) {
+    // "⏩ Pular pro fim" (ver skipLiveMatch) não espera o delay de
+    // sempre — quem não quer acompanhar minuto a minuto não devia ficar
+    // preso a ele.
+    if (lm.skipping) finishLiveMatch(); else setTimeout(finishLiveMatch, 500);
+  } else if (!lm.skipping) {
+    scheduleNextChunk();
+  }
+}
+// Pedido nosso, não da especificação: sem isso, CADA rodada simulada
+// custaria ~6s de espera real (6 tempos x 900ms) mesmo pra quem só
+// quer avançar a temporada sem interagir — o mesmo problema que fazia
+// sentido evitar antes de existir Ao Vivo nenhum. Resolve todo mundo
+// que falta de uma vez, sem os delays entre tempos.
+function skipLiveMatch() {
+  const lm = LIVE_MATCH;
+  if (!lm || lm.finished) return;
+  clearTimeout(lm.timerId);
+  lm.paused = false;
+  lm.skipping = true;
+  while (lm.chunkIndex < LIVE_MATCH_CHUNK_MINUTES.length && !lm.finished) resolveLiveChunk();
+}
+async function finishLiveMatch() {
+  const lm = LIVE_MATCH;
+  lm.finished = true;
+  const result = { home: lm.humanFx.home, away: lm.humanFx.away, gh: lm.gh, ga: lm.ga };
+  // "substituicao" só existe pro feed AO VIVO (ver liveEventLabel) —
+  // igual lesão (ver comentário no topo de applyMatchWearChunk), o
+  // modal de detalhe do jogo de sempre (matchEventsSummaryHTML) só
+  // lista gol/cartão/assistência.
+  const summaryEvents = lm.events.filter((e) => e.type !== "substituicao");
+  if (summaryEvents.length) result.events = summaryEvents;
+  applyResultToStandings(result);
+  (CAREER.resultsByRound[lm.round] = CAREER.resultsByRound[lm.round] || []).push(result);
+  // "Minha equipe" nas Estatísticas só soma o SEU lado, mesmo critério
+  // de sempre (ver tallyTeamStats/resolveCpuFixture) — filtra pelos
+  // eventos marcados "mine" durante os tempos (ver resolveLiveChunk).
+  tallyTeamStats(lm.events.filter((e) => e.mine));
+  // Quem nunca apareceu em nenhum tempo (reserva que ficou fora)
+  // recupera condição no fim da partida, mesmo critério de sempre (ver
+  // applyConditionRecovery) — só uma chamada (não uma por tempo) pra
+  // não multiplicar a recuperação por 6.
+  applyConditionRecovery(Array.from(lm.appeared));
+  let ticketRevenue = null;
+  if (lm.isHome) {
+    ticketRevenue = computeTicketRevenue(lm.home);
+    CAREER.finances.cash += ticketRevenue.revenue;
+  }
+  const humanMatch = { ...result, isHome: lm.isHome, ticketRevenue };
+  const myGoals = lm.isHome ? lm.gh : lm.ga, oppGoals = lm.isHome ? lm.ga : lm.gh;
+  pushRecentForm(myGoals > oppGoals ? 3 : myGoals === oppGoals ? 1 : 0);
+  applyMoraleAfterMatch(myGoals, oppGoals);
+  // FASE 3 (item 4) — evolução por treino considera quem terminou a
+  // partida em campo do seu lado (após eventuais substituições).
+  applyTrainingEvolution(lm.isHome ? lm.lastHsStarters : lm.lastAsStarters);
+  const allResults = [...lm.otherResults, result];
+  const summary = finishRoundTail(lm.round, allResults, humanMatch);
+  document.getElementById("liveMatchOverlay").classList.remove("open");
+  LIVE_MATCH = null;
+  const saved = await persistCareer();
+  const btn = document.getElementById("btnSimulate");
+  if (!saved) { if (btn) btn.disabled = false; return; }
+  renderAll();
+  showMatchDetailModal(summary);
+}
+function liveEventLabel(e) {
+  if (e.type === "gol") return `⚽ Gol${e.mine === false ? " do adversário" : ""} — ${escapeHtml(e.player)}`;
+  if (e.type === "assistencia") return `🅰️ Assistência de ${escapeHtml(e.player)}`;
+  if (e.type === "amarelo") return `🟨 Cartão amarelo — ${escapeHtml(e.player)}`;
+  if (e.type === "vermelho") return `🟥 Expulsão — ${escapeHtml(e.player)}`;
+  if (e.type === "substituicao") return `🔄 ${escapeHtml(e.entra)} entra no lugar de ${escapeHtml(e.saiu)}`;
+  return "";
+}
+function renderLiveMatch() {
+  const lm = LIVE_MATCH;
+  if (!lm) return;
+  document.getElementById("liveMatchScore").innerHTML = `
+    <div class="side">${crestImg(lm.home)}<span class="n">${escapeHtml(lm.home.name)}</span></div>
+    <span class="vs" style="font-size:22px;">${lm.gh} × ${lm.ga}</span>
+    <div class="side">${crestImg(lm.away)}<span class="n">${escapeHtml(lm.away.name)}</span></div>`;
+  const minute = lm.chunkIndex === 0 ? 0 : LIVE_MATCH_CHUNK_MINUTES[Math.min(lm.chunkIndex, LIVE_MATCH_CHUNK_MINUTES.length) - 1];
+  document.getElementById("liveMatchMinute").textContent = lm.finished ? "Fim de jogo — carregando..." : `${minute}'`;
+  document.getElementById("liveMatchFeed").innerHTML = lm.events.length
+    ? [...lm.events].reverse().map((e) => `<div class="ct-transfer-feed-item"><b>${e.minute}'</b> ${liveEventLabel(e)}</div>`).join("")
+    : `<p class="ct-empty">Bola rolando...</p>`;
+  const subsTotal = MAX_SUBS_PER_MATCH + lm.subsBonus;
+  const subBtn = document.getElementById("btnLiveSub");
+  subBtn.textContent = `🔄 Substituir (${lm.subsUsed}/${subsTotal})`;
+  subBtn.disabled = lm.finished || lm.subsUsed >= subsTotal;
+  document.getElementById("btnLiveTactics").disabled = lm.finished;
+  document.getElementById("btnLiveSkip").disabled = lm.finished;
+}
+// ---- Sub-modal: substituição ----
+function openLiveSubModal() {
+  const lm = LIVE_MATCH;
+  if (!lm || lm.finished) return;
+  if (lm.subsUsed >= MAX_SUBS_PER_MATCH + lm.subsBonus) { toast("Sem substituições disponíveis."); return; }
+  pauseLiveMatch();
+  const starters = CAREER.lineup.starters.map((id) => id && CAREER.squad.find((p) => p.id === id)).filter(Boolean);
+  const bench = CAREER.lineup.bench.map((id) => CAREER.squad.find((p) => p.id === id)).filter((p) => p && p.status === "ok");
+  document.getElementById("liveSubOutSelect").innerHTML = starters.length
+    ? starters.map((p) => `<option value="${p.id}">${escapeHtml(abbreviateName(p.name))} (${subPositionOf(p)})</option>`).join("")
+    : `<option value="">Sem titulares disponíveis</option>`;
+  document.getElementById("liveSubInSelect").innerHTML = bench.length
+    ? bench.map((p) => `<option value="${p.id}">${escapeHtml(abbreviateName(p.name))} (${subPositionOf(p)})</option>`).join("")
+    : `<option value="">Sem jogadores disponíveis no banco</option>`;
+  document.getElementById("liveSubOverlay").classList.add("open");
+}
+function closeLiveSubModal() {
+  document.getElementById("liveSubOverlay").classList.remove("open");
+  resumeLiveMatch();
+}
+function confirmLiveSub() {
+  const lm = LIVE_MATCH;
+  if (!lm) return;
+  const outId = document.getElementById("liveSubOutSelect").value;
+  const inId = document.getElementById("liveSubInSelect").value;
+  if (!outId || !inId) { toast("Escolha quem sai e quem entra."); return; }
+  const outIdx = CAREER.lineup.starters.indexOf(outId);
+  if (outIdx < 0) { toast("Esse jogador não está em campo."); return; }
+  const outPlayer = CAREER.squad.find((p) => p.id === outId);
+  const inPlayer = CAREER.squad.find((p) => p.id === inId);
+  if (!outPlayer || !inPlayer) return;
+  CAREER.lineup.starters[outIdx] = inId;
+  CAREER.lineup.bench = CAREER.lineup.bench.filter((id) => id !== inId);
+  CAREER.lineup.bench.push(outId);
+  lm.subsUsed++;
+  const minute = lm.chunkIndex === 0 ? 0 : LIVE_MATCH_CHUNK_MINUTES[lm.chunkIndex - 1];
+  lm.events.push({ type: "substituicao", saiu: outPlayer.name, entra: inPlayer.name, minute, mine: true });
+  document.getElementById("liveSubOverlay").classList.remove("open");
+  renderLiveMatch();
+  resumeLiveMatch();
+}
+// ---- Sub-modal: ajustar tática ----
+function openLiveTacticsModal() {
+  if (!LIVE_MATCH || LIVE_MATCH.finished) return;
+  pauseLiveMatch();
+  document.getElementById("liveTacticsFormation").value = CAREER.lineup.formation;
+  document.getElementById("liveTacticsMentality").value = CAREER.lineup.tactics.mentality;
+  document.getElementById("liveTacticsMarking").value = CAREER.lineup.tactics.marking;
+  document.getElementById("liveTacticsTempo").value = CAREER.lineup.tactics.tempo;
+  document.getElementById("liveTacticsOverlay").classList.add("open");
+}
+function closeLiveTacticsModal() {
+  document.getElementById("liveTacticsOverlay").classList.remove("open");
+  resumeLiveMatch();
+}
+function confirmLiveTactics() {
+  if (!LIVE_MATCH) return;
+  const newFormation = document.getElementById("liveTacticsFormation").value;
+  if (newFormation !== CAREER.lineup.formation) {
+    CAREER.lineup.formation = newFormation;
+    LIVE_MATCH.formationPenaltyChunksLeft = LIVE_TACTICS_FAMILIARITY_PENALTY_CHUNKS;
+    toast("Esquema alterado — o time perde um pouco de efetividade até se ajustar.");
+  }
+  CAREER.lineup.tactics.mentality = document.getElementById("liveTacticsMentality").value;
+  CAREER.lineup.tactics.marking = document.getElementById("liveTacticsMarking").value;
+  CAREER.lineup.tactics.tempo = document.getElementById("liveTacticsTempo").value;
+  document.getElementById("liveTacticsOverlay").classList.remove("open");
+  resumeLiveMatch();
 }
 
 /* ---------- Renderização: Central ---------- */
@@ -2983,6 +3297,12 @@ function wireStaticListeners() {
   populateSelect("tacticMarking", TACTIC_OPTIONS.marking);
   populateSelect("tacticTempo", TACTIC_OPTIONS.tempo);
   populateSelect("trainingFocus", TRAINING_OPTIONS);
+  // FASE 3 (item 2) — mesmas opções do sub-modal de tática ao vivo,
+  // reaproveitadas das constantes de sempre (ver openLiveTacticsModal).
+  populateSelect("liveTacticsFormation", Object.keys(FORMATIONS).map((k) => [k, k]));
+  populateSelect("liveTacticsMentality", TACTIC_OPTIONS.mentality);
+  populateSelect("liveTacticsMarking", TACTIC_OPTIONS.marking);
+  populateSelect("liveTacticsTempo", TACTIC_OPTIONS.tempo);
 
   document.querySelectorAll(".ct-tab").forEach((btn) => {
     btn.addEventListener("click", () => switchToPanel(btn.dataset.panel));
@@ -3011,6 +3331,13 @@ function wireStaticListeners() {
     const btn = document.getElementById("btnSimulate");
     btn.disabled = true;
     const summary = simulateRound();
+    // FASE 3 (itens 1 e 2) — existindo jogo seu na rodada,
+    // simulateRound() já abriu a tela Ao Vivo e devolve o sentinela
+    // "live" — o resto do fluxo (persistir/renderizar/mostrar os
+    // modais de sempre) roda sozinho quando a partida termina, ver
+    // finishLiveMatch. Só reabilita o botão se o fluxo antigo (sem
+    // jogo seu, ver resolveRoundInstant) rodou de verdade.
+    if (summary === "live") return;
     const saved = await persistCareer();
     // Se não deu pra salvar (ex.: sessão expirada — ver persistCareer),
     // não mostra o modal do jogo por cima da tela de login: ela já foi
@@ -3020,6 +3347,20 @@ function wireStaticListeners() {
     renderAll();
     if (summary) showMatchDetailModal(summary);
   });
+  // FASE 3 (itens 1 e 2) — botões fixos da tela Ao Vivo (substituição/
+  // tática) e os 2 sub-modais que eles abrem, mesmo padrão de
+  // fechamento dos outros sub-modais (X e clique fora cancelam sem
+  // aplicar nada — ver closeLiveSubModal/closeLiveTacticsModal, que só
+  // retomam a progressão da partida).
+  document.getElementById("btnLiveSkip").addEventListener("click", skipLiveMatch);
+  document.getElementById("btnLiveSub").addEventListener("click", openLiveSubModal);
+  document.getElementById("liveSubClose").addEventListener("click", closeLiveSubModal);
+  document.getElementById("liveSubOverlay").addEventListener("click", (e) => { if (e.target.id === "liveSubOverlay") closeLiveSubModal(); });
+  document.getElementById("btnLiveSubConfirm").addEventListener("click", confirmLiveSub);
+  document.getElementById("btnLiveTactics").addEventListener("click", openLiveTacticsModal);
+  document.getElementById("liveTacticsClose").addEventListener("click", closeLiveTacticsModal);
+  document.getElementById("liveTacticsOverlay").addEventListener("click", (e) => { if (e.target.id === "liveTacticsOverlay") closeLiveTacticsModal(); });
+  document.getElementById("btnLiveTacticsConfirm").addEventListener("click", confirmLiveTactics);
   document.getElementById("btnMatchDetailContinue").addEventListener("click", () => {
     document.getElementById("matchDetailOverlay").classList.remove("open");
     if (PENDING_ROUND_SUMMARY) showRoundResultsModal(PENDING_ROUND_SUMMARY);
