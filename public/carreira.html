@@ -507,6 +507,11 @@
     <img class="brand" src="img/logo.png" alt="BR Data">
     <h1>Escolha o clube que você vai comandar</h1>
     <p>Você define escalação, formação, banco de reservas e as trocas — os outros 19 times são simulados pela CPU. Dá pra promover jogadores da base pro time principal a qualquer momento.</p>
+    <!-- FASE 4 (item 4) — banner de contexto quando essa tela reaparece
+         no fluxo de "aceitar proposta de outro clube" (ver
+         acceptClubProposal/renderClubPicker em carreira.js) — some
+         normalmente na 1ª escolha, reinício e demissão. -->
+    <p class="ct-sub" id="pickerContextBanner" style="max-width:480px; color:var(--gold); font-weight:700;" hidden></p>
     <div class="ct-club-grid" id="clubGrid"></div>
   </div>
 
@@ -523,6 +528,9 @@
              (ver openAwardsScreen em carreira.js), pedido do usuário:
              "uma tela que armazena os resultados de cada ano". -->
         <button class="ct-topbar-menu-item" id="btnOpenAwards">🏆 Premiações</button>
+        <!-- FASE 4 (item 4) — currículo do técnico (reputação +
+             histórico de clubes), ver openCoachProfileScreen. -->
+        <button class="ct-topbar-menu-item" id="btnOpenCoachProfile">👔 Perfil do Técnico</button>
         <button class="ct-topbar-menu-item" id="btnRestart">↺ Reiniciar</button>
         <button class="ct-topbar-menu-item danger" id="btnLogout">⎋ Sair</button>
       </div>
@@ -562,6 +570,17 @@
                da temporada. -->
           <p class="ct-sub" id="boardGoalLabel" style="color:var(--gold); font-weight:700;"></p>
           <div class="ct-kpis" id="squadKpis"></div>
+        </div>
+        <!-- FASE 4 (item 4) — banner reaproveitável caso o técnico feche
+             o "X" da notificação de proposta sem decidir na hora (ver
+             btnViewClubProposal/openClubProposalModal em carreira.js) —
+             sem isso a proposta ficava sem jeito nenhum de reabrir. -->
+        <div class="ct-card" id="clubProposalCard" style="display:none;">
+          <h2>📨 Proposta de outro clube</h2>
+          <p class="ct-sub" id="clubProposalSummary"></p>
+          <div style="text-align:center; margin-top:8px;">
+            <button class="ct-btn small" id="btnViewClubProposal">Ver proposta</button>
+          </div>
         </div>
         <!-- FASE 2 (b) — pedido do usuário: contrato/salário/valor com
              orçamento real (ver CAREER.finances em carreira.js). -->
@@ -1107,6 +1126,47 @@
       <button class="ct-modal-close" id="awardsClose">✕</button>
     </div>
     <div class="ct-modal-body" id="awardsList"></div>
+  </div>
+</div>
+
+<!-- FASE 4 (item 4) — perfil/currículo do técnico: reputação atual e
+     histórico de clubes (títulos, temporadas, posição média), pedido
+     no documento como "tela de perfil do técnico ... mostrando
+     histórico de carreira" (ver renderCoachProfile em carreira.js). -->
+<div class="ct-modal-overlay ct-modal-fullscreen" id="coachProfileOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header">
+      <span class="ct-modal-icon">👔</span>
+      <div class="ct-modal-header-text">
+        <h3>Perfil do Técnico</h3>
+        <div class="ct-modal-sub">Reputação e currículo de carreira</div>
+      </div>
+      <button class="ct-modal-close" id="coachProfileClose">✕</button>
+    </div>
+    <div class="ct-modal-body" id="coachProfileBody"></div>
+  </div>
+</div>
+
+<!-- FASE 4 (item 4) — notificação de proposta de outro clube (ver
+     maybeGenerateClubProposals/openClubProposalModal). Mensagem curta,
+     decisão binária — mantém tamanho compacto (não é tela cheia). -->
+<div class="ct-modal-overlay" id="clubProposalOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header">
+      <span class="ct-modal-icon">📨</span>
+      <div class="ct-modal-header-text">
+        <h3>Proposta de outro clube</h3>
+        <div class="ct-modal-sub">Sua reputação chamou atenção</div>
+      </div>
+      <button class="ct-modal-close" id="clubProposalClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <p class="ct-sub" id="clubProposalText" style="margin-bottom:16px;"></p>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <button class="ct-btn full primary" id="btnClubProposalAccept">Aceitar e trocar de clube</button>
+        <button class="ct-btn full" id="btnClubProposalDecline">Recusar e continuar aqui</button>
+      </div>
+    </div>
   </div>
 </div>
 
