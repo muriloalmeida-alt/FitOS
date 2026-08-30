@@ -309,6 +309,10 @@
      emprestado, Vender/Emprestar) empilhadas em vez de lado a lado —
      largura de celular não sobra pra 2 botões na horizontal. */
   .ct-market-actions{ display:flex; flex-direction:column; gap:4px; margin-left:auto; flex-shrink:0; }
+  /* FASE 4 (item 5) — linha de patrocínio (Financeiro/Central), mesmo
+     espírito de separador do .ct-market-row acima. */
+  .ct-sponsor-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 0; border-bottom:1px solid rgba(255,255,255,.05); }
+  .ct-sponsor-row:last-child{ border-bottom:none; }
   /* Fase 2 (olheiro) — faixa de potencial embaixo do overall na lista
      do Elenco, só pra quem tem potencial (base) — tom neutro
      (var(--text-2)), não dourado, de propósito: é uma ESTIMATIVA de
@@ -569,6 +573,19 @@
             <button class="ct-btn small" id="btnAskBoard">🏛️ Pedir mais orçamento à diretoria</button>
           </div>
           <p class="ct-sub" id="boardDecisionText" style="margin-top:8px; text-align:center;"></p>
+        </div>
+        <!-- FASE 4 (item 5) — patrocínio e material esportivo (ver
+             renderSponsorship/openSponsorProposalsModal em
+             carreira.js). Efeito puramente financeiro, soma no caixa
+             em parcelas ao longo da temporada — sem nada visual de
+             camisa estampada, como a própria especificação já decide. -->
+        <div class="ct-card">
+          <div class="ct-card-head">
+            <h2>Patrocínios</h2>
+            <button class="ct-help-btn" data-help="helpPatrocinios" aria-label="Ajuda">?</button>
+          </div>
+          <p class="ct-sub ct-help-text" id="helpPatrocinios" hidden>Contratos comerciais somam receita fixa por temporada, pagos aos poucos a cada rodada. Ao vencer, aparecem propostas concorrentes pra renovar — o valor melhora conforme o desempenho recente do clube.</p>
+          <div id="sponsorshipBox"></div>
         </div>
         <div class="ct-card" id="lastResultCard" style="display:none;">
           <h2>Resultado da última rodada</h2>
@@ -857,6 +874,22 @@
       </div>
       <button class="ct-btn full primary" id="btnLoanConfirm">Confirmar</button>
     </div>
+  </div>
+</div>
+
+<!-- FASE 4 (item 5) — propostas concorrentes de patrocínio/material
+     esportivo, aberta ao clicar "Ver propostas" no card Patrocínios da
+     Central (ver openSponsorProposalsModal em carreira.js). Mesmo
+     padrão do modal de empréstimo acima — mensagem curta, tamanho
+     normal (não tela cheia). -->
+<div class="ct-modal-overlay" id="sponsorProposalsOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header">
+      <span class="ct-modal-icon">💼</span>
+      <div class="ct-modal-header-text"><h3 id="sponsorProposalsTitle">Propostas de patrocínio</h3></div>
+      <button class="ct-modal-close" id="sponsorProposalsClose">✕</button>
+    </div>
+    <div class="ct-modal-body" id="sponsorProposalsList"></div>
   </div>
 </div>
 
