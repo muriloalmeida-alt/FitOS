@@ -1370,35 +1370,75 @@ function computeSeasonAwards() {
 }
 // Tela própria (pedido do usuário) com o histórico de premiações de
 // TODAS as temporadas já fechadas (ver CAREER.seasonAwards, mais novo
-// primeiro) — aberta pelo menu "≡" (ver btnOpenAwards). Destaque
-// dourado quando o prêmio é do SEU clube/jogador.
-function awardLineHTML(label, name, mine, extra) {
-  return `<div class="ct-sub"${mine ? ' style="color:var(--gold); font-weight:700;"' : ""}>${label}: ${escapeHtml(name)}${extra ? ` (${escapeHtml(extra)})` : ""}</div>`;
+// primeiro) — aberta pelo menu "≡" (ver btnOpenAwards).
+// AJUSTE (pedido do usuário: "premiações merece mais capricho no
+// design") — trocou linhas de texto simples por um "hall da fama" de
+// verdade: escudo dos clubes (ver crestImg, já usado em Central/
+// Mercado — nada de novo pra carregar), pódio Campeão/Vice lado a
+// lado com medalhas, prêmios individuais em blocos tipo KPI, borda
+// dourada no card inteiro da temporada em que o SEU clube foi campeão
+// (Brasileirão OU Copa), e um resumo geral do currículo (títulos
+// somados em toda a carreira) no topo da tela.
+function awardPodiumHTML(medal, label, clubId, mine) {
+  const t = clubId != null ? teamById(clubId) : null;
+  return `<div class="slot${mine ? " mine" : ""}">
+    <span class="medal">${medal}</span>${t ? crestImg(t, 26) : ""}
+    <div><span class="lbl">${label}</span><span class="nm">${t ? escapeHtml(t.name) : "—"}</span></div>
+  </div>`;
+}
+function awardStatTileHTML(icon, label, entry, unit) {
+  const mine = entry && String(entry.clubeId) === String(CAREER.clubId);
+  return `<div class="ct-award-stat${mine ? " mine" : ""}">
+    <span class="icon">${icon}</span><span class="lbl">${label}</span>
+    <span class="nm">${entry ? escapeHtml(abbreviateName(entry.nome)) : "—"}</span>
+    ${entry ? `<span class="sub">${escapeHtml(entry.clubeName)} · ${entry.valor} ${unit}</span>` : ""}
+  </div>`;
 }
 function renderAwardsScreen() {
   const list = CAREER.seasonAwards || [];
+  const hero = document.getElementById("awardsHero");
   const box = document.getElementById("awardsList");
   if (!list.length) {
+    hero.innerHTML = "";
     box.innerHTML = `<p class="ct-empty">Nenhuma temporada encerrada ainda — as premiações aparecem aqui ao fim de cada temporada (ver "Avançar para a próxima temporada" na Central).</p>`;
     return;
   }
+  const myTitles = list.reduce((acc, a) => {
+    if (String(a.brasileirao.campeao) === String(CAREER.clubId)) acc.brasileirao++;
+    if (a.copaDoBrasil.disputou && String(a.copaDoBrasil.campeao) === String(CAREER.clubId)) acc.copa++;
+    return acc;
+  }, { brasileirao: 0, copa: 0 });
+  const totalTitles = myTitles.brasileirao + myTitles.copa;
+  hero.innerHTML = totalTitles
+    ? `<div class="big">🏆 ${totalTitles}</div><div class="lbl">${[myTitles.brasileirao ? `${myTitles.brasileirao}× Brasileirão` : "", myTitles.copa ? `${myTitles.copa}× Copa do Brasil` : ""].filter(Boolean).join(" · ")}</div>`
+    : `<div class="big">—</div><div class="lbl">Nenhum título ainda no currículo — a próxima temporada pode ser a primeira</div>`;
+
   box.innerHTML = list.map((a) => {
     const b = a.brasileirao;
-    const rows = [
-      awardLineHTML("🏆 Campeão", b.campeao ? teamById(b.campeao).name : "—", String(b.campeao) === String(CAREER.clubId)),
-      awardLineHTML("🥈 Vice", b.vice ? teamById(b.vice).name : "—", String(b.vice) === String(CAREER.clubId)),
-      b.artilheiro ? awardLineHTML("⚽ Artilheiro", abbreviateName(b.artilheiro.nome), String(b.artilheiro.clubeId) === String(CAREER.clubId), `${b.artilheiro.clubeName} · ${b.artilheiro.valor} gols`) : "",
-      b.assistencias ? awardLineHTML("🅰️ Mais assistências", abbreviateName(b.assistencias.nome), String(b.assistencias.clubeId) === String(CAREER.clubId), `${b.assistencias.clubeName} · ${b.assistencias.valor} assist.`) : "",
-      b.melhorJogador ? awardLineHTML("⭐ Melhor do torneio", abbreviateName(b.melhorJogador.nome), String(b.melhorJogador.clubeId) === String(CAREER.clubId), `${b.melhorJogador.clubeName} · OVR ${b.melhorJogador.valor}`) : "",
-    ].join("");
     const cup = a.copaDoBrasil;
+    const mineChampion = String(b.campeao) === String(CAREER.clubId) || (cup.disputou && String(cup.campeao) === String(CAREER.clubId));
+    const podium = `<div class="ct-award-podium">
+      ${awardPodiumHTML("🥇", "Campeão", b.campeao, String(b.campeao) === String(CAREER.clubId))}
+      ${awardPodiumHTML("🥈", "Vice", b.vice, String(b.vice) === String(CAREER.clubId))}
+    </div>`;
+    const stats = `<div class="ct-award-stats">
+      ${awardStatTileHTML("⚽", "Artilheiro", b.artilheiro, "gols")}
+      ${awardStatTileHTML("🅰️", "Assistências", b.assistencias, "assist.")}
+      ${awardStatTileHTML("⭐", "Melhor do torneio", b.melhorJogador, "OVR")}
+    </div>`;
     const cupHTML = cup.disputou
-      ? awardLineHTML("🏆 Copa do Brasil — Campeão", teamById(cup.campeao).name, String(cup.campeao) === String(CAREER.clubId))
-        + awardLineHTML("🥈 Copa do Brasil — Vice", teamById(cup.vice).name, String(cup.vice) === String(CAREER.clubId))
-      : `<p class="ct-sub">Copa do Brasil: não disputada essa temporada.</p>`;
-    return `<div class="ct-card" style="margin-bottom:14px;">
-      <h2>Temporada ${a.seasonYear}</h2>
-      ${rows}
+      ? `<div class="ct-award-cup">
+          <div class="title">Copa do Brasil</div>
+          <div class="ct-award-podium">
+            ${awardPodiumHTML("🥇", "Campeão", cup.campeao, String(cup.campeao) === String(CAREER.clubId))}
+            ${awardPodiumHTML("🥈", "Vice", cup.vice, String(cup.vice) === String(CAREER.clubId))}
+          </div>
+        </div>`
+      : `<div class="ct-award-cup"><p class="ct-sub" style="margin:0;">Copa do Brasil: não disputada essa temporada.</p></div>`;
+    return `<div class="ct-award-season${mineChampion ? " champion" : ""}">
+      <div class="yr"><h2>Temporada ${a.seasonYear}</h2>${mineChampion ? `<span class="ribbon">Você foi campeão</span>` : ""}</div>
+      ${podium}
+      ${stats}
       ${cupHTML}
     </div>`;
   }).join("");
@@ -2080,6 +2120,9 @@ async function startCareer(clubId) {
       reputation: TECHNICIAN_CARRY ? TECHNICIAN_CARRY.reputation : 50,
       clubHistory: TECHNICIAN_CARRY ? TECHNICIAN_CARRY.clubHistory : [],
       clubProposals: [],
+      // AJUSTE — feed navegável de notícias (ver renderNewsScreen),
+      // nasce vazio (nova carreira, nenhuma rodada simulada ainda).
+      newsFeed: [],
     };
     TECHNICIAN_CARRY = null;
     // FASE 1 (item 3) — meta da diretoria da 1ª temporada, calculada
@@ -2475,6 +2518,8 @@ function cloneStandings(standings) {
 const NEWS_ICON = { lider: "📈", zebra: "⚡", goleada: "🥅", jejum_quebrado: "🔥", lanterna_reage: "🆙", empate_defendido: "🛡️", generico: "📰" };
 const NEWS_PRIORITY = { lider: 1, zebra: 2, lanterna_reage: 3, goleada: 4, empate_defendido: 5, jejum_quebrado: 6, generico: 9 };
 const WINLESS_STREAK_THRESHOLD = 5; // rodadas sem vencer pra "jejum" valer manchete
+const NEWS_FEED_MAX = 60; // manchetes guardadas no feed navegável (ver finishRoundTail/renderNewsScreen)
+const NEWS_TAG_LABEL = { lider: "Liderança", zebra: "Zebra", goleada: "Goleada", jejum_quebrado: "Fim de jejum", lanterna_reage: "Reação", empate_defendido: "Defesa do resultado", generico: "Rodada" };
 const ZEBRA_OVR_GAP = 6; // diferença mínima de overall médio pra contar como zebra/empate-defendido
 function rankByPoints(standings) {
   const rows = Object.values(standings).sort((a, b) => (b.pts - a.pts) || (b.v - a.v) || (b.sg - a.sg) || (b.gp - a.gp));
@@ -2565,6 +2610,45 @@ function roundNewsHTML(news) {
     <p class="ct-sub" style="font-weight:700; margin-bottom:6px;">📻 Rádio Data FM — Notícias da rodada</p>
     ${rows}
   </div>`;
+}
+// AJUSTE (pedido do usuário: "esperava uma tela exclusiva pra
+// notícias nos padrões de um portal de esportes") — tela própria
+// acessível pelo menu "≡", separada do flash rápido acima (que
+// continua existindo dentro do modal de resultados): aqui é o arquivo
+// navegável (ver CAREER.newsFeed), com manchete principal em destaque
+// e o resto em feed, mais nova primeiro.
+function newsItemHTML(n) {
+  return `<div class="ct-news-item${n.mine ? " mine" : ""}">
+    <span class="icon">${NEWS_ICON[n.type] || "📰"}</span>
+    <div class="body">
+      <div class="headline">${escapeHtml(n.texto)}</div>
+      <div class="meta"><span class="ct-news-tag">${NEWS_TAG_LABEL[n.type] || "Rodada"}</span><span>Rodada ${n.round} · Temporada ${n.seasonYear}</span></div>
+    </div>
+  </div>`;
+}
+function renderNewsScreen() {
+  document.getElementById("newsTagline").textContent = `Edição do técnico do ${CAREER.clubName}`;
+  const feed = CAREER.newsFeed || [];
+  const featuredBox = document.getElementById("newsFeatured");
+  const listBox = document.getElementById("newsList");
+  if (!feed.length) {
+    featuredBox.innerHTML = "";
+    listBox.innerHTML = `<p class="ct-empty">Nenhuma notícia ainda — simule uma rodada pra o jornal ganhar a primeira manchete.</p>`;
+    return;
+  }
+  const [top, ...rest] = feed;
+  featuredBox.innerHTML = `
+    <div class="eyebrow">${top.mine ? "Manchete — seu clube" : "Manchete da rodada"}</div>
+    <div class="headline">${NEWS_ICON[top.type] || "📰"} ${escapeHtml(top.texto)}</div>
+    <div class="meta">Rodada ${top.round} · Temporada ${top.seasonYear}</div>`;
+  listBox.innerHTML = rest.map(newsItemHTML).join("");
+}
+function openNewsScreen() {
+  renderNewsScreen();
+  document.getElementById("newsOverlay").classList.add("open");
+}
+function closeNewsScreen() {
+  document.getElementById("newsOverlay").classList.remove("open");
 }
 
 // Resolve UMA partida CPU x CPU do zero, do sorteio de gols até
@@ -2663,6 +2747,17 @@ function finishRoundTail(round, allResults, humanMatch, standingsBefore) {
   // de simulateRound (ANTES de qualquer resultado dessa rodada mexer
   // na tabela) pra saber quem virou líder etc.
   const news = generateRoundNews(round, allResults, standingsBefore);
+  // AJUSTE (pedido do usuário: "esperava uma tela exclusiva pra
+  // notícias nos padrões de um portal de esportes") — até aqui as
+  // manchetes só existiam durante o modal de resultados da rodada,
+  // sem ficar guardadas em lugar nenhum (ver roundNewsHTML, que segue
+  // existindo pro flash rápido). Agora também entram num feed
+  // navegável (ver renderNewsScreen), com round/temporada anexados pra
+  // dar contexto — mais NOVAS primeiro, capado em NEWS_FEED_MAX pra
+  // não pesar o save (mesmo espírito de MAX_SEASON_HISTORY).
+  const roundEntries = news.map((n) => ({ ...n, round, seasonYear: CAREER.seasonYear }));
+  CAREER.newsFeed = roundEntries.concat(CAREER.newsFeed || []);
+  if (CAREER.newsFeed.length > NEWS_FEED_MAX) CAREER.newsFeed.length = NEWS_FEED_MAX;
   return { round, humanMatch, allResults, lineupChanges, wagePaid, sponsorIncome, newOffer: CAREER.pendingOffer, cup, news };
 }
 // Fallback pra uma rodada em que o SEU clube não jogue (não deveria
@@ -4288,6 +4383,16 @@ function wireStaticListeners() {
   document.getElementById("sponsorProposalsClose").addEventListener("click", closeSponsorProposalsModal);
   document.getElementById("sponsorProposalsOverlay").addEventListener("click", (e) => { if (e.target.id === "sponsorProposalsOverlay") closeSponsorProposalsModal(); });
 
+  // AJUSTE (pedido do usuário: "esperava uma tela exclusiva pra
+  // notícias nos padrões de um portal de esportes") — tela de
+  // notícias, aberta pelo menu "≡".
+  document.getElementById("btnOpenNews").addEventListener("click", () => {
+    document.getElementById("topbarMenu").classList.remove("open");
+    openNewsScreen();
+  });
+  document.getElementById("newsClose").addEventListener("click", closeNewsScreen);
+  document.getElementById("newsOverlay").addEventListener("click", (e) => { if (e.target.id === "newsOverlay") closeNewsScreen(); });
+
   // FASE 4 (item 6) — tela de premiações, aberta pelo menu "≡".
   document.getElementById("btnOpenAwards").addEventListener("click", () => {
     document.getElementById("topbarMenu").classList.remove("open");
@@ -4558,6 +4663,9 @@ function migrateCareerDefaults() {
   if (CAREER.reputation == null) CAREER.reputation = 50;
   if (!CAREER.clubHistory) CAREER.clubHistory = [];
   if (!CAREER.clubProposals) CAREER.clubProposals = [];
+  // AJUSTE — carreira criada antes do feed de notícias existir nasce
+  // vazio (não tem como reconstruir manchetes de rodadas já passadas).
+  if (!CAREER.newsFeed) CAREER.newsFeed = [];
 }
 async function enterAfterAuth() {
   show("screenLoading");
