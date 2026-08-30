@@ -551,9 +551,16 @@
       <section class="ct-panel" id="panel-escalacao">
         <div class="ct-card">
           <h2>Formação e titulares</h2>
-          <div class="ct-field" style="max-width:220px; margin-bottom:14px;">
-            <label>Esquema tático</label>
-            <select id="formationSelect"></select>
+          <div style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; margin-bottom:14px;">
+            <div class="ct-field" style="max-width:220px; margin-bottom:0;">
+              <label>Esquema tático</label>
+              <select id="formationSelect"></select>
+            </div>
+            <!-- Pedido do usuário (item 1): escalação automática pelos
+                 melhores overalls por posição, reaproveitando
+                 autoLineup (só rodava na criação da carreira antes —
+                 ver autoFillLineup em carreira.js). -->
+            <button class="ct-btn" id="btnAutoLineup">🔁 Escalar automaticamente</button>
           </div>
           <div id="pitchLines"></div>
         </div>
