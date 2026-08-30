@@ -2645,21 +2645,68 @@ function renderNewsScreen() {
   if (!feed.length) {
     featuredBox.innerHTML = "";
     listBox.innerHTML = `<p class="ct-empty">Nenhuma notícia ainda — simule uma rodada pra o jornal ganhar a primeira manchete.</p>`;
+  } else {
+    const [top, ...rest] = feed;
+    featuredBox.innerHTML = `
+      <div class="eyebrow">${top.mine ? "Manchete — seu clube" : "Manchete da rodada"}</div>
+      <div class="headline">${NEWS_ICON[top.type] || "📰"} ${escapeHtml(top.texto)}</div>
+      <div class="meta">Rodada ${top.round} · Temporada ${top.seasonYear}</div>`;
+    listBox.innerHTML = rest.map(newsItemHTML).join("");
+  }
+  renderTeamStatusNews();
+}
+// AJUSTE (pedido do usuário: "notícias do seu time — quem se lesionou
+// ou está suspenso") — segunda seção da tela, lida direto de
+// CAREER.squad (mesmo critério de status usado no Elenco/detalhe do
+// jogador, ver playerRow/openDetail) — sem precisar de mais nenhum
+// dado novo no save.
+function teamStatusNewsItemHTML(p, kind) {
+  const icon = kind === "lesao" ? "🩹" : "🟥";
+  const headline = kind === "lesao" ? `${abbreviateName(p.name)} está fora, lesionado` : `${abbreviateName(p.name)} está suspenso`;
+  const tag = kind === "lesao" ? `Lesão ${injurySeverityLabel(p.injurySeverity)}` : "Suspensão";
+  return `<div class="ct-news-item">
+    <span class="icon">${icon}</span>
+    <div class="body">
+      <div class="headline">${escapeHtml(headline)}</div>
+      <div class="meta"><span class="ct-news-tag">${tag}</span><span>Volta na rodada ${p.outUntilRound}</span></div>
+    </div>
+  </div>`;
+}
+function renderTeamStatusNews() {
+  const injured = CAREER.squad.filter((p) => p.status === "contundido");
+  const suspended = CAREER.squad.filter((p) => p.status === "suspenso");
+  const box = document.getElementById("newsTeamStatus");
+  if (!injured.length && !suspended.length) {
+    box.innerHTML = `<p class="ct-empty">Elenco 100% disponível — ninguém contundido ou suspenso.</p>`;
     return;
   }
-  const [top, ...rest] = feed;
-  featuredBox.innerHTML = `
-    <div class="eyebrow">${top.mine ? "Manchete — seu clube" : "Manchete da rodada"}</div>
-    <div class="headline">${NEWS_ICON[top.type] || "📰"} ${escapeHtml(top.texto)}</div>
-    <div class="meta">Rodada ${top.round} · Temporada ${top.seasonYear}</div>`;
-  listBox.innerHTML = rest.map(newsItemHTML).join("");
+  box.innerHTML = injured.map((p) => teamStatusNewsItemHTML(p, "lesao")).join("")
+    + suspended.map((p) => teamStatusNewsItemHTML(p, "suspensao")).join("");
 }
-function openNewsScreen() {
+// AJUSTE (pedido do usuário: "as notícias devem ser mostradas em tela
+// cheia antes dos resultados dos jogos") — essa tela agora tem 2
+// modos: aberta pelo menu "≡" (chainToRoundResults ausente/false — só
+// tela de consulta, X fecha e pronto) ou aberta de dentro do fluxo
+// pós-jogo (chainToRoundResults=true, ver btnMatchDetailContinue/
+// closePressConferenceModal) — nesse 2º caso mostra "Continuar", que
+// segue pro modal de Resultados da rodada (mesmo padrão de
+// matchDetailOverlay: o X só fecha ESSA tela, não avança sozinho).
+let NEWS_CHAIN_TO_ROUND_RESULTS = false;
+function openNewsScreen(chainToRoundResults) {
   renderNewsScreen();
+  NEWS_CHAIN_TO_ROUND_RESULTS = !!chainToRoundResults;
+  document.getElementById("btnNewsContinue").classList.toggle("hidden", !chainToRoundResults);
   document.getElementById("newsOverlay").classList.add("open");
 }
 function closeNewsScreen() {
   document.getElementById("newsOverlay").classList.remove("open");
+  NEWS_CHAIN_TO_ROUND_RESULTS = false;
+}
+function continueFromNewsScreen() {
+  document.getElementById("newsOverlay").classList.remove("open");
+  const chain = NEWS_CHAIN_TO_ROUND_RESULTS;
+  NEWS_CHAIN_TO_ROUND_RESULTS = false;
+  if (chain && PENDING_ROUND_SUMMARY) showRoundResultsModal(PENDING_ROUND_SUMMARY);
 }
 
 /* ---------- FASE 4 (item 2) — coletiva de imprensa pós-jogo ----------
@@ -2911,7 +2958,12 @@ function closePressConferenceModal() {
   const chain = PRESS_CHAIN_TO_ROUND_RESULTS;
   PENDING_PRESS = null;
   PRESS_CHAIN_TO_ROUND_RESULTS = false;
-  if (chain && PENDING_ROUND_SUMMARY) showRoundResultsModal(PENDING_ROUND_SUMMARY);
+  // AJUSTE (pedido do usuário: "notícias em tela cheia antes dos
+  // resultados") — quando a coletiva fazia parte do fluxo pós-jogo, o
+  // próximo passo agora é a tela de Notícias (que por sua vez segue
+  // pros Resultados da rodada, ver openNewsScreen/continueFromNewsScreen),
+  // não mais direto pros Resultados.
+  if (chain && PENDING_ROUND_SUMMARY) openNewsScreen(true);
 }
 function applyPressAnswer(letra) {
   if (!PENDING_PRESS) { closePressConferenceModal(); return; }
@@ -4692,12 +4744,14 @@ function wireStaticListeners() {
   document.getElementById("btnMatchDetailContinue").addEventListener("click", () => {
     document.getElementById("matchDetailOverlay").classList.remove("open");
     // FASE 4 (item 2) — coletiva de imprensa entra ENTRE o modal "Seu
-    // jogo" e o modal de Resultados da rodada (ver
-    // determineMatchPressTrigger/firePressConference, chamados de
-    // dentro de finishLiveMatch) — só quando alguma situação bateu
-    // nessa partida específica.
+    // jogo" e a tela de Notícias (ver determineMatchPressTrigger/
+    // firePressConference, chamados de dentro de finishLiveMatch) — só
+    // quando alguma situação bateu nessa partida específica.
     if (PENDING_PRESS) { openPressConferenceModal(); return; }
-    if (PENDING_ROUND_SUMMARY) showRoundResultsModal(PENDING_ROUND_SUMMARY);
+    // AJUSTE (pedido do usuário: "notícias em tela cheia antes dos
+    // resultados dos jogos") — sem coletiva, a tela de Notícias já
+    // entra direto aqui (ver openNewsScreen/continueFromNewsScreen).
+    if (PENDING_ROUND_SUMMARY) openNewsScreen(true);
   });
   // FASE 4 (item 2) — sub-modal de coletiva de imprensa: X fecha sem
   // aplicar efeito nenhum (conta como "sem comentário"), mas ainda
@@ -4730,6 +4784,12 @@ function wireStaticListeners() {
   });
   document.getElementById("newsClose").addEventListener("click", closeNewsScreen);
   document.getElementById("newsOverlay").addEventListener("click", (e) => { if (e.target.id === "newsOverlay") closeNewsScreen(); });
+  // AJUSTE — "Continuar" só existe quando a tela faz parte do fluxo
+  // pós-jogo (ver openNewsScreen/continueFromNewsScreen); o atalho de
+  // classificação reaproveita o modal de tabela já existente, aberto
+  // POR CIMA (mesmo padrão de sub-modal usado em todo o resto do app).
+  document.getElementById("btnNewsContinue").addEventListener("click", continueFromNewsScreen);
+  document.getElementById("btnNewsOpenTabela").addEventListener("click", openTabelaModal);
 
   // FASE 4 (item 6) — tela de premiações, aberta pelo menu "≡".
   document.getElementById("btnOpenAwards").addEventListener("click", () => {
