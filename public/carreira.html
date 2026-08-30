@@ -388,6 +388,10 @@
   .ct-news-item .headline{ font-size:13.5px; font-weight:700; color:var(--text-0); line-height:1.4; }
   .ct-news-item .meta{ font-size:11px; color:var(--text-2); margin-top:5px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
   .ct-news-tag{ font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:.4px; padding:2px 7px; border-radius:100px; background:rgba(255,255,255,.08); color:var(--text-1); }
+  /* AJUSTE — separador de seção dentro da tela de Notícias (Brasileirão
+     / seu time / classificação, ver #newsOverlay em carreira.html). */
+  .ct-news-section-title{ font-size:12px; font-weight:800; color:var(--text-1); text-transform:uppercase; letter-spacing:.5px; margin:22px 0 10px; padding-top:16px; border-top:1px solid var(--border); }
+  .ct-news-section-title:first-of-type{ margin-top:0; padding-top:0; border-top:none; }
   /* FASE 2 (b) — barra de uso do teto salarial, card "Financeiro" da
      Central (largura cheia, diferente de .ct-cond-track que é pra
      dentro de célula de tabela). Vira vermelha perto do limite. */
@@ -441,6 +445,14 @@
      cabeçalho (que fica fixo mesmo se o conteúdo for grande). */
   .ct-modal-overlay{ position:fixed; inset:0; background:rgba(0,0,0,.55); display:none; align-items:center; justify-content:center; z-index:200; padding:16px; }
   .ct-modal-overlay.open{ display:flex; }
+  /* AJUSTE — tabelaModalOverlay é aberto de dentro de VÁRIOS outros
+     lugares (Central, Resultados da rodada, e agora a tela de
+     Notícias, ver btnNewsOpenTabela) — sem z-index próprio, empataria
+     em 200 com quem já estava aberto por baixo e a ordem de quem fica
+     "por cima" dependeria só da ordem no HTML (que não reflete quem
+     abriu por último). Sobe explícito pra sempre ficar por cima de
+     qualquer outro overlay, não importa de onde foi aberto. */
+  #tabelaModalOverlay{ z-index:210; }
   /* AJUSTE (design system): modal padrão bem mais estreito (380px, era
      520px) — o documento usa um diálogo compacto tipo "cartão", não
      uma folha grande; o de confirmação (#confirmOverlay) é ainda mais
@@ -1209,12 +1221,21 @@
   </div>
 </div>
 
-<!-- FASE 4 (item 3) — tela própria "nos padrões de um portal de
-     esportes" (pedido do usuário), acessível pelo menu "≡" — o feed
-     rápido dentro do modal de resultados da rodada (📻 Rádio Data FM)
-     continua existindo pro flash imediato pós-rodada; essa tela é o
-     arquivo navegável do que já rolou (ver CAREER.newsFeed/
-     renderNewsScreen em carreira.js). -->
+<!-- AJUSTE (pedido do usuário: "as notícias devem ser mostradas em
+     tela cheia antes dos resultados dos jogos") — essa tela, que já
+     existia acessível pelo menu "≡" (ver CAREER.newsFeed/
+     renderNewsScreen em carreira.js), agora TAMBÉM entra no fluxo
+     automático de "Simular rodada": aparece ENTRE a coletiva de
+     imprensa (quando há) e o modal de Resultados da rodada (ver
+     btnMatchDetailContinue/closePressConferenceModal). O flash rápido
+     dentro do próprio modal de resultados (📻 Rádio Data FM) continua
+     existindo — essa tela cheia é a cobertura completa. 3 seções
+     pedidas pelo usuário: notícias do Brasileirão (feed de sempre),
+     notícias do SEU time (lesão/suspensão) e um atalho pra
+     classificação (reaproveita o modal de tabela já existente, não
+     duplica a tabela aqui dentro). "Continuar" só aparece quando essa
+     tela faz parte do fluxo pós-jogo (ver openNewsScreen) — aberta
+     pelo menu, funciona como qualquer outra tela de consulta (só X). -->
 <div class="ct-modal-overlay ct-modal-fullscreen" id="newsOverlay">
   <div class="ct-modal">
     <div class="ct-modal-header">
@@ -1230,8 +1251,18 @@
         <div class="brand">📰 Jornal do Brasileirão</div>
         <div class="tagline" id="newsTagline">Edição do técnico</div>
       </div>
+
+      <h2 class="ct-news-section-title">Notícias do Brasileirão</h2>
       <div class="ct-news-featured" id="newsFeatured"></div>
       <div id="newsList"></div>
+
+      <h2 class="ct-news-section-title">Notícias do seu time</h2>
+      <div id="newsTeamStatus" style="margin-bottom:8px;"></div>
+
+      <h2 class="ct-news-section-title">Classificação</h2>
+      <button class="ct-btn full" id="btnNewsOpenTabela" style="margin-bottom:18px;">📊 Ver classificação atualizada</button>
+
+      <button class="ct-btn full primary hidden" id="btnNewsContinue">Continuar</button>
     </div>
   </div>
 </div>
