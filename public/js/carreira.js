@@ -1388,11 +1388,26 @@ function maybeGenerateOffer(round) {
   CAREER.pendingOffer = { playerId: player.id, playerName: player.name, clubId: String(club.id), clubName: club.name, fee, round };
 }
 
-/* ---------- Escalação automática (usada ao criar a carreira) ---------- */
-function autoLineup(squad, formation) {
+/* ---------- Escalação automática (usada ao criar a carreira, e
+   reaproveitada pelo botão "🔁 escalar automaticamente" da Escalação —
+   ver autoFillLineup) ----------
+   includeBase (default true, pra não mudar o comportamento de sempre
+   na criação da carreira — ali o elenco principal pode genuinamente
+   vir curto nalguma posição, e cair pra base é uma rede de segurança
+   de verdade) — pedido do usuário: toggle discreto na Escalação pra
+   NÃO considerar a base ao reescalar manualmente (o normal é o
+   treinador querer só o elenco "de verdade" ali, ver
+   autoLineupIncludeBase em carreira.html). */
+function autoLineup(squad, formation, includeBase = true) {
   const slots = FORMATIONS[formation];
-  const principalPool = squad.filter((p) => p.origin === "principal" && p.status === "ok").sort((a, b) => b.overall - a.overall);
-  const fullPool = squad.filter((p) => p.status === "ok").sort((a, b) => b.overall - a.overall);
+  const eligible = squad.filter((p) => p.status === "ok" && (includeBase || p.origin !== "base"));
+  // "loan" conta junto com "principal" aqui — jogador emprestado é
+  // força de verdade do seu elenco enquanto estiver com você (mesmo
+  // critério de sempre, ver computeHumanStrength/wageBillOf). Na
+  // criação da carreira isso não muda nada (squad novo nunca tem
+  // "loan" ainda).
+  const principalPool = eligible.filter((p) => p.origin === "principal" || p.origin === "loan").sort((a, b) => b.overall - a.overall);
+  const fullPool = eligible.sort((a, b) => b.overall - a.overall);
   const used = new Set();
   const starters = slots.map(([grp]) => {
     // prioriza o elenco principal; só desce pra base se NINGUÉM do
@@ -2660,12 +2675,13 @@ function renderEscalacao() {
 // esquema, as instruções táticas e o foco de treino que o usuário já
 // tinha escolhido continuam do jeito que estavam.
 function autoFillLineup() {
-  const result = autoLineup(CAREER.squad, CAREER.lineup.formation);
+  const includeBase = document.getElementById("autoLineupIncludeBase").checked;
+  const result = autoLineup(CAREER.squad, CAREER.lineup.formation, includeBase);
   CAREER.lineup.starters = result.starters;
   CAREER.lineup.bench = result.bench;
   renderPitch(); renderBench();
   persistCareer();
-  toast("Escalação automática aplicada — melhores overalls por posição.");
+  toast(`Escalação automática aplicada — melhores overalls por posição${includeBase ? " (incluindo base)" : ""}.`);
 }
 // Desenha a escalação no campinho "jogo de botão" — mesmas classes
 // .button-pitch/.button-row/.button-disc/.btn-name já usadas na
@@ -3428,6 +3444,10 @@ function wireStaticListeners() {
   // aplicar nada — ver closeLiveSubModal/closeLiveTacticsModal, que só
   // retomam a progressão da partida).
   document.getElementById("btnLiveSkip").addEventListener("click", skipLiveMatch);
+  // Pedido do usuário: toda modal precisa de X. Aqui não tem "fechar
+  // de verdade" possível (sair no meio perderia a partida) — o X
+  // resolve o resto na hora, mesmo efeito de "Pular pro fim".
+  document.getElementById("liveMatchClose").addEventListener("click", skipLiveMatch);
   document.getElementById("btnLiveSub").addEventListener("click", openLiveSubModal);
   document.getElementById("liveSubClose").addEventListener("click", closeLiveSubModal);
   document.getElementById("liveSubOverlay").addEventListener("click", (e) => { if (e.target.id === "liveSubOverlay") closeLiveSubModal(); });
@@ -3500,7 +3520,15 @@ function wireStaticListeners() {
     if (result.dismissed) showDismissalModal(result);
     else showSeasonModal(result);
   });
+  // Pedido do usuário: toda modal precisa de X. A temporada já virou
+  // de verdade ANTES desse resumo aparecer (ver advanceSeason, chamado
+  // antes de showSeasonModal) — o X só fecha e atualiza a tela, mesmo
+  // efeito de "Começar a temporada".
   document.getElementById("btnSeasonContinue").addEventListener("click", () => {
+    document.getElementById("seasonOverlay").classList.remove("open");
+    renderAll();
+  });
+  document.getElementById("seasonModalClose").addEventListener("click", () => {
     document.getElementById("seasonOverlay").classList.remove("open");
     renderAll();
   });
@@ -3510,6 +3538,12 @@ function wireStaticListeners() {
     CAREER = null;
     renderClubPicker();
     show("screenPicker");
+  });
+  // O X aqui só fecha (SEM apagar o save) — a demissão em si só
+  // acontece de verdade em "Escolher outro clube" (ver comentário na
+  // modal, em carreira.html).
+  document.getElementById("dismissalModalClose").addEventListener("click", () => {
+    document.getElementById("dismissalOverlay").classList.remove("open");
   });
 
   document.getElementById("pickerClose").addEventListener("click", () => document.getElementById("pickerOverlay").classList.remove("open"));
