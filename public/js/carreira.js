@@ -1273,8 +1273,12 @@ function playerRow(p) {
   // categoria inteira já é gerada, ver comentário em openDetail) — só
   // aparece pro elenco PRINCIPAL gerado (exceção de verdade, quando a
   // busca real veio incompleta).
+  // FASE 1 (item 1) — pedido do usuário: aviso visível com antecedência
+  // no card do jogador (aqui, na lista do Elenco também, não só no
+  // detalhe) — ver isContractExpiring em carreira.js.
+  const contractTag = isContractExpiring(p) ? ' <span class="ct-pill contract" style="margin-left:4px;" title="Sai de graça se a temporada acabar sem renovar">Fim de contrato</span>' : "";
   return `<tr data-id="${p.id}" style="cursor:pointer;">
-    <td class="ct-name-cell">${escapeHtml(abbreviateName(p.name))}${(!p.real && p.origin !== "base") ? ' <span class="ct-pill base" style="margin-left:4px;">gerado</span>' : ""}</td>
+    <td class="ct-name-cell">${escapeHtml(abbreviateName(p.name))}${(!p.real && p.origin !== "base") ? ' <span class="ct-pill base" style="margin-left:4px;">gerado</span>' : ""}${contractTag}</td>
     <td>${subPositionOf(p)}</td><td>${p.age}</td><td><b>${p.overall}</b></td>
     <td><span class="ct-cond-track"><span class="ct-cond-fill" style="width:${Math.round(p.condition)}%"></span></span></td>
     <td>${statusPill}</td>
@@ -1295,6 +1299,84 @@ function renderElenco() {
   bt.querySelector("thead").innerHTML = squadTableHead();
   bt.querySelector("tbody").innerHTML = base.map(playerRow).join("") || `<tr><td colspan="7" class="ct-empty">Sem jogadores.</td></tr>`;
   [mt, bt].forEach((table) => table.querySelectorAll("tbody tr[data-id]").forEach((tr) => tr.addEventListener("click", () => openDetail(tr.dataset.id))));
+}
+/* ---------- FASE 1 (item 1) — renovação de contrato ----------
+   Especificação "BR Data Treinador — Fase 1". O jogo só marca ano de
+   contrato (contractUntil), não mês/dia — "final de contrato" aqui
+   vira "esse é o último ANO coberto pelo contrato" (contractUntil ===
+   temporada atual), em vez da janela de "≤ 6 meses" do documento, que
+   não tem como que mapear num modelo sem data. Resposta é sempre
+   imediata (proposeRenewal), sem estado "renovando" pendente entre
+   sessões — por isso nenhum campo novo precisou entrar no save nem na
+   migração (contractUntil já existe desde a Fase 2b). "Moral" não
+   existe como atributo nesse jogo (só overall/idade/físico/condição),
+   então a recusa usa overall alto + idade jovem como proxy — decisão
+   registrada aqui por não estar no documento. */
+function isContractExpiring(p) {
+  return p.contractUntil === CAREER.seasonYear;
+}
+// Documento sugere "mínimo = salário atual × 1.05" como piso pra não
+// levar recusa na certa — vira o valor sugerido no campo do sub-modal.
+function suggestedRenewalWage(p) {
+  return Math.round((p.wage * 1.05) / 100) * 100;
+}
+let RENEW_CTX = null;
+function openRenewModal(id) {
+  const p = CAREER.squad.find((x) => x.id === id);
+  if (!p) return;
+  RENEW_CTX = { playerId: id };
+  const suggested = suggestedRenewalWage(p);
+  document.getElementById("renewSub").textContent = `${abbreviateName(p.name)} · contrato até ${p.contractUntil}`;
+  document.getElementById("renewCurrentInfo").textContent = `Salário atual: ${fmtBRL(p.wage)}/mês.`;
+  document.getElementById("renewSuggestedWage").textContent = fmtBRL(suggested);
+  document.getElementById("renewWageInput").value = suggested;
+  document.getElementById("renewDurationSelect").value = "2";
+  document.getElementById("renewOverlay").classList.add("open");
+}
+function closeRenewModal() {
+  document.getElementById("renewOverlay").classList.remove("open");
+  RENEW_CTX = null;
+}
+function proposeRenewal() {
+  if (!RENEW_CTX) return;
+  const p = CAREER.squad.find((x) => x.id === RENEW_CTX.playerId);
+  if (!p) { closeRenewModal(); return; }
+  const newWage = Math.max(0, Math.round(Number(document.getElementById("renewWageInput").value) || 0));
+  const duration = Number(document.getElementById("renewDurationSelect").value) || 1;
+  const minWage = suggestedRenewalWage(p);
+  // Orçamento primeiro (o CLUBE não pode nem oferecer o que não cabe
+  // no teto) — mesma trava de promote/buyPlayer. Base não conta pro
+  // teto (wageBillOf só soma elenco principal, ver Fase 2b), então só
+  // barra pra quem já está no principal.
+  if (newWage > p.wage && p.origin === "principal") {
+    const wageAfter = wageBillOf(CAREER.squad) - p.wage + newWage;
+    if (wageAfter > CAREER.finances.wageCap) {
+      toast(`Essa renovação estouraria o teto salarial (${fmtBRL(CAREER.finances.wageCap)}).`);
+      return; // mantém o sub-modal aberto pra ajustar o valor
+    }
+  }
+  // Recusa do JOGADOR (não do orçamento) — regras determinísticas de
+  // propósito (sem dado de "moral" pra sortear em cima, ver comentário
+  // no topo da seção): abaixo do mínimo sugerido é recusa na certa;
+  // proposta de 1 ano só pra quem realmente tem moral de pedir mais
+  // tempo (jovem em ascensão ou já craque).
+  if (newWage < minWage) {
+    closeRenewModal();
+    toast(`${abbreviateName(p.name)} recusou a proposta — quer pelo menos ${fmtBRL(minWage)}/mês.`, 5000);
+    return;
+  }
+  if (duration === 1 && (p.age <= 23 || p.overall >= 85)) {
+    closeRenewModal();
+    toast(`${abbreviateName(p.name)} recusou a proposta — quer um contrato mais longo (pelo menos 2 anos).`, 5000);
+    return;
+  }
+  p.wage = Math.max(p.wage, newWage);
+  p.contractUntil = CAREER.seasonYear + duration;
+  closeRenewModal();
+  toast(`${abbreviateName(p.name)} renovou até ${p.contractUntil} por ${fmtBRL(p.wage)}/mês!`);
+  persistCareer();
+  renderElenco(); renderCentral();
+  if (document.getElementById("detailOverlay").classList.contains("open")) openDetail(p.id);
 }
 function openDetail(id) {
   const p = CAREER.squad.find((x) => x.id === id);
@@ -1326,6 +1408,15 @@ function openDetail(id) {
     </div>
     <p class="ct-sub">Condição: ${Math.round(p.condition)}% · Jogos: ${p.apps || 0} · Gols na carreira: ${p.goalsCareer || 0} · Cartões amarelos (ciclo atual): ${p.yellowCards || 0}</p>
     <p class="ct-sub">Salário: ${fmtBRL(p.wage)}/mês · Contrato até: ${p.contractUntil} · Valor de mercado: ${fmtBRL(p.value)}</p>
+    <!-- FASE 1 (item 1 da especificação "BR Data Treinador") — pedido
+         do usuário: aviso visível de final de contrato, com
+         antecedência, direto no card do jogador (ver
+         isContractExpiring/openRenewModal em carreira.js). Sem essa
+         janela de aviso o vencimento pegava o treinador de surpresa —
+         hoje o jogador só saía de graça na virada de temporada
+         (renewHumanSquad, Fase 3c), sem chance nenhuma de segurar
+         antes disso. -->
+    ${isContractExpiring(p) ? `<p class="ct-sub" style="color:var(--gold); font-weight:700;">⚠️ Contrato até ${CAREER.seasonYear} — sai de graça se a temporada acabar sem renovar.</p>` : ""}
     <!-- AJUSTE (pedido do usuário: "a modal de detalhes do jogador segue
          com os botões diferentes" — mockup empilha os botões cheios,
          em coluna, cada um do tamanho normal (ver .btn/.btn-outline/
@@ -1333,6 +1424,7 @@ function openDetail(id) {
          quebra e botão "small", que era o que ainda sobrava daqui de
          antes do ajuste de componentes. -->
     <div style="display:flex; flex-direction:column; gap:8px; margin-top:10px;">
+      ${isContractExpiring(p) ? `<button class="ct-btn full primary" data-act="renew">✍️ Renovar contrato</button>` : ""}
       ${inStarters ? `<button class="ct-btn full" data-act="removeStarter">Tirar do time titular</button>` : ""}
       ${!inStarters && inBench ? `<button class="ct-btn full" data-act="removeBench">Tirar do banco</button>` : ""}
       ${!inStarters && !inBench && p.status === "ok" ? `<button class="ct-btn full" data-act="addBench" ${CAREER.lineup.bench.length >= MAX_BENCH ? "disabled" : ""}>Colocar no banco</button>` : ""}
@@ -1351,6 +1443,11 @@ function openDetail(id) {
 async function handlePlayerAction(id, act) {
   const p = CAREER.squad.find((x) => x.id === id);
   if (!p) return;
+  // FASE 1 (item 1) — abre o sub-modal de renovação POR CIMA do
+  // detalhe (mesmo padrão do confirmModal, que também abre em cima de
+  // qualquer outra modal já aberta) — não fecha nem mexe em nada aqui,
+  // quem decide o que muda é proposeRenewal().
+  if (act === "renew") { openRenewModal(id); return; }
   if (act === "removeStarter") {
     CAREER.lineup.starters = CAREER.lineup.starters.map((x) => (x === id ? null : x));
   } else if (act === "removeBench") {
@@ -2064,6 +2161,11 @@ function wireStaticListeners() {
   document.getElementById("pickerOverlay").addEventListener("click", (e) => { if (e.target.id === "pickerOverlay") e.currentTarget.classList.remove("open"); });
   document.getElementById("detailClose").addEventListener("click", () => document.getElementById("detailOverlay").classList.remove("open"));
   document.getElementById("detailOverlay").addEventListener("click", (e) => { if (e.target.id === "detailOverlay") e.currentTarget.classList.remove("open"); });
+  // FASE 1 (item 1) — sub-modal de renovação, mesmo padrão de
+  // fechamento dos outros (X e clique fora fecham sem propor nada).
+  document.getElementById("renewClose").addEventListener("click", closeRenewModal);
+  document.getElementById("renewOverlay").addEventListener("click", (e) => { if (e.target.id === "renewOverlay") closeRenewModal(); });
+  document.getElementById("btnRenewPropose").addEventListener("click", proposeRenewal);
   // Pedido do usuário: X também nas modais de detalhe do jogo e de
   // resultados da rodada (só fecha, igual às outras 2 — quem quiser ver
   // o próximo passo do fluxo clica em "Continuar" mesmo).
