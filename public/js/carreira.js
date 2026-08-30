@@ -481,6 +481,43 @@ function askBoard() {
   renderCentral();
 }
 
+/* ---------- FASE 1 (item 3 da especificação "BR Data Treinador") —
+   metas da diretoria ----------
+   Pedido do usuário: consequência real de desempenho — jogar bem ou
+   mal dá no mesmo hoje. Fase 1 fica só com meta de POSIÇÃO na tabela
+   (decisão do próprio documento: "na Fase 1 pode ser só a meta de
+   posição na tabela", copas ficam pra Fase 3). Calculada a partir da
+   força do elenco (overall médio do PRINCIPAL) contra a média da liga
+   inteira (mesmo `atk/def` que já calibra a força de cada clube, ver
+   loadLeague/calibrateStrengths — usar overall médio aqui é mais
+   direto e já reflete o mesmo elenco que a Central mostra). 3 faixas
+   (mesmo espírito de menor esforço do documento): elenco bem acima da
+   média mira o G6 (Libertadores/Sul-Americana), elenco parecido mira
+   a primeira metade, elenco bem abaixo mira só sobreviver ao Z4 — os
+   2 extremos são literalmente os 2 exemplos que o próprio documento
+   dá ("terminar entre os 6 primeiros" / "não cair"). */
+function averageOverall(list) {
+  if (!list.length) return 0;
+  return list.reduce((s, p) => s + p.overall, 0) / list.length;
+}
+function computeBoardGoal() {
+  const myAvg = averageOverall(CAREER.squad.filter((p) => p.origin === "principal"));
+  const leagueAvg = averageOverall(Object.values(CAREER.leagueSquads || {}).flat());
+  const diff = myAvg - leagueAvg;
+  if (diff >= 4) return { type: "posicao_tabela", target: 6, label: "Terminar entre os 6 primeiros" };
+  if (diff <= -4) return { type: "posicao_tabela", target: 16, label: "Não cair (terminar fora do Z4)" };
+  return { type: "posicao_tabela", target: 10, label: "Terminar na primeira metade da tabela" };
+}
+function boardGoalMet(position, goal) {
+  return !!goal && position > 0 && position <= goal.target;
+}
+// Depois de N temporadas seguidas sem bater a meta, a diretoria demite
+// o treinador (decisão minha — não estava especificado no documento,
+// que deixou em aberto "quantas temporadas sem bater meta até
+// demissão"): 3 dá uma margem real antes de acabar a carreira nesse
+// clube, sem deixar a meta sem consequência nenhuma.
+const DISMISSAL_STREAK = 3;
+
 /* ---------- FASE 3 (b) — renda de ingressos ----------
    Pedido do usuário: todo jogo em CASA rende dinheiro pela venda de
    ingressos, e o estádio enche mais numa fase boa e menos numa ruim.
@@ -583,9 +620,25 @@ function advanceSeason() {
   const finishedYear = CAREER.seasonYear;
   const finishedPos = myLeaguePosition();
   const finishedPts = (CAREER.standings[CAREER.clubId] || {}).pts || 0;
+  // FASE 1 (item 3) — checa a meta da temporada que ACABOU de terminar
+  // (a que estava valendo o ano inteiro, ver CAREER.boardGoal) antes de
+  // sortear a próxima; goalWasMet decide se a sequência de temporadas
+  // sem bater meta reseta ou soma mais uma (ver DISMISSAL_STREAK).
+  const finishedGoal = CAREER.boardGoal || computeBoardGoal();
+  const goalWasMet = boardGoalMet(finishedPos, finishedGoal);
   CAREER.seasonHistory = CAREER.seasonHistory || [];
-  CAREER.seasonHistory.unshift({ year: finishedYear, position: finishedPos, points: finishedPts });
+  CAREER.seasonHistory.unshift({ year: finishedYear, position: finishedPos, points: finishedPts, goalLabel: finishedGoal.label, goalWasMet });
   if (CAREER.seasonHistory.length > MAX_SEASON_HISTORY) CAREER.seasonHistory.length = MAX_SEASON_HISTORY;
+
+  CAREER.negativeSeasonsStreak = goalWasMet ? 0 : (CAREER.negativeSeasonsStreak || 0) + 1;
+  // FASE 1 (item 3) — demissão: a diretoria não segue com o treinador
+  // depois de DISMISSAL_STREAK temporadas seguidas sem bater a meta.
+  // Não mexe em MAIS NADA do save (elenco, calendário, teto) — o fim
+  // de carreira nesse clube é definitivo (ver showDismissalModal, que
+  // apaga o save inteiro quando o usuário confirma).
+  if (CAREER.negativeSeasonsStreak >= DISMISSAL_STREAK) {
+    return { dismissed: true, finishedYear, finishedPos, finishedGoal, goalWasMet, streak: CAREER.negativeSeasonsStreak };
+  }
 
   CAREER.seasonYear += 1;
   const humanRenewal = renewHumanSquad();
@@ -608,7 +661,11 @@ function advanceSeason() {
   CAREER.teamStats = { assists: 0, yellow: 0, red: 0 }; // estatísticas da Estatísticas são "da temporada", zeram junto com a tabela
   pushTransferLog(`Início da Temporada ${CAREER.seasonYear}.`, 1);
 
-  return { finishedYear, finishedPos, newYear: CAREER.seasonYear, humanRenewal };
+  // FASE 1 (item 3) — meta da temporada nova, já em cima do elenco
+  // RENOVADO (reflete quem saiu/chegou agora, não o elenco velho).
+  CAREER.boardGoal = computeBoardGoal();
+
+  return { dismissed: false, finishedYear, finishedPos, finishedGoal, goalWasMet, newYear: CAREER.seasonYear, humanRenewal, newGoal: CAREER.boardGoal };
 }
 
 /* ---------- FASE 2 (a) — elenco individual pra TODOS os times ----------
@@ -883,6 +940,10 @@ async function startCareer(clubId) {
       // quando VOCÊ avança de temporada — LIVE_SEASON em si é fixo.
       seasonYear: LIVE_SEASON, seasonHistory: [],
     };
+    // FASE 1 (item 3) — meta da diretoria da 1ª temporada, calculada
+    // já com o elenco recém-montado (ver computeBoardGoal).
+    CAREER.boardGoal = computeBoardGoal();
+    CAREER.negativeSeasonsStreak = 0;
     await persistCareer();
     showGameScreen();
   } finally {
@@ -1185,6 +1246,10 @@ function renderCentral() {
   // FASE 3 (c) — ano da carreira sempre visível (não só no modal de
   // transição), mesmo padrão do "(X / 38)" ao lado de "Próximo jogo".
   document.getElementById("seasonYearLabel").textContent = `(Temporada ${CAREER.seasonYear})`;
+  // FASE 1 (item 3) — meta da diretoria sempre visível (ver comentário
+  // no HTML). CAREER.boardGoal já existe garantido a essa altura
+  // (startCareer/migrateCareerDefaults sempre calculam um).
+  document.getElementById("boardGoalLabel").textContent = `🎯 Meta da diretoria: ${CAREER.boardGoal.label}`;
 
   // FASE 2 (b) — card "Financeiro": caixa e uso do teto salarial (só
   // elenco PRINCIPAL conta pro teto, ver wageBillOf).
@@ -1997,19 +2062,39 @@ function showRoundResultsModal(summary) {
 // advanceSeason). Sem botão X de propósito — só "Começar a temporada"
 // mesmo, igual às outras 2 modais do fluxo de "Simular rodada".
 function showSeasonModal(result) {
-  const { finishedYear, finishedPos, newYear, humanRenewal } = result;
+  const { finishedYear, finishedPos, finishedGoal, goalWasMet, newYear, humanRenewal, newGoal } = result;
   document.getElementById("seasonModalSub").textContent = `Temporada ${newYear}`;
   const leaving = humanRenewal.leavingNames;
+  // FASE 1 (item 3) — mostra se bateu a meta da temporada que terminou
+  // ANTES do resto do resumo (pedido do documento: "mostrar se bateu
+  // ou não antes do texto de posição final"), e já anuncia a meta da
+  // temporada nova que está começando.
   const parts = [
+    `Meta da diretoria em ${finishedYear} (${finishedGoal.label}): ${goalWasMet ? "✅ batida!" : "❌ não batida."}`,
     `Temporada ${finishedYear} terminou em ${finishedPos}º lugar.`,
     `Novo teto salarial: ${fmtBRL(CAREER.finances.wageCap)} · Caixa: ${fmtBRL(CAREER.finances.cash)}.`,
     `${humanRenewal.newBaseCount} jovem(ns) novo(s) na base` + (humanRenewal.newPrincipalCount ? ` e ${humanRenewal.newPrincipalCount} contratação(ões) no principal` : "") + ".",
+    `Meta da diretoria pra ${newYear}: ${newGoal.label}.`,
   ];
   document.getElementById("seasonSummaryText").textContent = parts.join(" ");
   document.getElementById("seasonDepartures").innerHTML = leaving.length
     ? `<p class="ct-sub"><b>Saíram por fim de contrato:</b> ${leaving.map((n) => escapeHtml(abbreviateName(n))).join(", ")}.</p>`
     : "";
   document.getElementById("seasonOverlay").classList.add("open");
+}
+// FASE 1 (item 3) — demissão: modal separado (sem "Começar a
+// temporada" nenhuma pra mostrar — a carreira NESSE clube acabou aqui).
+// "Escolher outro clube" apaga o save (mesmo endpoint do "Reiniciar",
+// ver btnRestart) e volta pro picker — decisão de manter simples
+// (o documento só pede "volta pra tela Escolha do clube", sem prever
+// nenhum estado de "técnico livre no mercado" entre uma carreira e
+// outra).
+function showDismissalModal(result) {
+  const { finishedYear, finishedPos, finishedGoal, streak } = result;
+  document.getElementById("dismissalClub").textContent = CAREER.clubName;
+  document.getElementById("dismissalText").textContent =
+    `A diretoria do ${CAREER.clubName} decidiu pelo seu desligamento: são ${streak} temporadas seguidas sem bater a meta (a mais recente, ${finishedYear}: ${finishedGoal.label} — terminou em ${finishedPos}º lugar).`;
+  document.getElementById("dismissalOverlay").classList.add("open");
 }
 
 // Pedido do usuário: "transforme todas as caixas de diálogo em
@@ -2150,11 +2235,22 @@ function wireStaticListeners() {
     const result = advanceSeason();
     if (!result) return;
     persistCareer();
-    showSeasonModal(result);
+    // FASE 1 (item 3) — demitido: modal diferente (sem "começar a
+    // temporada", ver showDismissalModal), a carreira NESSE clube já
+    // acabou aqui.
+    if (result.dismissed) showDismissalModal(result);
+    else showSeasonModal(result);
   });
   document.getElementById("btnSeasonContinue").addEventListener("click", () => {
     document.getElementById("seasonOverlay").classList.remove("open");
     renderAll();
+  });
+  document.getElementById("btnDismissalContinue").addEventListener("click", async () => {
+    document.getElementById("dismissalOverlay").classList.remove("open");
+    await fetchJSON("/api/career", { method: "DELETE" }).catch(() => {});
+    CAREER = null;
+    renderClubPicker();
+    show("screenPicker");
   });
 
   document.getElementById("pickerClose").addEventListener("click", () => document.getElementById("pickerOverlay").classList.remove("open"));
@@ -2253,6 +2349,11 @@ function migrateCareerDefaults() {
   if (!CAREER.recentForm) CAREER.recentForm = [];
   if (!CAREER.seasonYear) CAREER.seasonYear = LIVE_SEASON;
   if (!CAREER.seasonHistory) CAREER.seasonHistory = [];
+  // FASE 1 (item 3) — carreira criada antes dessa fase não tem meta
+  // nenhuma: calcula uma pro elenco atual (mesma função de sempre) em
+  // vez de deixar sem meta pro resto da temporada em andamento.
+  if (!CAREER.boardGoal) CAREER.boardGoal = computeBoardGoal();
+  if (CAREER.negativeSeasonsStreak == null) CAREER.negativeSeasonsStreak = 0;
 }
 async function enterAfterAuth() {
   show("screenLoading");
