@@ -255,6 +255,9 @@
   .ct-pill.hurt{ background:rgba(217,45,32,.12); color:var(--brd-red); }
   .ct-pill.susp{ background:rgba(255,193,7,.16); color:var(--gold); }
   .ct-pill.base{ background:rgba(139,146,160,.16); color:var(--text-1); }
+  /* FASE 1 (item 1) — aviso de fim de contrato, mesma linguagem visual
+     do .susp (fundo âmbar translúcido, texto dourado). */
+  .ct-pill.contract{ background:rgba(255,193,7,.16); color:var(--gold); }
 
   /* FASE 2 (c) — filtro de posição da aba Mercado (não usa .ct-field
      porque esse wrapper foi pensado pra formulário com label em cima —
@@ -663,6 +666,44 @@
       <button class="ct-modal-close" id="detailClose">✕</button>
     </div>
     <div class="ct-modal-body" id="detailBody"></div>
+  </div>
+</div>
+
+<!-- ================= Modal: renovação de contrato (Fase 1 item 1) =================
+     Aberta POR CIMA do detalhe do jogador (mesmo padrão do
+     confirmOverlay — não fecha quem já estava aberto por baixo) só
+     quando o contrato do jogador termina nessa temporada (ver
+     isContractExpiring/openRenewModal em carreira.js). "Propor" decide
+     na hora (aceita/recusa) — sem passo intermediário, ver
+     proposeRenewal. -->
+<div class="ct-modal-overlay" id="renewOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header">
+      <span class="ct-modal-icon">✍️</span>
+      <div class="ct-modal-header-text">
+        <h3>Renovar contrato</h3>
+        <div class="ct-modal-sub" id="renewSub"></div>
+      </div>
+      <button class="ct-modal-close" id="renewClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <p class="ct-sub" id="renewCurrentInfo"></p>
+      <div class="ct-field" style="margin-bottom:12px;">
+        <label>Novo salário mensal (sugerido: <span id="renewSuggestedWage"></span>)</label>
+        <input type="number" class="ct-search" id="renewWageInput" style="margin-bottom:0;" min="0" step="100">
+      </div>
+      <div class="ct-field" style="margin-bottom:16px;">
+        <label>Duração da proposta</label>
+        <select id="renewDurationSelect">
+          <option value="1">1 ano</option>
+          <option value="2">2 anos</option>
+          <option value="3">3 anos</option>
+          <option value="4">4 anos</option>
+          <option value="5">5 anos</option>
+        </select>
+      </div>
+      <button class="ct-btn full primary" id="btnRenewPropose">Propor</button>
+    </div>
   </div>
 </div>
 
