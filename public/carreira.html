@@ -66,6 +66,17 @@
     font-family:'Barlow Condensed', var(--font);
     font-weight:700;
   }
+  /* AJUSTE (pedido do usuário: "a [toast] que traz as mensagens no
+     rodapé pode ocupar a tela toda e ter fundo branco") — o toast
+     (#toast/.ct-toast, mais abaixo) não tinha limite de largura: uma
+     mensagem longa (ex.: "Nenhum time demonstrou interesse em ... —
+     ele continua no seu elenco.") virava uma caixa mais larga que a
+     tela, e a parte que estourava pra fora do <body> expunha o fundo
+     PADRÃO do <html> (branco, nunca estilizado) — dava exatamente a
+     sensação de "vira a tela toda e fica branco". Fundo aplicado no
+     <html> também, não só no <body>, fecha esse buraco de vez (além do
+     limite de largura no toast em si, ver .ct-toast). */
+  html{ background:var(--bg-app); }
   body{ background:var(--bg-app); }
   .ct-shell{ min-height:100vh; display:flex; flex-direction:column; }
 
@@ -371,7 +382,13 @@
   .ct-search{ width:100%; padding:11px 12px; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--navy-card2); color:var(--text-0); font-family:var(--font); font-size:13px; margin-bottom:10px; }
   .ct-search:focus{ outline:none; border-color:var(--gold); }
 
-  .ct-toast{ position:fixed; bottom:18px; left:50%; transform:translateX(-50%); background:var(--navy-card2); border:1px solid var(--navy-line); color:#fff; padding:10px 18px; border-radius:10px; font-size:13px; font-weight:600; z-index:300; display:none; box-shadow:0 10px 30px rgba(0,0,0,.5); }
+  /* max-width trava o toast dentro da tela mesmo com mensagem longa —
+     sem isso ele crescia pelo tamanho do TEXTO (position:fixed sem
+     largura definida encolhe/estica pro conteúdo), passando da borda
+     da tela; width:max-content deixa mensagem curta compacta (não
+     estica à toa) e a quebra de linha (padrão de <div>, sem
+     white-space:nowrap) cuida do resto quando bate no limite. */
+  .ct-toast{ position:fixed; bottom:18px; left:50%; transform:translateX(-50%); width:max-content; max-width:min(92vw, 420px); background:var(--navy-card2); border:1px solid var(--navy-line); color:#fff; padding:10px 18px; border-radius:10px; font-size:13px; font-weight:600; line-height:1.4; z-index:300; display:none; box-shadow:0 10px 30px rgba(0,0,0,.5); }
   .ct-empty{ color:var(--text-2); font-size:13px; text-align:center; padding:20px 0; }
   .hidden{ display:none !important; }
 
