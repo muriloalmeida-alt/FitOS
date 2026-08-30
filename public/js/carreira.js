@@ -300,6 +300,85 @@ function computeContractFields(overall, age, potential, rng) {
   const contractUntil = LIVE_SEASON + 1 + Math.floor(rng() * 4); // 1 a 4 temporadas de contrato
   return { wage, value, contractUntil };
 }
+/* ---------- FASE 2 (b) — moral do elenco ----------
+   Fase 2 do Modo Carreira, item escolhido pelo usuário. A própria Fase
+   1 (item 1, renovação de contrato) já tinha citado que esse atributo
+   não existia e usava overall/idade como substituto ("moral" real
+   entra agora — ver proposeRenewal, que passa a usar isso de verdade
+   em vez só do proxy). Escala 0-100, todo jogador nasce em 70 (neutro)
+   — ver morale nos 3 builders (buildRealPlayer/buildBasePlayer/
+   buildGeneratedProPlayer) e o backfill em migrateCareerDefaults pra
+   save de antes dessa fase.
+   O que mexe na moral (menor esforço — sem "notícia"/eventos de
+   imprensa, só o que já é medível no jogo):
+   - Resultado + minutos jogados, a cada rodada (ver
+     applyMoraleAfterMatch, chamada de dentro de simulateRound só pro
+     SEU clube — CPU não precisa, ver moraleFactor abaixo);
+   - Salário justo (comparado contra o "salário de mercado" da própria
+     fórmula de contrato — ver fairWageFor) + uma leve regressão rumo à
+     média, na virada de temporada (ver applySeasonMoraleReset).
+   O que a moral MUDA de verdade no jogo (não é só um número decorativo
+   no card do jogador):
+   - Pesa no sorteio de quem faz gol/dá assistência (ver moraleFactor,
+     usado em simulatePlayerEvents) — jogador infeliz rende menos em
+     campo;
+   - Pesa na negociação de renovação de contrato (ver proposeRenewal):
+     jogador com moral baixa pode recusar renovar de jeito nenhum
+     (quer sair, não assinar de novo), e jogador com moral alta cobra
+     salário mais alto e também rejeita contrato curto (mais confiante,
+     mais exigente). */
+function fairWageFor(p) {
+  // Mesma fórmula de sempre (ver computeContractFields) só que sem
+  // sortear duração de contrato nenhuma — quer só o salário "de
+  // mercado" nominal pro overall/idade atual do jogador, pra comparar
+  // contra o que ele realmente ganha.
+  return computeContractFields(p.overall, p.age, p.potential || null, () => 0.5).wage;
+}
+// Fator multiplicador no sorteio de gol/assistência (ver
+// simulatePlayerEvents) — moral 70 (o valor "de nascença") não muda
+// nada (factor 1), pra não alterar o equilíbrio já calibrado do motor
+// pra quem nunca teve a moral mexida (CPU, ver comentário no topo da
+// seção). Clampado pra nunca zerar nem triplicar a chance de ninguém.
+function moraleFactor(p) {
+  const m = p.morale == null ? 70 : p.morale;
+  return clamp(1 + (m - 70) / 100, 0.6, 1.3);
+}
+// Chamada de dentro de simulateRound, só quando SEU clube jogou —
+// titular ganha por ter jogado + resultado; banco perde um pouco
+// (insatisfeito por não jogar) + metade do efeito do resultado; quem
+// nem entrou na "folha de jogo" (nem titular, nem banco) perde mais,
+// sentindo que foi esquecido pelo treinador.
+function applyMoraleAfterMatch(myGoals, oppGoals) {
+  const resultDelta = myGoals > oppGoals ? 3 : myGoals === oppGoals ? 0 : -3;
+  const starterIds = new Set(CAREER.lineup.starters.filter(Boolean));
+  const benchIds = new Set(CAREER.lineup.bench);
+  CAREER.squad.forEach((p) => {
+    const base = p.morale == null ? 70 : p.morale;
+    const delta = starterIds.has(p.id) ? resultDelta + 2
+      : benchIds.has(p.id) ? Math.round(resultDelta / 2) - 1
+      : -2;
+    p.morale = clamp(base + delta, 0, 100);
+  });
+}
+// Virada de temporada (chamada de dentro de renewHumanSquad): puxa a
+// moral de todo mundo um pouco de volta pro neutro (sem isso, ao longo
+// de várias temporadas ela tenderia a ficar grudada em 0 ou 100) e
+// aplica o efeito de salário justo/injusto (só elenco PRINCIPAL — base
+// não entra no teto salarial nem tem "salário de mercado" comparável
+// de verdade, ver Fase 2b original).
+function applySeasonMoraleReset(squad) {
+  squad.forEach((p) => {
+    const base = p.morale == null ? 70 : p.morale;
+    let m = Math.round(base + (70 - base) * 0.3);
+    if (p.origin === "principal") {
+      const fair = fairWageFor(p);
+      const ratio = fair ? p.wage / fair : 1;
+      if (ratio < 0.85) m -= 6;
+      else if (ratio > 1.15) m += 4;
+    }
+    p.morale = clamp(m, 0, 100);
+  });
+}
 function buildRealPlayer(raw, club, rng) {
   const group = mapPositionGroup(raw.position) || ["D", "M", "F"][Math.floor(rng() * 3)];
   const ratingBase = raw.rating != null ? clamp((raw.rating - 5) / 4, 0, 1) : 0.5;
@@ -316,7 +395,7 @@ function buildRealPlayer(raw, club, rng) {
     id: `real_${raw.id}`, name: raw.name || "Jogador", photo: raw.photo || null,
     group, age, overall, atk, def, phys,
     origin: "principal", real: true,
-    status: "ok", outUntilRound: null, yellowCards: 0, condition: 100,
+    status: "ok", outUntilRound: null, yellowCards: 0, condition: 100, morale: 70,
     goalsCareer: 0, assistsCareer: 0, apps: 0,
     ...computeContractFields(overall, age, null, rng),
   };
@@ -341,7 +420,7 @@ function buildBasePlayer(club, idx, rng) {
     id: `base_${club.id}_${idx}`, name: `${first} ${last}`, photo: null,
     group, age, overall, atk, def, phys, potential,
     origin: "base", real: false,
-    status: "ok", outUntilRound: null, yellowCards: 0, condition: 100,
+    status: "ok", outUntilRound: null, yellowCards: 0, condition: 100, morale: 70,
     goalsCareer: 0, assistsCareer: 0, apps: 0,
     ...computeContractFields(overall, age, potential, rng),
   };
@@ -369,7 +448,7 @@ function buildGeneratedProPlayer(club, idx, rng) {
     id: `gen_${club.id}_${idx}`, name: `${first} ${last}`, photo: null,
     group, age, overall, atk, def, phys,
     origin: "principal", real: false,
-    status: "ok", outUntilRound: null, yellowCards: 0, condition: 100,
+    status: "ok", outUntilRound: null, yellowCards: 0, condition: 100, morale: 70,
     goalsCareer: 0, assistsCareer: 0, apps: 0,
     ...computeContractFields(overall, age, null, rng),
   };
@@ -770,6 +849,10 @@ function renewHumanSquad() {
   const remainingIds = new Set(CAREER.squad.map((p) => p.id));
   CAREER.lineup.starters = CAREER.lineup.starters.map((id) => (id && remainingIds.has(id) ? id : null));
   CAREER.lineup.bench = CAREER.lineup.bench.filter((id) => remainingIds.has(id));
+  // FASE 2 (b) — regressão pro neutro + efeito de salário justo/injusto
+  // (só quem sobreviveu à saída por fim de contrato acima — quem chega
+  // novo já nasce em 70, ver builders).
+  applySeasonMoraleReset(CAREER.squad);
 
   const club = teamById(CAREER.clubId);
   const rng = seededRngFromKey(`renew-human:${CAREER.clubId}:${CAREER.seasonYear}`);
@@ -1249,7 +1332,9 @@ function injuryChanceFor(p) {
 function simulatePlayerEvents(starters, goals, round) {
   const events = [];
   if (!starters || !starters.length) return events;
-  const atkWeights = starters.map((p) => ({ F: 4, M: 2, D: 0.6, G: 0.02 }[p.group] || 1));
+  // FASE 2 (b) — moral pesa no sorteio (ver moraleFactor); factor 1
+  // pra quem nunca teve moral mexida (CPU/moral neutra), não muda nada.
+  const atkWeights = starters.map((p) => ({ F: 4, M: 2, D: 0.6, G: 0.02 }[p.group] || 1) * moraleFactor(p));
   for (let i = 0; i < goals; i++) {
     const scorer = weightedPick(starters, atkWeights);
     scorer.goalsCareer = (scorer.goalsCareer || 0) + 1;
@@ -1259,7 +1344,7 @@ function simulatePlayerEvents(starters, goals, round) {
     // qualquer titular pode ter dado o passe.
     if (starters.length > 1 && Math.random() < 0.72) {
       const assistPool = starters.filter((p) => p.id !== scorer.id);
-      const assistWeights = assistPool.map((p) => ({ M: 3, F: 1.5, D: 0.8, G: 0.05 }[p.group] || 1));
+      const assistWeights = assistPool.map((p) => ({ M: 3, F: 1.5, D: 0.8, G: 0.05 }[p.group] || 1) * moraleFactor(p));
       const assister = weightedPick(assistPool, assistWeights);
       assister.assistsCareer = (assister.assistsCareer || 0) + 1;
       events.push({ type: "assistencia", player: assister.name });
@@ -1384,6 +1469,9 @@ function simulateRound() {
     if (isHome || isAway) {
       const myGoals = isHome ? gh : ga, oppGoals = isHome ? ga : gh;
       pushRecentForm(myGoals > oppGoals ? 3 : myGoals === oppGoals ? 1 : 0);
+      // FASE 2 (b) — moral do elenco reage ao resultado + quem jogou
+      // (ver applyMoraleAfterMatch). Só o SEU clube — CPU não precisa.
+      applyMoraleAfterMatch(myGoals, oppGoals);
     }
   });
   // BUG CORRIGIDO: resultsByRound guardava o placar (e os eventos) de
@@ -1469,9 +1557,17 @@ function renderCentral() {
   const ok = squad.filter((p) => p.status === "ok").length;
   const hurt = squad.filter((p) => p.status === "contundido").length;
   const susp = squad.filter((p) => p.status === "suspenso").length;
+  // FASE 2 (b) — moral média do elenco PRINCIPAL (mesmo recorte de
+  // computeBoardGoal), sempre visível na Central — sem isso a moral só
+  // aparecia jogador por jogador, sem noção nenhuma do clima geral do
+  // time.
+  const principalForMorale = squad.filter((p) => p.origin === "principal");
+  const avgMorale = principalForMorale.length
+    ? Math.round(principalForMorale.reduce((s, p) => s + (p.morale == null ? 70 : p.morale), 0) / principalForMorale.length)
+    : 70;
   document.getElementById("squadKpis").innerHTML = [
     ["Elenco", squad.length], ["Disponíveis", ok], ["Contundidos", hurt], ["Suspensos", susp],
-  ].map(([l, v]) => kpiHTML(l, v)).join("");
+  ].map(([l, v]) => kpiHTML(l, v)).join("") + kpiHTML("Moral do elenco", avgMorale, avgMorale >= 80 ? "gold" : avgMorale <= 30 ? "red" : null);
   // FASE 3 (c) — ano da carreira sempre visível (não só no modal de
   // transição), mesmo padrão do "(X / 38)" ao lado de "Próximo jogo".
   document.getElementById("seasonYearLabel").textContent = `(Temporada ${CAREER.seasonYear})`;
@@ -1571,8 +1667,15 @@ function playerRow(p) {
   // no card do jogador (aqui, na lista do Elenco também, não só no
   // detalhe) — ver isContractExpiring em carreira.js.
   const contractTag = isContractExpiring(p) ? ' <span class="ct-pill contract" style="margin-left:4px;" title="Sai de graça se a temporada acabar sem renovar">Fim de contrato</span>' : "";
+  // FASE 2 (b) — só marca os EXTREMOS (feliz/infeliz) — moral neutra
+  // (a maioria do elenco, na prática) não precisa de ícone nenhum, só
+  // poluiria a lista à toa.
+  const morale = p.morale == null ? 70 : p.morale;
+  const moraleTag = morale >= 80 ? ` <span title="Moral ${morale} — feliz no clube">😊</span>`
+    : morale <= 30 ? ` <span title="Moral ${morale} — infeliz no clube">😞</span>`
+    : "";
   return `<tr data-id="${p.id}" style="cursor:pointer;">
-    <td class="ct-name-cell">${escapeHtml(abbreviateName(p.name))}${(!p.real && p.origin !== "base") ? ' <span class="ct-pill base" style="margin-left:4px;">gerado</span>' : ""}${contractTag}</td>
+    <td class="ct-name-cell">${escapeHtml(abbreviateName(p.name))}${(!p.real && p.origin !== "base") ? ' <span class="ct-pill base" style="margin-left:4px;">gerado</span>' : ""}${contractTag}${moraleTag}</td>
     <td>${subPositionOf(p)}</td><td>${p.age}</td><td><b>${p.overall}</b></td>
     <td><span class="ct-cond-track"><span class="ct-cond-fill" style="width:${Math.round(p.condition)}%"></span></span></td>
     <td>${statusPill}</td>
@@ -1602,17 +1705,23 @@ function renderElenco() {
    não tem como que mapear num modelo sem data. Resposta é sempre
    imediata (proposeRenewal), sem estado "renovando" pendente entre
    sessões — por isso nenhum campo novo precisou entrar no save nem na
-   migração (contractUntil já existe desde a Fase 2b). "Moral" não
-   existe como atributo nesse jogo (só overall/idade/físico/condição),
-   então a recusa usa overall alto + idade jovem como proxy — decisão
-   registrada aqui por não estar no documento. */
+   migração (contractUntil já existe desde a Fase 2b). "Moral" NÃO
+   existia como atributo quando essa fase foi escrita (usava overall/
+   idade como proxy) — a Fase 2 (item "moral do elenco") fechou essa
+   lacuna de verdade, ver moraleFactor/suggestedRenewalWage/
+   proposeRenewal, que agora usam p.morale direto. */
 function isContractExpiring(p) {
   return p.contractUntil === CAREER.seasonYear;
 }
 // Documento sugere "mínimo = salário atual × 1.05" como piso pra não
 // levar recusa na certa — vira o valor sugerido no campo do sub-modal.
+// FASE 2 (b) — moral alta cobra mais (mais confiante, mais exigente);
+// moral baixa aceita o piso original do documento sem pedir mais nada
+// em cima (só quer segurança, não dinheiro).
 function suggestedRenewalWage(p) {
-  return Math.round((p.wage * 1.05) / 100) * 100;
+  const m = p.morale == null ? 70 : p.morale;
+  const moraleBonus = clamp((m - 70) / 100, -0.05, 0.15);
+  return Math.round((p.wage * (1.05 + moraleBonus)) / 100) * 100;
 }
 let RENEW_CTX = null;
 function openRenewModal(id) {
@@ -1650,16 +1759,24 @@ function proposeRenewal() {
     }
   }
   // Recusa do JOGADOR (não do orçamento) — regras determinísticas de
-  // propósito (sem dado de "moral" pra sortear em cima, ver comentário
-  // no topo da seção): abaixo do mínimo sugerido é recusa na certa;
-  // proposta de 1 ano só pra quem realmente tem moral de pedir mais
-  // tempo (jovem em ascensão ou já craque).
+  // propósito. FASE 2 (b): moral MUITO baixa é recusa na certa, valor
+  // e duração nem importam mais (o jogador já quer é sair, não
+  // assinar de novo) — antes disso, mínimo sugerido continua sendo
+  // recusa na certa, e proposta de 1 ano só passa pra quem realmente
+  // não tem moral de pedir mais tempo (jovem em ascensão, já craque,
+  // OU moral alta o bastante pra ser exigente).
+  const morale = p.morale == null ? 70 : p.morale;
+  if (morale < 30) {
+    closeRenewModal();
+    toast(`${abbreviateName(p.name)} recusou a proposta — está infeliz no clube e não quer renovar agora.`, 5000);
+    return;
+  }
   if (newWage < minWage) {
     closeRenewModal();
     toast(`${abbreviateName(p.name)} recusou a proposta — quer pelo menos ${fmtBRL(minWage)}/mês.`, 5000);
     return;
   }
-  if (duration === 1 && (p.age <= 23 || p.overall >= 85)) {
+  if (duration === 1 && (p.age <= 23 || p.overall >= 85 || morale >= 85)) {
     closeRenewModal();
     toast(`${abbreviateName(p.name)} recusou a proposta — quer um contrato mais longo (pelo menos 2 anos).`, 5000);
     return;
@@ -1693,12 +1810,19 @@ function openDetail(id) {
   // o teto salarial do clube (CAREER.finances.wageCap).
   const wageAfterPromote = wageBillOf(CAREER.squad) + (p.origin === "base" ? p.wage : 0);
   const promoteBlocked = p.origin === "base" && wageAfterPromote > CAREER.finances.wageCap;
+  // FASE 2 (b) — moral vira mais uma KPI aqui (mesmo grid, quebra
+  // linha sozinho — ver .ct-kpis auto-fit), com destaque dourado/
+  // vermelho nos extremos (mesma linguagem visual de Caixa/Folha
+  // salarial na Central).
+  const morale = p.morale == null ? 70 : p.morale;
+  const moraleVariant = morale >= 80 ? "gold" : morale <= 30 ? "red" : null;
   document.getElementById("detailBody").innerHTML = `
     <div class="ct-kpis" style="margin-bottom:12px;">
       <div class="ct-kpi"><div class="v gold">${p.overall}</div><div class="l">Geral</div></div>
       <div class="ct-kpi"><div class="v">${p.atk}</div><div class="l">Ataque</div></div>
       <div class="ct-kpi"><div class="v">${p.def}</div><div class="l">Defesa</div></div>
       <div class="ct-kpi"><div class="v">${p.phys}</div><div class="l">Físico</div></div>
+      <div class="ct-kpi"><div class="v${moraleVariant ? ` ${moraleVariant}` : ""}">${morale}</div><div class="l">Moral</div></div>
     </div>
     <p class="ct-sub">Condição: ${Math.round(p.condition)}% · Jogos: ${p.apps || 0} · Gols na carreira: ${p.goalsCareer || 0} · Cartões amarelos (ciclo atual): ${p.yellowCards || 0}</p>
     <p class="ct-sub">Salário: ${fmtBRL(p.wage)}/mês · Contrato até: ${p.contractUntil} · Valor de mercado: ${fmtBRL(p.value)}</p>
@@ -2641,6 +2765,9 @@ function migrateCareerDefaults() {
       const rng = seededRngFromKey(`contract-backfill:${p.id}`);
       Object.assign(p, computeContractFields(p.overall, p.age, p.potential || null, rng));
     }
+    // FASE 2 (b) — jogador criado antes da moral existir nasce no
+    // mesmo neutro (70) de quem é criado hoje.
+    if (p.morale == null) p.morale = 70;
   };
   CAREER.squad.forEach(backfillContract);
   Object.values(CAREER.leagueSquads).forEach((squad) => squad.forEach(backfillContract));
