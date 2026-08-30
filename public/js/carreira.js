@@ -581,7 +581,16 @@ const MAX_SEASON_HISTORY = 15;
 // profissional adulto de sempre — CPU não tem categoria de base
 // própria, ver Fase 2a).
 function renewLeagueSquad(club, squad) {
-  squad.forEach((p) => { p.age += 1; });
+  // BUG CORRIGIDO (achado ao alargar a duração da lesão pra Fase 1 item
+  // 4 — lesão grave passou a poder chegar a 14 rodadas): sem resetar
+  // status/outUntilRound na virada de temporada, um jogador machucado
+  // ou suspenso nas últimas rodadas do ano carregava esse afastamento
+  // pra rodada 1 da temporada NOVA (currentRound volta a 1, mas
+  // outUntilRound continuava um número alto de quando a lesão
+  // aconteceu) — ficava fora de combate o ano inteiro sem chance
+  // nenhuma de voltar, mesmo o campeonato tendo terminado fazia tempo.
+  // Entressafra é tempo de sobra pra qualquer lesão/suspensão resolver.
+  squad.forEach((p) => { p.age += 1; p.status = "ok"; p.outUntilRound = null; p.injurySeverity = null; p.yellowCards = 0; });
   const kept = squad.filter((p) => p.contractUntil >= CAREER.seasonYear);
   const rng = seededRngFromKey(`renew-league:${club.id}:${CAREER.seasonYear}`);
   const missing = Math.max(0, MIN_LEAGUE_SQUAD - kept.length);
@@ -593,7 +602,8 @@ function renewLeagueSquad(club, squad) {
 // (mesmo gerador de sempre, ver buildBasePlayer) e o principal até o
 // mínimo jogável se caiu abaixo por causa das saídas.
 function renewHumanSquad() {
-  CAREER.squad.forEach((p) => { p.age += 1; });
+  // BUG CORRIGIDO — mesmo problema/motivo do renewLeagueSquad acima.
+  CAREER.squad.forEach((p) => { p.age += 1; p.status = "ok"; p.outUntilRound = null; p.injurySeverity = null; p.yellowCards = 0; });
   const leavingNames = [];
   CAREER.squad = CAREER.squad.filter((p) => {
     if (p.contractUntil < CAREER.seasonYear) { leavingNames.push(p.name); return false; }
@@ -1017,6 +1027,56 @@ function computeHumanStrength(club) {
   };
 }
 
+/* ---------- FASE 1 (item 4 da especificação "BR Data Treinador") —
+   lesões reais ----------
+   Pedido do usuário: card "Situação do elenco" mostrava "0
+   CONTUNDIDOS" fixo. Investigando o motor de simulação (mais abaixo,
+   simulatePlayerEvents), a geração de lesão em si JÁ EXISTIA — todo
+   titular já tinha uma chance por partida de virar "contundido" por
+   algumas rodadas, o KPI da Central já contava esse número de verdade
+   (não fixo), o jogador lesionado já ficava de fora do "Escolher
+   jogador" da Escalação (ver renderPickerList) e já aparecia com badge
+   vermelho + prazo de volta na lista do Elenco (ver playerRow) — o "0"
+   que o usuário via era só o estado normal de INÍCIO de temporada,
+   antes de qualquer rodada simulada.
+   O que faltava de verdade, comparando com a especificação:
+   1) a chance não variava por físico/condição do jogador — um titular
+      exausto corria o MESMO risco que um recém-descansado (documento:
+      "ajustável por atributo físico — quanto menor Resistência/
+      Condição, maior risco"), ver injuryChanceFor;
+   2) toda lesão durava só 1 a 4 rodadas, sem variedade de gravidade —
+      a especificação pede 3 níveis com distribuição 70/25/5 leve/
+      média/grave (o jogo não tem "dias", só rodada — mesma adaptação
+      já usada em contrato/janela de transferência, ver comentários
+      lá), ver INJURY_SEVERITY/rollInjurySeverity. */
+const INJURY_SEVERITY = [
+  { type: "leve", label: "Leve", chance: 0.70, minRounds: 1, maxRounds: 3 },
+  { type: "media", label: "Média", chance: 0.25, minRounds: 4, maxRounds: 7 },
+  { type: "grave", label: "Grave", chance: 0.05, minRounds: 8, maxRounds: 14 },
+];
+function injurySeverityLabel(type) {
+  return (INJURY_SEVERITY.find((t) => t.type === type) || INJURY_SEVERITY[0]).label;
+}
+function rollInjurySeverity() {
+  const roll = Math.random();
+  let acc = 0;
+  for (const tier of INJURY_SEVERITY) {
+    acc += tier.chance;
+    if (roll < acc) return tier;
+  }
+  return INJURY_SEVERITY[0];
+}
+// Base 2% (documento sugere a faixa "2-4%") + até mais 2% pra quem tem
+// físico baixo ou já está com a condição debilitada (fadiga acumulada
+// de partidas anteriores — ver ordem das operações em
+// simulatePlayerEvents: essa checagem roda ANTES da fadiga DESSA
+// partida ser aplicada, então reflete o desgaste que o jogador já
+// carregava chegando no jogo, não o desse jogo em si).
+function injuryChanceFor(p) {
+  const physFactor = clamp((70 - (p.phys || 70)) / 100, 0, 0.3);
+  const condFactor = clamp((70 - (p.condition == null ? 100 : p.condition)) / 100, 0, 0.3);
+  return clamp(0.02 + physFactor * 0.02 + condFactor * 0.02, 0.02, 0.04);
+}
 /* ---------- Eventos de jogo (gols/assistências/cartões/lesões) pros
    SEUS jogadores — devolve uma lista estruturada (não texto pronto),
    usada pelo modal de detalhe do jogo (ver matchEventsSummaryHTML) e
@@ -1055,9 +1115,10 @@ function simulatePlayerEvents(starters, goals, round) {
         p.status = "suspenso"; p.outUntilRound = round + 1; p.yellowCards = 0;
       }
     }
-    if (p.status === "ok" && Math.random() < 0.025) {
-      const dur = 1 + Math.floor(Math.random() * 4);
-      p.status = "contundido"; p.outUntilRound = round + dur;
+    if (p.status === "ok" && Math.random() < injuryChanceFor(p)) {
+      const severity = rollInjurySeverity();
+      const dur = severity.minRounds + Math.floor(Math.random() * (severity.maxRounds - severity.minRounds + 1));
+      p.status = "contundido"; p.outUntilRound = round + dur; p.injurySeverity = severity.type;
     }
     p.condition = clamp((p.condition == null ? 100 : p.condition) - (15 + Math.random() * 15), 25, 100);
   });
@@ -1332,7 +1393,7 @@ function squadTableHead() {
 }
 function playerRow(p) {
   const statusPill = p.status === "ok" ? `<span class="ct-pill ok">Disponível</span>`
-    : p.status === "contundido" ? `<span class="ct-pill hurt">Lesionado (até R${p.outUntilRound})</span>`
+    : p.status === "contundido" ? `<span class="ct-pill hurt" title="Fora até a rodada ${p.outUntilRound}">Lesão ${injurySeverityLabel(p.injurySeverity)} (até R${p.outUntilRound})</span>`
     : `<span class="ct-pill susp">Suspenso (R${p.outUntilRound})</span>`;
   // Pedido do usuário: sem tag "gerado" pra jogador da BASE (a
   // categoria inteira já é gerada, ver comentário em openDetail) — só
@@ -1482,6 +1543,11 @@ function openDetail(id) {
          (renewHumanSquad, Fase 3c), sem chance nenhuma de segurar
          antes disso. -->
     ${isContractExpiring(p) ? `<p class="ct-sub" style="color:var(--gold); font-weight:700;">⚠️ Contrato até ${CAREER.seasonYear} — sai de graça se a temporada acabar sem renovar.</p>` : ""}
+    <!-- FASE 1 (item 4) — mesmo padrão do aviso de contrato acima:
+         destaque no detalhe pra quem tá fora de combate (ver
+         INJURY_SEVERITY em carreira.js). -->
+    ${p.status === "contundido" ? `<p class="ct-sub" style="color:var(--brd-red); font-weight:700;">🩹 Lesão ${injurySeverityLabel(p.injurySeverity)} — de volta na rodada ${p.outUntilRound}.</p>` : ""}
+    ${p.status === "suspenso" ? `<p class="ct-sub" style="color:var(--brd-red); font-weight:700;">🟥 Suspenso — de volta na rodada ${p.outUntilRound}.</p>` : ""}
     <!-- AJUSTE (pedido do usuário: "a modal de detalhes do jogador segue
          com os botões diferentes" — mockup empilha os botões cheios,
          em coluna, cada um do tamanho normal (ver .btn/.btn-outline/
