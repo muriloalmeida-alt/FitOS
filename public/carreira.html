@@ -251,6 +251,8 @@
   .ct-market-filters{ margin-bottom:10px; }
   .ct-market-filters select{ padding:11px 12px; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--navy-card2); color:var(--text-0); font-family:var(--font); font-size:13px; }
   .ct-market-filters select:focus{ outline:none; border-color:var(--gold); }
+  /* FASE 1 (item 2) — banner de janela de transferências fechada. */
+  .ct-window-banner{ background:rgba(226,185,63,.12); border:1px solid var(--accent-yellow); color:var(--gold); padding:10px 12px; border-radius:9px; font-weight:700; margin:0 0 12px; }
   .ct-transfer-feed-item{ padding:8px 0; border-bottom:1px solid var(--border); font-size:12.5px; color:var(--text-1); }
   .ct-transfer-feed-item:last-child{ border-bottom:none; }
   .ct-transfer-feed-item b{ color:var(--text-0); }
@@ -577,6 +579,13 @@
             <button class="ct-btn small" id="btnDeclineOffer">Recusar</button>
           </div>
         </div>
+        <!-- FASE 1 (item 2 da especificação) — pedido do usuário: janela
+             de transferências com prazo, pra tirar a sensação de
+             "mercado sempre aberto" (ver transferWindowStatus em
+             carreira.js). Só aparece quando a janela está FECHADA —
+             quando aberta fica escondido de propósito (.hidden), sem
+             poluir a tela com "janela aberta" o tempo todo. -->
+        <p class="ct-sub ct-window-banner hidden" id="marketWindowBanner"></p>
         <div class="ct-card">
           <h2>Mercado de jogadores</h2>
           <p class="ct-sub">Seu elenco (pra vender) e os outros 19 times da competição (pra contratar). Contratar soma o salário na sua folha (mesmo teto do Financeiro).</p>
