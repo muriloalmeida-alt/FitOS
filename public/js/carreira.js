@@ -1639,10 +1639,15 @@ function renderMercado() {
   const mktWindow = transferWindowStatus(CAREER.currentRound);
   const windowBanner = document.getElementById("marketWindowBanner");
   windowBanner.classList.toggle("hidden", mktWindow.open);
+  // AJUSTE (pedido do usuário: "pode tirar a mensagem 'dá pra vender
+  // mas não contratar' e deixar apenas 'Janela de contratações
+  // encerradas - Rodada 20'") — mensagem direta, sem a explicação
+  // extra (já dá pra perceber que vender continua liberado só de ver
+  // o botão "Vender" normal ao lado do "Comprar" desabilitado).
   if (!mktWindow.open) {
     windowBanner.innerHTML = mktWindow.opensAtRound
-      ? `🔒 <b>Janela de transferências fechada</b> — reabre na rodada ${mktWindow.opensAtRound}. Dá pra vender, mas não contratar.`
-      : `🔒 <b>Janela de transferências encerrada</b> por essa temporada — reabre na próxima.`;
+      ? `🔒 <b>Janela de contratações encerrada</b> — Rodada ${mktWindow.opensAtRound}`
+      : `🔒 <b>Janela de contratações encerrada</b> — próxima temporada`;
   }
 
   const search = (document.getElementById("marketSearch").value || "").trim().toLowerCase();
@@ -1675,7 +1680,7 @@ function renderMercado() {
       </div>
       ${mine
         ? `<button class="ct-btn small" data-sell="${p.id}">Vender</button>`
-        : `<button class="ct-btn small${mktWindow.open ? " primary" : ""}" data-buy="${p.id}" data-club="${escapeHtml(String(club.id))}" ${mktWindow.open ? "" : `disabled title="Janela de transferências fechada"`}>Comprar</button>`}
+        : `<button class="ct-btn small${mktWindow.open ? " primary" : ""}" data-buy="${p.id}" data-club="${escapeHtml(String(club.id))}" ${mktWindow.open ? "" : `disabled title="Janela de contratações encerrada"`}>Comprar</button>`}
     </div>
   </div>`).join("");
   document.getElementById("marketList").innerHTML = rows || `<p class="ct-empty">Nenhum jogador encontrado.</p>`;
@@ -1700,7 +1705,7 @@ async function buyPlayer(clubId, playerId) {
   // fora da janela, ver renderMercado) só por segurança contra estado
   // desatualizado na tela.
   if (!transferWindowStatus(CAREER.currentRound).open) {
-    toast("Janela de transferências fechada — não dá pra contratar agora.");
+    toast("Janela de contratações encerrada — não dá pra contratar agora.");
     return;
   }
   const squad = leagueSquadFor(clubId);
