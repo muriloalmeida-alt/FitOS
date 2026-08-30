@@ -1560,6 +1560,64 @@ function computeHumanStrength(club) {
   };
 }
 
+/* ---------- FASE 3 (item 4 da especificação "BR Data Treinador") —
+   evolução de atributos por treino ----------
+   Investigando a especificação, o "foco de treino" JÁ EXISTIA no jogo
+   (CAREER.trainingFocus/TRAINING_OPTIONS/TRAINING_MOD acima, escolhido
+   na aba Escalação) — só que só valia como bônus de CURTO prazo (multi-
+   plicador de ataque/defesa durante a própria partida, ver
+   computeHumanStrength). O que faltava de verdade era o efeito de
+   LONGO prazo pedido aqui: atributo (Geral/Ataque/Defesa/Físico)
+   subindo ou caindo aos poucos, rodada a rodada, com jovem evoluindo
+   mais fácil e veterano regredindo — sem precisar de aba nova, o
+   mesmo seletor de sempre passou a valer pros dois efeitos (ver aviso
+   em carreira.html).
+
+   Decisões nossas pros pontos deixados em aberto na especificação:
+   - Efeito PROBABILÍSTICO (chance de ±1 no atributo por rodada), não
+     fração de ponto acumulada — mais simples de mostrar (atributo
+     sempre inteiro) e já dá o efeito "pequeno, só percebido depois de
+     várias rodadas" pedido.
+   - Declínio por idade começa aos 30 pra linha/aos 32 pro goleiro
+     (goleiro segura o auge mais tarde, igual no futebol de verdade).
+   - Cada um dos 4 atributos (overall/atk/def/phys) rola INDEPENDENTE
+     — o foco escolhido dobra a chance de crescimento só do atributo
+     compatível (ver TRAINING_FOCUS_ATTR), os outros 3 seguem no ritmo
+     normal. Evita reescrever atk/def como derivados do overall (eles
+     nascem com pesos por posição diferentes, ver buildRealPlayer) só
+     pra fazer a evolução funcionar.
+
+   Só evolui CAREER.squad (seu elenco) — time CPU não precisa, o
+   elenco deles já se renova por sorteio inteiro na virada de temporada
+   (ver renewLeagueSquad). Chamado 1x por rodada simulada, só quando
+   seu clube jogou (ver simulateRound), passando quem foi titular
+   NESSA rodada (banco/lesionado tem mais chance de estagnar/regredir
+   que evoluir). */
+const TRAINING_FOCUS_ATTR = { ataque: "atk", defesa: "def", fisico: "phys", equilibrado: "overall" };
+function applyTrainingEvolution(playedThisRound) {
+  const playedIds = new Set((playedThisRound || []).map((p) => p.id));
+  const focusAttr = TRAINING_FOCUS_ATTR[CAREER.trainingFocus] || null;
+  CAREER.squad.forEach((p) => {
+    const played = playedIds.has(p.id);
+    const declineAge = p.group === "G" ? 32 : 30;
+    let growChance, declineChance;
+    if (p.age <= 21) { growChance = played ? 0.14 : 0.05; declineChance = 0; }
+    else if (p.age < declineAge) { growChance = played ? 0.06 : 0.01; declineChance = played ? 0 : 0.01; }
+    else { growChance = played ? 0.02 : 0; declineChance = (played ? 0.05 : 0.08) + (p.age - declineAge) * 0.01; }
+    const trend = p.attrTrend || { overall: 0, atk: 0, def: 0, phys: 0 };
+    ["overall", "atk", "def", "phys"].forEach((attr) => {
+      const attrGrowChance = growChance * (attr === focusAttr ? 2 : 1);
+      const roll = Math.random();
+      if (roll < attrGrowChance) { p[attr] = clamp(p[attr] + 1, 20, 99); trend[attr] += 1; }
+      else if (roll > 1 - declineChance) { p[attr] = clamp(p[attr] - 1, 20, 99); trend[attr] -= 1; }
+    });
+    // Acumula até o jogador ser aberto no detalhe de novo (ver
+    // openDetail, que lê isso pro indicador ↑/↓ e zera em seguida —
+    // "desde a última checagem", pedido da especificação).
+    p.attrTrend = trend;
+  });
+}
+
 /* ---------- FASE 1 (item 4 da especificação "BR Data Treinador") —
    lesões reais ----------
    Pedido do usuário: card "Situação do elenco" mostrava "0
@@ -1759,6 +1817,12 @@ function simulateRound() {
       // FASE 2 (b) — moral do elenco reage ao resultado + quem jogou
       // (ver applyMoraleAfterMatch). Só o SEU clube — CPU não precisa.
       applyMoraleAfterMatch(myGoals, oppGoals);
+      // FASE 3 (item 4 da especificação "BR Data Treinador") — evolução
+      // de atributos por treino: quem foi titular NESSA rodada (hs.
+      // starters do seu lado) tem mais chance de evoluir; o resto do
+      // elenco (banco, lesionado) estagna ou regride de leve (ver
+      // applyTrainingEvolution). Só o SEU clube, mesmo critério acima.
+      applyTrainingEvolution(isHome ? hs.starters : as.starters);
     }
   });
   // BUG CORRIGIDO: resultsByRound guardava o placar (e os eventos) de
@@ -2127,12 +2191,20 @@ function openDetail(id) {
   // condição/salário, bem acima do botão "Promover ao elenco
   // principal" (pedido do usuário: ver isso ANTES de promover).
   const potRange = scoutedPotentialRange(p);
+  // FASE 3 (item 4) — seta de tendência ao lado de cada atributo que
+  // mudou DESDE A ÚLTIMA VEZ que esse detalhe foi aberto (ver
+  // applyTrainingEvolution, que acumula em p.attrTrend a cada rodada) —
+  // "checagem", no sentido da especificação, é abrir esse card; por
+  // isso zera o acumulado logo depois de montar o HTML abaixo.
+  const trend = p.attrTrend || {};
+  const trendArrow = (attr) => trend[attr] > 0 ? ` <span style="color:var(--brd-green);" title="Evoluindo desde a última checagem">▲</span>`
+    : trend[attr] < 0 ? ` <span style="color:var(--brd-red);" title="Regredindo desde a última checagem">▼</span>` : "";
   document.getElementById("detailBody").innerHTML = `
     <div class="ct-kpis" style="margin-bottom:12px;">
-      <div class="ct-kpi"><div class="v gold">${p.overall}</div><div class="l">Geral</div></div>
-      <div class="ct-kpi"><div class="v">${p.atk}</div><div class="l">Ataque</div></div>
-      <div class="ct-kpi"><div class="v">${p.def}</div><div class="l">Defesa</div></div>
-      <div class="ct-kpi"><div class="v">${p.phys}</div><div class="l">Físico</div></div>
+      <div class="ct-kpi"><div class="v gold">${p.overall}${trendArrow("overall")}</div><div class="l">Geral</div></div>
+      <div class="ct-kpi"><div class="v">${p.atk}${trendArrow("atk")}</div><div class="l">Ataque</div></div>
+      <div class="ct-kpi"><div class="v">${p.def}${trendArrow("def")}</div><div class="l">Defesa</div></div>
+      <div class="ct-kpi"><div class="v">${p.phys}${trendArrow("phys")}</div><div class="l">Físico</div></div>
       <div class="ct-kpi"><div class="v${moraleVariant ? ` ${moraleVariant}` : ""}">${morale}</div><div class="l">Moral</div></div>
     </div>
     ${potRange ? `<p class="ct-sub" style="color:var(--gold); font-weight:700;">🔭 Avaliação do olheiro: potencial entre ${potRange.lo} e ${potRange.hi}.</p>` : ""}
@@ -2180,6 +2252,10 @@ function openDetail(id) {
     btn.addEventListener("click", () => handlePlayerAction(p.id, btn.dataset.act));
   });
   document.getElementById("detailOverlay").classList.add("open");
+  // FASE 3 (item 4) — acabou de "checar" esse jogador (setas acima já
+  // desenhadas com o valor de ANTES de zerar) — some até a próxima
+  // mudança de atributo.
+  if (p.attrTrend) p.attrTrend = { overall: 0, atk: 0, def: 0, phys: 0 };
 }
 async function handlePlayerAction(id, act) {
   const p = CAREER.squad.find((x) => x.id === id);
