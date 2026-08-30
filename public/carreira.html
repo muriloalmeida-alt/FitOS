@@ -170,6 +170,16 @@
   .ct-btn.lg{ padding:15px 18px; font-size:15px; }
   .ct-btn.full{ width:100%; }
   .ct-btn:disabled{ opacity:.4; cursor:not-allowed; filter:none; }
+  /* Pedido do usuário: botão só ícone (ex.: "escalar automaticamente"
+     ao lado do select de formação) — mesmo tratamento visual do
+     .ct-btn normal (bordado, fundo transparente), só quadrado e sem
+     texto. */
+  .ct-btn.icon{ width:40px; height:40px; padding:0; flex-shrink:0; font-size:16px; }
+  /* Toggle discreto (checkbox nativo + texto pequeno e apagado) — pra
+     opções secundárias que não merecem o peso visual de um .ct-field
+     inteiro (ver "Incluir jogadores da base" na Escalação). */
+  .ct-toggle-inline{ display:flex; align-items:center; gap:7px; font-size:11.5px; color:var(--text-2); font-weight:600; cursor:pointer; margin-bottom:14px; }
+  .ct-toggle-inline input{ margin:0; accent-color:var(--brd-blue); width:15px; height:15px; cursor:pointer; }
 
   /* ---------- Clube picker ---------- */
   /* width:100% é o que importa aqui -- sem isso, dentro de um pai flex
@@ -370,8 +380,23 @@
      todo pensado pra um frame de celular de 340px, mas essa página
      também roda em desktop. */
   .ct-modal{ background:var(--navy-card2); border:1px solid var(--navy-line); border-radius:var(--radius-lg); max-width:380px; width:100%; max-height:86vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 20px 50px rgba(0,0,0,.5); }
-  #pickerOverlay .ct-modal, #roundResultsOverlay .ct-modal, #detailOverlay .ct-modal{ max-width:460px; }
   #confirmOverlay .ct-modal{ max-width:320px; }
+  /* Pedido do usuário: "as modais que ocupam mais espaço podem assumir
+     tela cheia — só as de mensagens curtas ficam do tamanho atual".
+     Marca (ver .ct-modal-fullscreen na tag do overlay, em carreira.html)
+     os 5 modais com conteúdo de tamanho variável — lista de jogadores,
+     feed de eventos, resultados da rodada — em vez do teto fixo de
+     460px de antes. No celular ocupa a tela inteira de verdade (sem
+     borda arredondada, sem respiro); em telas largas vira um cartão
+     grande (92vh) em vez de esticar borda a borda feito o app inteiro
+     fosse um modal só. */
+  .ct-modal-overlay.ct-modal-fullscreen{ padding:0; }
+  .ct-modal-overlay.ct-modal-fullscreen .ct-modal{ max-width:none; width:100%; height:100%; max-height:100%; border-radius:0; }
+  .ct-modal-overlay.ct-modal-fullscreen .ct-modal-body{ flex:1; }
+  @media (min-width:720px){
+    .ct-modal-overlay.ct-modal-fullscreen{ padding:24px; }
+    .ct-modal-overlay.ct-modal-fullscreen .ct-modal{ max-width:640px; height:92vh; max-height:92vh; border-radius:var(--radius-lg); }
+  }
   .ct-modal-header{ display:flex; align-items:center; gap:10px; padding:16px; background:linear-gradient(135deg, var(--brd-navy), var(--navy-mid)); border-bottom:1px solid var(--navy-line); flex-shrink:0; }
   .ct-modal-icon{ font-size:20px; line-height:1; flex-shrink:0; }
   .ct-modal-header-text{ flex:1; min-width:0; }
@@ -551,17 +576,25 @@
       <section class="ct-panel" id="panel-escalacao">
         <div class="ct-card">
           <h2>Formação e titulares</h2>
-          <div style="display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap; margin-bottom:14px;">
-            <div class="ct-field" style="max-width:220px; margin-bottom:0;">
+          <div style="display:flex; gap:10px; align-items:flex-end; justify-content:space-between; margin-bottom:10px;">
+            <div class="ct-field" style="max-width:220px; margin-bottom:0; flex:1; min-width:0;">
               <label>Esquema tático</label>
               <select id="formationSelect"></select>
             </div>
-            <!-- Pedido do usuário (item 1): escalação automática pelos
-                 melhores overalls por posição, reaproveitando
-                 autoLineup (só rodava na criação da carreira antes —
-                 ver autoFillLineup em carreira.js). -->
-            <button class="ct-btn" id="btnAutoLineup">🔁 Escalar automaticamente</button>
+            <!-- Pedido do usuário: botão só ícone, na mesma linha da
+                 formação (era um botão de texto embaixo — ver
+                 autoFillLineup em carreira.js pra lógica). -->
+            <button class="ct-btn icon" id="btnAutoLineup" title="Escalar automaticamente — melhores overalls por posição" aria-label="Escalar automaticamente">🔁</button>
           </div>
+          <!-- Pedido do usuário: toggle discreto pra incluir (ou não) a
+               categoria de base na escalação automática — default
+               desligado (base costuma ter overall bem menor, não é o
+               que o treinador quer no time principal na maioria das
+               vezes). -->
+          <label class="ct-toggle-inline">
+            <input type="checkbox" id="autoLineupIncludeBase">
+            Incluir jogadores da base ao escalar automaticamente
+          </label>
           <div id="pitchLines"></div>
         </div>
         <div class="ct-card">
@@ -679,7 +712,7 @@
 </div>
 
 <!-- ================= Modal genérico de escolha de jogador ================= -->
-<div class="ct-modal-overlay" id="pickerOverlay">
+<div class="ct-modal-overlay ct-modal-fullscreen" id="pickerOverlay">
   <div class="ct-modal">
     <div class="ct-modal-header">
       <span class="ct-modal-icon">🔄</span>
@@ -694,7 +727,7 @@
 </div>
 
 <!-- ================= Modal de detalhe do jogador ================= -->
-<div class="ct-modal-overlay" id="detailOverlay">
+<div class="ct-modal-overlay ct-modal-fullscreen" id="detailOverlay">
   <div class="ct-modal">
     <div class="ct-modal-header">
       <span class="ct-modal-icon" id="detailIcon">⚽</span>
@@ -802,11 +835,14 @@
      tempo resolvido atualiza o placar/feed aqui e agenda o próximo
      sozinho; os botões abaixo pausam essa progressão pra decidir
      substituição ou tática, exatamente como pedido ("afeta o cálculo
-     da simulação daquele momento em diante"). Sem X pra fechar de
-     propósito — sair no meio perderia o jogo, então só acaba sozinho
-     (ver finishLiveMatch), que já emenda direto no modal "Seu jogo"
-     de sempre. -->
-<div class="ct-modal-overlay" id="liveMatchOverlay">
+     da simulação daquele momento em diante"). Tela cheia (mesmo
+     tratamento dos outros modais de conteúdo variável, ver
+     .ct-modal-fullscreen) — o feed de eventos cresce a partida toda.
+     Pedido do usuário: TODA modal precisa de X — aqui, fechar não
+     cancela a partida (não teria pra onde voltar no meio do jogo): o X
+     resolve o resto na hora, igual "Pular pro fim" (ver
+     closeLiveMatchViaX/skipLiveMatch em carreira.js). -->
+<div class="ct-modal-overlay ct-modal-fullscreen" id="liveMatchOverlay">
   <div class="ct-modal">
     <div class="ct-modal-header">
       <span class="ct-modal-icon">⚽</span>
@@ -814,18 +850,19 @@
         <h3>Ao vivo</h3>
         <div class="ct-modal-sub" id="liveMatchMinute">0'</div>
       </div>
+      <button class="ct-modal-close" id="liveMatchClose" title="Fechar — resolve o resto da partida na hora">✕</button>
     </div>
-    <div class="ct-modal-body">
+    <div class="ct-modal-body" style="display:flex; flex-direction:column;">
       <div class="ct-next-match" id="liveMatchScore"></div>
-      <div id="liveMatchFeed" style="max-height:220px; overflow-y:auto; margin-top:10px;"></div>
-      <div style="display:flex; gap:8px; margin-top:14px;">
+      <div id="liveMatchFeed" style="flex:1; overflow-y:auto; margin-top:10px;"></div>
+      <div style="display:flex; gap:8px; margin-top:14px; flex-shrink:0;">
         <button class="ct-btn full" id="btnLiveSub">🔄 Substituir</button>
         <button class="ct-btn full" id="btnLiveTactics">⚙ Ajustar tática</button>
       </div>
       <!-- Não é da especificação — sem isso, cada rodada custaria ~6s
            de espera real mesmo pra quem só quer avançar a temporada
            sem interagir (ver skipLiveMatch). -->
-      <button class="ct-btn full" id="btnLiveSkip" style="margin-top:8px;">⏩ Pular pro fim</button>
+      <button class="ct-btn full" id="btnLiveSkip" style="margin-top:8px; flex-shrink:0;">⏩ Pular pro fim</button>
     </div>
   </div>
 </div>
@@ -881,7 +918,7 @@
      rodada inteira (ver #roundResultsOverlay abaixo). O X (pedido do
      usuário) só fecha esse modal — não avança sozinho pro de
      resultados, quem quiser ver os dois clica em "Continuar" mesmo. -->
-<div class="ct-modal-overlay" id="matchDetailOverlay">
+<div class="ct-modal-overlay ct-modal-fullscreen" id="matchDetailOverlay">
   <div class="ct-modal">
     <div class="ct-modal-header">
       <span class="ct-modal-icon">⚽</span>
@@ -903,7 +940,7 @@
 <!-- ================= Modal: resultados da rodada inteira =================
      2º passo do fluxo (pedido do usuário) — placar dos 20 times nessa
      rodada. "Continuar" fecha e leva pra aba Tabela já atualizada. -->
-<div class="ct-modal-overlay" id="roundResultsOverlay">
+<div class="ct-modal-overlay ct-modal-fullscreen" id="roundResultsOverlay">
   <div class="ct-modal">
     <div class="ct-modal-header">
       <span class="ct-modal-icon">📋</span>
@@ -934,7 +971,11 @@
      mudou (ver advanceSeason em carreira.js): quem saiu por fim de
      contrato, quantos novos chegaram na base/principal, novo teto
      salarial. "Começar a temporada" fecha e recarrega tudo já com a
-     Rodada 1 da temporada nova. -->
+     Rodada 1 da temporada nova. Pedido do usuário: TODA modal precisa
+     de X — aqui a temporada já virou de verdade antes desse resumo
+     aparecer (ver advanceSeason, chamado ANTES de mostrar esse modal),
+     então o X só fecha e atualiza a tela, mesmo efeito de "Começar a
+     temporada" (ver closeSeasonModal em carreira.js). -->
 <div class="ct-modal-overlay" id="seasonOverlay">
   <div class="ct-modal">
     <div class="ct-modal-header">
@@ -943,6 +984,7 @@
         <h3 id="seasonModalTitle">Nova temporada!</h3>
         <div class="ct-modal-sub" id="seasonModalSub"></div>
       </div>
+      <button class="ct-modal-close" id="seasonModalClose">✕</button>
     </div>
     <div class="ct-modal-body">
       <p class="ct-sub" id="seasonSummaryText"></p>
@@ -955,10 +997,14 @@
 <!-- ================= Modal: demissão (Fase 1 item 3) =================
      Mostrado no lugar do modal de nova temporada (nunca os dois juntos,
      ver btnAdvanceSeason em carreira.js) quando a diretoria demite o
-     treinador por sequência de temporadas sem bater a meta — sem botão
-     X nem "Começar a temporada" de propósito, a carreira NESSE clube
-     acabou; "Escolher outro clube" apaga o save e volta pro picker
-     (ver showDismissalModal/btnDismissalContinue). -->
+     treinador por sequência de temporadas sem bater a meta — a carreira
+     NESSE clube acabou; "Escolher outro clube" apaga o save e volta pro
+     picker (ver showDismissalModal/btnDismissalContinue). Pedido do
+     usuário: TODA modal precisa de X — aqui o X só fecha a modal (SEM
+     apagar o save, ver closeDismissalModal), a demissão em si só
+     acontece de verdade ao clicar "Escolher outro clube"; fechando no
+     X, reabrir "Avançar temporada" de novo mostra essa mesma modal (o
+     save não mudou nada nesse meio tempo, ver advanceSeason). -->
 <div class="ct-modal-overlay" id="dismissalOverlay">
   <div class="ct-modal">
     <div class="ct-modal-header">
@@ -967,6 +1013,7 @@
         <h3>Fim de carreira</h3>
         <div class="ct-modal-sub" id="dismissalClub"></div>
       </div>
+      <button class="ct-modal-close" id="dismissalModalClose">✕</button>
     </div>
     <div class="ct-modal-body">
       <p class="ct-sub" id="dismissalText"></p>
