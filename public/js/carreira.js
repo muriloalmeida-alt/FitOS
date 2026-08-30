@@ -2844,7 +2844,13 @@ function pickerChoose(playerId) {
 }
 
 /* ---------- Renderização: Tabela ---------- */
-function renderTabela() {
+// tableId — pedido do usuário: o botão "Ver tabela atualizada" (fim do
+// fluxo de simular rodada) abre a tabela num MODAL tela cheia por cima
+// da tela atual, em vez de trocar de aba (ver openTabelaModal) — o
+// parâmetro deixa essa mesma função alimentar tanto a tabela de sempre
+// (aba Tabela, chamada sem argumento por renderAll) quanto a cópia
+// dentro do modal, sem duplicar a lógica de montar as linhas.
+function renderTabela(tableId = "standingsTable") {
   const rows = Object.values(CAREER.standings).sort((a, b) => (b.pts - a.pts) || (b.v - a.v) || (b.sg - a.sg) || (b.gp - a.gp));
   const total = rows.length;
   const thead = `<tr><th>#</th><th>Time</th><th>P</th><th>J</th><th>V</th><th>E</th><th>D</th><th>SG</th></tr>`;
@@ -2856,17 +2862,19 @@ function renderTabela() {
     return `<tr class="${isMe ? "me" : ""}"><td>${zone ? `<span class="zone-dot zone-${zone}"></span>` : ""}${pos}</td>
       <td>${escapeHtml(t.name)}</td><td><b>${r.pts}</b></td><td>${r.j}</td><td>${r.v}</td><td>${r.e}</td><td>${r.d}</td><td>${r.sg > 0 ? "+" : ""}${r.sg}</td></tr>`;
   }).join("");
-  const table = document.getElementById("standingsTable");
+  const table = document.getElementById(tableId);
   table.querySelector("thead").innerHTML = thead;
   table.querySelector("tbody").innerHTML = tbody;
 }
 
 /* ---------- FASE 2 (a) — Copa do Brasil: card de status/histórico
-   (ver #cupStatusText/#cupHistory, dentro do painel Tabela) ---------- */
-function renderCopa() {
+   (ver #cupStatusText/#cupHistory, dentro do painel Tabela) ----------
+   Mesmos ids opcionais de renderTabela acima — alimenta a cópia do
+   modal "Ver tabela atualizada" (ver openTabelaModal). */
+function renderCopa(statusElId = "cupStatusText", histElId = "cupHistory") {
   const cup = CAREER.cup;
-  const statusEl = document.getElementById("cupStatusText");
-  const histEl = document.getElementById("cupHistory");
+  const statusEl = document.getElementById(statusElId);
+  const histEl = document.getElementById(histElId);
   if (!cup || !cup.active) {
     statusEl.textContent = "Seu elenco não se classificou pra Copa do Brasil essa temporada — só os 16 elencos mais fortes da competição disputam.";
     histEl.innerHTML = "";
@@ -2900,6 +2908,21 @@ function renderCopa() {
     <p class="ct-sub" style="margin:2px 0 8px;">${CUP_PHASE_LABEL[phase]}: ${won ? "✅ Classificado" : "❌ Eliminado"}</p>`;
   }).join("");
   histEl.innerHTML = rows || `<p class="ct-empty">Nenhum confronto disputado ainda.</p>`;
+}
+// Pedido do usuário: "ao clicar em ver tabela atualizada, abrir tabela
+// em modal tela cheia e não redirecionar para a página" — antes o
+// botão fechava o modal de resultados E trocava pra aba Tabela (ver
+// switchToPanel), tirando o usuário de onde estava. Agora abre um
+// modal tela cheia POR CIMA da tela atual (mesmo tratamento de
+// .ct-modal-fullscreen dos outros modais de conteúdo grande) — fechar
+// (X ou clique fora) só volta pra onde já estava, sem navegar nada.
+function openTabelaModal() {
+  renderTabela("standingsTableModal");
+  renderCopa("cupStatusTextModal", "cupHistoryModal");
+  document.getElementById("tabelaModalOverlay").classList.add("open");
+}
+function closeTabelaModal() {
+  document.getElementById("tabelaModalOverlay").classList.remove("open");
 }
 
 /* ---------- Renderização: Estatísticas ----------
@@ -3462,8 +3485,10 @@ function wireStaticListeners() {
   });
   document.getElementById("btnRoundResultsContinue").addEventListener("click", () => {
     document.getElementById("roundResultsOverlay").classList.remove("open");
-    switchToPanel("tabela");
+    openTabelaModal();
   });
+  document.getElementById("tabelaModalClose").addEventListener("click", closeTabelaModal);
+  document.getElementById("tabelaModalOverlay").addEventListener("click", (e) => { if (e.target.id === "tabelaModalOverlay") closeTabelaModal(); });
 
   document.getElementById("btnRestart").addEventListener("click", async () => {
     document.getElementById("topbarMenu").classList.remove("open");
