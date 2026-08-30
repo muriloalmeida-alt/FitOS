@@ -1640,9 +1640,9 @@ function renderMercado() {
   const windowBanner = document.getElementById("marketWindowBanner");
   windowBanner.classList.toggle("hidden", mktWindow.open);
   if (!mktWindow.open) {
-    windowBanner.textContent = mktWindow.opensAtRound
-      ? `🔒 Janela de transferências fechada — reabre na rodada ${mktWindow.opensAtRound}. Dá pra vender, mas não contratar.`
-      : `🔒 Janela de transferências encerrada por essa temporada — reabre na próxima.`;
+    windowBanner.innerHTML = mktWindow.opensAtRound
+      ? `🔒 <b>Janela de transferências fechada</b> — reabre na rodada ${mktWindow.opensAtRound}. Dá pra vender, mas não contratar.`
+      : `🔒 <b>Janela de transferências encerrada</b> por essa temporada — reabre na próxima.`;
   }
 
   const search = (document.getElementById("marketSearch").value || "").trim().toLowerCase();
