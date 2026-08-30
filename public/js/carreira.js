@@ -1147,9 +1147,8 @@ function renderCentral() {
   // elenco PRINCIPAL conta pro teto, ver wageBillOf).
   const wageBill = wageBillOf(squad);
   const { cash, wageCap } = CAREER.finances;
-  document.getElementById("financeKpis").innerHTML = [
-    ["Caixa", fmtBRLShort(cash)], ["Folha salarial", fmtBRLShort(wageBill)],
-  ].map(([l, v]) => kpiHTML(l, v)).join("");
+  document.getElementById("financeKpis").innerHTML =
+    kpiHTML("Caixa", fmtBRLShort(cash), true) + kpiHTML("Folha salarial", fmtBRLShort(wageBill));
   const wagePct = wageCap ? clamp(Math.round((wageBill / wageCap) * 100), 0, 100) : 0;
   const wageFill = document.getElementById("wageCapFill");
   wageFill.style.width = `${wagePct}%`;
@@ -1273,7 +1272,7 @@ function openDetail(id) {
   const promoteBlocked = p.origin === "base" && wageAfterPromote > CAREER.finances.wageCap;
   document.getElementById("detailBody").innerHTML = `
     <div class="ct-kpis" style="margin-bottom:12px;">
-      <div class="ct-kpi"><div class="v">${p.overall}</div><div class="l">Geral</div></div>
+      <div class="ct-kpi"><div class="v gold">${p.overall}</div><div class="l">Geral</div></div>
       <div class="ct-kpi"><div class="v">${p.atk}</div><div class="l">Ataque</div></div>
       <div class="ct-kpi"><div class="v">${p.def}</div><div class="l">Defesa</div></div>
       <div class="ct-kpi"><div class="v">${p.phys}</div><div class="l">Físico</div></div>
@@ -1438,7 +1437,7 @@ function renderPickerList(filter) {
   list.innerHTML = clearRow + (pool.length ? pool.map((p) => `
     <div class="ct-pick-row" data-id="${p.id}">
       <span class="nm" style="white-space:nowrap;">${escapeHtml(abbreviateName(p.name))}${p.id === currentId ? " (atual)" : ""}</span>
-      <span class="meta">${subPositionOf(p)} · OVR ${p.overall} · ${p.origin === "base" ? "base" : "principal"}</span>
+      <span class="meta">${subPositionOf(p)} · OVR <b>${p.overall}</b> · ${p.origin === "base" ? "base" : "principal"}</span>
     </div>`).join("") : `<p class="ct-empty">Nenhum jogador disponível.</p>`);
   list.querySelectorAll("[data-clear]").forEach((el) => el.addEventListener("click", () => pickerChoose(null)));
   list.querySelectorAll("[data-id]").forEach((el) => el.addEventListener("click", () => pickerChoose(el.dataset.id)));
@@ -1493,8 +1492,8 @@ function renderTabela() {
    CAREER.standings) e da própria equipe (gols, cartões, assistências —
    gols vem de standings[clubId].gp; assistência/cartão de
    CAREER.teamStats, ver tallyTeamStats). */
-function kpiHTML(label, value) {
-  return `<div class="ct-kpi"><div class="v">${value}</div><div class="l">${label}</div></div>`;
+function kpiHTML(label, value, gold) {
+  return `<div class="ct-kpi"><div class="v${gold ? " gold" : ""}">${value}</div><div class="l">${label}</div></div>`;
 }
 function renderEstatisticas() {
   const rows = Object.values(CAREER.standings);
@@ -1515,12 +1514,13 @@ function renderEstatisticas() {
   const myPos = myLeaguePosition();
   const myRow = CAREER.standings[CAREER.clubId] || { gp: 0 };
   const stats = CAREER.teamStats || { assists: 0, yellow: 0, red: 0 };
-  document.getElementById("teamStatsKpis").innerHTML = [
-    ["Posição atual", myPos ? `${myPos}º` : "—"],
-    ["Gols marcados", myRow.gp],
-    ["Assistências", stats.assists],
-    ["Cartões (A+V)", stats.yellow + stats.red],
-  ].map(([l, v]) => kpiHTML(l, v)).join("");
+  document.getElementById("teamStatsKpis").innerHTML =
+    kpiHTML("Posição atual", myPos ? `${myPos}º` : "—", true) +
+    [
+      ["Gols marcados", myRow.gp],
+      ["Assistências", stats.assists],
+      ["Cartões (A+V)", stats.yellow + stats.red],
+    ].map(([l, v]) => kpiHTML(l, v)).join("");
 
   const topPlayers = CAREER.squad.slice()
     .filter((p) => (p.goalsCareer || 0) > 0 || (p.assistsCareer || 0) > 0)
