@@ -896,6 +896,164 @@ function boardGoalMet(position, goal) {
 // clube, sem deixar a meta sem consequência nenhuma.
 const DISMISSAL_STREAK = 3;
 
+/* ---------- FASE 4 (item 4) — reputação do técnico → propostas de
+   outros clubes ----------
+   Especificação "BR Data Treinador — Fase 4", último item da fase
+   (o próprio documento diz que depende de metas da diretoria + moral/
+   coletiva como insumo). Fórmula respondida pelo usuário: "50% Meta
+   20% Títulos 10% Entrevistas" — só soma 80% porque o item "Coletiva
+   de imprensa" (Fase 4 item 2) segue bloqueado (usuário disse que
+   mandaria a lista de perguntas em anexo, que nunca chegou nessa
+   conversa) — o peso de 10% de Entrevistas fica reservado, sem
+   contribuir nada (nem positivo nem negativo) até esse item existir de
+   verdade; dá pra ligar depois sem mexer no resto da fórmula. Escala
+   0-100, todo técnico nasce em 50 (neutro) — mesmo espírito da moral
+   (Fase 2b) nascendo em 70.
+
+   Diferente de moral (por jogador, dentro de CAREER.squad), reputação
+   e histórico de clubes são do TÉCNICO, não do clube atual — por isso
+   precisam sobreviver a uma troca de clube, mesmo com CAREER virando
+   um objeto novo do zero (ver startCareer). Hoje demissão e "proposta
+   aceita" são os 2 únicos jeitos de trocar de clube fora do
+   "Reiniciar" explícito (esse sim apaga tudo de propósito, sem
+   carregar reputação nenhuma pra frente) — ver TECHNICIAN_CARRY/
+   endCurrentClubStint logo abaixo, consumidos por startCareer(). */
+const REPUTATION_META_WEIGHT = 0.5;
+const REPUTATION_TITLE_WEIGHT = 0.2;
+const REPUTATION_META_POINTS = { met: 14, missed: -10 };
+const REPUTATION_TITLE_POINTS = 30; // por título (Brasileirão e Copa do Brasil contam separado)
+const REPUTATION_DISMISSAL_PENALTY = 25;
+function countTitlesThisSeason(award) {
+  let n = 0;
+  if (award.brasileirao.campeao != null && String(award.brasileirao.campeao) === String(CAREER.clubId)) n++;
+  if (award.copaDoBrasil.disputou && String(award.copaDoBrasil.campeao) === String(CAREER.clubId)) n++;
+  return n;
+}
+function applySeasonReputationDelta(goalWasMet, award) {
+  const metaDelta = (goalWasMet ? REPUTATION_META_POINTS.met : REPUTATION_META_POINTS.missed) * REPUTATION_META_WEIGHT;
+  const titleDelta = countTitlesThisSeason(award) * REPUTATION_TITLE_POINTS * REPUTATION_TITLE_WEIGHT;
+  const base = CAREER.reputation == null ? 50 : CAREER.reputation;
+  CAREER.reputation = clamp(Math.round(base + metaDelta + titleDelta), 0, 100);
+}
+function reputationLabel(rep) {
+  return rep >= 85 ? "Lendário" : rep >= 70 ? "Renomado" : rep >= 50 ? "Estabelecido" : rep >= 30 ? "Em dúvida" : "Contestado";
+}
+// Fecha a passagem pelo clube atual (demissão ou proposta aceita) —
+// registra no "currículo" (histórico_clubes do documento: clube,
+// temporadas, títulos, posição média) e guarda o que precisa
+// sobreviver à troca em TECHNICIAN_CARRY, consumido por startCareer()
+// ao montar a carreira nova no próximo clube.
+let TECHNICIAN_CARRY = null;
+function endCurrentClubStint(reason) {
+  const seasons = (CAREER.seasonHistory || []).length;
+  const avgPosition = seasons
+    ? Math.round(CAREER.seasonHistory.reduce((s, y) => s + y.position, 0) / seasons)
+    : myLeaguePosition();
+  const titles = (CAREER.seasonAwards || []).reduce((n, a) => n + countTitlesThisSeason(a), 0);
+  const clubHistory = (CAREER.clubHistory || []).slice();
+  clubHistory.unshift({ clubId: CAREER.clubId, clubName: CAREER.clubName, seasons, titles, avgPosition, reason });
+  let reputation = CAREER.reputation == null ? 50 : CAREER.reputation;
+  if (reason === "dismissed") reputation = clamp(reputation - REPUTATION_DISMISSAL_PENALTY, 0, 100);
+  TECHNICIAN_CARRY = { reputation, clubHistory };
+}
+// Clubes "maiores" (força de elenco bem acima do seu, ver
+// squadAvgOverallOf) fazem proposta quando a reputação bate um
+// patamar proporcional à diferença de força — checa 1x por temporada,
+// na virada (mesma cadência do patrocínio, ver advanceSponsorshipSeason
+// logo abaixo), e só quando não há proposta pendente ainda (evita
+// empilhar convite sobre convite sem resposta).
+const CLUB_PROPOSAL_MIN_OVR_GAP = 3;
+function maybeGenerateClubProposals() {
+  CAREER.clubProposals = CAREER.clubProposals || [];
+  if (CAREER.clubProposals.length) return;
+  const myOverall = averageOverall(CAREER.squad.filter((p) => p.origin === "principal"));
+  const reputation = CAREER.reputation == null ? 50 : CAREER.reputation;
+  const rng = seededRngFromKey(`club-proposal:${CAREER.clubId}:${CAREER.seasonYear}`);
+  const candidates = LEAGUE_TEAMS.filter((t) => String(t.id) !== String(CAREER.clubId)).map((t) => {
+    const theirOverall = squadAvgOverallOf(t.id);
+    const gap = theirOverall - myOverall;
+    const reputationRequired = clamp(Math.round(55 + gap * 3), 40, 95);
+    return { t, gap, reputationRequired };
+  }).filter((c) => c.gap >= CLUB_PROPOSAL_MIN_OVR_GAP && reputation >= c.reputationRequired);
+  if (!candidates.length) return;
+  candidates.sort((a, b) => b.gap - a.gap);
+  const chosen = candidates[0];
+  const budgetOffered = Math.round(wageBillOf(CAREER.leagueSquads[String(chosen.t.id)] || []) * 1.35 * (0.9 + rng() * 0.3) / 1000) * 1000;
+  CAREER.clubProposals.push({
+    clubId: String(chosen.t.id), clubName: chosen.t.name,
+    reputationRequired: chosen.reputationRequired, budgetOffered, seasonYear: CAREER.seasonYear,
+  });
+}
+// Notificação da proposta (ver btnSeasonContinue/seasonModalClose, que
+// abrem essa modal automaticamente depois do resumo de virada de
+// temporada quando existe proposta pendente) — reaberta a qualquer
+// momento pelo card "Proposta de outro clube" na Central (ver
+// renderCentral) caso o técnico feche no X sem decidir na hora.
+function openClubProposalModal() {
+  const p = (CAREER.clubProposals || [])[0];
+  if (!p) return;
+  document.getElementById("clubProposalText").textContent =
+    `O ${p.clubName} quer você no comando! Orçamento oferecido pra folha salarial: ${fmtBRL(p.budgetOffered)}. Sua reputação (${CAREER.reputation}) chamou atenção da diretoria de lá.`;
+  document.getElementById("clubProposalOverlay").classList.add("open");
+}
+function closeClubProposalModal() {
+  document.getElementById("clubProposalOverlay").classList.remove("open");
+}
+// Aceitar troca clube — encerra a passagem atual (ver
+// endCurrentClubStint) e reabre a tela "Escolha do clube" (documento
+// pede reaproveitar essa tela, "com contexto do que o técnico fez no
+// clube anterior") filtrada só pro clube ofertante, já que aqui não é
+// escolha livre — só falta o próprio usuário clicar no card pra
+// confirmar (mesmo startCareer de sempre resolve o resto).
+function acceptClubProposal() {
+  const p = (CAREER.clubProposals || [])[0];
+  if (!p) { closeClubProposalModal(); return; }
+  const prevClubName = CAREER.clubName, prevClubId = CAREER.clubId;
+  endCurrentClubStint("accepted_proposal");
+  closeClubProposalModal();
+  const prev = TECHNICIAN_CARRY.clubHistory[0];
+  const context = String(prevClubId) === String(p.clubId)
+    ? "" // não deveria acontecer (proposta nunca é do próprio clube), mas evita banner sem sentido
+    : `Você deixa o ${prevClubName} depois de ${prev.seasons} temporada(s) (${prev.titles} título(s), posição média ${prev.avgPosition}º) e chega ao ${p.clubName}.`;
+  renderClubPicker([p.clubId], context);
+  show("screenPicker");
+}
+function declineClubProposal() {
+  CAREER.clubProposals = (CAREER.clubProposals || []).slice(1);
+  closeClubProposalModal();
+  persistCareer();
+  renderCentral();
+}
+// FASE 4 (item 4) — tela de perfil do técnico (documento: "histórico de
+// carreira — títulos, clubes, temporadas — dá senso de progressão de
+// longo prazo tipo currículo"), aberta pelo menu "≡".
+function renderCoachProfile() {
+  const rep = CAREER.reputation == null ? 50 : CAREER.reputation;
+  const history = CAREER.clubHistory || [];
+  const historyHTML = history.length
+    ? history.map((h) => `
+      <div class="ct-card" style="margin-bottom:10px;">
+        <h2>${escapeHtml(h.clubName)}</h2>
+        <p class="ct-sub">${h.seasons} temporada(s) · ${h.titles} título(s) · posição média ${h.avgPosition}º${h.reason === "dismissed" ? " · saiu por demissão" : h.reason === "accepted_proposal" ? " · saiu por proposta de outro clube" : ""}</p>
+      </div>`).join("")
+    : `<p class="ct-empty">Nenhuma passagem anterior ainda — esse é seu primeiro clube.</p>`;
+  document.getElementById("coachProfileBody").innerHTML = `
+    <div class="ct-kpis" style="margin-bottom:14px;">
+      <div class="ct-kpi"><div class="v gold">${rep}</div><div class="l">Reputação</div></div>
+      <div class="ct-kpi"><div class="v">${reputationLabel(rep)}</div><div class="l">Status</div></div>
+      <div class="ct-kpi"><div class="v">${history.length}</div><div class="l">Clube(s) no currículo</div></div>
+    </div>
+    <p class="ct-sub" style="margin-bottom:14px;">Clube atual: <b>${escapeHtml(CAREER.clubName)}</b> — ${(CAREER.seasonHistory || []).length} temporada(s) aqui até agora.</p>
+    ${historyHTML}`;
+}
+function openCoachProfileScreen() {
+  renderCoachProfile();
+  document.getElementById("coachProfileOverlay").classList.add("open");
+}
+function closeCoachProfileScreen() {
+  document.getElementById("coachProfileOverlay").classList.remove("open");
+}
+
 /* ---------- FASE 2 (a) — Copa do Brasil ----------
    Pedido do usuário (Fase 2 do Modo Carreira, item que a própria
    especificação da Fase 1 já tinha deixado reservado pra "fase
@@ -1285,6 +1443,11 @@ function advanceSeason() {
   CAREER.seasonAwards = CAREER.seasonAwards || [];
   CAREER.seasonAwards.unshift(computeSeasonAwards());
   if (CAREER.seasonAwards.length > MAX_SEASON_HISTORY) CAREER.seasonAwards.length = MAX_SEASON_HISTORY;
+  // FASE 4 (item 4) — reputação reflete o que ACONTECEU nessa temporada
+  // mesmo quando ela termina em demissão (a penalidade de demissão em
+  // si só entra depois, quando o usuário confirma "Escolher outro
+  // clube" — ver endCurrentClubStint).
+  applySeasonReputationDelta(goalWasMet, CAREER.seasonAwards[0]);
 
   CAREER.negativeSeasonsStreak = goalWasMet ? 0 : (CAREER.negativeSeasonsStreak || 0) + 1;
   // FASE 1 (item 3) — demissão: a diretoria não segue com o treinador
@@ -1344,6 +1507,11 @@ function advanceSeason() {
   // FASE 2 (a) — novo chaveamento da Copa do Brasil, mesmo motivo do
   // boardGoal acima (elenco renovado de todo mundo, não só o seu).
   setupCup();
+  // FASE 4 (item 4) — checa proposta de outro clube pra temporada que
+  // está começando agora (reputação já atualizada acima, elenco já
+  // renovado nos dois lados) — ver showSeasonModal/btnSeasonContinue,
+  // que abre a notificação depois do resumo da virada de temporada.
+  maybeGenerateClubProposals();
 
   return { dismissed: false, finishedYear, finishedPos, finishedGoal, goalWasMet, newYear: CAREER.seasonYear, humanRenewal, newGoal: CAREER.boardGoal };
 }
@@ -1831,9 +1999,20 @@ async function persistCareer() {
 }
 
 /* ---------- Início de carreira ---------- */
-function renderClubPicker() {
+// FASE 4 (item 4) — reaproveita essa mesma tela no fluxo de "aceitar
+// proposta de outro clube" (documento pede isso: reaparecer com
+// contexto do que o técnico fez no clube anterior, em vez de virar uma
+// tela nova). filterIds restringe o grid só ao(s) clube(s) ofertante(s)
+// (nesse fluxo não é escolha livre — ver acceptClubProposal); em
+// qualquer outro fluxo (1ª escolha, reinício, demissão) segue mostrando
+// os 20 normalmente, sem banner nenhum.
+function renderClubPicker(filterIds, bannerText) {
+  const banner = document.getElementById("pickerContextBanner");
+  if (bannerText) { banner.textContent = bannerText; banner.hidden = false; }
+  else { banner.textContent = ""; banner.hidden = true; }
+  const teams = filterIds ? LEAGUE_TEAMS.filter((t) => filterIds.some((id) => String(id) === String(t.id))) : LEAGUE_TEAMS;
   const grid = document.getElementById("clubGrid");
-  grid.innerHTML = LEAGUE_TEAMS.map((t) => `
+  grid.innerHTML = teams.map((t) => `
     <div class="ct-club-card" data-id="${escapeHtml(String(t.id))}">
       ${crestImg(t)}
       <span class="name">${escapeHtml(t.name)}</span>
@@ -1893,7 +2072,16 @@ async function startCareer(clubId) {
       // FASE 4 (item 6) — hall da fama de premiações por temporada (ver
       // computeSeasonAwards).
       seasonAwards: [],
+      // FASE 4 (item 4) — reputação e currículo são do TÉCNICO, não do
+      // clube: se essa carreira nasceu de uma demissão ou de uma
+      // proposta aceita (ver endCurrentClubStint), TECHNICIAN_CARRY
+      // carrega reputação e histórico pra frente — "Reiniciar" e a 1ª
+      // escolha de clube nascem no neutro (reputação 50, sem currículo).
+      reputation: TECHNICIAN_CARRY ? TECHNICIAN_CARRY.reputation : 50,
+      clubHistory: TECHNICIAN_CARRY ? TECHNICIAN_CARRY.clubHistory : [],
+      clubProposals: [],
     };
+    TECHNICIAN_CARRY = null;
     // FASE 1 (item 3) — meta da diretoria da 1ª temporada, calculada
     // já com o elenco recém-montado (ver computeBoardGoal).
     CAREER.boardGoal = computeBoardGoal();
@@ -2794,6 +2982,15 @@ function confirmLiveTactics() {
 /* ---------- Renderização: Central ---------- */
 function renderCentral() {
   refreshAvailability();
+  // FASE 4 (item 4) — card só aparece quando há proposta pendente (ver
+  // maybeGenerateClubProposals/openClubProposalModal) — reabre a
+  // notificação caso o técnico tenha fechado no X sem decidir.
+  const proposal = (CAREER.clubProposals || [])[0];
+  document.getElementById("clubProposalCard").style.display = proposal ? "" : "none";
+  if (proposal) {
+    document.getElementById("clubProposalSummary").textContent =
+      `${proposal.clubName} — orçamento oferecido: ${fmtBRL(proposal.budgetOffered)}.`;
+  }
   // Pedido do usuário: número da rodada saiu do header (agora só logo
   // + "Modo Carreira" + menu, ver ct-topbar) e virou parte do título
   // deste card: "Próximo jogo (X / 38)".
@@ -4098,6 +4295,21 @@ function wireStaticListeners() {
   });
   document.getElementById("awardsClose").addEventListener("click", closeAwardsScreen);
   document.getElementById("awardsOverlay").addEventListener("click", (e) => { if (e.target.id === "awardsOverlay") closeAwardsScreen(); });
+  // FASE 4 (item 4) — perfil do técnico, aberto pelo menu "≡".
+  document.getElementById("btnOpenCoachProfile").addEventListener("click", () => {
+    document.getElementById("topbarMenu").classList.remove("open");
+    openCoachProfileScreen();
+  });
+  document.getElementById("coachProfileClose").addEventListener("click", closeCoachProfileScreen);
+  document.getElementById("coachProfileOverlay").addEventListener("click", (e) => { if (e.target.id === "coachProfileOverlay") closeCoachProfileScreen(); });
+  // FASE 4 (item 4) — notificação de proposta de outro clube: X e
+  // clique fora só fecham (sem aceitar nem recusar), reabrível pelo
+  // card na Central (ver btnViewClubProposal/renderCentral).
+  document.getElementById("clubProposalClose").addEventListener("click", closeClubProposalModal);
+  document.getElementById("clubProposalOverlay").addEventListener("click", (e) => { if (e.target.id === "clubProposalOverlay") closeClubProposalModal(); });
+  document.getElementById("btnClubProposalAccept").addEventListener("click", acceptClubProposal);
+  document.getElementById("btnClubProposalDecline").addEventListener("click", declineClubProposal);
+  document.getElementById("btnViewClubProposal").addEventListener("click", openClubProposalModal);
   document.getElementById("btnRestart").addEventListener("click", async () => {
     document.getElementById("topbarMenu").classList.remove("open");
     if (!CAREER) return;
@@ -4157,16 +4369,26 @@ function wireStaticListeners() {
   // de verdade ANTES desse resumo aparecer (ver advanceSeason, chamado
   // antes de showSeasonModal) — o X só fecha e atualiza a tela, mesmo
   // efeito de "Começar a temporada".
+  // FASE 4 (item 4) — proposta de outro clube (se houver) só aparece
+  // DEPOIS do resumo de virada de temporada, nunca em cima dele (ver
+  // maybeGenerateClubProposals, chamado de dentro de advanceSeason).
   document.getElementById("btnSeasonContinue").addEventListener("click", () => {
     document.getElementById("seasonOverlay").classList.remove("open");
     renderAll();
+    if ((CAREER.clubProposals || []).length) openClubProposalModal();
   });
   document.getElementById("seasonModalClose").addEventListener("click", () => {
     document.getElementById("seasonOverlay").classList.remove("open");
     renderAll();
+    if ((CAREER.clubProposals || []).length) openClubProposalModal();
   });
   document.getElementById("btnDismissalContinue").addEventListener("click", async () => {
     document.getElementById("dismissalOverlay").classList.remove("open");
+    // FASE 4 (item 4) — reputação/currículo sobrevivem à demissão (com
+    // a penalidade de ser demitido, ver endCurrentClubStint) — precisa
+    // rodar ANTES de apagar o save e zerar CAREER, que é de onde lê
+    // clubId/clubName/seasonHistory/seasonAwards.
+    endCurrentClubStint("dismissed");
     await fetchJSON("/api/career", { method: "DELETE" }).catch(() => {});
     CAREER = null;
     renderClubPicker();
@@ -4328,6 +4550,14 @@ function migrateCareerDefaults() {
   // sem histórico nenhum ainda (não tem como reconstruir temporadas
   // passadas retroativamente).
   if (!CAREER.seasonAwards) CAREER.seasonAwards = [];
+  // FASE 4 (item 4) — carreira criada antes da reputação existir nasce
+  // no mesmo neutro (50) de quem começa hoje, sem currículo nenhum
+  // (não tem como reconstruir passagens por clubes anteriores — essa
+  // sempre foi a única carreira, então "sem histórico anterior" é
+  // literalmente verdade aqui).
+  if (CAREER.reputation == null) CAREER.reputation = 50;
+  if (!CAREER.clubHistory) CAREER.clubHistory = [];
+  if (!CAREER.clubProposals) CAREER.clubProposals = [];
 }
 async function enterAfterAuth() {
   show("screenLoading");
