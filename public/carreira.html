@@ -495,6 +495,12 @@
         </div>
         <div class="ct-card">
           <h2>Situação do elenco <span class="ct-round-inline" id="seasonYearLabel"></span></h2>
+          <!-- FASE 1 (item 3) — meta da diretoria sempre visível durante
+               a temporada, não só no modal de virada de ano (ver
+               CAREER.boardGoal/renderCentral em carreira.js) — sem isso
+               dava pra esquecer completamente qual era a meta até o fim
+               da temporada. -->
+          <p class="ct-sub" id="boardGoalLabel" style="color:var(--gold); font-weight:700;"></p>
           <div class="ct-kpis" id="squadKpis"></div>
         </div>
         <!-- FASE 2 (b) — pedido do usuário: contrato/salário/valor com
@@ -777,6 +783,29 @@
       <p class="ct-sub" id="seasonSummaryText"></p>
       <div id="seasonDepartures"></div>
       <button class="ct-btn primary full" id="btnSeasonContinue" style="margin-top:14px;">Começar a temporada</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= Modal: demissão (Fase 1 item 3) =================
+     Mostrado no lugar do modal de nova temporada (nunca os dois juntos,
+     ver btnAdvanceSeason em carreira.js) quando a diretoria demite o
+     treinador por sequência de temporadas sem bater a meta — sem botão
+     X nem "Começar a temporada" de propósito, a carreira NESSE clube
+     acabou; "Escolher outro clube" apaga o save e volta pro picker
+     (ver showDismissalModal/btnDismissalContinue). -->
+<div class="ct-modal-overlay" id="dismissalOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header">
+      <span class="ct-modal-icon">🚪</span>
+      <div class="ct-modal-header-text">
+        <h3>Fim de carreira</h3>
+        <div class="ct-modal-sub" id="dismissalClub"></div>
+      </div>
+    </div>
+    <div class="ct-modal-body">
+      <p class="ct-sub" id="dismissalText"></p>
+      <button class="ct-btn primary full" id="btnDismissalContinue" style="margin-top:14px;">Escolher outro clube</button>
     </div>
   </div>
 </div>
