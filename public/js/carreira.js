@@ -2367,9 +2367,15 @@ function squadTableHead() {
   return `<tr><th>Nome</th><th>Pos</th><th>Idade</th><th>OVR</th><th>Condição</th><th>Status</th><th></th></tr>`;
 }
 function playerRow(p) {
-  const statusPill = p.status === "ok" ? `<span class="ct-pill ok">Disponível</span>`
-    : p.status === "contundido" ? `<span class="ct-pill hurt" title="Fora até a rodada ${p.outUntilRound}">Lesão ${injurySeverityLabel(p.injurySeverity)} (até R${p.outUntilRound})</span>`
-    : `<span class="ct-pill susp">Suspenso (R${p.outUntilRound})</span>`;
+  // Pedido do usuário: no lugar do texto ("Disponível"/"Lesão X (até
+  // RN)"/"Suspenso (RN)"), ícone + semáforo — o fundo colorido do
+  // .ct-pill já era verde/vermelho/âmbar (ver CSS), só o CONTEÚDO virou
+  // ícone em vez de texto; o detalhe todo (severidade, rodada de
+  // volta) vira tooltip (title), não some, só sai da lista pra caber
+  // num ícone só.
+  const statusPill = p.status === "ok" ? `<span class="ct-pill ok" title="Disponível">🟢</span>`
+    : p.status === "contundido" ? `<span class="ct-pill hurt" title="Lesão ${injurySeverityLabel(p.injurySeverity)} — de volta na rodada ${p.outUntilRound}">🩹</span>`
+    : `<span class="ct-pill susp" title="Suspenso — de volta na rodada ${p.outUntilRound}">🟥</span>`;
   // Pedido do usuário: sem tag "gerado" pra jogador da BASE (a
   // categoria inteira já é gerada, ver comentário em openDetail) — só
   // aparece pro elenco PRINCIPAL gerado (exceção de verdade, quando a
