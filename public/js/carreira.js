@@ -1079,128 +1079,253 @@ function findInterestedBuyer(excludeId) {
    Pedido do usuário (item escolhido entre 4 opções propostas — a
    própria janela de transferências, Fase 1 item 2, tinha deixado essa
    pergunta em aberto por não existir essa mecânica ainda). Ceder ou
-   pegar um jogador emprestado, sem venda definitiva, até o FIM DA
-   TEMPORADA (sem contador de rodadas próprio — usa o mesmo limite
-   natural de contrato/lesão/tudo mais nesse jogo; ver
-   resolveLoanReturns, chamado de dentro de advanceSeason ANTES da
-   renovação normal, pra quem voltou envelhecer/ter contrato checado
-   como qualquer outro jogador do elenco no mesmo clique). Só dá pra
+   pegar um jogador emprestado, sem venda definitiva. Só dá pra
    negociar dentro da janela de contratações — mesma trava de comprar
    (ver transferWindowStatus).
+
+   FASE 3 (item 3 dessa especificação) — evolução do que já existia:
+   antes o empréstimo só durava até o fim da temporada, com taxa/
+   salário sempre fixos. Agora, ao abrir o modal de configuração (ver
+   openLoanOutModal/openLoanInModal), dá pra escolher DURAÇÃO (6 meses
+   ou temporada inteira — ver LOAN_HALF_SEASON_ROUNDS), o PERCENTUAL do
+   salário pago (só do lado de quem pega emprestado, ver
+   finalizeLoanIn) e uma CLÁUSULA DE COMPRA opcional ou obrigatória
+   (ver loanBuyOption/shouldExerciseBuyOption) que vira transferência
+   definitiva quando o empréstimo termina.
 
    Jogador que VOCÊ empresta: sai do CAREER.squad, entra no elenco de
    um clube CPU com interesse (mesma checagem de vaga/interesse da
    venda, ver findInterestedBuyer) marcado com onLoanFromClubId — só
-   essa marca já é suficiente pra saber que é seu no fim da temporada
-   E pra impedir comprar/pegar de volta emprestado ele mesmo entre isso
-   e lá (ver allMarketPlayers, que filtra ele fora da lista de
-   "outros"). Salário dele não conta mais pro seu teto enquanto estiver
-   fora (CPU não tem folha salarial, então não precisa zerar nada).
+   essa marca já é suficiente pra saber que é seu quando o empréstimo
+   terminar E pra impedir comprar/pegar de volta emprestado ele mesmo
+   nesse meio tempo (ver allMarketPlayers, que filtra ele fora da lista
+   de "outros"). Salário dele não conta mais pro seu teto enquanto
+   estiver fora (CPU não tem folha salarial, então não precisa zerar
+   nada).
 
    Jogador que VOCÊ pega emprestado: origin vira "loan" (nem principal
    nem base) — sem botão de vender/dispensar/promover/renovar contrato
    no detalhe (ver openDetail: você não é dono, só usuário temporário),
-   só ação de escalação normal. Salário reduzido (metade do valor de
-   mercado, ver loanInPlayer) CONTA pro seu teto (ver wageBillOf) —
-   você paga o clube emprestando o atleta, é o trato. */
-function loanOutPlayer(id) {
+   só ação de escalação normal. Salário reduzido (percentual escolhido
+   no modal, ver finalizeLoanIn) CONTA pro seu teto (ver wageBillOf) —
+   você paga o clube emprestando o atleta, é o trato.
+
+   Retorno: quem tem loanReturnRound definido (empréstimo de 6 meses)
+   volta no meio da temporada, checado a cada rodada simulada (ver
+   checkMidSeasonLoanReturns, chamado de dentro de simulateRound).
+   Quem tem loanReturnRound null (temporada inteira) só resolve na
+   virada de temporada (ver resolveLoanReturns, chamado de dentro de
+   advanceSeason ANTES da renovação normal, pra quem voltou envelhecer/
+   ter contrato checado como qualquer outro jogador do elenco no mesmo
+   clique). Os dois casos reaproveitam settleLoanOut/settleLoanIn, que
+   também resolvem a cláusula de compra quando existir. */
+const LOAN_HALF_SEASON_ROUNDS = 19; // "6 meses" ≈ metade das 38 rodadas
+// Decide se uma cláusula de compra é acionada quando o empréstimo
+// termina. Obrigatória: sempre. Opcional do lado CPU (comprou um
+// jogador seu emprestado): sorteio, igual toda decisão de time CPU
+// nesse jogo (ver findInterestedBuyer). Opcional do lado humano (você
+// pegou emprestado) é decidida à parte por quem chama (checa caixa e
+// teto antes de comprar, ver settleLoanIn) — aqui devolve sempre false
+// pra esse caso, só pra não duplicar a mesma checagem financeira.
+function shouldExerciseBuyOption(option, { human }) {
+  if (!option) return false;
+  if (option.mandatory) return true;
+  if (human) return false;
+  return Math.random() < 0.55;
+}
+// Resolve o lado de um empréstimo QUE VOCÊ DEU (jogador está em
+// CAREER.leagueSquads[clubId], marcado com onLoanFromClubId).
+function settleLoanOut(clubId, p) {
+  const club = teamById(clubId);
+  const option = p.loanBuyOption;
+  if (shouldExerciseBuyOption(option, { human: false })) {
+    CAREER.finances.cash += option.value;
+    delete p.onLoanFromClubId; delete p.loanReturnRound; delete p.loanBuyOption;
+    pushTransferLog(`${club.name} acionou a cláusula de compra e ficou definitivamente com ${p.name} por ${fmtBRL(option.value)}.`, CAREER.currentRound);
+    toast(`${abbreviateName(p.name)} foi comprado em definitivo pelo ${club.name}!`);
+    return;
+  }
+  CAREER.leagueSquads[clubId] = (CAREER.leagueSquads[clubId] || []).filter((x) => x !== p);
+  delete p.onLoanFromClubId; delete p.loanReturnRound; delete p.loanBuyOption;
+  CAREER.squad.push(p);
+  pushTransferLog(`${p.name} voltou do empréstimo no ${club.name}.`, CAREER.currentRound);
+  toast(`${abbreviateName(p.name)} voltou do empréstimo!`);
+}
+// Resolve o lado de um empréstimo QUE VOCÊ PEGOU (jogador está no seu
+// CAREER.squad, origin "loan").
+function settleLoanIn(p) {
+  const option = p.loanBuyOption;
+  let buys = false;
+  if (option) {
+    if (option.mandatory) buys = true;
+    else {
+      // Opcional do seu lado: só compra se realmente couber no
+      // orçamento com o salário CHEIO de volta (contrato definitivo
+      // não sai mais pelo valor reduzido do empréstimo).
+      const wageAfter = wageBillOf(CAREER.squad) - p.wage + p.loanOriginalWage;
+      buys = CAREER.finances.cash >= option.value && wageAfter <= CAREER.finances.wageCap;
+    }
+  }
+  if (buys) {
+    CAREER.finances.cash -= option.value;
+    p.wage = p.loanOriginalWage;
+    p.origin = "principal";
+    delete p.loanFromClubId; delete p.loanOriginalWage; delete p.loanReturnRound; delete p.loanBuyOption;
+    pushTransferLog(`Você acionou a cláusula e comprou ${p.name} em definitivo por ${fmtBRL(option.value)}.`, CAREER.currentRound);
+    toast(`${abbreviateName(p.name)} contratado em definitivo!`);
+    return;
+  }
+  const fromId = String(p.loanFromClubId);
+  const fromClub = teamById(fromId);
+  CAREER.squad = CAREER.squad.filter((x) => x !== p);
+  p.origin = "principal";
+  if (p.loanOriginalWage != null) p.wage = p.loanOriginalWage;
+  delete p.loanFromClubId; delete p.loanOriginalWage; delete p.loanReturnRound; delete p.loanBuyOption;
+  (CAREER.leagueSquads[fromId] = CAREER.leagueSquads[fromId] || []).push(p);
+  const remainingIds = new Set(CAREER.squad.map((x) => x.id));
+  CAREER.lineup.starters = CAREER.lineup.starters.map((id) => (id && remainingIds.has(id) ? id : null));
+  CAREER.lineup.bench = CAREER.lineup.bench.filter((id) => remainingIds.has(id));
+  pushTransferLog(`${p.name} voltou pro ${fromClub.name} depois do empréstimo.`, CAREER.currentRound);
+  toast(`Empréstimo de ${abbreviateName(p.name)} terminou — ele voltou pro ${fromClub.name}.`);
+}
+// Chamada a cada rodada simulada (ver simulateRound) — só resolve quem
+// tem loanReturnRound definido (empréstimo de 6 meses) E já chegou lá;
+// empréstimo de temporada inteira (loanReturnRound null) fica de fora,
+// só resolve na virada de temporada (ver resolveLoanReturns).
+function checkMidSeasonLoanReturns(round) {
+  Object.keys(CAREER.leagueSquads).forEach((clubId) => {
+    const due = (CAREER.leagueSquads[clubId] || []).filter((p) =>
+      p.onLoanFromClubId && String(p.onLoanFromClubId) === String(CAREER.clubId) && p.loanReturnRound != null && p.loanReturnRound <= round
+    );
+    due.forEach((p) => settleLoanOut(clubId, p));
+  });
+  CAREER.squad.filter((p) => p.origin === "loan" && p.loanReturnRound != null && p.loanReturnRound <= round)
+    .forEach((p) => settleLoanIn(p));
+}
+// Chamada de dentro de advanceSeason, antes da renovação normal (ver
+// comentário lá) — a temporada está acabando, então TODO empréstimo
+// ainda ativo (de qualquer duração) resolve agora, cláusula de compra
+// incluída (ver settleLoanOut/settleLoanIn).
+function resolveLoanReturns() {
+  Object.keys(CAREER.leagueSquads).forEach((clubId) => {
+    const returning = (CAREER.leagueSquads[clubId] || []).filter((p) => p.onLoanFromClubId && String(p.onLoanFromClubId) === String(CAREER.clubId));
+    returning.forEach((p) => settleLoanOut(clubId, p));
+  });
+  CAREER.squad.filter((p) => p.origin === "loan").forEach((p) => settleLoanIn(p));
+}
+// ---- Modal de configuração (duração / % salário / cláusula) ----
+let LOAN_CTX = null;
+function resetLoanForm(suggestedValue) {
+  document.getElementById("loanDurationSelect").value = "temporada";
+  document.getElementById("loanWagePctSelect").value = "50";
+  document.getElementById("loanBuyClauseSelect").value = "nenhuma";
+  document.getElementById("loanBuyValueInput").value = suggestedValue || 0;
+  document.getElementById("loanBuyValueField").classList.add("hidden");
+}
+function openLoanOutModal(id) {
   if (!transferWindowStatus(CAREER.currentRound).open) {
     toast("Janela de contratações encerrada — não dá pra negociar empréstimo agora.");
-    return Promise.resolve(false);
+    return;
   }
   const p = CAREER.squad.find((x) => x.id === id);
-  if (!p) return Promise.resolve(false);
-  if (p.origin !== "principal") {
-    toast("Só dá pra emprestar jogador do elenco principal.");
-    return Promise.resolve(false);
-  }
+  if (!p) return;
+  if (p.origin !== "principal") { toast("Só dá pra emprestar jogador do elenco principal."); return; }
   const principalCount = CAREER.squad.filter((x) => x.origin === "principal").length;
-  if (principalCount <= 14) {
-    toast("O elenco principal não pode ficar com menos de 14 jogadores.");
-    return Promise.resolve(false);
-  }
-  return (async () => {
-    if (!(await confirmModal(`Emprestar ${p.name} até o fim da temporada?`, "Emprestar"))) return false;
-    const buyer = findInterestedBuyer(CAREER.clubId);
-    if (!buyer) {
-      toast(`Nenhum time demonstrou interesse em pegar ${abbreviateName(p.name)} emprestado agora.`);
-      return false;
-    }
-    CAREER.squad = CAREER.squad.filter((x) => x.id !== id);
-    CAREER.lineup.starters = CAREER.lineup.starters.map((x) => (x === id ? null : x));
-    CAREER.lineup.bench = CAREER.lineup.bench.filter((x) => x !== id);
-    p.onLoanFromClubId = CAREER.clubId;
-    (CAREER.leagueSquads[String(buyer.id)] = CAREER.leagueSquads[String(buyer.id)] || []).push(p);
-    // Taxa de empréstimo — bem menor que uma venda de verdade (10% do valor de mercado).
-    const fee = Math.round((p.value * 0.10) / 1000) * 1000;
-    CAREER.finances.cash += fee;
-    pushTransferLog(`Você emprestou ${p.name} pro ${buyer.name} até o fim da temporada por ${fmtBRL(fee)}.`, CAREER.currentRound);
-    toast(`${abbreviateName(p.name)} emprestado por ${fmtBRL(fee)} — volta no fim da temporada.`);
-    return true;
-  })();
+  if (principalCount <= 14) { toast("O elenco principal não pode ficar com menos de 14 jogadores."); return; }
+  LOAN_CTX = { direction: "out", playerId: id };
+  document.getElementById("loanTitle").textContent = "Emprestar jogador";
+  document.getElementById("loanSub").textContent = `${abbreviateName(p.name)} · valor de mercado ${fmtBRL(p.value)}`;
+  document.getElementById("loanWagePctField").classList.add("hidden");
+  resetLoanForm(p.value);
+  document.getElementById("loanOverlay").classList.add("open");
 }
-// Botão "Emprestar" direto na aba Mercado (fora do detalhe do jogador
-// — ver handlePlayerAction pro caminho de dentro do detalhe).
-async function loanOutFromMarket(id) {
-  if (!(await loanOutPlayer(id))) return;
-  persistCareer();
-  renderMercado(); renderElenco(); renderCentral();
-}
-async function loanInPlayer(clubId, playerId) {
+function openLoanInModal(clubId, playerId) {
   if (!transferWindowStatus(CAREER.currentRound).open) {
     toast("Janela de contratações encerrada — não dá pra pegar jogador emprestado agora.");
     return;
   }
+  const p = leagueSquadFor(clubId).find((x) => x.id === playerId);
+  if (!p) return;
+  LOAN_CTX = { direction: "in", playerId, clubId: String(clubId) };
+  document.getElementById("loanTitle").textContent = "Pegar jogador emprestado";
+  document.getElementById("loanSub").textContent = `${abbreviateName(p.name)} · ${teamById(clubId).name} · salário cheio ${fmtBRL(p.wage)}/mês`;
+  document.getElementById("loanWagePctField").classList.remove("hidden");
+  resetLoanForm(p.value);
+  document.getElementById("loanOverlay").classList.add("open");
+}
+function closeLoanModal() {
+  document.getElementById("loanOverlay").classList.remove("open");
+  LOAN_CTX = null;
+}
+async function confirmLoanFromModal() {
+  if (!LOAN_CTX) return;
+  const durationSel = document.getElementById("loanDurationSelect").value;
+  const buyClause = document.getElementById("loanBuyClauseSelect").value;
+  const buyValue = Math.max(0, Math.round(Number(document.getElementById("loanBuyValueInput").value) || 0));
+  const buyOption = buyClause === "nenhuma" ? null : { mandatory: buyClause === "obrigatoria", value: buyValue };
+  const returnRound = durationSel === "meia" ? Math.min(CAREER.currentRound + LOAN_HALF_SEASON_ROUNDS, 38) : null;
+  let ok;
+  if (LOAN_CTX.direction === "out") {
+    ok = await finalizeLoanOut(LOAN_CTX.playerId, { returnRound, buyOption });
+  } else {
+    const wagePct = Number(document.getElementById("loanWagePctSelect").value) || 50;
+    ok = await finalizeLoanIn(LOAN_CTX.clubId, LOAN_CTX.playerId, { returnRound, buyOption, wagePct });
+  }
+  if (!ok) return; // mantém o modal aberto pra ajustar
+  closeLoanModal();
+  if (document.getElementById("detailOverlay").classList.contains("open")) document.getElementById("detailOverlay").classList.remove("open");
+  persistCareer();
+  renderMercado(); renderElenco(); renderCentral();
+}
+async function finalizeLoanOut(id, { returnRound, buyOption }) {
+  const p = CAREER.squad.find((x) => x.id === id);
+  if (!p) return false;
+  const buyer = findInterestedBuyer(CAREER.clubId);
+  if (!buyer) {
+    toast(`Nenhum time demonstrou interesse em pegar ${abbreviateName(p.name)} emprestado agora.`);
+    return false;
+  }
+  CAREER.squad = CAREER.squad.filter((x) => x.id !== id);
+  CAREER.lineup.starters = CAREER.lineup.starters.map((x) => (x === id ? null : x));
+  CAREER.lineup.bench = CAREER.lineup.bench.filter((x) => x !== id);
+  p.onLoanFromClubId = CAREER.clubId;
+  p.loanReturnRound = returnRound;
+  p.loanBuyOption = buyOption;
+  (CAREER.leagueSquads[String(buyer.id)] = CAREER.leagueSquads[String(buyer.id)] || []).push(p);
+  // Taxa de empréstimo — bem menor que uma venda de verdade (10% do
+  // valor de mercado; metade disso se for só por 6 meses).
+  const fee = Math.round((p.value * 0.10 * (returnRound ? 0.5 : 1)) / 1000) * 1000;
+  CAREER.finances.cash += fee;
+  const durationLabel = returnRound ? "por 6 meses" : "até o fim da temporada";
+  const clauseLabel = buyOption ? (buyOption.mandatory ? ` (compra obrigatória de ${fmtBRL(buyOption.value)} ao fim)` : ` (opção de compra de ${fmtBRL(buyOption.value)} ao fim)`) : "";
+  pushTransferLog(`Você emprestou ${p.name} pro ${buyer.name} ${durationLabel} por ${fmtBRL(fee)}${clauseLabel}.`, CAREER.currentRound);
+  toast(`${abbreviateName(p.name)} emprestado por ${fmtBRL(fee)}.`);
+  return true;
+}
+async function finalizeLoanIn(clubId, playerId, { returnRound, buyOption, wagePct }) {
   const squad = leagueSquadFor(clubId);
   const idx = squad.findIndex((x) => x.id === playerId);
-  if (idx < 0) return;
+  if (idx < 0) return false;
   const p = squad[idx];
-  const loanWage = Math.round((p.wage * 0.5) / 100) * 100;
+  const loanWage = Math.round((p.wage * (wagePct / 100)) / 100) * 100;
   if (wageBillOf(CAREER.squad) + loanWage > CAREER.finances.wageCap) {
     toast(`Pegar esse jogador emprestado estouraria o teto salarial (${fmtBRL(CAREER.finances.wageCap)}).`);
-    return;
+    return false;
   }
-  if (CAREER.squad.length >= MAX_PRINCIPAL + 20) { toast("Elenco já está muito grande — dispense ou negocie alguém antes."); return; }
-  if (!(await confirmModal(`Pegar ${p.name} emprestado até o fim da temporada (salário reduzido: ${fmtBRL(loanWage)}/mês)?`, "Pegar emprestado"))) return;
+  if (CAREER.squad.length >= MAX_PRINCIPAL + 20) { toast("Elenco já está muito grande — dispense ou negocie alguém antes."); return false; }
   squad.splice(idx, 1);
   p.loanFromClubId = String(clubId);
   p.loanOriginalWage = p.wage;
   p.wage = loanWage;
   p.origin = "loan";
+  p.loanReturnRound = returnRound;
+  p.loanBuyOption = buyOption;
   CAREER.squad.push(p);
-  pushTransferLog(`Você pegou ${p.name} emprestado do ${teamById(clubId).name} até o fim da temporada.`, CAREER.currentRound);
+  const durationLabel = returnRound ? "por 6 meses" : "até o fim da temporada";
+  const clauseLabel = buyOption ? (buyOption.mandatory ? `, com compra obrigatória de ${fmtBRL(buyOption.value)} ao fim` : `, com opção de compra de ${fmtBRL(buyOption.value)} ao fim`) : "";
+  pushTransferLog(`Você pegou ${p.name} emprestado do ${teamById(clubId).name} ${durationLabel} (${wagePct}% do salário)${clauseLabel}.`, CAREER.currentRound);
   toast(`${abbreviateName(p.name)} chegou emprestado!`);
-  persistCareer();
-  renderMercado(); renderElenco(); renderCentral();
-}
-// Chamada de dentro de advanceSeason, antes da renovação normal (ver
-// comentário lá) — devolve os 2 lados do empréstimo pro dono de
-// origem. Empréstimo QUE VOCÊ DEU: procura em todo leagueSquads quem
-// tem onLoanFromClubId apontando pro seu clube. Empréstimo QUE VOCÊ
-// PEGOU: procura no seu squad quem tem origin "loan".
-function resolveLoanReturns() {
-  Object.keys(CAREER.leagueSquads).forEach((clubId) => {
-    const squad = CAREER.leagueSquads[clubId];
-    const returning = squad.filter((p) => p.onLoanFromClubId && String(p.onLoanFromClubId) === String(CAREER.clubId));
-    if (!returning.length) return;
-    CAREER.leagueSquads[clubId] = squad.filter((p) => !returning.includes(p));
-    returning.forEach((p) => { delete p.onLoanFromClubId; });
-    CAREER.squad.push(...returning);
-  });
-  const cameBack = CAREER.squad.filter((p) => p.origin === "loan");
-  if (cameBack.length) {
-    CAREER.squad = CAREER.squad.filter((p) => p.origin !== "loan");
-    cameBack.forEach((p) => {
-      const fromId = String(p.loanFromClubId);
-      p.origin = "principal";
-      if (p.loanOriginalWage != null) p.wage = p.loanOriginalWage;
-      delete p.loanFromClubId; delete p.loanOriginalWage;
-      (CAREER.leagueSquads[fromId] = CAREER.leagueSquads[fromId] || []).push(p);
-    });
-    const remainingIds = new Set(CAREER.squad.map((p) => p.id));
-    CAREER.lineup.starters = CAREER.lineup.starters.map((id) => (id && remainingIds.has(id) ? id : null));
-    CAREER.lineup.bench = CAREER.lineup.bench.filter((id) => remainingIds.has(id));
-  }
+  return true;
 }
 // 0 a 2 transferências entre times CPU por rodada (chance decrescente
 // — a maioria das rodadas não tem nenhuma, imitando janela de
@@ -1651,6 +1776,12 @@ function simulateRound() {
   refreshAvailability(nextRound);
   const lineupChanges = autoFixLineup(nextRound);
   CAREER.currentRound = nextRound;
+  // FASE 3 (item 3) — empréstimo de 6 meses (loanReturnRound definido)
+  // pode terminar NO MEIO da temporada — checa isso toda rodada, antes
+  // do resto do fluxo (folha salarial, mercado) rodar com o elenco já
+  // atualizado. Empréstimo de temporada inteira só resolve em
+  // advanceSeason (ver resolveLoanReturns).
+  checkMidSeasonLoanReturns(nextRound);
   // FASE 2 (b) — paga a folha salarial do elenco PRINCIPAL a cada
   // rodada simulada (aproximação: ~4 rodadas por mês numa temporada de
   // 38 rodadas, então 1/4 da folha mensal por rodada) — o caixa vai
@@ -1831,7 +1962,7 @@ function playerRow(p) {
   const contractTag = isContractExpiring(p) ? ' <span class="ct-pill contract" style="margin-left:4px;" title="Sai de graça se a temporada acabar sem renovar">Fim de contrato</span>' : "";
   // Empréstimo — mesma linguagem visual do "gerado" (pill neutro), só
   // pra deixar claro na lista que esse jogador não é seu de verdade.
-  const loanTag = p.origin === "loan" ? ' <span class="ct-pill base" style="margin-left:4px;" title="Volta pro clube de origem no fim da temporada">emprestado</span>' : "";
+  const loanTag = p.origin === "loan" ? ` <span class="ct-pill base" style="margin-left:4px;" title="${p.loanReturnRound ? `Volta pro clube de origem na rodada ${p.loanReturnRound}` : "Volta pro clube de origem no fim da temporada"}">emprestado</span>` : "";
   // FASE 2 (b) — só marca os EXTREMOS (feliz/infeliz) — moral neutra
   // (a maioria do elenco, na prática) não precisa de ícone nenhum, só
   // poluiria a lista à toa.
@@ -2041,7 +2172,7 @@ function openDetail(id) {
            seu, só está temporariamente no elenco (ver comentário na
            seção "empréstimo de jogadores" mais acima em carreira.js). -->
       ${p.origin === "loan"
-        ? `<p class="ct-sub" style="text-align:center;">📋 Emprestado do ${escapeHtml(teamById(p.loanFromClubId).name)} até o fim da temporada — só dá pra escalar.</p>`
+        ? `<p class="ct-sub" style="text-align:center;">📋 Emprestado do ${escapeHtml(teamById(p.loanFromClubId).name)} ${p.loanReturnRound ? `até a rodada ${p.loanReturnRound}` : "até o fim da temporada"}${p.loanBuyOption ? (p.loanBuyOption.mandatory ? ` · compra obrigatória de ${fmtBRL(p.loanBuyOption.value)} ao fim` : ` · opção de compra de ${fmtBRL(p.loanBuyOption.value)} ao fim`) : ""} — só dá pra escalar.</p>`
         : `<button class="ct-btn full danger" data-act="release">Dispensar</button>`}
     </div>
     ${promoteBlocked ? `<p class="ct-sub" style="color:var(--brd-red); margin-top:8px;">⚠️ Promover esse jogador levaria a folha salarial a ${fmtBRL(wageAfterPromote)}, acima do teto de ${fmtBRL(CAREER.finances.wageCap)}.</p>` : ""}`;
@@ -2058,6 +2189,10 @@ async function handlePlayerAction(id, act) {
   // qualquer outra modal já aberta) — não fecha nem mexe em nada aqui,
   // quem decide o que muda é proposeRenewal().
   if (act === "renew") { openRenewModal(id); return; }
+  // FASE 3 (item 3) — mesmo padrão do "renew" acima: abre o sub-modal
+  // de configuração do empréstimo POR CIMA do detalhe, sem mexer em
+  // nada ainda — quem decide o que muda é confirmLoanFromModal().
+  if (act === "loanout") { openLoanOutModal(id); return; }
   if (act === "removeStarter") {
     CAREER.lineup.starters = CAREER.lineup.starters.map((x) => (x === id ? null : x));
   } else if (act === "removeBench") {
@@ -2085,8 +2220,6 @@ async function handlePlayerAction(id, act) {
     CAREER.lineup.bench = CAREER.lineup.bench.filter((x) => x !== id);
   } else if (act === "sell") {
     if (!(await sellPlayer(id))) return; // cancelado ou bloqueado — mantém o modal aberto
-  } else if (act === "loanout") {
-    if (!(await loanOutPlayer(id))) return; // cancelado ou bloqueado — mantém o modal aberto
   }
   document.getElementById("detailOverlay").classList.remove("open");
   persistCareer();
@@ -2470,10 +2603,10 @@ function renderMercado() {
     btn.addEventListener("click", () => sellFromMarket(btn.dataset.sell));
   });
   document.getElementById("marketList").querySelectorAll("[data-loanout]").forEach((btn) => {
-    btn.addEventListener("click", () => loanOutFromMarket(btn.dataset.loanout));
+    btn.addEventListener("click", () => openLoanOutModal(btn.dataset.loanout));
   });
   document.getElementById("marketList").querySelectorAll("[data-loanin]").forEach((btn) => {
-    btn.addEventListener("click", () => loanInPlayer(btn.dataset.club, btn.dataset.loanin));
+    btn.addEventListener("click", () => openLoanInModal(btn.dataset.club, btn.dataset.loanin));
   });
 
   const feed = CAREER.transferLog || [];
@@ -2896,6 +3029,16 @@ function wireStaticListeners() {
   document.getElementById("renewClose").addEventListener("click", closeRenewModal);
   document.getElementById("renewOverlay").addEventListener("click", (e) => { if (e.target.id === "renewOverlay") closeRenewModal(); });
   document.getElementById("btnRenewPropose").addEventListener("click", proposeRenewal);
+  // FASE 3 (item 3) — sub-modal de configuração de empréstimo, mesmo
+  // padrão de fechamento dos outros (X e clique fora fecham sem
+  // confirmar nada). Campo de valor da cláusula só aparece quando a
+  // cláusula não é "nenhuma".
+  document.getElementById("loanClose").addEventListener("click", closeLoanModal);
+  document.getElementById("loanOverlay").addEventListener("click", (e) => { if (e.target.id === "loanOverlay") closeLoanModal(); });
+  document.getElementById("btnLoanConfirm").addEventListener("click", confirmLoanFromModal);
+  document.getElementById("loanBuyClauseSelect").addEventListener("change", (e) => {
+    document.getElementById("loanBuyValueField").classList.toggle("hidden", e.target.value === "nenhuma");
+  });
   // Pedido do usuário: X também nas modais de detalhe do jogo e de
   // resultados da rodada (só fecha, igual às outras 2 — quem quiser ver
   // o próximo passo do fluxo clica em "Continuar" mesmo).
