@@ -833,6 +833,32 @@
   </div>
 </div>
 
+<!-- FASE 4 (item 1) — "conversa individual" (relacionamento
+     jogador-técnico), aberta POR CIMA do detalhe do jogador (mesmo
+     padrão do renewOverlay acima) só quando aplicável (ver
+     canTalkTo/openTalkModal em carreira.js). Mensagem curta, decisão
+     ternária — mantém tamanho compacto (não é modal de tela cheia). -->
+<div class="ct-modal-overlay" id="talkOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header">
+      <span class="ct-modal-icon">💬</span>
+      <div class="ct-modal-header-text">
+        <h3>Conversa individual</h3>
+        <div class="ct-modal-sub" id="talkSub"></div>
+      </div>
+      <button class="ct-modal-close" id="talkClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <p class="ct-sub" id="talkContext" style="margin-bottom:14px;"></p>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <button class="ct-btn full primary" data-talk="apoiar">Ouvir e apoiar</button>
+        <button class="ct-btn full" data-talk="prometer">Prometer mais chances</button>
+        <button class="ct-btn full" data-talk="cobrar">Cobrar postura</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- FASE 3 (item 3) — configuração de empréstimo (dar ou pegar),
      aberto de dentro do Mercado ou do detalhe do jogador (ver
      openLoanOutModal/openLoanInModal em carreira.js). Mesmo padrão do
