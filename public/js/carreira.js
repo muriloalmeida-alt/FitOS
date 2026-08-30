@@ -551,6 +551,143 @@ function initialFinances(squad) {
   return { cash, wageCap };
 }
 
+/* ---------- FASE 4 (item 5 da especificação "BR Data Treinador") —
+   patrocínio e material esportivo ----------
+   Dois contratos comerciais (patrocinador master e material
+   esportivo), cada um com duração fixa (2-3 temporadas) e valor por
+   temporada, renovável ao vencer com propostas concorrentes (ver
+   generateSponsorProposals/advanceSponsorshipSeason). Efeito é
+   PURAMENTE financeiro (a própria especificação já decide isso —
+   "não precisa de sistema visual de camisa estampada") — soma no caixa
+   em parcelas ao longo da temporada (ver finishRoundTail), mesmo
+   ritmo de "dinheiro chega aos poucos" do ingresso/salário.
+
+   Valor da proposta escala com desempenho recente (ver
+   sponsorshipTier): posição da última temporada terminada
+   (CAREER.seasonHistory[0], já existe) + título — Brasileirão
+   (posição 1) ou Copa do Brasil (CAREER.cup.championIsHuman,
+   verificado ANTES de setupCup() resetar a Copa pra temporada nova,
+   ver advanceSeason) — decisão nossa pro "escala com desempenho"
+   pedido, sem precisar de um histórico de títulos à parte. */
+const SPONSOR_MASTER_NAMES = ["Banco Vértice", "Seguradora Ipê", "TotalBet Apostas", "ConectaTelecom", "Ouro Fino Bebidas", "Vitalis Saúde"];
+const SPONSOR_MATERIAL_NAMES = ["Aro Sports", "Fortex", "Zênite Esportes", "Rael Wear", "Lance Esportivo", "Bravo Sport"];
+const SPONSOR_BASE_VALUE = { master: 5000000, material: 2000000 };
+function sponsorshipTier() {
+  const lastSeason = (CAREER.seasonHistory || [])[0];
+  let score = 40; // base neutra (sem histórico ainda, ex.: 1ª temporada)
+  if (lastSeason) {
+    if (lastSeason.position <= 4) score += 35;
+    else if (lastSeason.position <= 8) score += 20;
+    else if (lastSeason.position <= 12) score += 5;
+    else if (lastSeason.position >= 17) score -= 15;
+    if (lastSeason.position === 1) score += 25; // campeão do Brasileirão
+  }
+  if (CAREER.cup && CAREER.cup.championIsHuman) score += 20; // campeão da Copa do Brasil
+  return clamp(score, 10, 100);
+}
+function generateSponsorProposals(kind) {
+  const base = SPONSOR_BASE_VALUE[kind];
+  const tier = sponsorshipTier();
+  const mult = 0.6 + (tier / 100) * 1.2;
+  const names = kind === "master" ? SPONSOR_MASTER_NAMES : SPONSOR_MATERIAL_NAMES;
+  const pool = [...names].sort(() => Math.random() - 0.5).slice(0, 3);
+  return pool.map((empresa) => {
+    const duracao = 2 + Math.floor(Math.random() * 2); // 2 ou 3 temporadas
+    const variance = 0.85 + Math.random() * 0.3;
+    const valorTemporada = Math.round((base * mult * variance) / 50000) * 50000;
+    return { empresa, valorTemporada, duracao };
+  });
+}
+// Chamado só na criação da carreira — assina de cara a 1ª proposta
+// gerada de cada tipo (tier neutro, sem histórico ainda) pra não
+// começar sem nenhum contrato (o jogador só vê o fluxo de "escolher
+// proposta" quando um contrato de verdade VENCE, ver
+// advanceSponsorshipSeason).
+function initSponsorship() {
+  const sign = (kind) => {
+    const p = generateSponsorProposals(kind)[0];
+    return { empresa: p.empresa, valorTemporada: p.valorTemporada, temporadasRestantes: p.duracao };
+  };
+  CAREER.sponsorship = { master: sign("master"), material: sign("material") };
+  CAREER.sponsorProposals = { master: null, material: null };
+}
+// Chamado de dentro de advanceSeason, ANTES de setupCup() resetar a
+// Copa (ver sponsorshipTier acima) — decrementa quem tem contrato
+// ativo; quando chega a 0, o contrato vence e vira propostas novas pra
+// escolher (ver openSponsorProposalsModal).
+function advanceSponsorshipSeason() {
+  ["master", "material"].forEach((kind) => {
+    const deal = CAREER.sponsorship[kind];
+    if (deal) {
+      deal.temporadasRestantes -= 1;
+      if (deal.temporadasRestantes <= 0) {
+        CAREER.sponsorship[kind] = null;
+        CAREER.sponsorProposals[kind] = generateSponsorProposals(kind);
+      }
+    } else if (!CAREER.sponsorProposals[kind]) {
+      CAREER.sponsorProposals[kind] = generateSponsorProposals(kind);
+    }
+  });
+}
+function sponsorshipSeasonTotal() {
+  return ["master", "material"].reduce((sum, kind) => sum + (CAREER.sponsorship[kind] ? CAREER.sponsorship[kind].valorTemporada : 0), 0);
+}
+const SPONSOR_KIND_LABEL = { master: "Patrocinador Master", material: "Material Esportivo" };
+// Card dentro do Financeiro (ver renderCentral) — 2 linhas (master e
+// material), cada uma com o contrato atual ou um botão "Ver propostas"
+// quando o contrato venceu (ver advanceSponsorshipSeason).
+function renderSponsorship() {
+  const rows = ["master", "material"].map((kind) => {
+    const deal = CAREER.sponsorship[kind];
+    const info = deal
+      ? `${escapeHtml(deal.empresa)} · ${fmtBRL(deal.valorTemporada)}/temporada · ${deal.temporadasRestantes} temporada${deal.temporadasRestantes === 1 ? "" : "s"} restante${deal.temporadasRestantes === 1 ? "" : "s"}`
+      : "Sem contrato — escolha uma proposta";
+    const btn = deal ? "" : `<button class="ct-btn small" data-sponsor-choose="${kind}">Ver propostas</button>`;
+    return `<div class="ct-sponsor-row">
+      <div><b>${SPONSOR_KIND_LABEL[kind]}</b><div class="ct-sub">${info}</div></div>
+      ${btn}
+    </div>`;
+  }).join("");
+  const box = document.getElementById("sponsorshipBox");
+  box.innerHTML = rows;
+  box.querySelectorAll("[data-sponsor-choose]").forEach((btn) => {
+    btn.addEventListener("click", () => openSponsorProposalsModal(btn.dataset.sponsorChoose));
+  });
+}
+function openSponsorProposalsModal(kind) {
+  // Rede de segurança: se por algum motivo não tinha propostas geradas
+  // ainda (não deveria acontecer, ver advanceSponsorshipSeason/
+  // migrateCareerDefaults), gera na hora em vez de travar o botão.
+  const proposals = CAREER.sponsorProposals[kind] || generateSponsorProposals(kind);
+  CAREER.sponsorProposals[kind] = proposals;
+  document.getElementById("sponsorProposalsTitle").textContent = `Propostas — ${SPONSOR_KIND_LABEL[kind]}`;
+  document.getElementById("sponsorProposalsList").innerHTML = proposals.map((p, i) => `
+    <div class="ct-market-row">
+      <div class="ct-market-row-top"><span class="nm">${escapeHtml(p.empresa)}</span></div>
+      <div class="ct-market-row-bottom">
+        <div class="money"><div>${fmtBRL(p.valorTemporada)}/temporada</div><div>${p.duracao} temporada${p.duracao === 1 ? "" : "s"}</div></div>
+        <button class="ct-btn small primary" data-sponsor-sign="${i}">Assinar</button>
+      </div>
+    </div>`).join("");
+  document.getElementById("sponsorProposalsList").querySelectorAll("[data-sponsor-sign]").forEach((btn) => {
+    btn.addEventListener("click", () => signSponsorProposal(kind, Number(btn.dataset.sponsorSign)));
+  });
+  document.getElementById("sponsorProposalsOverlay").classList.add("open");
+}
+function closeSponsorProposalsModal() {
+  document.getElementById("sponsorProposalsOverlay").classList.remove("open");
+}
+function signSponsorProposal(kind, idx) {
+  const proposal = (CAREER.sponsorProposals[kind] || [])[idx];
+  if (!proposal) return;
+  CAREER.sponsorship[kind] = { empresa: proposal.empresa, valorTemporada: proposal.valorTemporada, temporadasRestantes: proposal.duracao };
+  CAREER.sponsorProposals[kind] = null;
+  document.getElementById("sponsorProposalsOverlay").classList.remove("open");
+  persistCareer();
+  renderCentral();
+  toast(`Contrato assinado com ${proposal.empresa}!`);
+}
+
 /* ---------- FASE 3 (a) — diretoria (pedido de orçamento) ----------
    Pedido do usuário: treinador pode pedir mais dinheiro quando o
    orçamento aperta, e a diretoria avalia risco de rebaixamento ou
@@ -942,6 +1079,10 @@ function advanceSeason() {
     return { dismissed: true, finishedYear, finishedPos, finishedGoal, goalWasMet, streak: CAREER.negativeSeasonsStreak };
   }
 
+  // FASE 4 (item 5) — patrocínio: precisa rodar ANTES de setupCup()
+  // resetar CAREER.cup mais abaixo (sponsorshipTier lê
+  // cup.championIsHuman da temporada que ACABOU de terminar).
+  advanceSponsorshipSeason();
   CAREER.seasonYear += 1;
   // FASE 2 (c) — empréstimos (nos dois sentidos) sempre voltam pro dono
   // de origem na virada de temporada — ANTES da renovação normal, pra
@@ -1524,6 +1665,9 @@ async function startCareer(clubId) {
     CAREER.negativeSeasonsStreak = 0;
     // FASE 2 (a) — chaveamento da Copa do Brasil da 1ª temporada.
     setupCup();
+    // FASE 4 (item 5) — contrato inicial de patrocínio/material
+    // esportivo (ver initSponsorship).
+    initSponsorship();
     await persistCareer();
     showGameScreen();
   } finally {
@@ -1932,6 +2076,13 @@ function finishRoundTail(round, allResults, humanMatch) {
   // mercado de transferências (fase seguinte) pra gastar nele.
   const wagePaid = Math.round(wageBillOf(CAREER.squad) / 4);
   CAREER.finances.cash -= wagePaid;
+  // FASE 4 (item 5) — patrocínio paga em parcelas ao longo da
+  // temporada (1/38 do valor anual por rodada), mesmo ritmo de
+  // "dinheiro chega aos poucos" que já existe pra ingresso (por
+  // partida em casa) e salário (por rodada) — em vez de um valor único
+  // na virada de temporada, que seria um pulo brusco de caixa.
+  const sponsorIncome = Math.round(sponsorshipSeasonTotal() / 38);
+  CAREER.finances.cash += sponsorIncome;
   // FASE 2 (c) — mercado de transferências: os outros 19 times também
   // negociam entre si (ver simulateAiTransfers) e, de vez em quando,
   // um deles propõe comprar um jogador SEU (ver maybeGenerateOffer,
@@ -1950,7 +2101,7 @@ function finishRoundTail(round, allResults, humanMatch) {
   // competição (resolveCupPhase devolve null em qualquer outro caso —
   // ver comentário lá).
   const cup = resolveCupPhase(round);
-  return { round, humanMatch, allResults, lineupChanges, wagePaid, newOffer: CAREER.pendingOffer, cup };
+  return { round, humanMatch, allResults, lineupChanges, wagePaid, sponsorIncome, newOffer: CAREER.pendingOffer, cup };
 }
 // Fallback pra uma rodada em que o SEU clube não jogue (não deveria
 // acontecer no returno completo de pontos corridos, mas o calendário é
@@ -2343,6 +2494,9 @@ function renderCentral() {
   btnBoard.disabled = cooldownLeft > 0;
   btnBoard.title = cooldownLeft > 0 ? `A diretoria responde de novo em ${cooldownLeft} rodada(s).` : "";
   document.getElementById("boardDecisionText").textContent = CAREER.boardDecision || "";
+  // FASE 4 (item 5) — patrocínio/material esportivo (ver
+  // renderSponsorship).
+  renderSponsorship();
 
   const lastCard = document.getElementById("lastResultCard");
   const last = CAREER.resultsByRound[round - 1];
@@ -3327,8 +3481,10 @@ function showRoundResultsModal(summary) {
   // FASE 2 (b) — folha salarial paga nessa rodada (ver simulateRound)
   // e caixa restante, pra dar pra acompanhar o orçamento sem precisar
   // ir até a Central toda vez.
+  // FASE 4 (item 5) — patrocínio entra na mesma linha, mesma lógica de
+  // transparência financeira por rodada de sempre.
   document.getElementById("roundResultsFinance").textContent = summary.wagePaid
-    ? `Salários pagos: ${fmtBRL(summary.wagePaid)} · Caixa: ${fmtBRL(CAREER.finances.cash)}`
+    ? `Salários pagos: ${fmtBRL(summary.wagePaid)}${summary.sponsorIncome ? ` · Patrocínio: +${fmtBRL(summary.sponsorIncome)}` : ""} · Caixa: ${fmtBRL(CAREER.finances.cash)}`
     : "";
   // FASE 2 (c) — avisa aqui se surgiu proposta nova por um jogador seu
   // (resolvida na aba Mercado com aceitar/recusar).
@@ -3538,6 +3694,9 @@ function wireStaticListeners() {
   });
   document.getElementById("tabelaModalClose").addEventListener("click", closeTabelaModal);
   document.getElementById("tabelaModalOverlay").addEventListener("click", (e) => { if (e.target.id === "tabelaModalOverlay") closeTabelaModal(); });
+  // FASE 4 (item 5) — modal de propostas de patrocínio.
+  document.getElementById("sponsorProposalsClose").addEventListener("click", closeSponsorProposalsModal);
+  document.getElementById("sponsorProposalsOverlay").addEventListener("click", (e) => { if (e.target.id === "sponsorProposalsOverlay") closeSponsorProposalsModal(); });
 
   document.getElementById("btnRestart").addEventListener("click", async () => {
     document.getElementById("topbarMenu").classList.remove("open");
@@ -3739,6 +3898,12 @@ function migrateCareerDefaults() {
   // log) qualquer fase cujo round já passou nessa temporada em
   // andamento — ver comentário em setupCup.
   if (!CAREER.cup) setupCup(CAREER.currentRound);
+  // FASE 4 (item 5) — carreira criada antes do patrocínio existir:
+  // assina um contrato inicial de cada tipo, mesma função de sempre
+  // (ver initSponsorship) — sem isso o save ficaria pra sempre sem
+  // nenhum contrato (advanceSponsorshipSeason só MEXE em contrato que
+  // já existe, não cria um do zero fora da virada de temporada).
+  if (!CAREER.sponsorship) initSponsorship();
 }
 async function enterAfterAuth() {
   show("screenLoading");
