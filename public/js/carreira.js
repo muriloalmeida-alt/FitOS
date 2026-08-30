@@ -425,6 +425,30 @@ function buildBasePlayer(club, idx, rng) {
     ...computeContractFields(overall, age, potential, rng),
   };
 }
+/* ---------- Fase 2 do Modo Carreira — olheiro / potencial visível na
+   base ----------
+   Pedido do usuário (último item entre 4 opções propostas): "ver uma
+   faixa de potencial (ex.: 78-86) de jogador da base ANTES de
+   promover, em vez de só descobrir o teto dele depois — hoje o
+   potencial existe nos dados mas fica escondido do treinador". O
+   número exato (p.potential, usado internamente desde sempre no bônus
+   de valor de mercado — ver computeContractFields) nunca aparece —
+   só uma FAIXA, com uma folga pra cima e pra baixo (mesmo espírito de
+   "olheiro" real: ninguém crava o teto de um garoto de 16 anos com
+   certeza absoluta). Determinístico por jogador (seededRngFromKey,
+   mesmo padrão de renew-league/renew-human/contract-backfill) — a
+   faixa não muda de um clique de render pro outro, é a mesma
+   avaliação de olheiro cada vez que você abre o card. Quanto mais
+   jovem, mais incerta a projeção (folga maior). */
+function scoutedPotentialRange(p) {
+  if (p.potential == null) return null;
+  const rng = seededRngFromKey(`scout:${p.id}`);
+  const ageUncertainty = p.age <= 17 ? 5 : p.age <= 19 ? 3 : 1;
+  const fuzz = 2 + ageUncertainty + Math.floor(rng() * 3);
+  const lo = clamp(p.potential - fuzz, p.overall, 99);
+  const hi = clamp(p.potential + fuzz, lo, 99);
+  return { lo, hi };
+}
 // Composição usada só pra COMPLETAR o elenco principal quando o
 // fornecedor devolve MENOS jogadores reais do que o mínimo jogável
 // (ver MIN_PRINCIPAL em buildSquad — isso só acontece se a busca real
@@ -1815,9 +1839,14 @@ function playerRow(p) {
   const moraleTag = morale >= 80 ? ` <span title="Moral ${morale} — feliz no clube">😊</span>`
     : morale <= 30 ? ` <span title="Moral ${morale} — infeliz no clube">😞</span>`
     : "";
+  // Fase 2 (olheiro) — faixa de potencial junto do overall, só pra
+  // quem tem potencial pra mostrar (base, e quem já foi promovido mas
+  // ainda carrega o potencial de quando era da base).
+  const potRange = scoutedPotentialRange(p);
+  const potHint = potRange ? `<br><span class="ct-pot-hint" title="Faixa estimada por olheiro — o teto real é incerto até o jogador amadurecer">pot. ${potRange.lo}-${potRange.hi}</span>` : "";
   return `<tr data-id="${p.id}" style="cursor:pointer;">
     <td class="ct-name-cell">${escapeHtml(abbreviateName(p.name))}${(!p.real && p.origin !== "base") ? ' <span class="ct-pill base" style="margin-left:4px;">gerado</span>' : ""}${contractTag}${moraleTag}${loanTag}</td>
-    <td>${subPositionOf(p)}</td><td>${p.age}</td><td><b>${p.overall}</b></td>
+    <td>${subPositionOf(p)}</td><td>${p.age}</td><td><b>${p.overall}</b>${potHint}</td>
     <td><span class="ct-cond-track"><span class="ct-cond-fill" style="width:${Math.round(p.condition)}%"></span></span></td>
     <td>${statusPill}</td>
     <td style="text-align:right; color:var(--text-2);">▸</td>
@@ -1963,6 +1992,10 @@ function openDetail(id) {
   // salarial na Central).
   const morale = p.morale == null ? 70 : p.morale;
   const moraleVariant = morale >= 80 ? "gold" : morale <= 30 ? "red" : null;
+  // Fase 2 (olheiro) — faixa de potencial em destaque ANTES da linha de
+  // condição/salário, bem acima do botão "Promover ao elenco
+  // principal" (pedido do usuário: ver isso ANTES de promover).
+  const potRange = scoutedPotentialRange(p);
   document.getElementById("detailBody").innerHTML = `
     <div class="ct-kpis" style="margin-bottom:12px;">
       <div class="ct-kpi"><div class="v gold">${p.overall}</div><div class="l">Geral</div></div>
@@ -1971,6 +2004,7 @@ function openDetail(id) {
       <div class="ct-kpi"><div class="v">${p.phys}</div><div class="l">Físico</div></div>
       <div class="ct-kpi"><div class="v${moraleVariant ? ` ${moraleVariant}` : ""}">${morale}</div><div class="l">Moral</div></div>
     </div>
+    ${potRange ? `<p class="ct-sub" style="color:var(--gold); font-weight:700;">🔭 Avaliação do olheiro: potencial entre ${potRange.lo} e ${potRange.hi}.</p>` : ""}
     <p class="ct-sub">Condição: ${Math.round(p.condition)}% · Jogos: ${p.apps || 0} · Gols na carreira: ${p.goalsCareer || 0} · Cartões amarelos (ciclo atual): ${p.yellowCards || 0}</p>
     <p class="ct-sub">Salário: ${fmtBRL(p.wage)}/mês · Contrato até: ${p.contractUntil} · Valor de mercado: ${fmtBRL(p.value)}</p>
     <!-- FASE 1 (item 1 da especificação "BR Data Treinador") — pedido
