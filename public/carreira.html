@@ -339,6 +339,55 @@
   .ct-help-btn:hover{ color:var(--text-0); border-color:var(--text-2); }
   .ct-help-text{ margin-top:-6px; margin-bottom:12px; }
   .ct-help-text[hidden]{ display:none; }
+  /* AJUSTE (pedido do usuário: "premiações merece mais capricho no
+     design") — hall da fama de verdade em vez de linhas de texto: hero
+     com o total de títulos do currículo, pódio Campeão/Vice com escudo
+     (ver crestImg) e medalha, prêmios individuais em blocos tipo KPI,
+     borda dourada + "faixa" no card inteiro da temporada em que o SEU
+     clube foi campeão (ver renderAwardsScreen). */
+  .ct-awards-hero{ text-align:center; padding:20px 14px; margin-bottom:18px; border-radius:var(--radius-lg); background:linear-gradient(160deg, var(--navy-card), var(--navy-card2)); border:1px solid var(--gold); }
+  .ct-awards-hero .big{ font-size:28px; font-weight:800; color:var(--gold); line-height:1.2; }
+  .ct-awards-hero .lbl{ font-size:11.5px; color:var(--text-2); margin-top:6px; }
+  .ct-award-season{ border:1px solid var(--border); border-radius:var(--radius-md); padding:16px 18px; margin-bottom:16px; background:var(--navy-card); }
+  .ct-award-season.champion{ border-color:var(--gold); box-shadow:0 0 0 1px var(--gold) inset; }
+  .ct-award-season .yr{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px; }
+  .ct-award-season .yr h2{ margin:0; }
+  .ct-award-season .yr .ribbon{ font-size:10px; font-weight:800; color:var(--navy-deep); background:var(--gold); padding:3px 9px; border-radius:100px; text-transform:uppercase; letter-spacing:.4px; white-space:nowrap; }
+  .ct-award-podium{ display:flex; gap:10px; margin-bottom:12px; }
+  .ct-award-podium .slot{ flex:1; min-width:0; display:flex; align-items:center; gap:8px; background:var(--navy-card2); border-radius:var(--radius-sm); padding:9px 10px; border:1px solid var(--border); }
+  .ct-award-podium .slot.mine{ border-color:var(--gold); background:rgba(201,162,39,.10); }
+  .ct-award-podium .medal{ font-size:17px; flex-shrink:0; }
+  .ct-award-podium .lbl{ display:block; font-size:9.5px; color:var(--text-2); text-transform:uppercase; letter-spacing:.3px; }
+  .ct-award-podium .nm{ display:block; font-size:12.5px; font-weight:700; color:var(--text-0); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ct-award-stats{ display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:8px; margin-bottom:8px; }
+  .ct-award-stat{ background:var(--navy-card2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:9px 10px; }
+  .ct-award-stat.mine{ border-color:var(--gold); background:rgba(201,162,39,.10); }
+  .ct-award-stat .icon{ font-size:13px; }
+  .ct-award-stat .lbl{ display:block; font-size:9.5px; color:var(--text-2); text-transform:uppercase; letter-spacing:.3px; margin:4px 0 2px; }
+  .ct-award-stat .nm{ display:block; font-size:12.5px; font-weight:700; color:var(--text-0); }
+  .ct-award-stat .sub{ display:block; font-size:10.5px; color:var(--text-2); margin-top:1px; }
+  .ct-award-cup{ margin-top:8px; padding-top:10px; border-top:1px dashed var(--border); }
+  .ct-award-cup .title{ font-size:10.5px; font-weight:800; color:var(--text-1); text-transform:uppercase; letter-spacing:.4px; margin-bottom:8px; }
+  /* AJUSTE (pedido do usuário: "esperava uma tela exclusiva pra
+     notícias nos padrões de um portal de esportes") — masthead de
+     jornal, manchete principal em destaque, feed com tag por tipo de
+     notícia e realce dourado quando é do SEU clube (ver
+     renderNewsScreen). */
+  .ct-news-masthead{ text-align:center; padding:6px 0 16px; margin-bottom:16px; border-bottom:2px solid var(--gold); }
+  .ct-news-masthead .brand{ font-size:19px; font-weight:800; color:var(--text-0); letter-spacing:.2px; }
+  .ct-news-masthead .tagline{ font-size:10.5px; color:var(--text-2); text-transform:uppercase; letter-spacing:1px; margin-top:4px; }
+  .ct-news-featured{ border:1px solid var(--gold); border-radius:var(--radius-md); padding:16px 18px; margin-bottom:18px; background:linear-gradient(160deg, var(--navy-card), var(--navy-card2)); }
+  .ct-news-featured .eyebrow{ font-size:10px; font-weight:800; letter-spacing:.8px; text-transform:uppercase; color:var(--gold); margin-bottom:6px; }
+  .ct-news-featured .headline{ font-size:17px; font-weight:800; color:var(--text-0); line-height:1.35; }
+  .ct-news-featured .meta{ font-size:11px; color:var(--text-2); margin-top:10px; }
+  .ct-news-item{ display:flex; gap:12px; padding:12px 4px; border-bottom:1px solid var(--border); }
+  .ct-news-item:last-child{ border-bottom:none; }
+  .ct-news-item.mine{ background:rgba(201,162,39,.08); border-radius:var(--radius-sm); border-bottom-color:rgba(201,162,39,.2); }
+  .ct-news-item .icon{ font-size:19px; flex-shrink:0; line-height:1.4; }
+  .ct-news-item .body{ flex:1; min-width:0; }
+  .ct-news-item .headline{ font-size:13.5px; font-weight:700; color:var(--text-0); line-height:1.4; }
+  .ct-news-item .meta{ font-size:11px; color:var(--text-2); margin-top:5px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .ct-news-tag{ font-size:9.5px; font-weight:800; text-transform:uppercase; letter-spacing:.4px; padding:2px 7px; border-radius:100px; background:rgba(255,255,255,.08); color:var(--text-1); }
   /* FASE 2 (b) — barra de uso do teto salarial, card "Financeiro" da
      Central (largura cheia, diferente de .ct-cond-track que é pra
      dentro de célula de tabela). Vira vermelha perto do limite. */
@@ -524,6 +573,10 @@
         <span></span><span></span><span></span>
       </button>
       <div class="ct-topbar-menu" id="topbarMenu">
+        <!-- AJUSTE (pedido do usuário: "esperava uma tela exclusiva
+             pra notícias nos padrões de um portal de esportes") — ver
+             openNewsScreen em carreira.js. -->
+        <button class="ct-topbar-menu-item" id="btnOpenNews">📰 Notícias</button>
         <!-- FASE 4 (item 6) — tela própria de histórico de premiações
              (ver openAwardsScreen em carreira.js), pedido do usuário:
              "uma tela que armazena os resultados de cada ano". -->
@@ -1125,7 +1178,37 @@
       </div>
       <button class="ct-modal-close" id="awardsClose">✕</button>
     </div>
-    <div class="ct-modal-body" id="awardsList"></div>
+    <div class="ct-modal-body">
+      <div class="ct-awards-hero" id="awardsHero"></div>
+      <div id="awardsList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- FASE 4 (item 3) — tela própria "nos padrões de um portal de
+     esportes" (pedido do usuário), acessível pelo menu "≡" — o feed
+     rápido dentro do modal de resultados da rodada (📻 Rádio Data FM)
+     continua existindo pro flash imediato pós-rodada; essa tela é o
+     arquivo navegável do que já rolou (ver CAREER.newsFeed/
+     renderNewsScreen em carreira.js). -->
+<div class="ct-modal-overlay ct-modal-fullscreen" id="newsOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header">
+      <span class="ct-modal-icon">📰</span>
+      <div class="ct-modal-header-text">
+        <h3>Notícias</h3>
+        <div class="ct-modal-sub">Cobertura da temporada, rodada a rodada</div>
+      </div>
+      <button class="ct-modal-close" id="newsClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <div class="ct-news-masthead">
+        <div class="brand">📰 Jornal do Brasileirão</div>
+        <div class="tagline" id="newsTagline">Edição do técnico</div>
+      </div>
+      <div class="ct-news-featured" id="newsFeatured"></div>
+      <div id="newsList"></div>
+    </div>
   </div>
 </div>
 
