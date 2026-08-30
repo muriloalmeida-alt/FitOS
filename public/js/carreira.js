@@ -714,6 +714,24 @@ function pickRandomOtherClub(excludeId) {
   if (!pool.length) return null;
   return pool[Math.floor(Math.random() * pool.length)];
 }
+// AJUSTE (pedido do usuário: "quando vende um jogador ele sempre deve
+// ir para outro time. Se não tiver interessados ele tem que continuar
+// no elenco") — antes, vender sempre "achava" comprador (19 times
+// sempre existem, então pickRandomOtherClub nunca falhava de verdade)
+// e o jogador desaparecia do jogo garantido. Agora só clubes com vaga
+// no elenco (mesmo teto MAX_LEAGUE_SQUAD das negociações CPU x CPU)
+// entram na lista de possíveis compradores, e mesmo com vaga sobra uma
+// chance de ninguém topar na hora (mercado nem sempre tem interessado
+// pra todo mundo) — ver sellPlayer, que agora cancela a venda sem
+// mexer em nada quando isso devolve null.
+function findInterestedBuyer(excludeId) {
+  const eligible = LEAGUE_TEAMS.filter((t) =>
+    String(t.id) !== String(excludeId) && leagueSquadFor(t.id).length < MAX_LEAGUE_SQUAD
+  );
+  if (!eligible.length) return null;
+  if (Math.random() < 0.2) return null; // 20% de chance de ninguém topar agora, mesmo com vaga
+  return eligible[Math.floor(Math.random() * eligible.length)];
+}
 // 0 a 2 transferências entre times CPU por rodada (chance decrescente
 // — a maioria das rodadas não tem nenhuma, imitando janela de
 // transferência esporádica em vez de mercado aberto toda hora).
@@ -1743,15 +1761,19 @@ async function sellPlayer(id) {
   const principalCount = CAREER.squad.filter((x) => x.origin === "principal").length;
   if (principalCount <= 14) { toast("O elenco principal não pode ficar com menos de 14 jogadores."); return false; }
   if (!(await confirmModal(`Vender ${p.name} por ${fmtBRL(p.value)}?`, "Vender"))) return false;
-  const buyer = pickRandomOtherClub(CAREER.clubId);
+  // AJUSTE (pedido do usuário) — sem comprador interessado, a venda
+  // não acontece: nada muda de lugar, o jogador continua no elenco.
+  const buyer = findInterestedBuyer(CAREER.clubId);
+  if (!buyer) {
+    toast(`Nenhum time demonstrou interesse em ${abbreviateName(p.name)} agora — ele continua no seu elenco.`);
+    return false;
+  }
   CAREER.finances.cash += p.value;
   CAREER.squad = CAREER.squad.filter((x) => x.id !== id);
   CAREER.lineup.starters = CAREER.lineup.starters.map((x) => (x === id ? null : x));
   CAREER.lineup.bench = CAREER.lineup.bench.filter((x) => x !== id);
-  if (buyer) {
-    (CAREER.leagueSquads[String(buyer.id)] = CAREER.leagueSquads[String(buyer.id)] || []).push(p);
-    pushTransferLog(`Você vendeu ${p.name} pro ${buyer.name} por ${fmtBRL(p.value)}.`, CAREER.currentRound);
-  }
+  (CAREER.leagueSquads[String(buyer.id)] = CAREER.leagueSquads[String(buyer.id)] || []).push(p);
+  pushTransferLog(`Você vendeu ${p.name} pro ${buyer.name} por ${fmtBRL(p.value)}.`, CAREER.currentRound);
   toast(`${abbreviateName(p.name)} vendido por ${fmtBRL(p.value)}.`);
   return true;
 }
