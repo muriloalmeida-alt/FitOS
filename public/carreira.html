@@ -44,7 +44,7 @@
   :root{
     --navy-deep:#0A1F44; --navy-mid:#0F2A52; --navy-card:#132F5C; --navy-card2:#0F2748;
     --navy-line:#23406B; --gray:#AAB8CC; --gray-dim:#7F8FAE; --gold:#C9A227;
-    --accent-blue:#2F6FEA; --accent-green:#3FBF7F; --accent-red:#E25C5C;
+    --accent-blue:#2F6FEA; --accent-green:#3FBF7F; --accent-red:#E25C5C; --accent-yellow:#E2B93F;
 
     --bg-app: var(--navy-deep);
     --bg-surface: var(--navy-card);
@@ -140,14 +140,21 @@
   .ct-grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
   @media (max-width:720px){ .ct-grid-2{ grid-template-columns:1fr; } }
 
-  /* ---------- Botões ---------- */
-  .ct-btn{ border:none; border-radius:9px; padding:9px 16px; font-size:13px; font-weight:700; cursor:pointer; background:var(--bg-surface); color:var(--text-0); border:1px solid var(--border); }
-  .ct-btn:hover{ filter:brightness(0.97); }
+  /* ---------- Botões ----------
+     AJUSTE (design system anexado pelo usuário, brdatadesignsystem.css
+     — não é só cor: raio/padding/hover também mudam pra bater com
+     .bd-btn/.bd-btn-sm do documento; "primary" (outline neutro por
+     padrão, ver .ct-btn base) vira transparente + borda, igual
+     .bd-btn-outline, em vez do cinza sólido de antes). */
+  .ct-btn{ display:inline-flex; align-items:center; justify-content:center; gap:6px; border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px 16px; font-size:13px; font-weight:700; cursor:pointer; background:transparent; color:var(--text-0); transition:filter .15s ease; }
+  .ct-btn:hover{ filter:brightness(1.08); }
+  .ct-btn:active{ filter:brightness(0.95); }
   .ct-btn.primary{ background:var(--brd-blue); color:#fff; border-color:var(--brd-blue); }
   .ct-btn.accent{ background:var(--brd-green); color:#08321d; border-color:var(--brd-green); }
   .ct-btn.danger{ background:transparent; color:var(--brd-red); border-color:var(--brd-red); }
-  .ct-btn.small{ padding:5px 10px; font-size:11.5px; }
-  .ct-btn:disabled{ opacity:.5; cursor:not-allowed; }
+  .ct-btn.small{ padding:7px 14px; font-size:11px; border-radius:var(--radius-sm); }
+  .ct-btn.full{ width:100%; }
+  .ct-btn:disabled{ opacity:.4; cursor:not-allowed; filter:none; }
 
   /* ---------- Clube picker ---------- */
   /* width:100% é o que importa aqui -- sem isso, dentro de um pai flex
@@ -176,6 +183,7 @@
   .ct-kpi{ background:var(--navy-card2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 12px; text-align:center; }
   .ct-kpi .v{ font-size:19px; font-weight:800; color:var(--text-0); }
   .ct-kpi .v.gold{ color:var(--gold); }
+  .ct-kpi .v.red{ color:var(--brd-red); }
   .ct-kpi .l{ font-size:10.5px; color:var(--text-2); text-transform:uppercase; letter-spacing:.3px; font-weight:700; }
 
   /* ---------- Escalação: campinho "jogo de botão" ----------
@@ -209,14 +217,20 @@
   .ct-tactics{ display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; }
   .ct-field{ display:flex; flex-direction:column; gap:4px; }
   .ct-field label{ font-size:11px; font-weight:700; color:var(--text-2); text-transform:uppercase; letter-spacing:.3px; }
-  .ct-field select{ padding:8px 10px; border-radius:8px; border:1px solid var(--border); background:var(--navy-card2); color:var(--text-0); font-family:var(--font); font-size:13px; }
+  .ct-field select{ padding:11px 12px; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--navy-card2); color:var(--text-0); font-family:var(--font); font-size:13px; }
+  .ct-field select:focus{ outline:none; border-color:var(--gold); }
 
-  /* ---------- Tabelas ---------- */
+  /* ---------- Tabelas ----------
+     AJUSTE (design system: .bd-table-row/.bd-list-row): o traço entre
+     linhas do corpo é bem mais discreto (5% branco) que o do
+     cabeçalho (navy-line sólido) — antes as duas bordas usavam a
+     mesma var(--border), o que deixava a tabela inteira "quadriculada"
+     e pesada em cima do fundo escuro novo. */
   table.ct-table{ width:100%; border-collapse:collapse; font-size:12.5px; }
   table.ct-table th{ text-align:left; padding:8px 8px; color:var(--text-2); font-size:10.5px; text-transform:uppercase; letter-spacing:.3px; border-bottom:1px solid var(--border); }
-  table.ct-table td{ padding:8px 8px; border-bottom:1px solid var(--border); color:var(--text-0); }
+  table.ct-table td{ padding:9px 8px; border-bottom:1px solid rgba(255,255,255,.05); color:var(--text-0); }
   table.ct-table tr.me{ background:rgba(201,162,39,.14); }
-  table.ct-table tr:hover{ background:rgba(255,255,255,.04); }
+  table.ct-table tr:hover{ background:rgba(255,255,255,.03); }
   .ct-scroll-x{ overflow-x:auto; }
   .zone-dot{ display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:6px; }
   .zone-campeao{ background:var(--gold); } .zone-libertadores{ background:var(--brd-green); } .zone-sula{ background:var(--brd-blue); } .zone-reb{ background:var(--brd-red); }
@@ -231,7 +245,8 @@
      porque esse wrapper foi pensado pra formulário com label em cima —
      aqui é só um filtro solto ao lado da busca). */
   .ct-market-filters{ margin-bottom:10px; }
-  .ct-market-filters select{ padding:9px 10px; border-radius:9px; border:1px solid var(--border); background:var(--navy-card2); color:var(--text-0); font-family:var(--font); font-size:13px; }
+  .ct-market-filters select{ padding:11px 12px; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--navy-card2); color:var(--text-0); font-family:var(--font); font-size:13px; }
+  .ct-market-filters select:focus{ outline:none; border-color:var(--gold); }
   .ct-transfer-feed-item{ padding:8px 0; border-bottom:1px solid var(--border); font-size:12.5px; color:var(--text-1); }
   .ct-transfer-feed-item:last-child{ border-bottom:none; }
   .ct-transfer-feed-item b{ color:var(--text-0); }
@@ -279,7 +294,13 @@
   .ct-event-list{ display:flex; flex-direction:column; gap:0; margin-top:14px; }
   .ct-event-row{ display:flex; align-items:center; gap:10px; padding:8px 4px; border-bottom:1px solid rgba(255,255,255,.05); }
   .ct-event-row:last-child{ border-bottom:none; }
-  .ct-event-icon{ width:26px; height:26px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:13px; flex-shrink:0; background:var(--navy-card2); border:1px solid var(--border); }
+  .ct-event-icon{ width:22px; height:22px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:11px; flex-shrink:0; background:var(--navy-card2); border:1px solid var(--border); }
+  /* AJUSTE (design system: .bd-event-badge.yellow/.red) — cartão
+     amarelo/vermelho ganham o fundo colorido do próprio cartão (só
+     esses dois; gol/assistência ficam no ícone neutro de cima, o
+     documento não define variante de cor pra eles). */
+  .ct-event-icon.yellow{ background:var(--accent-yellow); border-color:var(--accent-yellow); color:#3A2C00; }
+  .ct-event-icon.red{ background:var(--brd-red); border-color:var(--brd-red); color:#fff; }
   .ct-event-row .nm{ font-weight:700; color:var(--text-0); font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .ct-event-row .tp{ color:var(--text-2); font-size:11px; margin-left:auto; flex-shrink:0; padding-left:8px; }
 
@@ -300,23 +321,41 @@
      da topbar/gate de login do site (navy) — antes era só um "✕"
      flutuando sobre um <h3> solto. Corpo rolável separado do
      cabeçalho (que fica fixo mesmo se o conteúdo for grande). */
-  .ct-modal-overlay{ position:fixed; inset:0; background:rgba(6,11,23,.6); display:none; align-items:center; justify-content:center; z-index:200; padding:16px; }
+  .ct-modal-overlay{ position:fixed; inset:0; background:rgba(0,0,0,.55); display:none; align-items:center; justify-content:center; z-index:200; padding:16px; }
   .ct-modal-overlay.open{ display:flex; }
-  .ct-modal{ background:var(--navy-card2); border:1px solid var(--navy-line); border-radius:var(--radius-lg); max-width:520px; width:100%; max-height:86vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 24px 64px rgba(0,0,0,.4); }
-  .ct-modal-header{ display:flex; align-items:center; gap:10px; padding:16px 18px; background:linear-gradient(135deg, var(--brd-navy), var(--navy-mid)); border-bottom:1px solid var(--navy-line); flex-shrink:0; }
-  .ct-modal-icon{ font-size:19px; line-height:1; flex-shrink:0; }
+  /* AJUSTE (design system): modal padrão bem mais estreito (380px, era
+     520px) — o documento usa um diálogo compacto tipo "cartão", não
+     uma folha grande; o de confirmação (#confirmOverlay) é ainda mais
+     estreito (.bd-modal-confirm, 300px), ver regra dedicada mais
+     abaixo. Modais com tabela/grade bem mais larga que texto corrido
+     (resultados da rodada, escolher jogador) sobem um pouco esse teto
+     (460px) pra não espremer demais em telas maiores — o documento é
+     todo pensado pra um frame de celular de 340px, mas essa página
+     também roda em desktop. */
+  .ct-modal{ background:var(--navy-card2); border:1px solid var(--navy-line); border-radius:var(--radius-lg); max-width:380px; width:100%; max-height:86vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 20px 50px rgba(0,0,0,.5); }
+  #pickerOverlay .ct-modal, #roundResultsOverlay .ct-modal, #detailOverlay .ct-modal{ max-width:460px; }
+  #confirmOverlay .ct-modal{ max-width:320px; }
+  .ct-modal-header{ display:flex; align-items:center; gap:10px; padding:16px; background:linear-gradient(135deg, var(--brd-navy), var(--navy-mid)); border-bottom:1px solid var(--navy-line); flex-shrink:0; }
+  .ct-modal-icon{ font-size:20px; line-height:1; flex-shrink:0; }
   .ct-modal-header-text{ flex:1; min-width:0; }
-  .ct-modal-header h3{ margin:0; font-size:15px; font-weight:800; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .ct-modal-sub{ font-size:11px; color:rgba(255,255,255,.62); font-weight:600; margin-top:1px; }
-  .ct-modal-close{ background:rgba(255,255,255,.12); border:none; color:#fff; width:26px; height:26px; border-radius:50%; font-size:14px; cursor:pointer; flex-shrink:0; display:flex; align-items:center; justify-content:center; line-height:1; }
-  .ct-modal-close:hover{ background:rgba(255,255,255,.24); }
+  .ct-modal-header h3{ margin:0; font-size:16.5px; font-weight:700; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ct-modal-sub{ font-size:11px; color:var(--gray-dim); font-weight:600; margin-top:1px; }
+  /* AJUSTE (design system): .bd-modal-close é só um "×" solto (cor
+     cinza, sem fundo) — a pílula circular translúcida que tinha antes
+     era uma invenção daqui, não vem nem do mockup nem do documento. */
+  .ct-modal-close{ background:none; border:none; color:var(--gray); width:26px; height:26px; font-size:18px; cursor:pointer; flex-shrink:0; display:flex; align-items:center; justify-content:center; line-height:1; }
+  .ct-modal-close:hover{ color:#fff; }
   .ct-modal-body{ padding:18px; overflow-y:auto; }
-  .ct-pick-row{ display:flex; align-items:center; justify-content:space-between; padding:9px 8px; border-radius:9px; cursor:pointer; font-size:12.5px; }
+  .ct-pick-row{ display:flex; align-items:center; justify-content:space-between; padding:10px 8px; border-radius:9px; cursor:pointer; font-size:12.5px; }
   .ct-pick-row:hover{ background:rgba(255,255,255,.05); }
   .ct-pick-row .nm{ font-weight:700; color:var(--text-0); }
   .ct-pick-row .meta{ color:var(--text-2); font-size:11px; }
   .ct-pick-row .meta b{ color:var(--gold); font-weight:800; }
-  .ct-search{ width:100%; padding:9px 10px; border-radius:9px; border:1px solid var(--border); background:var(--navy-card2); color:var(--text-0); font-family:var(--font); font-size:13px; margin-bottom:10px; }
+  /* AJUSTE (design system): foco dourado nos campos de busca/select
+     (.bd-input:focus/.bd-select:focus), não mais o azul genérico do
+     navegador — reforça o dourado como cor de marca/interação. */
+  .ct-search{ width:100%; padding:11px 12px; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--navy-card2); color:var(--text-0); font-family:var(--font); font-size:13px; margin-bottom:10px; }
+  .ct-search:focus{ outline:none; border-color:var(--gold); }
 
   .ct-toast{ position:fixed; bottom:18px; left:50%; transform:translateX(-50%); background:var(--navy-card2); border:1px solid var(--navy-line); color:#fff; padding:10px 18px; border-radius:10px; font-size:13px; font-weight:600; z-index:300; display:none; box-shadow:0 10px 30px rgba(0,0,0,.5); }
   .ct-empty{ color:var(--text-2); font-size:13px; text-align:center; padding:20px 0; }

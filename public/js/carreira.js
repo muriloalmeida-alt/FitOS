@@ -1148,7 +1148,8 @@ function renderCentral() {
   const wageBill = wageBillOf(squad);
   const { cash, wageCap } = CAREER.finances;
   document.getElementById("financeKpis").innerHTML =
-    kpiHTML("Caixa", fmtBRLShort(cash), true) + kpiHTML("Folha salarial", fmtBRLShort(wageBill));
+    kpiHTML("Caixa", fmtBRLShort(cash), "gold") +
+    kpiHTML("Folha salarial", fmtBRLShort(wageBill), wageBill >= wageCap ? "red" : null);
   const wagePct = wageCap ? clamp(Math.round((wageBill / wageCap) * 100), 0, 100) : 0;
   const wageFill = document.getElementById("wageCapFill");
   wageFill.style.width = `${wagePct}%`;
@@ -1194,8 +1195,8 @@ function renderCentral() {
 const MATCH_EVENT_META = {
   gol: { icon: "⚽", label: "Gol" },
   assistencia: { icon: "🅰️", label: "Assistência" },
-  amarelo: { icon: "🟨", label: "Cartão amarelo" },
-  vermelho: { icon: "🟥", label: "Cartão vermelho" },
+  amarelo: { icon: "🟨", label: "Cartão amarelo", cls: "yellow" },
+  vermelho: { icon: "🟥", label: "Cartão vermelho", cls: "red" },
 };
 function matchEventsSummaryHTML(events) {
   if (!events || !events.length) return "";
@@ -1205,8 +1206,11 @@ function matchEventsSummaryHTML(events) {
     // individual, só teve "e.player" quando é ALGUÉM do seu time) —
     // credita ao time em vez de um nome de jogador que não existe.
     const nm = e.player ? escapeHtml(abbreviateName(e.player)) : `Gol do ${escapeHtml(e.team)}`;
+    // AJUSTE (design system anexado pelo usuário: .bd-event-badge.
+    // yellow/.red) — cartão ganha o fundo colorido do próprio cartão
+    // (ver .ct-event-icon.yellow/.red em carreira.html).
     return `<div class="ct-event-row">
-      <span class="ct-event-icon">${meta.icon}</span>
+      <span class="ct-event-icon${meta.cls ? ` ${meta.cls}` : ""}">${meta.icon}</span>
       <span class="nm">${nm}</span>
       <span class="tp">${e.player ? meta.label : ""}</span>
     </div>`;
@@ -1286,7 +1290,7 @@ function openDetail(id) {
       ${p.origin === "base"
         ? `<button class="ct-btn small primary" data-act="promote" ${promoteBlocked ? "disabled" : ""} ${promoteBlocked ? `title="Estouraria o teto salarial (${fmtBRL(CAREER.finances.wageCap)}) — libere espaço dispensando ou enviando alguém pra base antes."` : ""}>Promover ao elenco principal</button>`
         : `<button class="ct-btn small" data-act="demote">Enviar pra base</button>`}
-      ${p.origin === "principal" ? `<button class="ct-btn small" data-act="sell">Vender por ${fmtBRL(p.value)}</button>` : ""}
+      ${p.origin === "principal" ? `<button class="ct-btn small primary" data-act="sell">Vender por ${fmtBRL(p.value)}</button>` : ""}
       <button class="ct-btn small danger" data-act="release">Dispensar</button>
     </div>
     ${promoteBlocked ? `<p class="ct-sub" style="color:var(--brd-red); margin-top:8px;">⚠️ Promover esse jogador levaria a folha salarial a ${fmtBRL(wageAfterPromote)}, acima do teto de ${fmtBRL(CAREER.finances.wageCap)}.</p>` : ""}`;
@@ -1492,8 +1496,12 @@ function renderTabela() {
    CAREER.standings) e da própria equipe (gols, cartões, assistências —
    gols vem de standings[clubId].gp; assistência/cartão de
    CAREER.teamStats, ver tallyTeamStats). */
-function kpiHTML(label, value, gold) {
-  return `<div class="ct-kpi"><div class="v${gold ? " gold" : ""}">${value}</div><div class="l">${label}</div></div>`;
+function kpiHTML(label, value, variant) {
+  // variant: "gold" (destaque de marca) ou "red" (alerta — ex.: folha
+  // salarial estourando o teto), ver .ct-kpi .v.gold/.red em
+  // carreira.html (design system anexado pelo usuário: .bd-stat-value
+  // tem as duas variantes, não só a dourada).
+  return `<div class="ct-kpi"><div class="v${variant ? ` ${variant}` : ""}">${value}</div><div class="l">${label}</div></div>`;
 }
 function renderEstatisticas() {
   const rows = Object.values(CAREER.standings);
@@ -1515,7 +1523,7 @@ function renderEstatisticas() {
   const myRow = CAREER.standings[CAREER.clubId] || { gp: 0 };
   const stats = CAREER.teamStats || { assists: 0, yellow: 0, red: 0 };
   document.getElementById("teamStatsKpis").innerHTML =
-    kpiHTML("Posição atual", myPos ? `${myPos}º` : "—", true) +
+    kpiHTML("Posição atual", myPos ? `${myPos}º` : "—", "gold") +
     [
       ["Gols marcados", myRow.gp],
       ["Assistências", stats.assists],
