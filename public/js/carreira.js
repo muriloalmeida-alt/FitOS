@@ -1122,21 +1122,27 @@ function declineClubProposal() {
 // FASE 4 (item 4) — tela de perfil do técnico (documento: "histórico de
 // carreira — títulos, clubes, temporadas — dá senso de progressão de
 // longo prazo tipo currículo"), aberta pelo menu "≡".
+// AJUSTE (refatoração completa, Tela 11b — ver imagem "depois" do
+// docx, 11b-perfil-tecnico) — kpiHTML() (Tela 3) no lugar do .ct-kpi
+// genérico (Reputação/Status lado a lado, "Clube(s) no currículo"
+// como bloco largo — grid-column:1/-1 no mesmo .mt-stat-grid, mesmo
+// espírito do .mt-fin-block do card Financeiro); .mt-card no lugar de
+// .ct-card pra cada passagem anterior.
 function renderCoachProfile() {
   const rep = CAREER.reputation == null ? 50 : CAREER.reputation;
   const history = CAREER.clubHistory || [];
   const historyHTML = history.length
     ? history.map((h) => `
-      <div class="ct-card" style="margin-bottom:10px;">
-        <h2>${escapeHtml(h.clubName)}</h2>
+      <div class="mt-card">
+        <div class="mt-card-title">${escapeHtml(h.clubName)}</div>
         <p class="ct-sub">${h.seasons} temporada(s) · ${h.titles} título(s) · posição média ${h.avgPosition}º${h.reason === "dismissed" ? " · saiu por demissão" : h.reason === "accepted_proposal" ? " · saiu por proposta de outro clube" : ""}</p>
       </div>`).join("")
     : `<p class="ct-empty">Nenhuma passagem anterior ainda — esse é seu primeiro clube.</p>`;
   document.getElementById("coachProfileBody").innerHTML = `
-    <div class="ct-kpis" style="margin-bottom:14px;">
-      <div class="ct-kpi"><div class="v gold">${rep}</div><div class="l">Reputação</div></div>
-      <div class="ct-kpi"><div class="v">${reputationLabel(rep)}</div><div class="l">Status</div></div>
-      <div class="ct-kpi"><div class="v">${history.length}</div><div class="l">Clube(s) no currículo</div></div>
+    <div class="mt-stat-grid" style="margin-bottom:14px;">
+      ${kpiHTML("Reputação", rep, "gold")}
+      <div class="mt-stat-block"><div class="num" style="font-size:17px;">${escapeHtml(reputationLabel(rep))}</div><div class="lbl">Status</div></div>
+      <div class="mt-stat-block" style="grid-column:1 / -1;"><div class="num">${history.length}</div><div class="lbl">Clube(s) no currículo</div></div>
     </div>
     <p class="ct-sub" style="margin-bottom:14px;">Clube atual: <b>${escapeHtml(CAREER.clubName)}</b> — ${(CAREER.seasonHistory || []).length} temporada(s) aqui até agora.</p>
     ${historyHTML}`;
