@@ -2482,13 +2482,10 @@ function conditionRating(condition) {
   return 1;
 }
 const CONDITION_RATING_LABEL = { 5: "Ótima", 4: "Boa", 3: "Regular", 2: "Baixa", 1: "Péssima" };
-function conditionDotsHTML(condition) {
-  const rating = conditionRating(condition);
-  const cls = rating >= 4 ? "good" : rating === 3 ? "mid" : "low";
-  let dots = "";
-  for (let i = 1; i <= 5; i++) dots += `<span class="ct-cond-dot${i <= rating ? ` ${cls}` : ""}"></span>`;
-  return `<span class="ct-cond-dots" title="Condição: nota ${rating}/5 (${CONDITION_RATING_LABEL[rating]})">${dots}</span>`;
-}
+// conditionDotsHTML() removida (redesign, Tela 4) — só era usada por
+// playerRow() no Elenco, que agora usa mtConditionBarHTML() (ver mais
+// abaixo); CSS morto (.ct-cond-dots/.ct-cond-dot) também removido do
+// <style>.
 function rollInjurySeverity() {
   const roll = Math.random();
   let acc = 0;
@@ -3771,53 +3768,112 @@ function matchEventsSummaryHTML(events) {
   return `<div class="ct-event-list">${rows}</div>`;
 }
 
-/* ---------- Renderização: Elenco ---------- */
-function squadTableHead() {
-  return `<tr><th>Nome</th><th>Pos</th><th>Idade</th><th>OVR</th><th>Condição</th><th>Status</th><th></th></tr>`;
+/* ---------- Renderização: Elenco ----------
+   AJUSTE (refatoração completa, Tela 4 — ver 04-elenco-restyled.html do
+   designer) — lista agrupada por posição com divisor (.mt-pos-divider)
+   no lugar da tabela genérica .ct-table de antes. */
+const SUBPOS_GROUP_LABEL = { GOL: "GOLEIROS", DEF: "DEFENSORES", MEI: "MEIAS", ATA: "ATACANTES" };
+const SUBPOS_DIVCLASS = { GOL: "gol", DEF: "def", MEI: "mei", ATA: "ata" };
+function posDividerHTML(subpos) {
+  return `<div class="mt-pos-divider ${SUBPOS_DIVCLASS[subpos]}"><span class="bar"></span><span class="lbl">${SUBPOS_GROUP_LABEL[subpos]}</span></div>`;
+}
+// Faixa de cor do badge de OVR — mesmos limiares do mockup (elite 80+,
+// good 70-79, mid <70).
+function ovrTierClass(overall) {
+  return overall >= 80 ? "t-elite" : overall >= 70 ? "t-good" : "t-mid";
+}
+// Barra de condição em segmentos (mesma nota 1-5 de sempre, ver
+// conditionRating/CONDITION_RATING_LABEL) — .mt-condition-bar no lugar
+// de .ct-cond-dots (removida, ver comentário acima).
+function mtConditionBarHTML(condition) {
+  const rating = conditionRating(condition);
+  const cls = rating >= 4 ? "full" : rating === 3 ? "mid" : "low";
+  let segs = "";
+  for (let i = 1; i <= 5; i++) segs += `<span class="seg${i <= rating ? " on" : ""}"></span>`;
+  return `<div class="mt-condition-bar ${cls}" title="Condição: nota ${rating}/5 (${CONDITION_RATING_LABEL[rating]})">${segs}</div>`;
 }
 function playerRow(p) {
-  // Pedido do usuário: no lugar do texto ("Disponível"/"Lesão X (até
-  // RN)"/"Suspenso (RN)"), ícone + semáforo — o fundo colorido do
-  // .ct-pill já era verde/vermelho/âmbar (ver CSS), só o CONTEÚDO virou
-  // ícone em vez de texto; o detalhe todo (severidade, rodada de
-  // volta) vira tooltip (title), não some, só sai da lista pra caber
-  // num ícone só.
-  const statusPill = p.status === "ok" ? `<span class="ct-pill ok" title="Disponível">🟢</span>`
-    : p.status === "contundido" ? `<span class="ct-pill hurt" title="Lesão ${injurySeverityLabel(p.injurySeverity)} — de volta na rodada ${p.outUntilRound}">🩹</span>`
-    : `<span class="ct-pill susp" title="Suspenso — de volta na rodada ${p.outUntilRound}">🟥</span>`;
+  const tags = [];
   // Pedido do usuário: sem tag "gerado" pra jogador da BASE (a
   // categoria inteira já é gerada, ver comentário em openDetail) — só
   // aparece pro elenco PRINCIPAL gerado (exceção de verdade, quando a
   // busca real veio incompleta).
+  if (!p.real && p.origin !== "base") tags.push(`<span class="mt-ptag neutral">gerado</span>`);
   // FASE 1 (item 1) — pedido do usuário: aviso visível com antecedência
   // no card do jogador (aqui, na lista do Elenco também, não só no
   // detalhe) — ver isContractExpiring em carreira.js.
-  const contractTag = isContractExpiring(p) ? ' <span class="ct-pill contract" style="margin-left:4px;" title="Sai de graça se a temporada acabar sem renovar">Fim de contrato</span>' : "";
+  if (isContractExpiring(p)) tags.push(`<span class="mt-ptag gold" title="Sai de graça se a temporada acabar sem renovar">Fim de contrato</span>`);
+  // FASE 4 (item 1) — alerta visível de "pede transferência" (ver
+  // applyMoraleAfterMatch) — ícone igual ao do mockup.
+  if (p.wantsTransfer) tags.push(`<span class="mt-ptag crimson" title="Moral muito baixa há várias rodadas seguidas fora do time titular"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="6 11 12 5 18 11"/></svg>Pede transferência</span>`);
+  // Pedido do usuário: no lugar do texto ("Disponível"/"Lesão X (até
+  // RN)"/"Suspenso (RN)"), só marca a EXCEÇÃO (disponível é o caso
+  // comum, não precisa de tag) — o detalhe todo (severidade, rodada de
+  // volta) vira tooltip, mesma ideia de sempre.
+  if (p.status === "contundido") tags.push(`<span class="mt-ptag crimson" title="Lesão ${injurySeverityLabel(p.injurySeverity)} — de volta na rodada ${p.outUntilRound}">🩹 Lesionado</span>`);
+  else if (p.status === "suspenso") tags.push(`<span class="mt-ptag crimson" title="Suspenso — de volta na rodada ${p.outUntilRound}">🟥 Suspenso</span>`);
   // Empréstimo — mesma linguagem visual do "gerado" (pill neutro), só
   // pra deixar claro na lista que esse jogador não é seu de verdade.
-  const loanTag = p.origin === "loan" ? ` <span class="ct-pill base" style="margin-left:4px;" title="${p.loanReturnRound ? `Volta pro clube de origem na rodada ${p.loanReturnRound}` : "Volta pro clube de origem no fim da temporada"}">emprestado</span>` : "";
+  if (p.origin === "loan") tags.push(`<span class="mt-ptag neutral" title="${p.loanReturnRound ? `Volta pro clube de origem na rodada ${p.loanReturnRound}` : "Volta pro clube de origem no fim da temporada"}">emprestado</span>`);
   // FASE 2 (b) — só marca os EXTREMOS (feliz/infeliz) — moral neutra
   // (a maioria do elenco, na prática) não precisa de ícone nenhum, só
-  // poluiria a lista à toa.
+  // poluiria a lista à toa. Emoji direto no nome (não é uma "tag" de
+  // exceção formal, só um humor rápido de bater o olho).
   const morale = p.morale == null ? 70 : p.morale;
-  const moraleTag = morale >= 80 ? ` <span title="Moral ${morale} — feliz no clube">😊</span>`
+  const moraleEmoji = morale >= 80 ? ` <span title="Moral ${morale} — feliz no clube">😊</span>`
     : morale <= 30 ? ` <span title="Moral ${morale} — infeliz no clube">😞</span>`
     : "";
-  // FASE 4 (item 1) — alerta visível de "pede transferência" (ver
-  // applyMoraleAfterMatch), mesma linguagem de pill das outras tags.
-  const wantsTransferTag = p.wantsTransfer ? ` <span class="ct-pill" style="margin-left:4px; background:var(--brd-red); color:#fff;" title="Moral muito baixa há várias rodadas seguidas fora do time titular">pede transferência</span>` : "";
-  // Fase 2 (olheiro) — faixa de potencial junto do overall, só pra
-  // quem tem potencial pra mostrar (base, e quem já foi promovido mas
-  // ainda carrega o potencial de quando era da base).
+  // Fase 2 (olheiro) — faixa de potencial junto do overall, só pra quem
+  // ainda carrega potencial (promovido recente da base).
   const potRange = scoutedPotentialRange(p);
-  const potHint = potRange ? `<br><span class="ct-pot-hint" title="Faixa estimada por olheiro — o teto real é incerto até o jogador amadurecer">pot. ${potRange.lo}-${potRange.hi}</span>` : "";
-  return `<tr data-id="${p.id}" style="cursor:pointer;">
-    <td class="ct-name-cell">${escapeHtml(abbreviateName(p.name))}${(!p.real && p.origin !== "base") ? ' <span class="ct-pill base" style="margin-left:4px;">gerado</span>' : ""}${contractTag}${moraleTag}${wantsTransferTag}${loanTag}</td>
-    <td>${subPositionOf(p)}</td><td>${p.age}</td><td><b>${p.overall}</b>${potHint}</td>
-    <td>${conditionDotsHTML(p.condition)}</td>
-    <td>${statusPill}</td>
-    <td style="text-align:right; color:var(--text-2);">▸</td>
-  </tr>`;
+  const ovrLabel = potRange ? `<span title="Faixa estimada por olheiro — o teto real é incerto até o jogador amadurecer">${p.overall}</span>` : p.overall;
+  return `<div class="mt-player-row" data-id="${p.id}">
+    <div class="mt-ovr-badge ${ovrTierClass(p.overall)}">${ovrLabel}</div>
+    <div class="mt-player-main">
+      <div class="mt-player-name">${escapeHtml(abbreviateName(p.name))}${moraleEmoji}</div>
+      ${mtConditionBarHTML(p.condition)}
+      ${tags.length ? `<div class="mt-player-tags">${tags.join("")}</div>` : ""}
+    </div>
+    <div class="mt-player-meta"><span class="age"><b>${p.age}</b> anos</span></div>
+  </div>`;
+}
+// Linha da categoria de base (potencial + confiança do olheiro) — igual
+// ao mockup: nome+idade, faixa de potencial com barra, overall ATUAL
+// (pequeno, o jogador ainda não chegou lá) e confiança em 3 pontos.
+function baseRow(p) {
+  const potRange = scoutedPotentialRange(p);
+  // Confiança derivada da MESMA incerteza por idade já usada em
+  // scoutedPotentialRange (ageUncertainty) — quanto mais novo, mais
+  // larga a margem de erro, menos confiança visível; não é um dado
+  // novo inventado pra tela, só uma leitura visual do que já existe.
+  const confDots = p.age <= 17 ? 1 : p.age <= 19 ? 2 : 3;
+  const confidenceHTML = `<div class="mt-confidence" title="Confiança do olheiro na faixa de potencial">${[1, 2, 3].map((i) => `<span class="dot${i <= confDots ? " on" : ""}"></span>`).join("")}</div>`;
+  // Barra mostra o quanto do teto de potencial já foi alcançado (overall
+  // atual / topo da faixa estimada) — progresso real de desenvolvimento,
+  // não um número decorativo.
+  const potPct = potRange ? clamp(Math.round((p.overall / potRange.hi) * 100), 5, 100) : 0;
+  return `<div class="mt-base-row" data-id="${p.id}">
+    <div class="mt-base-main">
+      <div class="mt-base-name">${escapeHtml(abbreviateName(p.name))} <span class="yr">· ${p.age} anos</span></div>
+      ${potRange ? `<div class="mt-base-sub">Potencial ${potRange.lo}–${potRange.hi}</div><div class="mt-pot-bar-track"><div class="mt-pot-bar-fill" style="width:${potPct}%"></div></div>` : ""}
+    </div>
+    <div class="mt-base-ovr">${p.overall}</div>
+    ${confidenceHTML}
+  </div>`;
+}
+// Agrupa uma lista já ordenada por squadSortKey em blocos por posição,
+// intercalando o divisor (.mt-pos-divider) só quando o grupo muda —
+// mesma técnica visual do mockup (GOLEIROS/DEFENSORES/MEIAS/ATACANTES).
+function groupedListHTML(players, rowFn, emptyMsg) {
+  if (!players.length) return `<p class="ct-empty">${emptyMsg}</p>`;
+  let html = "";
+  let lastSubpos = null;
+  players.forEach((p) => {
+    const subpos = subPositionOf(p);
+    if (subpos !== lastSubpos) { html += posDividerHTML(subpos); lastSubpos = subpos; }
+    html += rowFn(p);
+  });
+  return html;
 }
 function renderElenco() {
   refreshAvailability();
@@ -3837,13 +3893,11 @@ function renderElenco() {
   // no Elenco mesmo estando disponível pra escalar.
   const principal = CAREER.squad.filter((p) => p.origin === "principal" || p.origin === "loan").sort((a, b) => squadSortKey(a) - squadSortKey(b));
   const base = CAREER.squad.filter((p) => p.origin === "base").sort((a, b) => squadSortKey(a) - squadSortKey(b));
-  const mt = document.getElementById("squadMainTable");
-  mt.querySelector("thead").innerHTML = squadTableHead();
-  mt.querySelector("tbody").innerHTML = principal.map(playerRow).join("") || `<tr><td colspan="7" class="ct-empty">Sem jogadores.</td></tr>`;
-  const bt = document.getElementById("squadBaseTable");
-  bt.querySelector("thead").innerHTML = squadTableHead();
-  bt.querySelector("tbody").innerHTML = base.map(playerRow).join("") || `<tr><td colspan="7" class="ct-empty">Sem jogadores.</td></tr>`;
-  [mt, bt].forEach((table) => table.querySelectorAll("tbody tr[data-id]").forEach((tr) => tr.addEventListener("click", () => openDetail(tr.dataset.id))));
+  const mainList = document.getElementById("squadMainList");
+  mainList.innerHTML = groupedListHTML(principal, playerRow, "Sem jogadores.");
+  const baseList = document.getElementById("squadBaseList");
+  baseList.innerHTML = groupedListHTML(base, baseRow, "Sem jogadores.");
+  [mainList, baseList].forEach((list) => list.querySelectorAll("[data-id]").forEach((row) => row.addEventListener("click", () => openDetail(row.dataset.id))));
 }
 /* ---------- FASE 1 (item 1) — renovação de contrato ----------
    Especificação "BR Data Treinador — Fase 1". O jogo só marca ano de
