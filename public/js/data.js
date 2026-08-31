@@ -79,7 +79,14 @@ const DEMO_TEAMS = [
   // navegador ou rede) e soma um alias novo aqui.
   { id: "cap", name: "Athletico Paranaense",  short: "CAP", uf: "PR", aliases: ["Athletico PR", "Athletico-PR"], c1: "#E30613", c2: "#1A1A1A", atk: 1.52, def: 0.94, venue: { name: "Ligga Arena", city: "Curitiba" } },
   { id: "cru", name: "Cruzeiro",              short: "CRU", uf: "MG", c1: "#003399", c2: "#FFFFFF", atk: 1.46, def: 0.98, venue: { name: "Mineirão", city: "Belo Horizonte" } },
-  { id: "cam", name: "Atlético-MG",           short: "CAM", uf: "MG", c1: "#1A1A1A", c2: "#FFFFFF", atk: 1.51, def: 0.99, venue: { name: "Arena MRV", city: "Belo Horizonte" } },
+  // BUG CORRIGIDO (pedido do usuário: "na tela de seleção de time o
+  // fundo do Atlético-MG está diferente da logo") -- fornecedor de
+  // dado real manda esse clube como "Atlético Mineiro"/"Atletico
+  // Mineiro" (nome popular por extenso), não "Atlético-MG" (sigla do
+  // estado) como aqui -- normalizeNameForColor reduz os 2 a strings
+  // diferentes ("atletico mg" vs "atletico mineiro"), então nem o match
+  // exato nem o de "contém" (ver realTeamColor) bate sem o alias.
+  { id: "cam", name: "Atlético-MG",           short: "CAM", uf: "MG", aliases: ["Atlético Mineiro", "Atletico Mineiro", "Atletico-MG"], c1: "#1A1A1A", c2: "#FFFFFF", atk: 1.51, def: 0.99, venue: { name: "Arena MRV", city: "Belo Horizonte" } },
   { id: "bah", name: "Bahia",                 short: "BAH", uf: "BA", c1: "#1E3A8A", c2: "#FFFFFF", c3: "#DC2626", atk: 1.44, def: 1.02, venue: { name: "Arena Fonte Nova", city: "Salvador" } },
   // "Vasco" sozinho (sem "da Gama") é um apelido comum o bastante em
   // fornecedor de dado real pra valer a pena já cobrir de antemão.
