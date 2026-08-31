@@ -6,13 +6,17 @@
 <title>Modo Técnico · BR Data</title>
 <link rel="icon" type="image/png" sizes="32x32" href="img/icons/favicon-32.png">
 <link rel="stylesheet" href="css/style.css">
-<!-- AJUSTE (pedido do usuário: refatorar visualmente seguindo o mockup
-     "BR Data — Modo Carreira (adaptado)") — Barlow Condensed pros
-     títulos/números (efeito "placar de estádio") e Inter pro texto
-     corrido, só nessa página (o resto do site continua com --font de
+<!-- AJUSTE (pedido do usuário: "transformar a linguagem visual do app
+     de site/dashboard pra jogo mobile de futebol" — redesign "estádio à
+     noite", fase 1: fundação + Login/Central/navegação, ver plano em
+     /root/.claude/plans/bubbly-sniffing-walrus.md) — troca o Barlow
+     Condensed de antes por Bebas Neue (headers/HUD, mais condensada e
+     "placar de estádio" ainda) + Rajdhani (números — OVR, placar,
+     valores, ver --font-num abaixo). Inter continua pro texto corrido,
+     só nessa página (o resto do site continua com --font de
      css/style.css). -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   /* ===================================================================
      MODO TÉCNICO — carreira estilo Elifoot em cima do elenco real do
@@ -59,11 +63,33 @@
     --brd-red: var(--accent-red);
     --brd-positive: var(--accent-green);
     --font: 'Inter', system-ui, sans-serif;
+
+    /* NOVO (redesign "estádio à noite, não escritório de dia" — fase 1)
+       — "ouro é metal, não tinta": sempre em gradiente com brilho no
+       topo, nunca um hex chapado; "números são o herói": Rajdhani
+       tabular pros valores-chave (ver .ct-kpi .v etc.); --chamfer é o
+       tamanho do corte diagonal no canto superior direito de cards —
+       a "assinatura" recorrente do sistema (ver .ct-card). */
+    --font-display: 'Bebas Neue', var(--font);
+    --font-num: 'Rajdhani', var(--font);
+    --gold-metal: linear-gradient(180deg, #F5D68A 0%, #D9A93C 45%, #B9862A 100%);
+    --gold-metal-hi: linear-gradient(180deg, rgba(255,255,255,.5), rgba(255,255,255,0) 55%);
+    --pitch-green: linear-gradient(180deg, #6FDB93 0%, #2E9F5E 55%, #1F7A4D 100%);
+    --card-gradient: linear-gradient(160deg, var(--navy-card) 0%, var(--navy-card2) 100%);
+    --chamfer: 16px;
+    --navh: 68px; /* altura da nav inferior fixa, ver .ct-tabs */
   }
-  #ctShell, .ct-modal-header h3, .ct-modal-title, .ct-topbar-title, .ct-tab,
-  .ct-card h2, .ct-card h3, .ct-kpi .v, .ct-stats-table-title,
-  .ct-club-card .name, .ct-full h1, .ct-rr-score, .ct-round-inline{
-    font-family:'Barlow Condensed', var(--font);
+  #ctShell, .ct-modal-header h3, .ct-modal-title, .ct-topbar-title,
+  .ct-card h2, .ct-card h3, .ct-stats-table-title,
+  .ct-club-card .name, .ct-full h1, .ct-round-inline{
+    font-family:var(--font-display), var(--font);
+    font-weight:700;
+    letter-spacing:.3px;
+  }
+  /* Números-herói: OVR, placar, KPIs — Rajdhani tabular, nunca no meio
+     do texto corrido em peso normal (ver princípio do design system). */
+  .ct-kpi .v, .ct-rr-score, .ct-crest-num{
+    font-family:var(--font-num), var(--font);
     font-weight:700;
   }
   /* AJUSTE (pedido do usuário: "a [toast] que traz as mensagens no
@@ -126,17 +152,51 @@
      "Próximo Jogo (XX / XX)") em vez de pill separada. */
   .ct-round-inline{ font-weight:600; color:var(--text-2); font-size:13px; }
 
-  /* ---------- Tabs ----------
-     AJUSTE (mockup): trocou o visual de "aba erguida" (fundo claro +
-     cantos arredondados por cima) pelo do mockup — sublinhado dourado
-     na aba ativa, sem troca de fundo (ver .tabitem/.tabitem.active no
-     documento). */
-  .ct-tabs{ display:flex; gap:16px; padding:0 16px; background:var(--bg-app); border-bottom:1px solid var(--navy-line); overflow-x:auto; }
-  .ct-tab{ border:none; border-bottom:2px solid transparent; background:transparent; color:var(--text-2); letter-spacing:.3px; font-size:13px; padding:12px 2px; cursor:pointer; white-space:nowrap; }
-  .ct-tab.active{ color:var(--gold); border-bottom-color:var(--gold); }
-  .ct-body{ flex:1; background:var(--bg-app); padding:18px; }
+  /* ---------- Tabs / navegação inferior ----------
+     AJUSTE (redesign "jogo mobile", fase 1 — pedido do usuário: "não é
+     mais um dashboard, é um jogo") — a nav de texto sublinhado no TOPO
+     virou barra fixa de ÍCONE+LABEL embaixo (mesmo padrão de app de
+     jogo mobile: Central/Elenco/Escalação/Tabela/Estatísticas/Mercado
+     sempre visíveis e alcançáveis com o polegar). É só marcação nova
+     (ícone SVG + <span class="lbl">) dentro do mesmo <button
+     class="ct-tab" data-panel="...">; o clique/troca de aba (ver
+     switchToPanel em carreira.js) continua lendo só `data-panel` e
+     `.active`, então nenhuma lógica muda — só a posição/skin. */
+  .ct-tabs{
+    position:fixed; left:0; right:0; bottom:0; z-index:120; height:var(--navh);
+    display:flex; background:linear-gradient(180deg, var(--navy-mid), var(--navy-deep));
+    border-top:1px solid var(--navy-line); box-shadow:0 -8px 20px rgba(0,0,0,.35);
+  }
+  .ct-tab{
+    flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:3px;
+    border:none; background:transparent; color:var(--text-2); cursor:pointer; padding:6px 2px;
+  }
+  .ct-tab svg{ width:20px; height:20px; flex-shrink:0; }
+  .ct-tab .lbl{ font-family:var(--font-num), var(--font); font-size:10px; font-weight:600; letter-spacing:.02em; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+  .ct-tab.active{
+    color:var(--navy-deep);
+  }
+  .ct-tab.active .ct-tab-pill{
+    background:var(--gold-metal); border-radius:12px; box-shadow:0 4px 12px rgba(201,162,39,.4);
+  }
+  /* Pílula dourada "elevada" atrás do ícone+label ativo (não é só cor
+     de texto diferente, ver princípio do design system) — envolve os
+     dois com padding próprio, span extra só nesse estado pra não
+     precisar de mais nenhuma marcação nos outros 5 itens. */
+  .ct-tab-pill{ display:flex; flex-direction:column; align-items:center; gap:3px; padding:5px 10px 4px; border-radius:12px; transform:translateY(0); transition:transform .15s ease; }
+  .ct-tab.active .ct-tab-pill{ transform:translateY(-4px); }
+  .ct-body{ flex:1; background:var(--bg-app); padding:18px 18px calc(18px + var(--navh)); }
   .ct-panel{ display:none; max-width:1080px; margin:0 auto; }
   .ct-panel.active{ display:block; }
+  /* Barra de ação fixa (pedido do designer, aplicado por ora só na
+     Central — ver #panel-central): ação principal da tela sempre
+     visível, ancorada ACIMA da nav inferior, nunca dependendo de rolar
+     até o fim (mesmo princípio "ação primária sempre visível"). */
+  .ct-panel.active .ct-action-bar{
+    position:fixed; left:0; right:0; bottom:var(--navh); z-index:110;
+    padding:12px 18px calc(12px + env(safe-area-inset-bottom, 0px));
+    background:linear-gradient(0deg, var(--navy-deep) 55%, rgba(10,31,68,0));
+  }
 
   /* AJUSTE (mockup): .ct-card explicitamente em --navy-card (não em
      --bg-app/--bg-surface) — com as variáveis compartilhadas
@@ -144,7 +204,21 @@
      (--navy-deep); se o card usasse esse mesmo tom ele desapareceria
      encostado no fundo, então o card pega o tom do meio do degradê de
      3 níveis do mockup (fundo < card < caixa encaixada). */
-  .ct-card{ background:var(--navy-card); border:1px solid var(--border); border-radius:var(--radius-md); padding:16px 18px; margin-bottom:14px; }
+  /* AJUSTE (redesign "jogo mobile", fase 1 — princípio "canto chanfrado
+     é a assinatura": um corte diagonal no canto superior direito no
+     lugar do border-radius genérico de painel de SaaS, com um brilho
+     dourado sutil bem no corte — ver ::before). position:relative só
+     pro ::before se posicionar; padding/conteúdo do card não mudam. */
+  .ct-card{
+    position:relative; background:var(--card-gradient); border:1px solid var(--navy-line);
+    border-top-color:rgba(201,162,39,.35); border-radius:0; padding:16px 18px; margin-bottom:14px;
+    clip-path:polygon(0 0, calc(100% - var(--chamfer)) 0, 100% var(--chamfer), 100% 100%, 0 100%);
+  }
+  .ct-card::before{
+    content:""; position:absolute; top:0; right:0; width:var(--chamfer); height:var(--chamfer);
+    background:linear-gradient(135deg, rgba(245,214,138,.55), rgba(245,214,138,0) 70%);
+    clip-path:polygon(100% 0, 100% 100%, 0 0); pointer-events:none;
+  }
   .ct-card h2{ font-size:14.5px; margin:0 0 12px; color:var(--text-0); }
   .ct-card h3{ font-size:13px; margin:0 0 8px; color:var(--text-0); }
   .ct-sub{ font-size:12px; color:var(--text-2); margin:0 0 12px; }
@@ -160,8 +234,19 @@
   .ct-btn{ display:inline-flex; align-items:center; justify-content:center; gap:6px; border:1px solid var(--border); border-radius:var(--radius-sm); padding:12px 16px; font-size:13px; font-weight:700; cursor:pointer; background:transparent; color:var(--text-0); transition:filter .15s ease; }
   .ct-btn:hover{ filter:brightness(1.08); }
   .ct-btn:active{ filter:brightness(0.95); }
-  .ct-btn.primary{ background:var(--brd-blue); color:#fff; border-color:var(--brd-blue); }
-  .ct-btn.accent{ background:var(--brd-green); color:#08321d; border-color:var(--brd-green); }
+  /* AJUSTE (redesign "jogo mobile", fase 1 — "ouro é metal, não tinta")
+     — .primary é usado nas ações de destaque/positivas (Vender, Propor,
+     Continuar, Aceitar — 17 lugares no app hoje) e vira o botão
+     ouro-metal com brilho no topo; .accent é usado só nas 2 ações de
+     PROGRESSÃO principal (Simular rodada, Avançar temporada) e vira
+     verde-grama. Gradiente em cima de gradiente (::after cobre só a
+     metade de cima, brilho) em vez de hex chapado. */
+  .ct-btn.primary{ position:relative; z-index:0; overflow:hidden; background:var(--gold-metal); color:#3B2A08; border-color:#8F6316; text-shadow:0 1px 0 rgba(255,255,255,.25); }
+  .ct-btn.accent{ position:relative; z-index:0; overflow:hidden; background:var(--pitch-green); color:#0A2E1A; border-color:#1F7A4D; text-shadow:0 1px 0 rgba(255,255,255,.2); }
+  /* Brilho de metal só na metade de cima, z-index NEGATIVO — pinta por
+     cima do gradiente de fundo do próprio botão mas embaixo do texto/
+     ícone (que é conteúdo em fluxo normal, sem precisar de wrapper). */
+  .ct-btn.primary::after, .ct-btn.accent::after{ content:""; position:absolute; left:0; right:0; top:0; height:55%; background:var(--gold-metal-hi); pointer-events:none; z-index:-1; }
   .ct-btn.danger{ background:transparent; color:var(--brd-red); border-color:var(--brd-red); }
   .ct-btn.small{ padding:7px 14px; font-size:11px; border-radius:var(--radius-sm); }
   /* AJUSTE (pedido do usuário: "aumenta o botão Simular Rodada") — CTA
@@ -192,13 +277,20 @@
   .ct-club-grid{ display:grid; grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); gap:12px; width:100%; max-width:900px; margin:18px auto 0; }
   .ct-club-card{ background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius-md); padding:14px 10px; text-align:center; cursor:pointer; display:flex; flex-direction:column; align-items:center; gap:8px; }
   .ct-club-card:hover{ border-color:var(--brd-blue); transform:translateY(-1px); }
-  .ct-club-card img{ height:44px; width:44px; object-fit:contain; }
   .ct-club-card .name{ font-size:12.5px; font-weight:700; color:var(--text-0); }
+
+  /* AJUSTE (redesign "jogo mobile", fase 1) — escudo hexagonal no lugar
+     da bolinha simples: wrapper em torno do brasão real (ver
+     crestImg() em carreira.js), não recorta a imagem em si — o logo
+     de verdade continua 100% visível, só ganha uma moldura hexagonal
+     com o degradê de cor do clube por trás. Usado em toda tela que já
+     chamava crestImg() (Central, Tabela, Ao Vivo, Resultados,
+     Escolha do Clube etc.) — troca só a marcação de um lugar só. */
+  .ct-crest{ display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; clip-path:polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%); box-shadow:inset 0 0 0 1px rgba(255,255,255,.14); }
 
   /* ---------- Central ---------- */
   .ct-next-match{ display:flex; align-items:center; justify-content:center; gap:18px; padding:14px 0; }
   .ct-next-match .side{ display:flex; flex-direction:column; align-items:center; gap:6px; width:110px; }
-  .ct-next-match img{ height:40px; width:40px; object-fit:contain; }
   .ct-next-match .side .n{ font-size:12px; font-weight:700; color:var(--text-0); text-align:center; }
   .ct-next-match .vs{ font-size:12px; color:var(--text-2); font-weight:700; }
   .ct-kpis{ display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:10px; }
@@ -536,7 +628,28 @@
   #screenLoginRequired .field input{ background:var(--navy-card2); }
   #screenLoginRequired .apoie-form-error{ color:var(--brd-red); }
   #screenLoginRequired .auth-gate-switch a{ color:var(--gold); }
-  #screenLoginRequired .btn.btn-accent{ background:var(--gold); color:var(--navy-deep); }
+  /* AJUSTE (redesign "jogo mobile", fase 1) — botão "Entrar" ouro-metal
+     (mesmo tratamento de .ct-btn.primary) e painel chanfrado, só
+     dentro dessa tela (mesmo escopo de sempre, não mexe no gate do
+     site principal). Escudo hexagonal com brilho atrás da marca real
+     (nunca troca o logo de verdade por um ícone genérico — só emoldura). */
+  #screenLoginRequired .btn.btn-accent{ position:relative; z-index:0; overflow:hidden; background:var(--gold-metal); color:#3B2A08; border-color:#8F6316; text-shadow:0 1px 0 rgba(255,255,255,.25); }
+  #screenLoginRequired .btn.btn-accent::after{ content:""; position:absolute; left:0; right:0; top:0; height:55%; background:var(--gold-metal-hi); pointer-events:none; z-index:-1; }
+  #screenLoginRequired .auth-gate-card{
+    position:relative; background:var(--card-gradient); border-color:var(--navy-line); border-top-color:rgba(201,162,39,.4);
+    clip-path:polygon(0 0, calc(100% - var(--chamfer)) 0, 100% var(--chamfer), 100% 100%, 0 100%);
+  }
+  #screenLoginRequired .auth-gate-card::before{
+    content:""; position:absolute; top:0; right:0; width:var(--chamfer); height:var(--chamfer);
+    background:linear-gradient(135deg, rgba(245,214,138,.55), rgba(245,214,138,0) 70%); pointer-events:none;
+  }
+  #screenLoginRequired .auth-gate-brand{ position:relative; z-index:0; display:inline-flex; }
+  #screenLoginRequired .auth-gate-brand::before{
+    content:""; position:absolute; inset:-14px; z-index:-1;
+    background:var(--gold-metal); opacity:.9;
+    clip-path:polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    filter:drop-shadow(0 0 14px rgba(201,162,39,.55));
+  }
 </style>
 </head>
 <body>
@@ -623,12 +736,24 @@
     </div>
 
     <nav class="ct-tabs">
-      <button class="ct-tab active" data-panel="central">Central</button>
-      <button class="ct-tab" data-panel="elenco">Elenco</button>
-      <button class="ct-tab" data-panel="escalacao">Escalação</button>
-      <button class="ct-tab" data-panel="tabela">Tabela</button>
-      <button class="ct-tab" data-panel="estatisticas">Estatísticas</button>
-      <button class="ct-tab" data-panel="mercado">Mercado</button>
+      <button class="ct-tab active" data-panel="central"><span class="ct-tab-pill">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/></svg>
+        <span class="lbl">Central</span></span></button>
+      <button class="ct-tab" data-panel="elenco"><span class="ct-tab-pill">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span class="lbl">Elenco</span></span></button>
+      <button class="ct-tab" data-panel="escalacao"><span class="ct-tab-pill">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 3v18M3 12h18"/></svg>
+        <span class="lbl">Táticas</span></span></button>
+      <button class="ct-tab" data-panel="tabela"><span class="ct-tab-pill">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16"/></svg>
+        <span class="lbl">Tabela</span></span></button>
+      <button class="ct-tab" data-panel="estatisticas"><span class="ct-tab-pill">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18M7 15l4-5 3 3 5-7"/></svg>
+        <span class="lbl">Stats</span></span></button>
+      <button class="ct-tab" data-panel="mercado"><span class="ct-tab-pill">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 11V7a4 4 0 0 0-8 0v4M5 9h14l1 11H4z"/></svg>
+        <span class="lbl">Mercado</span></span></button>
     </nav>
 
     <div class="ct-body">
@@ -639,13 +764,17 @@
           <h2>Próximo jogo <span class="ct-round-inline" id="roundPill">(1 / 38)</span></h2>
           <div class="ct-next-match" id="nextMatchBox"></div>
           <p class="ct-sub" id="lineupWarning"></p>
-          <div style="text-align:center;">
-            <button class="ct-btn accent full lg" id="btnSimulate">▶ Simular rodada</button>
-            <!-- FASE 3 (c) — pedido do usuário: seguir jogando ano após
-                 ano (multitemporadas) — só aparece quando a temporada
-                 termina, ver renderCentral/advanceSeason. -->
-            <button class="ct-btn accent full lg hidden" id="btnAdvanceSeason">🏆 Avançar para a próxima temporada</button>
-          </div>
+        </div>
+        <!-- AJUSTE (redesign "jogo mobile", fase 1 — princípio "ação
+             primária sempre visível") — .ct-action-bar fica fixa ACIMA
+             da nav inferior (ver .ct-panel.active .ct-action-bar), sem
+             depender de rolar até o fim da tela pra simular a rodada. -->
+        <div class="ct-action-bar">
+          <button class="ct-btn accent full lg" id="btnSimulate">▶ Simular rodada</button>
+          <!-- FASE 3 (c) — pedido do usuário: seguir jogando ano após
+               ano (multitemporadas) — só aparece quando a temporada
+               termina, ver renderCentral/advanceSeason. -->
+          <button class="ct-btn accent full lg hidden" id="btnAdvanceSeason">🏆 Avançar para a próxima temporada</button>
         </div>
         <div class="ct-card">
           <h2>Situação do elenco <span class="ct-round-inline" id="seasonYearLabel"></span></h2>
@@ -1255,7 +1384,7 @@
     <div class="ct-modal-body">
       <p class="ct-sub">Classificação própria dessa carreira (não é a tabela real do Brasileirão).</p>
       <div class="ct-scroll-x"><table class="ct-table" id="standingsTableModal"><thead></thead><tbody></tbody></table></div>
-      <h2 style="font-family:'Barlow Condensed', var(--font); font-weight:700; font-size:14.5px; margin:22px 0 12px; color:var(--text-0);">Copa do Brasil</h2>
+      <h2 style="font-family:var(--font-display), var(--font); font-weight:700; letter-spacing:.3px; font-size:14.5px; margin:22px 0 12px; color:var(--text-0);">Copa do Brasil</h2>
       <p class="ct-sub" id="cupStatusTextModal"></p>
       <div id="cupHistoryModal"></div>
     </div>
