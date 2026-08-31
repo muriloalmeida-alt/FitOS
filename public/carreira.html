@@ -140,7 +140,7 @@
      daqui — cada painel ainda não reconstruído continua com seu miolo
      antigo por enquanto, só ganha o chrome novo ao redor. */
   .mt-topbar-menu{
-    position:absolute; top:100%; right:14px; margin-top:8px; z-index:60;
+    position:absolute; top:100%; right:18px; margin-top:8px; z-index:60;
     background:linear-gradient(160deg, var(--mt-navy-700), var(--mt-navy-800) 65%);
     border:1px solid var(--mt-navy-600); border-top:1px solid rgba(232,184,75,.3);
     border-radius:10px; box-shadow:0 14px 32px rgba(0,0,0,.4); min-width:190px; padding:6px; display:none;
@@ -763,32 +763,48 @@
      (prefixadas por não colidirem com .content/.crest/.field já usados
      em css/style.css, ver comentário na Tela 1). Barra superior
      ("topbar") reaproveitável — próximas telas com cabeçalho igual
-     usam as mesmas .mt-topbar*/.mt-brand-mini/.mt-icon-btn. */
+     usam as mesmas .mt-topbar, .mt-brand-mini, .mt-icon-btn. */
+  /* BUG CORRIGIDO (achado ao investigar o pedido do usuário: "o
+     cabeçalho está pequeno, sem espaçamento"): o comentário logo acima
+     tinha, no meio da frase, um separador informal entre nomes de
+     classe formado pelos 2 caracteres que fecham um bloco de
+     comentário CSS — fechava aquele comentário ali mesmo, no meio da
+     frase, bem antes do fechamento de verdade que vinha depois. O
+     texto solto daquele ponto em diante virava prelúdio de seletor
+     inválido, que o parser de CSS ia acumulando (sem nenhum "{" no
+     meio) até a chave de abertura da PRÓPRIA regra .mt-topbar logo
+     abaixo — resultado: a regra inteira (seletor lixo + declarações de
+     padding/tamanho) era descartada por seletor inválido, e o
+     cabeçalho SEMPRE renderizou sem padding nenhum desde a Tela 2, não
+     só "pequeno demais". Cabeçalho também aumentado além do valor
+     literal do mockup do designer (14px/28px/36px), de propósito — o
+     usuário pediu mais presença visual do que a referência original
+     tinha. */
   .mt-topbar{
     position:sticky; top:0; z-index:5;
     background:linear-gradient(180deg, rgba(6,13,26,.97), rgba(6,13,26,.9));
     backdrop-filter:blur(6px); border-bottom:1px solid var(--mt-navy-600);
-    padding:14px 18px;
+    padding:20px 22px;
   }
   .mt-topbar-row{ display:flex; align-items:center; justify-content:space-between; }
-  .mt-brand-mini{ display:flex; align-items:center; gap:9px; }
+  .mt-brand-mini{ display:flex; align-items:center; gap:13px; }
   .mt-crest-mini{
-    width:28px; height:30px; flex-shrink:0;
+    width:38px; height:41px; flex-shrink:0;
     clip-path:polygon(50% 0%, 100% 18%, 100% 62%, 50% 100%, 0% 62%, 0% 18%);
     background:linear-gradient(160deg, var(--mt-navy-600), var(--mt-navy-900) 70%);
     border:1px solid var(--mt-gold-400);
     display:flex; align-items:center; justify-content:center;
   }
-  .mt-crest-mini img{ height:18px; width:18px; object-fit:contain; }
-  .mt-brand-mini .t{ font-family:'Bebas Neue', var(--font); font-size:16px; letter-spacing:1.5px; color:var(--mt-ivory-50); }
+  .mt-crest-mini img{ height:24px; width:24px; object-fit:contain; }
+  .mt-brand-mini .t{ font-family:'Bebas Neue', var(--font); font-size:21px; letter-spacing:2px; color:var(--mt-ivory-50); }
   .mt-brand-mini .t span{ color:var(--mt-gold-400); }
   .mt-icon-btn{
-    color:var(--mt-ivory-100); width:36px; height:36px;
+    color:var(--mt-ivory-100); width:42px; height:42px;
     display:flex; align-items:center; justify-content:center;
-    background:var(--mt-navy-800); border:1px solid var(--mt-navy-600); border-radius:8px; flex-shrink:0;
+    background:var(--mt-navy-800); border:1px solid var(--mt-navy-600); border-radius:9px; flex-shrink:0;
     cursor:pointer;
   }
-  .mt-icon-btn svg{ width:18px; height:18px; display:block; }
+  .mt-icon-btn svg{ width:21px; height:21px; display:block; }
 
   .mt-picker-screen{ min-height:100vh; background:linear-gradient(180deg, var(--mt-navy-900) 0%, var(--mt-navy-950) 60%, #030811 100%); }
   .mt-picker-content{ padding:20px 18px 40px; }
@@ -1013,12 +1029,6 @@
             <div class="mt-card-title">Situação do elenco</div>
             <div class="mt-card-sub" id="seasonYearLabel" style="margin:0;"></div>
           </div>
-          <!-- FASE 1 (item 3) — meta da diretoria sempre visível durante
-               a temporada, não só no modal de virada de ano (ver
-               CAREER.boardGoal/renderCentral em carreira.js) — sem isso
-               dava pra esquecer completamente qual era a meta até o fim
-               da temporada. -->
-          <p class="mt-badge-gold" id="boardGoalLabel" style="margin-top:10px;"></p>
           <div class="mt-stat-grid" id="squadKpis"></div>
         </div>
         <!-- FASE 4 (item 4) — banner reaproveitável caso o técnico feche
@@ -1086,6 +1096,15 @@
 
       <!-- ---------- Elenco ---------- -->
       <section class="ct-panel" id="panel-elenco">
+        <!-- AJUSTE (feedback do usuário: "a meta da diretoria pode sair
+             da Central e ir para a página de Elenco") — antes ficava no
+             card "Situação do elenco" da Central; agora atualizada em
+             renderElenco() em vez de renderCentral() (as duas sempre
+             rodam juntas a cada mudança de estado, ver comentário lá).
+             mt-badge-gold funciona isolado (não depende de .mt-card),
+             por isso dá pra reaproveitar aqui mesmo o painel ainda não
+             estando na Tela 4 (Elenco) redesenhada. -->
+        <p class="mt-badge-gold" id="boardGoalLabel" style="margin:0 0 14px;"></p>
         <div class="ct-card">
           <div class="ct-card-head">
             <h2>Elenco principal</h2>

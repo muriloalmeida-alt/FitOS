@@ -196,7 +196,23 @@ function normalizeNameForColor(s) {
 }
 function realTeamColor(name) {
   const norm = normalizeNameForColor(name);
-  const match = DEMO_TEAMS.find((t) => normalizeNameForColor(t.name) === norm || (t.aliases || []).some((a) => normalizeNameForColor(a) === norm));
+  let match = DEMO_TEAMS.find((t) => normalizeNameForColor(t.name) === norm || (t.aliases || []).some((a) => normalizeNameForColor(a) === norm));
+  // AJUSTE (pedido do usuário: "alguns clubes estão com as cores de
+  // fundo sem relação com o degradê proposto") — o match exato acima só
+  // cobre variação de nome já REPORTADA e somada a `aliases` (ver
+  // comentário em data.js); qualquer outra variação que o fornecedor de
+  // dado real mande (prefixo/sufixo tipo "EC ", "SE ", "Sport Club ")
+  // caía direto pro azul genérico do fallback (`crestImg`), sem
+  // relação nenhuma com o clube de verdade. Antes de desistir, tenta um
+  // 2º match por "contém" nos dois sentidos — seguro aqui porque
+  // DEMO_TEAMS só cobre os 20 clubes fixos desta competição (não corre
+  // risco de casar com um clube errado de fora da lista).
+  if (!match) {
+    match = DEMO_TEAMS.find((t) => {
+      const candidates = [t.name, ...(t.aliases || [])].map(normalizeNameForColor).filter((c) => c.length > 3);
+      return candidates.some((c) => norm.includes(c) || c.includes(norm));
+    });
+  }
   return match ? { c1: match.c1, c2: match.c2, c3: match.c3 } : null;
 }
 async function loadLeague() {
@@ -3658,10 +3674,6 @@ function renderCentral() {
   // FASE 3 (c) — ano da carreira sempre visível (não só no modal de
   // transição), mesmo padrão do "(X / 38)" ao lado de "Próximo jogo".
   document.getElementById("seasonYearLabel").textContent = `Temporada ${CAREER.seasonYear}`;
-  // FASE 1 (item 3) — meta da diretoria sempre visível (ver comentário
-  // no HTML). CAREER.boardGoal já existe garantido a essa altura
-  // (startCareer/migrateCareerDefaults sempre calculam um).
-  document.getElementById("boardGoalLabel").textContent = `🎯 Meta da diretoria: ${CAREER.boardGoal.label}`;
 
   // FASE 2 (b) — card "Financeiro": caixa e uso do teto salarial (só
   // elenco PRINCIPAL conta pro teto, ver wageBillOf).
@@ -3791,6 +3803,14 @@ function playerRow(p) {
 }
 function renderElenco() {
   refreshAvailability();
+  // AJUSTE (feedback do usuário: "a meta da diretoria pode sair da
+  // Central e ir para a página de Elenco") — movida daqui de
+  // renderCentral(); CAREER.boardGoal já existe garantido a essa altura
+  // (startCareer/migrateCareerDefaults sempre calculam um). renderElenco()
+  // e renderCentral() sempre rodam juntas em toda mudança de estado (ver
+  // os call sites de ambas), então a meta continua tão atualizada quanto
+  // estava antes.
+  document.getElementById("boardGoalLabel").textContent = `🎯 Meta da diretoria: ${CAREER.boardGoal.label}`;
   // Ordenado por posição (Goleiros, Defensores, Meio-campo, Atacantes —
   // ver SUBPOS_ORDER) e, dentro da mesma posição, por overall — dentro
   // de cada grupo (principal/base), pedido do usuário.
