@@ -460,29 +460,35 @@
      (ver crestImg) e medalha, prêmios individuais em blocos tipo KPI,
      borda dourada + "faixa" no card inteiro da temporada em que o SEU
      clube foi campeão (ver renderAwardsScreen). */
-  .ct-awards-hero{ text-align:center; padding:20px 14px; margin-bottom:18px; border-radius:var(--radius-lg); background:linear-gradient(160deg, var(--navy-card), var(--navy-card2)); border:1px solid var(--gold); }
-  .ct-awards-hero .big{ font-size:28px; font-weight:800; color:var(--gold); line-height:1.2; }
-  .ct-awards-hero .lbl{ font-size:11.5px; color:var(--text-2); margin-top:6px; }
-  .ct-award-season{ border:1px solid var(--border); border-radius:var(--radius-md); padding:16px 18px; margin-bottom:16px; background:var(--navy-card); }
-  .ct-award-season.champion{ border-color:var(--gold); box-shadow:0 0 0 1px var(--gold) inset; }
+  /* AJUSTE (refatoração completa, Tela 11c — ver imagem "depois" do
+     docx, 11c-premiacoes) — cores novas do design system (--mt-*) +
+     chamfer (clip-path, mesmo canto cortado do resto do sistema) no
+     lugar do border-radius genérico; só CSS, a marcação (JS) já tinha
+     a estrutura certa (hero, temporada com faixa de campeão, pódio com
+     escudo, blocos de prêmio) de uma fase de redesign anterior. */
+  .ct-awards-hero{ text-align:center; padding:20px 14px; margin-bottom:18px; clip-path:polygon(0 0, calc(100% - 22px) 0, 100% 22px, 100% 100%, 0 100%); background:linear-gradient(160deg, var(--mt-navy-700), var(--mt-navy-800) 65%); border:1px solid var(--mt-gold-600); }
+  .ct-awards-hero .big{ font-family:'Rajdhani', var(--font); font-size:28px; font-weight:700; color:var(--mt-gold-400); line-height:1.2; }
+  .ct-awards-hero .lbl{ font-size:11.5px; color:var(--mt-ink-muted); margin-top:6px; }
+  .ct-award-season{ border:1px solid var(--mt-navy-600); clip-path:polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%); padding:16px 18px; margin-bottom:16px; background:linear-gradient(160deg, var(--mt-navy-700), var(--mt-navy-800) 65%); }
+  .ct-award-season.champion{ border-color:var(--mt-gold-600); box-shadow:0 0 0 1px var(--mt-gold-600) inset; }
   .ct-award-season .yr{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:12px; }
-  .ct-award-season .yr h2{ margin:0; }
-  .ct-award-season .yr .ribbon{ font-size:10px; font-weight:800; color:var(--navy-deep); background:var(--gold); padding:3px 9px; border-radius:100px; text-transform:uppercase; letter-spacing:.4px; white-space:nowrap; }
+  .ct-award-season .yr h2{ margin:0; font-family:'Bebas Neue', var(--font); font-size:18px; letter-spacing:.5px; color:var(--mt-ivory-50); font-weight:700; }
+  .ct-award-season .yr .ribbon{ font-family:'Rajdhani', var(--font); font-size:10.5px; font-weight:700; color:#2A1D02; background:linear-gradient(180deg, var(--mt-gold-300), var(--mt-gold-600)); padding:3px 9px; border-radius:100px; text-transform:uppercase; letter-spacing:.4px; white-space:nowrap; }
   .ct-award-podium{ display:flex; gap:10px; margin-bottom:12px; }
-  .ct-award-podium .slot{ flex:1; min-width:0; display:flex; align-items:center; gap:8px; background:var(--navy-card2); border-radius:var(--radius-sm); padding:9px 10px; border:1px solid var(--border); }
-  .ct-award-podium .slot.mine{ border-color:var(--gold); background:rgba(201,162,39,.10); }
+  .ct-award-podium .slot{ flex:1; min-width:0; display:flex; align-items:center; gap:8px; background:var(--mt-navy-900); border-radius:8px; padding:9px 10px; border:1px solid var(--mt-navy-600); }
+  .ct-award-podium .slot.mine{ border-color:var(--mt-gold-600); background:rgba(232,184,75,.08); }
   .ct-award-podium .medal{ font-size:17px; flex-shrink:0; }
-  .ct-award-podium .lbl{ display:block; font-size:9.5px; color:var(--text-2); text-transform:uppercase; letter-spacing:.3px; }
-  .ct-award-podium .nm{ display:block; font-size:12.5px; font-weight:700; color:var(--text-0); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ct-award-podium .lbl{ display:block; font-family:'Rajdhani', var(--font); font-size:10px; font-weight:600; color:var(--mt-ink-faint); text-transform:uppercase; letter-spacing:.3px; }
+  .ct-award-podium .nm{ display:block; font-size:12.5px; font-weight:600; color:var(--mt-ivory-50); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .ct-award-stats{ display:grid; grid-template-columns:repeat(auto-fit,minmax(130px,1fr)); gap:8px; margin-bottom:8px; }
-  .ct-award-stat{ background:var(--navy-card2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:9px 10px; }
-  .ct-award-stat.mine{ border-color:var(--gold); background:rgba(201,162,39,.10); }
+  .ct-award-stat{ background:var(--mt-navy-900); border:1px solid var(--mt-navy-600); border-radius:8px; padding:9px 10px; }
+  .ct-award-stat.mine{ border-color:var(--mt-gold-600); background:rgba(232,184,75,.08); }
   .ct-award-stat .icon{ font-size:13px; }
-  .ct-award-stat .lbl{ display:block; font-size:9.5px; color:var(--text-2); text-transform:uppercase; letter-spacing:.3px; margin:4px 0 2px; }
-  .ct-award-stat .nm{ display:block; font-size:12.5px; font-weight:700; color:var(--text-0); }
-  .ct-award-stat .sub{ display:block; font-size:10.5px; color:var(--text-2); margin-top:1px; }
-  .ct-award-cup{ margin-top:8px; padding-top:10px; border-top:1px dashed var(--border); }
-  .ct-award-cup .title{ font-size:10.5px; font-weight:800; color:var(--text-1); text-transform:uppercase; letter-spacing:.4px; margin-bottom:8px; }
+  .ct-award-stat .lbl{ display:block; font-family:'Rajdhani', var(--font); font-size:10px; font-weight:600; color:var(--mt-ink-faint); text-transform:uppercase; letter-spacing:.3px; margin:4px 0 2px; }
+  .ct-award-stat .nm{ display:block; font-size:12.5px; font-weight:600; color:var(--mt-ivory-50); }
+  .ct-award-stat .sub{ display:block; font-size:10.5px; color:var(--mt-ink-faint); margin-top:1px; }
+  .ct-award-cup{ margin-top:8px; padding-top:10px; border-top:1px dashed var(--mt-navy-600); }
+  .ct-award-cup .title{ font-family:'Rajdhani', var(--font); font-size:10.5px; font-weight:700; color:var(--mt-ink-muted); text-transform:uppercase; letter-spacing:.4px; margin-bottom:8px; }
   /* AJUSTE (pedido do usuário: "esperava uma tela exclusiva pra
      notícias nos padrões de um portal de esportes") — masthead de
      jornal, manchete principal em destaque, feed com tag por tipo de
@@ -2228,10 +2234,14 @@
      não é mais um bloco dentro do modal de nova temporada, guarda o
      histórico de TODAS as temporadas já fechadas (ver
      computeSeasonAwards/renderAwardsScreen em carreira.js). -->
+<!-- AJUSTE (refatoração completa, Tela 11c — ver imagem "depois" do
+     docx, 11c-premiacoes) — .mt-fullheader (Tela 12f, ícone de
+     troféu); hero/temporadas/pódio/prêmios com cores e chamfer novos
+     (ver CSS de .ct-awards-hero/.ct-award-* logo acima). -->
 <div class="ct-modal-overlay ct-modal-fullscreen" id="awardsOverlay">
   <div class="ct-modal">
-    <div class="ct-modal-header">
-      <span class="ct-modal-icon">🏆</span>
+    <div class="ct-modal-header mt-fullheader">
+      <span class="ct-modal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4Z"/><path d="M7 5H4a1 1 0 0 0-1 1c0 2.5 1.5 4 4 4.3M17 5h3a1 1 0 0 1 1 1c0 2.5-1.5 4-4 4.3"/></svg></span>
       <div class="ct-modal-header-text">
         <h3>Premiações</h3>
         <div class="ct-modal-sub">Histórico de cada temporada encerrada</div>
