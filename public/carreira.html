@@ -447,17 +447,11 @@
      (var(--text-2)), não dourado, de propósito: é uma ESTIMATIVA de
      olheiro, não um valor confirmado, não merece o mesmo destaque de
      um dado real do jogador (ver .ct-kpi .v.gold). */
-  .ct-pot-hint{ font-size:9.5px; color:var(--text-2); white-space:nowrap; }
   .ct-cond-track{ width:60px; height:6px; border-radius:100px; background:var(--border); overflow:hidden; display:inline-block; vertical-align:middle; }
   .ct-cond-fill{ height:100%; background:var(--brd-green); }
-  /* Pedido do usuário: condição vira nota de 01 a 05 (5 bolinhas, em
-     vez da barra de %) — cor por faixa (ver conditionRating em
-     carreira.js), preenchida = boa/média/baixa, vazia = --border. */
-  .ct-cond-dots{ display:inline-flex; gap:2px; vertical-align:middle; }
-  .ct-cond-dot{ width:7px; height:7px; border-radius:50%; background:var(--border); }
-  .ct-cond-dot.good{ background:var(--brd-green); }
-  .ct-cond-dot.mid{ background:var(--gold); }
-  .ct-cond-dot.low{ background:var(--brd-red); }
+  /* .ct-cond-dots/.ct-cond-dot/.ct-pot-hint removidos (redesign, Tela 4)
+     — só eram usados por playerRow() no Elenco, que agora usa
+     .mt-condition-bar/badge de OVR direto (ver Tela 4 mais abaixo). */
   /* Pedido do usuário: textos explicativos (ex.: abaixo de "Elenco
      principal"/"Categoria de base") saem da tela por padrão — vira um
      "?" ao lado do título do card, clicável, que revela a explicação
@@ -835,6 +829,65 @@
   }
   .mt-club-card:active{ filter:brightness(1.08); }
   .mt-club-name{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:13.5px; letter-spacing:.3px; color:var(--mt-ivory-100); }
+
+  /* ================= Tela 4 — Elenco =================
+     AJUSTE (refatoração completa, ver 04-elenco-restyled.html do
+     designer) — divisor de posição, linha de jogador com badge de OVR +
+     barra de condição em segmentos + tags, e linha de base com barra de
+     potencial + confiança do olheiro. .mt-card (Tela 3) reaproveitado
+     como painel de cada seção — sem novo componente de painel aqui. */
+  .mt-pos-divider{ display:flex; align-items:center; gap:8px; margin:14px 0 6px; }
+  .mt-pos-divider:first-child{ margin-top:0; }
+  .mt-pos-divider .bar{ width:4px; height:14px; border-radius:2px; }
+  .mt-pos-divider .lbl{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:12px; letter-spacing:1.5px; color:var(--mt-ink-muted); }
+  .mt-pos-divider.gol .bar{ background:var(--mt-gold-400); }
+  .mt-pos-divider.def .bar{ background:var(--mt-sky-400); }
+  .mt-pos-divider.mei .bar{ background:var(--mt-pitch-400); }
+  .mt-pos-divider.ata .bar{ background:var(--mt-crimson-400); }
+
+  .mt-player-row{ display:flex; align-items:center; gap:12px; padding:10px 4px; border-bottom:1px solid var(--mt-navy-700); cursor:pointer; }
+  .mt-player-row:last-child{ border-bottom:none; }
+  .mt-ovr-badge{
+    width:38px; height:38px; flex-shrink:0; border-radius:50%;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Rajdhani', var(--font); font-weight:700; font-size:14.5px;
+    box-shadow:inset 0 -2px 4px rgba(0,0,0,.25), 0 0 0 1.5px rgba(255,255,255,.12);
+  }
+  .mt-ovr-badge.t-elite{ background:radial-gradient(circle at 35% 30%, var(--mt-gold-300), var(--mt-gold-600) 75%); color:#2A1D02; }
+  .mt-ovr-badge.t-good{ background:radial-gradient(circle at 35% 30%, #7FCB98, var(--mt-pitch-700) 75%); color:#0A2415; }
+  .mt-ovr-badge.t-mid{ background:radial-gradient(circle at 35% 30%, #8FA3BF, #3A5170 75%); color:#0A1628; }
+
+  .mt-player-main{ flex:1; min-width:0; }
+  .mt-player-name{ font-weight:600; font-size:14.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--mt-ivory-50); }
+  .mt-player-tags{ display:flex; gap:6px; margin-top:3px; flex-wrap:wrap; }
+  .mt-ptag{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:10px; letter-spacing:.3px; padding:2px 7px; border-radius:4px; display:inline-flex; align-items:center; gap:3px; }
+  .mt-ptag.crimson{ background:rgba(214,69,69,.16); color:var(--mt-crimson-400); border:1px solid rgba(214,69,69,.35); }
+  .mt-ptag.gold{ background:rgba(232,184,75,.14); color:var(--mt-gold-300); border:1px solid rgba(232,184,75,.3); }
+  .mt-ptag.neutral{ background:rgba(143,163,191,.12); color:var(--mt-ink-muted); border:1px solid rgba(143,163,191,.28); }
+
+  .mt-player-meta{ text-align:right; flex-shrink:0; font-family:'Rajdhani', var(--font); }
+  .mt-player-meta .age{ font-size:13px; font-weight:600; color:var(--mt-ink-muted); }
+  .mt-player-meta .age b{ color:var(--mt-ivory-100); }
+
+  .mt-condition-bar{ display:flex; gap:2px; margin-top:5px; }
+  .mt-condition-bar .seg{ width:8px; height:4px; border-radius:2px; background:var(--mt-navy-600); }
+  .mt-condition-bar.full .seg.on{ background:var(--mt-pitch-400); box-shadow:0 0 4px rgba(61,184,106,.5); }
+  .mt-condition-bar.mid .seg.on{ background:var(--mt-gold-400); box-shadow:0 0 4px rgba(232,184,75,.5); }
+  .mt-condition-bar.low .seg.on{ background:var(--mt-crimson-400); box-shadow:0 0 4px rgba(214,69,69,.5); }
+
+  /* ---- categoria de base (potencial + confiança do olheiro) ---- */
+  .mt-base-row{ display:flex; align-items:center; gap:12px; padding:11px 4px; border-bottom:1px solid var(--mt-navy-700); cursor:pointer; }
+  .mt-base-row:last-child{ border-bottom:none; }
+  .mt-base-main{ flex:1; min-width:0; }
+  .mt-base-name{ font-weight:600; font-size:14px; color:var(--mt-ivory-50); }
+  .mt-base-name .yr{ color:var(--mt-ink-faint); font-weight:400; }
+  .mt-base-sub{ font-family:'Rajdhani', var(--font); font-size:11.5px; color:var(--mt-ink-faint); margin-top:2px; }
+  .mt-pot-bar-track{ width:64px; height:5px; border-radius:99px; background:var(--mt-navy-900); border:1px solid var(--mt-navy-600); overflow:hidden; margin-top:5px; }
+  .mt-pot-bar-fill{ height:100%; background:linear-gradient(90deg, var(--mt-pitch-400), var(--mt-gold-400)); }
+  .mt-base-ovr{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:20px; color:var(--mt-gold-400); text-align:right; width:34px; flex-shrink:0; }
+  .mt-confidence{ display:flex; gap:3px; flex-shrink:0; }
+  .mt-confidence .dot{ width:6px; height:6px; border-radius:50%; background:var(--mt-navy-600); }
+  .mt-confidence .dot.on{ background:var(--mt-pitch-400); box-shadow:0 0 5px rgba(61,184,106,.6); }
 </style>
 </head>
 <body>
@@ -1105,21 +1158,33 @@
              por isso dá pra reaproveitar aqui mesmo o painel ainda não
              estando na Tela 4 (Elenco) redesenhada. -->
         <p class="mt-badge-gold" id="boardGoalLabel" style="margin:0 0 14px;"></p>
-        <div class="ct-card">
-          <div class="ct-card-head">
-            <h2>Elenco principal</h2>
+        <!-- AJUSTE (refatoração completa, Tela 4 — Elenco, ver
+             04-elenco-restyled.html do designer) — reconstruída do zero:
+             lista de jogadores agrupada por posição (com divisor
+             .mt-pos-divider), badge circular de OVR, barra de condição em
+             segmentos e tags só pra exceções (fim de contrato, pede
+             transferência, lesionado/suspenso, emprestado/gerado) — em
+             vez da tabela genérica .ct-table de antes. Categoria de base
+             ganha um card à parte com potencial/confiança do olheiro,
+             mesma estrutura do mockup. Ids/click-wiring preservados via
+             JS (openDetail por jogador) — nenhuma lógica de jogo mudou,
+             só a marcação que renderElenco()/playerRow()/baseRow() (ver
+             carreira.js) montam. -->
+        <div class="mt-card">
+          <div class="mt-card-head">
+            <div class="mt-card-title">Elenco principal</div>
             <button class="ct-help-btn" data-help="helpElencoPrincipal" aria-label="Ajuda">?</button>
           </div>
-          <p class="ct-sub ct-help-text" id="helpElencoPrincipal" hidden>Clique num jogador pra ver detalhes, escalar, promover a titular do banco, ou dispensar.</p>
-          <div class="ct-scroll-x"><table class="ct-table" id="squadMainTable"><thead></thead><tbody></tbody></table></div>
+          <p class="mt-card-sub ct-help-text" id="helpElencoPrincipal" hidden>Clique num jogador pra ver detalhes, escalar, promover a titular do banco, ou dispensar.</p>
+          <div id="squadMainList"></div>
         </div>
-        <div class="ct-card">
-          <div class="ct-card-head">
-            <h2>Categoria de base</h2>
+        <div class="mt-card">
+          <div class="mt-card-head">
+            <div class="mt-card-title">Categoria de base</div>
             <button class="ct-help-btn" data-help="helpCategoriaBase" aria-label="Ajuda">?</button>
           </div>
-          <p class="ct-sub ct-help-text" id="helpCategoriaBase" hidden>Jogadores da base (gerados — a API de dados não cobre elenco sub-20 do Brasileirão hoje). Promova os destaques pro elenco principal.</p>
-          <div class="ct-scroll-x"><table class="ct-table" id="squadBaseTable"><thead></thead><tbody></tbody></table></div>
+          <p class="mt-card-sub ct-help-text" id="helpCategoriaBase" hidden>Jogadores da base (gerados — a API de dados não cobre elenco sub-20 do Brasileirão hoje). Promova os destaques pro elenco principal.</p>
+          <div id="squadBaseList"></div>
         </div>
       </section>
 
