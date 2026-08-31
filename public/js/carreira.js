@@ -4721,6 +4721,12 @@ function renderMercado() {
   // + botões embaixo, alinhados com o badge (padding-left). Ação muda
   // pra "Vender" quando é jogador do SEU elenco (ver "mine" em
   // allMarketPlayers).
+  // AJUSTE (pedido do usuário, "Opção B" do mockup de comparação —
+  // ver mercado-row-opcoes.html) — ações saem da própria linha embaixo
+  // (peso visual grande, fundo dourado com brilho no botão comprar) e
+  // sobem pra um canto discreto ao lado do nome (.mt-market-actions-corner,
+  // ícone sem contorno nem preenchimento, só a cor diferencia a ação);
+  // salário/valor ganham a linha de baixo inteira, sozinhos.
   const rows = capped.map(({ p, club, mine }) => {
     const subpos = subPositionOf(p);
     return `<div class="mt-market-row">
@@ -4730,15 +4736,15 @@ function renderMercado() {
         <div class="mt-market-name">${escapeHtml(abbreviateName(p.name))}</div>
         <div class="mt-market-tags"><span class="mt-market-club">${escapeHtml(club.short || club.name)}</span><span class="mt-pos-chip ${SUBPOS_DIVCLASS[subpos]}">${subpos}</span></div>
       </div>
+      <div class="mt-market-actions-corner">
+        ${mine
+          ? `<button class="mt-btn-sell" data-sell="${p.id}" aria-label="Vender" title="Vender">${MARKET_ICON.saida}</button>
+             <button class="mt-btn-loan" data-loanout="${p.id}" aria-label="Emprestar" ${loanOutBtnAttrs(p, mktWindow) || `title="Emprestar"`}>${MARKET_ICON.emprestimo}</button>`
+          : `<button class="mt-btn-buy" data-buy="${p.id}" data-club="${escapeHtml(String(club.id))}" aria-label="Comprar" ${mktWindow.open ? `title="Comprar"` : `disabled title="Janela de contratações encerrada"`}>${MARKET_ICON.entrada}</button>
+             <button class="mt-btn-loan" data-loanin="${p.id}" data-club="${escapeHtml(String(club.id))}" aria-label="Pegar emprestado" ${loanOutBtnAttrs(p, mktWindow) || `title="Pegar emprestado"`}>${MARKET_ICON.emprestimo}</button>`}
+      </div>
     </div>
     <div class="mt-market-detail">Salário: <b>${fmtBRLShort(p.wage)}/mês</b> · Valor: <b>${fmtBRLShort(p.value)}</b></div>
-    <div class="mt-market-btns">
-      ${mine
-        ? `<button class="mt-btn-sell" data-sell="${p.id}" aria-label="Vender" title="Vender">${MARKET_ICON.saida}</button>
-           <button class="mt-btn-loan" data-loanout="${p.id}" aria-label="Emprestar" ${loanOutBtnAttrs(p, mktWindow) || `title="Emprestar"`}>${MARKET_ICON.emprestimo}</button>`
-        : `<button class="mt-btn-buy" data-buy="${p.id}" data-club="${escapeHtml(String(club.id))}" aria-label="Comprar" ${mktWindow.open ? `title="Comprar"` : `disabled title="Janela de contratações encerrada"`}>${MARKET_ICON.entrada}</button>
-           <button class="mt-btn-loan" data-loanin="${p.id}" data-club="${escapeHtml(String(club.id))}" aria-label="Pegar emprestado" ${loanOutBtnAttrs(p, mktWindow) || `title="Pegar emprestado"`}>${MARKET_ICON.emprestimo}</button>`}
-    </div>
   </div>`;
   }).join("");
   document.getElementById("marketList").innerHTML = rows || `<p class="ct-empty">Nenhum jogador encontrado.</p>`;
