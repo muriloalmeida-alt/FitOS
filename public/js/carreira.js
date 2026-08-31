@@ -3516,29 +3516,52 @@ async function finishLiveMatch() {
   renderAll();
   showMatchDetailModal(summary);
 }
+// AJUSTE (refatoração completa, Tela 13b) — descrição sem emoji (o
+// marcador colorido da linha do tempo já indica o tipo, ver
+// liveEventDot logo abaixo) e nome do jogador em <b> (mesmo padrão do
+// mockup, ver .tl-desc b em 13b-partida-ao-vivo-restyled.html).
 function liveEventLabel(e) {
-  if (e.type === "gol") return `⚽ Gol${e.mine === false ? " do adversário" : ""} — ${escapeHtml(e.player)}`;
-  if (e.type === "assistencia") return `🅰️ Assistência de ${escapeHtml(e.player)}`;
-  if (e.type === "amarelo") return `🟨 Cartão amarelo — ${escapeHtml(e.player)}`;
-  if (e.type === "vermelho") return `🟥 Expulsão — ${escapeHtml(e.player)}`;
-  if (e.type === "substituicao") return `🔄 ${escapeHtml(e.entra)} entra no lugar de ${escapeHtml(e.saiu)}`;
+  if (e.type === "gol") return `Gol${e.mine === false ? " do adversário" : ""} — <b>${escapeHtml(e.player)}</b>`;
+  if (e.type === "assistencia") return `Assistência de <b>${escapeHtml(e.player)}</b>`;
+  if (e.type === "amarelo") return `Cartão amarelo — <b>${escapeHtml(e.player)}</b>`;
+  if (e.type === "vermelho") return `Expulsão — <b>${escapeHtml(e.player)}</b>`;
+  if (e.type === "substituicao") return `<b>${escapeHtml(e.entra)}</b> entra no lugar de <b>${escapeHtml(e.saiu)}</b>`;
   return "";
+}
+// Marcador (cor + ícone SVG) da linha do tempo por tipo de evento — ver
+// .mt-live-tl-dot em carreira.html (Tela 13b).
+function liveEventDot(type) {
+  const DOTS = {
+    gol: { cls: "gol", svg: `<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="9"/></svg>` },
+    assistencia: { cls: "assist", svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="19" x2="19" y2="5"/><polyline points="9 5 19 5 19 15"/></svg>` },
+    amarelo: { cls: "amarelo", svg: `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="3" width="12" height="18" rx="1.5"/></svg>` },
+    vermelho: { cls: "vermelho", svg: `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="3" width="12" height="18" rx="1.5"/></svg>` },
+    substituicao: { cls: "sub", svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>` },
+  };
+  return DOTS[type] || DOTS.substituicao;
 }
 function renderLiveMatch() {
   const lm = LIVE_MATCH;
   if (!lm) return;
   document.getElementById("liveMatchScore").innerHTML = `
     <div class="side">${crestImg(lm.home)}<span class="n">${escapeHtml(lm.home.name)}</span></div>
-    <span class="vs" style="font-size:22px;">${lm.gh} × ${lm.ga}</span>
+    <span class="vs">${lm.gh} × ${lm.ga}</span>
     <div class="side">${crestImg(lm.away)}<span class="n">${escapeHtml(lm.away.name)}</span></div>`;
   const minute = lm.chunkIndex === 0 ? 0 : LIVE_MATCH_CHUNK_MINUTES[Math.min(lm.chunkIndex, LIVE_MATCH_CHUNK_MINUTES.length) - 1];
   document.getElementById("liveMatchMinute").textContent = lm.finished ? "Fim de jogo — carregando..." : lm.halftime ? "Intervalo" : `${minute}'`;
   document.getElementById("liveMatchFeed").innerHTML = lm.events.length
-    ? [...lm.events].reverse().map((e) => `<div class="ct-transfer-feed-item"><b>${e.minute}'</b> ${liveEventLabel(e)}</div>`).join("")
+    ? [...lm.events].reverse().map((e) => {
+        const dot = liveEventDot(e.type);
+        return `<div class="mt-live-tl-event">
+          <div class="mt-live-tl-dot ${dot.cls}">${dot.svg}</div>
+          <div class="mt-live-tl-min">${e.minute}'</div>
+          <div class="mt-live-tl-desc">${liveEventLabel(e)}</div>
+        </div>`;
+      }).join("")
     : `<p class="ct-empty">Bola rolando...</p>`;
   const subsTotal = MAX_SUBS_PER_MATCH + lm.subsBonus;
   const subBtn = document.getElementById("btnLiveSub");
-  subBtn.textContent = `🔄 Substituir (${lm.subsUsed}/${subsTotal})`;
+  document.getElementById("btnLiveSubLabel").textContent = `Substituir (${lm.subsUsed}/${subsTotal})`;
   subBtn.disabled = lm.finished || lm.subsUsed >= subsTotal;
   document.getElementById("btnLiveTactics").disabled = lm.finished;
   document.getElementById("btnLiveSkip").disabled = lm.finished;
