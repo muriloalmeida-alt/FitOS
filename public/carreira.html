@@ -965,7 +965,13 @@
     background:rgba(232,184,75,.14); border:1px solid rgba(232,184,75,.4); color:var(--mt-gold-400);
   }
   .mt-confirm-overlay .ct-modal-icon svg{ width:19px; height:19px; }
-  .mt-confirm-overlay .ct-modal-header h3{ font-family:'Bebas Neue', var(--font); font-size:19px; letter-spacing:.5px; color:var(--mt-ivory-50); }
+  /* AJUSTE (Tela 19 — Demissão) — variante vermelha do ícone, pra
+     notícia ruim (mesmo diálogo, só o quadrado do ícone muda de cor). */
+  .mt-confirm-overlay .ct-modal-icon.danger{ background:rgba(214,69,69,.14); border-color:rgba(214,69,69,.4); color:var(--mt-crimson-400); }
+  /* AJUSTE — títulos mais longos (ex: "Proposta por um jogador") não
+     cabem numa linha só nesse diálogo estreito; permite quebrar em vez
+     de truncar com reticências como o .ct-modal-header genérico faz. */
+  .mt-confirm-overlay .ct-modal-header h3{ font-family:'Bebas Neue', var(--font); font-size:19px; letter-spacing:.5px; color:var(--mt-ivory-50); white-space:normal; overflow:visible; text-overflow:clip; }
   .mt-confirm-overlay .ct-modal-body{ padding:14px 22px 22px; }
   .mt-confirm-overlay .ct-modal-body .ct-sub{ font-family:var(--font); font-size:14px; color:var(--mt-ivory-100); line-height:1.5; }
 
@@ -2241,12 +2247,16 @@
      na aba Mercado como sempre) mas ainda segue o fluxo normal pra
      Tabela (mesma exceção documentada da coletiva de imprensa — ver
      closePressConferenceModal). -->
-<div class="ct-modal-overlay" id="playerOfferOverlay">
+<!-- AJUSTE (refatoração completa, Tela 16b — ver imagem "depois" do
+     docx, 16b-proposta-em-destaque) — mesmo diálogo chanfrado do
+     .mt-confirm-overlay (Tela 10b), reaproveitado aqui verbatim (ícone
+     + título + corpo + botões empilhados em vez de lado a lado). -->
+<div class="ct-modal-overlay mt-confirm-overlay" id="playerOfferOverlay">
   <div class="ct-modal">
     <div class="ct-modal-header">
-      <span class="ct-modal-icon">💰</span>
+      <span class="ct-modal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
       <div class="ct-modal-header-text">
-        <h3>Proposta por um jogador seu</h3>
+        <h3>Proposta por um jogador</h3>
         <div class="ct-modal-sub">Decida agora ou resolva depois na aba Mercado</div>
       </div>
       <button class="ct-modal-close" id="playerOfferClose">✕</button>
@@ -2254,8 +2264,8 @@
     <div class="ct-modal-body">
       <p class="ct-sub" id="playerOfferText" style="margin-bottom:16px;"></p>
       <div style="display:flex; flex-direction:column; gap:8px;">
-        <button class="ct-btn full primary" id="btnPlayerOfferAccept">Aceitar proposta</button>
-        <button class="ct-btn full" id="btnPlayerOfferDecline">Recusar</button>
+        <button class="mt-btn-primary-gold" id="btnPlayerOfferAccept">Aceitar proposta</button>
+        <button class="mt-btn-ghost" id="btnPlayerOfferDecline">Recusar</button>
       </div>
     </div>
   </div>
@@ -2272,10 +2282,13 @@
      aparecer (ver advanceSeason, chamado ANTES de mostrar esse modal),
      então o X só fecha e atualiza a tela, mesmo efeito de "Começar a
      temporada" (ver closeSeasonModal em carreira.js). -->
-<div class="ct-modal-overlay" id="seasonOverlay">
+<!-- AJUSTE (refatoração completa, Tela 18 — ver imagem "depois" do
+     docx, 18-nova-temporada) — mesmo diálogo chanfrado do
+     .mt-confirm-overlay (Tela 10b) reaproveitado aqui. -->
+<div class="ct-modal-overlay mt-confirm-overlay" id="seasonOverlay">
   <div class="ct-modal">
     <div class="ct-modal-header">
-      <span class="ct-modal-icon">🏆</span>
+      <span class="ct-modal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4Z"/><path d="M7 5H4a1 1 0 0 0-1 1c0 2.5 1.5 4 4 4.3M17 5h3a1 1 0 0 1 1 1c0 2.5-1.5 4-4 4.3"/></svg></span>
       <div class="ct-modal-header-text">
         <h3 id="seasonModalTitle">Nova temporada!</h3>
         <div class="ct-modal-sub" id="seasonModalSub"></div>
@@ -2285,7 +2298,7 @@
     <div class="ct-modal-body">
       <p class="ct-sub" id="seasonSummaryText"></p>
       <div id="seasonDepartures"></div>
-      <button class="ct-btn primary full" id="btnSeasonContinue" style="margin-top:14px;">Começar a temporada</button>
+      <button class="mt-btn-primary-gold" id="btnSeasonContinue" style="margin-top:14px;">Começar a temporada</button>
     </div>
   </div>
 </div>
@@ -2301,10 +2314,15 @@
      acontece de verdade ao clicar "Escolher outro clube"; fechando no
      X, reabrir "Avançar temporada" de novo mostra essa mesma modal (o
      save não mudou nada nesse meio tempo, ver advanceSeason). -->
-<div class="ct-modal-overlay" id="dismissalOverlay">
+<!-- AJUSTE (refatoração completa, Tela 19 — ver imagem "depois" do
+     docx, 19-demissao) — mesmo diálogo chanfrado do .mt-confirm-overlay
+     (Tela 10b), com o ícone em variante vermelha (.danger) pra marcar
+     a notícia ruim, mesmo assim o CTA de continuar é dourado (é uma
+     ação de navegação, não destrutiva — "Escolher outro clube"). -->
+<div class="ct-modal-overlay mt-confirm-overlay" id="dismissalOverlay">
   <div class="ct-modal">
     <div class="ct-modal-header">
-      <span class="ct-modal-icon">🚪</span>
+      <span class="ct-modal-icon danger"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="12" height="18" rx="1.5"/><path d="M16 12h4m-2-2v4"/><circle cx="11" cy="12" r="1"/></svg></span>
       <div class="ct-modal-header-text">
         <h3>Fim de carreira</h3>
         <div class="ct-modal-sub" id="dismissalClub"></div>
@@ -2313,7 +2331,7 @@
     </div>
     <div class="ct-modal-body">
       <p class="ct-sub" id="dismissalText"></p>
-      <button class="ct-btn primary full" id="btnDismissalContinue" style="margin-top:14px;">Escolher outro clube</button>
+      <button class="mt-btn-primary-gold" id="btnDismissalContinue" style="margin-top:14px;">Escolher outro clube</button>
     </div>
   </div>
 </div>
