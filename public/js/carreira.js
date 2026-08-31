@@ -3767,25 +3767,28 @@ function renderCentral() {
 // showMatchDetailModal). Nome sempre abreviado (mesmo padrão do
 // Elenco). Sem eventos (folga, ou jogo sem detalhe registrado) não
 // mostra nada.
+// Ícone/cor por tipo ficaram em liveEventDot() (Tela 13b/14) — aqui só
+// o texto que aparece à direita do nome do jogador.
 const MATCH_EVENT_META = {
-  gol: { icon: "⚽", label: "Gol" },
-  assistencia: { icon: "🅰️", label: "Assistência" },
-  amarelo: { icon: "🟨", label: "Cartão amarelo", cls: "yellow" },
-  vermelho: { icon: "🟥", label: "Cartão vermelho", cls: "red" },
+  gol: { label: "Gol" },
+  assistencia: { label: "Assistência" },
+  amarelo: { label: "Cartão amarelo" },
+  vermelho: { label: "Cartão vermelho" },
 };
 function matchEventsSummaryHTML(events) {
   if (!events || !events.length) return "";
   const rows = events.map((e) => {
-    const meta = MATCH_EVENT_META[e.type] || { icon: "•", label: e.type };
+    const meta = MATCH_EVENT_META[e.type] || { label: e.type };
     // Gol do adversário (ver simulateRound: time rival não tem elenco
     // individual, só teve "e.player" quando é ALGUÉM do seu time) —
     // credita ao time em vez de um nome de jogador que não existe.
     const nm = e.player ? escapeHtml(abbreviateName(e.player)) : `Gol do ${escapeHtml(e.team)}`;
-    // AJUSTE (design system anexado pelo usuário: .bd-event-badge.
-    // yellow/.red) — cartão ganha o fundo colorido do próprio cartão
-    // (ver .ct-event-icon.yellow/.red em carreira.html).
+    // AJUSTE (refatoração completa, Tela 14) — ícone/cor por tipo
+    // reaproveitando liveEventDot() (mesma função da linha do tempo Ao
+    // Vivo, Tela 13b), no lugar do emoji + fundo chapado de antes.
+    const dot = liveEventDot(e.type);
     return `<div class="ct-event-row">
-      <span class="ct-event-icon${meta.cls ? ` ${meta.cls}` : ""}">${meta.icon}</span>
+      <span class="ct-event-icon ${dot.cls}">${dot.svg}</span>
       <span class="nm">${nm}</span>
       <span class="tp">${e.player ? meta.label : ""}</span>
     </div>`;
@@ -4914,7 +4917,7 @@ function showMatchDetailModal(summary) {
   document.getElementById("matchDetailRound").textContent = summary.round;
   document.getElementById("matchDetailScore").innerHTML = `
     <div class="side">${crestImg(homeTeam)}<span class="n">${escapeHtml(homeTeam.name)}</span></div>
-    <span class="vs" style="font-size:18px;">${gh} × ${ga}</span>
+    <span class="vs">${gh} × ${ga}</span>
     <div class="side">${crestImg(awayTeam)}<span class="n">${escapeHtml(awayTeam.name)}</span></div>`;
   document.getElementById("matchDetailEvents").innerHTML = matchEventsSummaryHTML(events)
     || `<p class="ct-empty">Nenhum gol, cartão ou assistência nesse jogo.</p>`;

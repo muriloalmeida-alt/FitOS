@@ -534,19 +534,26 @@
   .ct-stats-table-title{ font-size:13px; font-weight:700; color:var(--text-0); margin:16px 0 8px; }
 
   /* ---------- Detalhe do jogo (lista de eventos — modal de simular
-     rodada e Central > "Resultado da última rodada") ---------- */
+     rodada e Central > "Resultado da última rodada") ----------
+     AJUSTE (refatoração completa, Tela 14 — ver imagem "depois" do
+     docx, 14-resultado-do-jogo) — ícone SVG colorido por tipo de
+     evento (matchEventsSummaryHTML() agora chama liveEventDot(), a
+     mesma função da linha do tempo Ao Vivo/Tela 13b, pra não duplicar
+     a lógica de cor/ícone por tipo — só reaproveita as classes
+     .gol/.assist/.amarelo/.vermelho já definidas lá). Esse componente é
+     COMPARTILHADO com o card "Resultado da última rodada" da Central
+     (Tela 3, já pronta) — ganha a pele nova de graça também. */
   .ct-event-list{ display:flex; flex-direction:column; gap:0; margin-top:14px; }
-  .ct-event-row{ display:flex; align-items:center; gap:10px; padding:8px 4px; border-bottom:1px solid rgba(255,255,255,.05); }
+  .ct-event-row{ display:flex; align-items:center; gap:10px; padding:9px 4px; border-bottom:1px solid var(--mt-navy-700); }
   .ct-event-row:last-child{ border-bottom:none; }
-  .ct-event-icon{ width:22px; height:22px; border-radius:6px; display:flex; align-items:center; justify-content:center; font-size:11px; flex-shrink:0; background:var(--navy-card2); border:1px solid var(--border); }
-  /* AJUSTE (design system: .bd-event-badge.yellow/.red) — cartão
-     amarelo/vermelho ganham o fundo colorido do próprio cartão (só
-     esses dois; gol/assistência ficam no ícone neutro de cima, o
-     documento não define variante de cor pra eles). */
-  .ct-event-icon.yellow{ background:var(--accent-yellow); border-color:var(--accent-yellow); color:#3A2C00; }
-  .ct-event-icon.red{ background:var(--brd-red); border-color:var(--brd-red); color:#fff; }
-  .ct-event-row .nm{ font-weight:700; color:var(--text-0); font-size:12.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .ct-event-row .tp{ color:var(--text-2); font-size:11px; margin-left:auto; flex-shrink:0; padding-left:8px; }
+  .ct-event-icon{ width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .ct-event-icon svg{ width:12px; height:12px; }
+  .ct-event-icon.gol{ background:linear-gradient(180deg, var(--mt-gold-300), var(--mt-gold-600)); color:#2A1D02; }
+  .ct-event-icon.assist{ background:var(--mt-navy-700); border:2px solid var(--mt-pitch-400); color:var(--mt-pitch-400); }
+  .ct-event-icon.amarelo{ background:linear-gradient(180deg, #F5D66A, #D6A017); color:#2A1D02; border-radius:5px; }
+  .ct-event-icon.vermelho{ background:linear-gradient(180deg, var(--mt-crimson-400), var(--mt-crimson-500)); color:#fff; border-radius:5px; }
+  .ct-event-row .nm{ font-weight:600; color:var(--mt-ivory-50); font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ct-event-row .tp{ color:var(--mt-ink-faint); font-size:11.5px; margin-left:auto; flex-shrink:0; padding-left:8px; }
 
   /* Resultados da rodada — 1 linha por jogo, com escudo dos 2 times;
      zebra + destaque no jogo do próprio clube (fundo + negrito, ver
@@ -986,6 +993,13 @@
   .mt-fullheader .ct-modal-header-text h3{ font-family:'Bebas Neue', var(--font); font-size:19px; letter-spacing:.5px; color:var(--mt-ivory-50); }
   .mt-fullheader .ct-modal-sub{ font-family:'Rajdhani', var(--font); font-size:12px; color:var(--mt-ink-muted); font-weight:600; }
   .mt-fullheader .ct-modal-close{ width:34px; height:34px; border-radius:8px; background:var(--mt-navy-800); border:1px solid var(--mt-navy-600); color:var(--mt-ink-muted); }
+  /* Placar do Resultado do jogo (Tela 14) — mesmo tratamento de HUD
+     grande do placar Ao Vivo (.mt-live-scoreboard, Tela 13b), escopado
+     só a esse card pra não mexer no .ct-next-match genérico. */
+  .mt-matchdetail-score .ct-next-match{ gap:22px; padding:8px 0; }
+  .mt-matchdetail-score .ct-next-match .vs{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:34px; letter-spacing:1.5px; color:var(--mt-ivory-50); text-shadow:0 0 20px rgba(232,184,75,.3); }
+  .mt-matchdetail-score .ct-next-match .side .n{ font-family:'Bebas Neue', var(--font); font-size:14px; letter-spacing:.5px; color:var(--mt-gold-300); }
+  .mt-matchdetail-score #matchDetailTickets{ color:var(--mt-ink-muted); font-size:12px; margin-top:8px; }
 
   /* ---- diálogo de confirmação genérico (Tela 10b — ver
      10b-confirmar-venda-restyled.html do designer) — escopado a
@@ -2094,10 +2108,15 @@
      rodada inteira (ver #roundResultsOverlay abaixo). O X (pedido do
      usuário) só fecha esse modal — não avança sozinho pro de
      resultados, quem quiser ver os dois clica em "Continuar" mesmo. -->
+<!-- AJUSTE (refatoração completa, Tela 14 — ver imagem "depois" do
+     docx, 14-resultado-do-jogo) — .mt-fullheader (Tela 12f), placar +
+     renda de ingressos num .mt-card, lista de eventos (agora com ícone
+     colorido por tipo, ver CSS/JS de .ct-event-icon) noutro .mt-card,
+     botão .mt-btn-primary-gold. -->
 <div class="ct-modal-overlay ct-modal-fullscreen" id="matchDetailOverlay">
   <div class="ct-modal">
-    <div class="ct-modal-header">
-      <span class="ct-modal-icon">⚽</span>
+    <div class="ct-modal-header mt-fullheader">
+      <span class="ct-modal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="m12 7 3 3.5-1.2 4H10.2L9 10.5Z"/><path d="M12 3v4M12 17v4M4.2 8.5l3.3 1.4M16.5 9.9l3.3-1.4M4.2 15.5l3.3-1.4M16.5 14.1l3.3 1.4"/></svg></span>
       <div class="ct-modal-header-text">
         <h3>Seu jogo</h3>
         <div class="ct-modal-sub">Rodada <span id="matchDetailRound"></span></div>
@@ -2105,10 +2124,14 @@
       <button class="ct-modal-close" id="matchDetailClose">✕</button>
     </div>
     <div class="ct-modal-body">
-      <div class="ct-next-match" id="matchDetailScore"></div>
-      <p class="ct-sub" id="matchDetailTickets" style="text-align:center;"></p>
-      <div id="matchDetailEvents"></div>
-      <button class="ct-btn primary full" id="btnMatchDetailContinue" style="margin-top:14px;">Continuar</button>
+      <div class="mt-card mt-matchdetail-score">
+        <div class="ct-next-match" id="matchDetailScore"></div>
+        <p class="ct-sub" id="matchDetailTickets" style="text-align:center;"></p>
+      </div>
+      <div class="mt-card">
+        <div id="matchDetailEvents"></div>
+      </div>
+      <button class="mt-btn-primary-gold" id="btnMatchDetailContinue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>Continuar</button>
     </div>
   </div>
 </div>
