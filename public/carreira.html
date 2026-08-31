@@ -367,20 +367,10 @@
   .ct-field select{ padding:11px 12px; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--navy-card2); color:var(--text-0); font-family:var(--font); font-size:13px; }
   .ct-field select:focus{ outline:none; border-color:var(--gold); }
 
-  /* ---------- Tabelas ----------
-     AJUSTE (design system: .bd-table-row/.bd-list-row): o traço entre
-     linhas do corpo é bem mais discreto (5% branco) que o do
-     cabeçalho (navy-line sólido) — antes as duas bordas usavam a
-     mesma var(--border), o que deixava a tabela inteira "quadriculada"
-     e pesada em cima do fundo escuro novo. */
-  table.ct-table{ width:100%; border-collapse:collapse; font-size:12.5px; }
-  table.ct-table th{ text-align:left; padding:8px 8px; color:var(--text-2); font-size:10.5px; text-transform:uppercase; letter-spacing:.3px; border-bottom:1px solid var(--border); }
-  table.ct-table td{ padding:9px 8px; border-bottom:1px solid rgba(255,255,255,.05); color:var(--text-0); }
-  table.ct-table tr.me{ background:rgba(201,162,39,.14); }
-  table.ct-table tr:hover{ background:rgba(255,255,255,.03); }
-  .ct-scroll-x{ overflow-x:auto; }
-  .zone-dot{ display:inline-block; width:7px; height:7px; border-radius:50%; margin-right:6px; }
-  .zone-campeao{ background:var(--gold); } .zone-libertadores{ background:var(--brd-green); } .zone-sula{ background:var(--brd-blue); } .zone-reb{ background:var(--brd-red); }
+  /* .ct-table/.ct-scroll-x/.zone-dot(+variantes) removidos (redesign,
+     Telas 4/6/8/9) — todo <table> do app virou lista flex (Elenco,
+     Escalação, Tabela, Estatísticas, Mercado já não usava tabela);
+     .mt-zone-dot (Tela 8) é quem marca zona de classificação agora. */
 
   .ct-pill{ display:inline-block; font-size:10px; font-weight:700; padding:2px 8px; border-radius:100px; }
   .ct-pill.ok{ background:rgba(32,184,102,.14); color:var(--brd-positive); }
@@ -405,8 +395,8 @@
      dos cards "encaixados" (--navy-card2, mesmo tom de KPI/busca),
      com um risco dourado só na lateral — só o trecho principal
      (ver <b> no texto, montado em JS) fica em dourado. */
-  .ct-window-banner{ background:var(--navy-card2); border:1px solid var(--border); border-left:3px solid var(--gold); border-radius:var(--radius-sm); padding:10px 14px; margin:0 0 12px; color:var(--text-1); font-size:12.5px; font-weight:600; }
-  .ct-window-banner b{ color:var(--gold); font-weight:800; }
+  /* .ct-window-banner removido (redesign, Tela 10) — #marketWindowBanner
+     agora usa .mt-badge-gold (ver CSS da Tela 3). */
   .ct-transfer-feed-item{ padding:8px 0; border-bottom:1px solid var(--border); font-size:12.5px; color:var(--text-1); }
   .ct-transfer-feed-item:last-child{ border-bottom:none; }
   .ct-transfer-feed-item b{ color:var(--text-0); }
@@ -427,10 +417,9 @@
   .ct-market-row-top .ovr{ font-size:11px; font-weight:800; color:var(--gold); flex-shrink:0; }
   .ct-market-row-bottom{ display:flex; align-items:center; gap:10px; font-size:11px; color:var(--text-2); }
   .ct-market-row-bottom .money{ flex-shrink:1; min-width:0; line-height:1.5; }
-  /* Empréstimo de jogadores — 2 ações por linha (Comprar/Pegar
-     emprestado, Vender/Emprestar) empilhadas em vez de lado a lado —
-     largura de celular não sobra pra 2 botões na horizontal. */
-  .ct-market-actions{ display:flex; flex-direction:column; gap:4px; margin-left:auto; flex-shrink:0; }
+  /* .ct-market-actions removido (redesign, Tela 10) — botões de
+     Comprar/Vender/Emprestar agora usam .mt-market-btns (ver CSS da
+     Tela 10 mais abaixo). */
   /* AJUSTE — linha de titular no modal de confirmar escalação (ver
      #preMatchLineup em carreira.js), mesmo espírito de separador do
      .ct-market-row acima. */
@@ -1082,6 +1071,69 @@
   .mt-sel-src.principal{ background:rgba(61,184,106,.14); color:var(--mt-pitch-300); border:1px solid rgba(61,184,106,.3); }
   .mt-sel-src.base{ background:rgba(232,184,75,.12); color:var(--mt-gold-300); border:1px solid rgba(232,184,75,.28); }
   .mt-sel-src.loan{ background:rgba(143,163,191,.12); color:var(--mt-ink-muted); border:1px solid rgba(143,163,191,.28); }
+
+  /* ================= Tela 8 — Tabela ================= */
+  .mt-table-head-row{
+    display:flex; align-items:center; gap:5px; padding:6px 4px 10px;
+    font-family:'Rajdhani', var(--font); font-weight:700; font-size:10.5px; color:var(--mt-ink-faint); letter-spacing:.5px; text-transform:uppercase;
+    border-bottom:1px solid var(--mt-navy-600); margin-bottom:4px;
+  }
+  .mt-tr{ display:flex; align-items:center; gap:5px; padding:9px 4px; border-bottom:1px solid var(--mt-navy-700); }
+  .mt-tr:last-child{ border-bottom:none; }
+  .mt-tr.highlight{ background:rgba(232,184,75,.08); border-left:3px solid var(--mt-gold-400); margin-left:-4px; padding-left:1px; }
+  .mt-pos-num{ width:20px; flex-shrink:0; font-family:'Rajdhani', var(--font); font-weight:700; font-size:13px; text-align:center; position:relative; color:var(--mt-ivory-100); }
+  .mt-zone-dot{ width:6px; height:6px; border-radius:50%; position:absolute; left:-2px; top:-2px; }
+  .mt-zone-dot.libertadores{ background:var(--mt-gold-400); box-shadow:0 0 5px rgba(232,184,75,.6); }
+  .mt-zone-dot.safe{ background:var(--mt-pitch-400); }
+  .mt-zone-dot.pre{ background:var(--mt-sky-400); }
+  .mt-zone-dot.rebaixamento{ background:var(--mt-crimson-400); box-shadow:0 0 5px rgba(214,69,69,.6); }
+  .mt-team-cell{ flex:1; display:flex; align-items:center; gap:9px; min-width:0; }
+  .mt-team-cell .name{ font-weight:600; font-size:13px; color:var(--mt-ivory-50); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .mt-stat-col{ width:20px; flex-shrink:0; text-align:center; font-family:'Rajdhani', var(--font); font-weight:700; font-size:12px; color:var(--mt-ivory-100); }
+  .mt-stat-col.head{ color:var(--mt-ink-faint); font-weight:700; font-size:10px; }
+  .mt-legend-row{ display:flex; gap:14px; margin-top:12px; flex-wrap:wrap; }
+  .mt-legend-item{ display:flex; align-items:center; gap:5px; font-family:'Rajdhani', var(--font); font-size:10.5px; color:var(--mt-ink-muted); }
+  .mt-legend-item .dot{ width:7px; height:7px; border-radius:50%; }
+
+  /* ================= Tela 9 — Estatísticas =================
+     mini-tabela reaproveitada pelas 3 listas (artilheiros do time,
+     artilheiros da competição, times da competição) — só a largura da
+     coluna "name" muda (nome de jogador é mais largo que sigla de time). */
+  .mt-mini-head{ display:flex; gap:8px; padding:4px 4px 8px; font-family:'Rajdhani', var(--font); font-weight:700; font-size:10px; color:var(--mt-ink-faint); letter-spacing:.4px; text-transform:uppercase; border-bottom:1px solid var(--mt-navy-600); }
+  .mt-mini-row{ display:flex; align-items:center; gap:8px; padding:9px 4px; border-bottom:1px solid var(--mt-navy-700); font-size:13px; }
+  .mt-mini-row:last-child{ border-bottom:none; }
+  .mt-mini-row.highlight{ background:rgba(232,184,75,.08); border-left:3px solid var(--mt-gold-400); margin-left:-4px; padding-left:1px; }
+  .mt-mini-col{ flex:1; text-align:center; font-family:'Rajdhani', var(--font); font-weight:700; color:var(--mt-ivory-100); }
+  .mt-mini-col.head{ color:var(--mt-ink-faint); font-weight:700; font-size:10px; }
+  .mt-mini-col.name{ flex:1.6; text-align:left; font-weight:600; font-family:var(--font); color:var(--mt-ivory-50); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+  /* ================= Tela 10 — Mercado de transferências =================
+     AJUSTE (refatoração completa, ver 10-mercado-de-transferencias-
+     restyled.html do designer) — .mt-search-box (Tela 7) e
+     .mt-select-box (Tela 6) reaproveitados; .mt-pos-chip (Tela 6)
+     reaproveitado nas tags. */
+  .mt-market-row{ padding:14px 0; border-bottom:1px solid var(--mt-navy-700); }
+  .mt-market-row:last-child{ border-bottom:none; }
+  .mt-market-top{ display:flex; align-items:center; gap:12px; margin-bottom:10px; }
+  .mt-market-info{ flex:1; min-width:0; }
+  .mt-market-name{ font-weight:600; font-size:14.5px; color:var(--mt-ivory-50); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .mt-market-tags{ display:flex; gap:6px; margin-top:4px; }
+  .mt-market-club{
+    font-family:'Rajdhani', var(--font); font-weight:700; font-size:10.5px; letter-spacing:.3px;
+    color:var(--mt-ink-muted); background:var(--mt-navy-900); border:1px solid var(--mt-navy-600);
+    padding:2px 7px; border-radius:4px;
+  }
+  .mt-market-detail{ font-size:12px; color:var(--mt-ink-faint); margin-bottom:10px; padding-left:50px; }
+  .mt-market-detail b{ color:var(--mt-ink-muted); }
+  .mt-market-btns{ display:flex; gap:8px; padding-left:50px; }
+  .mt-btn-buy, .mt-btn-loan, .mt-btn-sell{
+    text-align:center; padding:10px; border-radius:999px; cursor:pointer;
+    font-family:'Rajdhani', var(--font); font-weight:700; font-size:13.5px; letter-spacing:.3px;
+  }
+  .mt-btn-buy{ flex:2; border:none; background:linear-gradient(180deg, var(--mt-gold-300), var(--mt-gold-600)); color:#3A2A03; box-shadow:inset 0 1px 0 rgba(255,255,255,.4), 0 3px 10px rgba(184,134,11,.3); }
+  .mt-btn-loan{ flex:1; font-weight:600; background:transparent; border:1.5px solid var(--mt-navy-600); color:var(--mt-ink-muted); }
+  .mt-btn-sell{ flex:2; background:transparent; border:1.5px solid var(--mt-crimson-500); color:var(--mt-crimson-400); }
+  .mt-btn-buy:disabled, .mt-btn-loan:disabled, .mt-btn-sell:disabled{ opacity:.45; cursor:not-allowed; }
 </style>
 </head>
 <body>
@@ -1439,49 +1491,78 @@
       </section>
 
       <!-- ---------- Tabela ---------- -->
+      <!-- AJUSTE (refatoração completa, Tela 8 — ver 08-tabela-restyled.html
+           do designer) — lista flex (.mt-tr) no lugar de <table>, com
+           bolinha de zona (.mt-zone-dot) e escudo hexagonal na frente do
+           nome (crestImg, mesmo componente de sempre). -->
       <section class="ct-panel" id="panel-tabela">
-        <div class="ct-card">
-          <div class="ct-card-head">
-            <h2>Tabela da carreira</h2>
+        <div class="mt-card">
+          <div class="mt-card-head">
+            <div class="mt-card-title">Tabela da carreira</div>
             <button class="ct-help-btn" data-help="helpTabelaCarreira" aria-label="Ajuda">?</button>
           </div>
-          <p class="ct-sub ct-help-text" id="helpTabelaCarreira" hidden>Classificação própria dessa carreira (não é a tabela real do Brasileirão) — atualizada a cada rodada simulada.</p>
-          <div class="ct-scroll-x"><table class="ct-table" id="standingsTable"><thead></thead><tbody></tbody></table></div>
+          <p class="mt-card-sub ct-help-text" id="helpTabelaCarreira" hidden>Classificação própria dessa carreira (não é a tabela real do Brasileirão) — atualizada a cada rodada simulada.</p>
+          <div class="mt-table-head-row">
+            <div class="mt-pos-num">#</div><div class="mt-team-cell">TIME</div>
+            <div class="mt-stat-col head">P</div><div class="mt-stat-col head">J</div><div class="mt-stat-col head">V</div><div class="mt-stat-col head">E</div><div class="mt-stat-col head">D</div><div class="mt-stat-col head">SG</div>
+          </div>
+          <div id="standingsTable"></div>
+          <div class="mt-legend-row">
+            <div class="mt-legend-item"><span class="dot" style="background:var(--mt-gold-400);"></span>Libertadores</div>
+            <div class="mt-legend-item"><span class="dot" style="background:var(--mt-sky-400);"></span>Pré-Libertadores</div>
+            <div class="mt-legend-item"><span class="dot" style="background:var(--mt-crimson-400);"></span>Rebaixamento</div>
+          </div>
         </div>
         <!-- FASE 2 (a) — Copa do Brasil (mata-mata entre os 16 elencos
              mais fortes, ver setupCup/CUP_ROUNDS em carreira.js).
-             Sem aba própria de propósito — a barra de abas já não cabe
-             inteira na tela (ver .ct-tabs overflow-x), e a Copa é
-             secundária ao Brasileirão; fica aqui, do lado da tabela. -->
-        <div class="ct-card">
-          <h2>Copa do Brasil</h2>
-          <p class="ct-sub" id="cupStatusText"></p>
+             Sem aba própria de propósito — a nav inferior já não cabe
+             mais abas, e a Copa é secundária ao Brasileirão; fica aqui,
+             do lado da tabela. -->
+        <div class="mt-card">
+          <div class="mt-card-title">Copa do Brasil</div>
+          <p class="mt-card-sub" id="cupStatusText" style="margin-bottom:0;"></p>
           <div id="cupHistory"></div>
         </div>
       </section>
 
-      <!-- ---------- Estatísticas ---------- -->
+      <!-- ---------- Estatísticas ---------- AJUSTE (refatoração
+           completa, Tela 9 — ver 09-estatisticas-restyled.html do
+           designer) — .mt-stat-grid/kpiHTML (Tela 3) reaproveitados
+           direto pros KPIs; mini-tabelas viram lista flex (mesma
+           técnica da Tela 8). -->
       <section class="ct-panel" id="panel-estatisticas">
-        <div class="ct-card">
-          <h2>Campeonato</h2>
-          <div class="ct-kpis" id="leagueStatsKpis"></div>
+        <div class="mt-card">
+          <div class="mt-card-title">Campeonato</div>
+          <div class="mt-stat-grid" id="leagueStatsKpis"></div>
         </div>
-        <div class="ct-card">
-          <h2>Minha equipe</h2>
-          <div class="ct-kpis" id="teamStatsKpis"></div>
-          <div class="ct-stats-table-title">Artilheiros e garçons do time</div>
-          <div class="ct-scroll-x"><table class="ct-table" id="teamTopPlayersTable"><thead><tr><th>Nome</th><th>Pos</th><th>Gols</th><th>Assist.</th></tr></thead><tbody></tbody></table></div>
+        <div class="mt-card">
+          <div class="mt-card-title">Minha equipe</div>
+          <div class="mt-stat-grid" id="teamStatsKpis" style="margin-bottom:18px;"></div>
+          <span class="mt-field-label">Artilheiros e garçons do time</span>
+          <div class="mt-mini-head">
+            <div class="mt-mini-col name">NOME</div>
+            <div class="mt-mini-col head">POS</div><div class="mt-mini-col head">GOLS</div><div class="mt-mini-col head">ASSIST.</div>
+          </div>
+          <div id="teamTopPlayersTable"></div>
         </div>
         <!-- FASE 2 (a) — pedido do usuário: "estatísticas reais de todos
              os times" com elenco individual pra liga inteira (não só o
              seu time) — ver CAREER.leagueSquads em carreira.js. -->
-        <div class="ct-card">
-          <h2>Artilheiros da competição</h2>
-          <div class="ct-scroll-x"><table class="ct-table" id="leagueTopScorersTable"><thead><tr><th>Nome</th><th>Time</th><th>Gols</th><th>Assist.</th></tr></thead><tbody></tbody></table></div>
+        <div class="mt-card">
+          <div class="mt-card-title">Artilheiros da competição</div>
+          <div class="mt-mini-head">
+            <div class="mt-mini-col name">NOME</div>
+            <div class="mt-mini-col head">TIME</div><div class="mt-mini-col head">GOLS</div><div class="mt-mini-col head">ASSIST.</div>
+          </div>
+          <div id="leagueTopScorersTable"></div>
         </div>
-        <div class="ct-card">
-          <h2>Times da competição</h2>
-          <div class="ct-scroll-x"><table class="ct-table" id="leagueTeamStatsTable"><thead><tr><th>Time</th><th>J</th><th>GP</th><th>GC</th><th>SG</th><th>Aprov.</th></tr></thead><tbody></tbody></table></div>
+        <div class="mt-card">
+          <div class="mt-card-title">Times da competição</div>
+          <div class="mt-mini-head">
+            <div class="mt-mini-col name">TIME</div>
+            <div class="mt-mini-col head">J</div><div class="mt-mini-col head">GP</div><div class="mt-mini-col head">GC</div><div class="mt-mini-col head">SG</div><div class="mt-mini-col head">APROV.</div>
+          </div>
+          <div id="leagueTeamStatsTable"></div>
         </div>
       </section>
 
@@ -1491,13 +1572,20 @@
            carreira.js) — essa aba é onde o SEU clube participa: aceitar/
            recusar proposta recebida, contratar jogador de outro time,
            acompanhar o feed de transferências da liga inteira. -->
+      <!-- AJUSTE (refatoração completa, Tela 10 — ver
+           10-mercado-de-transferencias-restyled.html do designer) —
+           .mt-search-box (Tela 7) e .mt-select-box (Tela 6)
+           reaproveitados; linha de jogador (.mt-market-row) com badge
+           de OVR + chip de posição + tags de time, botões coloridos
+           por ação (comprar/pegar emprestado = dourado/ghost, vender/
+           emprestar = ghost/crimson-outline). -->
       <section class="ct-panel" id="panel-mercado">
-        <div class="ct-card" id="pendingOfferCard" style="display:none;">
-          <h2>💰 Proposta recebida</h2>
-          <p class="ct-sub" id="pendingOfferText"></p>
+        <div class="mt-card" id="pendingOfferCard" style="display:none;">
+          <div class="mt-card-title">💰 Proposta recebida</div>
+          <p class="mt-card-sub" id="pendingOfferText"></p>
           <div style="display:flex; gap:8px;">
-            <button class="ct-btn primary small" id="btnAcceptOffer">Aceitar</button>
-            <button class="ct-btn small" id="btnDeclineOffer">Recusar</button>
+            <button class="mt-btn-primary-gold" id="btnAcceptOffer">Aceitar</button>
+            <button class="mt-btn-ghost" id="btnDeclineOffer">Recusar</button>
           </div>
         </div>
         <!-- FASE 1 (item 2 da especificação) — pedido do usuário: janela
@@ -1506,27 +1594,28 @@
              carreira.js). Só aparece quando a janela está FECHADA —
              quando aberta fica escondido de propósito (.hidden), sem
              poluir a tela com "janela aberta" o tempo todo. -->
-        <div class="ct-window-banner hidden" id="marketWindowBanner"></div>
-        <div class="ct-card">
-          <div class="ct-card-head">
-            <h2>Mercado de jogadores</h2>
+        <p class="mt-badge-gold hidden" id="marketWindowBanner" style="display:flex; width:100%; box-sizing:border-box;"></p>
+        <div class="mt-card">
+          <div class="mt-card-head">
+            <div class="mt-card-title">Mercado de jogadores</div>
             <button class="ct-help-btn" data-help="helpMercado" aria-label="Ajuda">?</button>
           </div>
-          <p class="ct-sub ct-help-text" id="helpMercado" hidden>Seu elenco (pra vender) e os outros 19 times da competição (pra contratar). Contratar soma o salário na sua folha (mesmo teto do Financeiro).</p>
-          <input class="ct-search" id="marketSearch" placeholder="Buscar por nome ou time...">
-          <div class="ct-market-filters">
-            <select id="marketPosFilter">
-              <option value="">Todas as posições</option>
-              <option value="G">Goleiros</option>
-              <option value="D">Defensores</option>
-              <option value="M">Meio-campo</option>
-              <option value="F">Atacantes</option>
-            </select>
+          <p class="mt-card-sub ct-help-text" id="helpMercado" hidden>Seu elenco (pra vender) e os outros 19 times da competição (pra contratar). Contratar soma o salário na sua folha (mesmo teto do Financeiro).</p>
+          <div class="mt-search-box">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input id="marketSearch" placeholder="Buscar por nome ou time...">
           </div>
+          <select id="marketPosFilter" class="mt-select-box" style="margin-bottom:4px;">
+            <option value="">Todas as posições</option>
+            <option value="G">Goleiros</option>
+            <option value="D">Defensores</option>
+            <option value="M">Meio-campo</option>
+            <option value="F">Atacantes</option>
+          </select>
           <div id="marketList"></div>
         </div>
-        <div class="ct-card">
-          <h2>Transferências recentes</h2>
+        <div class="mt-card">
+          <div class="mt-card-title">Transferências recentes</div>
           <div id="transferFeed"></div>
         </div>
       </section>
@@ -1926,7 +2015,13 @@
     </div>
     <div class="ct-modal-body">
       <p class="ct-sub">Classificação própria dessa carreira (não é a tabela real do Brasileirão).</p>
-      <div class="ct-scroll-x"><table class="ct-table" id="standingsTableModal"><thead></thead><tbody></tbody></table></div>
+      <!-- AJUSTE (redesign, Tela 8) — mesma lista flex de #standingsTable
+           (ver renderTabela em carreira.js), não mais <table>. -->
+      <div class="mt-table-head-row">
+        <div class="mt-pos-num">#</div><div class="mt-team-cell">TIME</div>
+        <div class="mt-stat-col head">P</div><div class="mt-stat-col head">J</div><div class="mt-stat-col head">V</div><div class="mt-stat-col head">E</div><div class="mt-stat-col head">D</div><div class="mt-stat-col head">SG</div>
+      </div>
+      <div id="standingsTableModal"></div>
       <h2 style="font-family:'Barlow Condensed', var(--font); font-weight:700; font-size:14.5px; margin:22px 0 12px; color:var(--text-0);">Copa do Brasil</h2>
       <p class="ct-sub" id="cupStatusTextModal"></p>
       <div id="cupHistoryModal"></div>
