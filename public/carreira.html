@@ -2214,10 +2214,14 @@
 <!-- FASE 4 (item 4) — notificação de proposta de outro clube (ver
      maybeGenerateClubProposals/openClubProposalModal). Mensagem curta,
      decisão binária — mantém tamanho compacto (não é tela cheia). -->
-<div class="ct-modal-overlay" id="clubProposalOverlay">
+<!-- AJUSTE (refatoração completa, Tela 12d — ver imagem "depois" do
+     docx, 12d-detalhe-da-proposta) — mesmo diálogo chanfrado do
+     .mt-confirm-overlay (Tela 10b) reaproveitado, igual às Telas
+     16b/18/19. -->
+<div class="ct-modal-overlay mt-confirm-overlay" id="clubProposalOverlay">
   <div class="ct-modal">
     <div class="ct-modal-header">
-      <span class="ct-modal-icon">📨</span>
+      <span class="ct-modal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></span>
       <div class="ct-modal-header-text">
         <h3>Proposta de outro clube</h3>
         <div class="ct-modal-sub">Sua reputação chamou atenção</div>
@@ -2227,8 +2231,8 @@
     <div class="ct-modal-body">
       <p class="ct-sub" id="clubProposalText" style="margin-bottom:16px;"></p>
       <div style="display:flex; flex-direction:column; gap:8px;">
-        <button class="ct-btn full primary" id="btnClubProposalAccept">Aceitar e trocar de clube</button>
-        <button class="ct-btn full" id="btnClubProposalDecline">Recusar e continuar aqui</button>
+        <button class="mt-btn-primary-gold" id="btnClubProposalAccept"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Aceitar e trocar de clube</button>
+        <button class="mt-btn-ghost" id="btnClubProposalDecline">Recusar e continuar aqui</button>
       </div>
     </div>
   </div>
