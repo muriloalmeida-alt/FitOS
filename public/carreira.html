@@ -504,10 +504,9 @@
      / seu time / classificação, ver #newsOverlay em carreira.html). */
   .ct-news-section-title{ font-size:12px; font-weight:800; color:var(--text-1); text-transform:uppercase; letter-spacing:.5px; margin:22px 0 10px; padding-top:16px; border-top:1px solid var(--border); }
   .ct-news-section-title:first-of-type{ margin-top:0; padding-top:0; border-top:none; }
-  /* AJUSTE — banner de intervalo na tela Ao Vivo (ver
-     #liveHalftimeBanner em carreira.js/continueFromHalftime). */
-  .ct-halftime-banner{ background:linear-gradient(160deg, var(--navy-card2), var(--navy-card)); border:1px solid var(--gold); border-radius:var(--radius-md); padding:14px 16px; margin-top:10px; text-align:center; flex-shrink:0; }
-  .ct-halftime-banner p{ margin:0 0 10px; font-size:13px; font-weight:700; color:var(--gold); }
+  /* .ct-halftime-banner removido (redesign, Tela 13b) — o banner de
+     intervalo (#liveHalftimeBanner) agora usa .mt-live-halftime (ver
+     CSS da Tela 13b mais abaixo). */
   /* FASE 2 (b) — barra de uso do teto salarial, card "Financeiro" da
      Central (largura cheia, diferente de .ct-cond-track que é pra
      dentro de célula de tabela). Vira vermelha perto do limite. */
@@ -969,6 +968,56 @@
   .mt-confirm-overlay .ct-modal-header h3{ font-family:'Bebas Neue', var(--font); font-size:19px; letter-spacing:.5px; color:var(--mt-ivory-50); }
   .mt-confirm-overlay .ct-modal-body{ padding:14px 22px 22px; }
   .mt-confirm-overlay .ct-modal-body .ct-sub{ font-family:var(--font); font-size:14px; color:var(--mt-ivory-100); line-height:1.5; }
+
+  /* ================= Tela 13b — Ao Vivo =================
+     AJUSTE (refatoração completa, ver 13b-partida-ao-vivo-restyled.html
+     do designer) — barra superior própria com indicador piscando,
+     placar reaproveitando .mt-card + .ct-next-match (só o tamanho do
+     placar muda aqui, escopado a .mt-live-scoreboard — não mexe no
+     .ct-next-match genérico usado por Central/Confirmar escalação/
+     Resultado do jogo, ainda não redesenhados), linha do tempo com
+     marcador colorido por tipo de evento. */
+  .mt-live-topbar{ position:sticky; top:0; z-index:5; display:flex; align-items:center; justify-content:space-between; padding:14px 16px; background:linear-gradient(180deg, rgba(6,13,26,.97), rgba(6,13,26,.9)); border-bottom:1px solid var(--mt-navy-600); flex-shrink:0; }
+  .mt-live-tag{ display:flex; align-items:center; gap:9px; }
+  .mt-live-dot{ width:9px; height:9px; border-radius:50%; background:var(--mt-crimson-500); box-shadow:0 0 8px rgba(214,69,69,.8); animation:mtLivePulse 1.4s infinite; }
+  @keyframes mtLivePulse{ 0%,100%{ opacity:1; } 50%{ opacity:.35; } }
+  .mt-live-title{ font-family:'Bebas Neue', var(--font); font-size:18px; letter-spacing:1px; color:var(--mt-ivory-50); }
+  .mt-live-minute{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:12px; color:var(--mt-gold-400); letter-spacing:.5px; }
+  .mt-live-close{ width:34px; height:34px; border-radius:8px; display:flex; align-items:center; justify-content:center; background:var(--mt-navy-800); border:1px solid var(--mt-navy-600); color:var(--mt-ink-muted); flex-shrink:0; cursor:pointer; }
+  .mt-live-close svg{ width:16px; height:16px; }
+
+  .mt-live-scoreboard .ct-next-match{ gap:26px; padding:8px 0; }
+  .mt-live-scoreboard .ct-next-match .vs{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:40px; letter-spacing:1.5px; color:var(--mt-ivory-50); text-shadow:0 0 20px rgba(232,184,75,.4); }
+  .mt-live-scoreboard .ct-next-match .side .n{ font-family:'Bebas Neue', var(--font); font-size:14px; letter-spacing:.5px; color:var(--mt-gold-300); }
+
+  .mt-live-halftime{ background:linear-gradient(160deg, var(--mt-navy-700), var(--mt-navy-800) 65%); border:1px solid var(--mt-gold-600); border-radius:var(--radius-md); padding:16px; margin-top:14px; text-align:center; flex-shrink:0; }
+  .mt-live-halftime p{ margin:0 0 12px; font-size:13px; font-weight:700; color:var(--mt-gold-300); font-family:'Rajdhani', var(--font); }
+
+  .mt-live-timeline-title{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:12.5px; letter-spacing:1.5px; color:var(--mt-ink-muted); text-transform:uppercase; margin:16px 4px 12px; flex-shrink:0; }
+  .mt-live-timeline{ position:relative; padding-left:26px; margin:0 4px; }
+  .mt-live-timeline::before{ content:""; position:absolute; left:9px; top:4px; bottom:4px; width:2px; background:linear-gradient(180deg, var(--mt-gold-600), var(--mt-navy-700)); }
+  .mt-live-tl-event{ position:relative; padding-bottom:18px; }
+  .mt-live-tl-event:last-child{ padding-bottom:0; }
+  .mt-live-tl-dot{ position:absolute; left:-26px; top:0; width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:2px solid var(--mt-navy-950); z-index:1; }
+  .mt-live-tl-dot svg{ width:11px; height:11px; }
+  .mt-live-tl-dot.gol{ background:linear-gradient(180deg, var(--mt-gold-300), var(--mt-gold-600)); color:#2A1D02; }
+  .mt-live-tl-dot.assist{ background:var(--mt-navy-700); border:2px solid var(--mt-pitch-400); color:var(--mt-pitch-400); }
+  .mt-live-tl-dot.amarelo{ background:linear-gradient(180deg, #F5D66A, #D6A017); color:#2A1D02; }
+  .mt-live-tl-dot.vermelho{ background:linear-gradient(180deg, var(--mt-crimson-400), var(--mt-crimson-500)); color:#fff; }
+  .mt-live-tl-dot.sub{ background:var(--mt-navy-700); border:2px solid var(--mt-navy-600); color:var(--mt-ink-muted); }
+  .mt-live-tl-min{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:12px; color:var(--mt-gold-400); margin-bottom:2px; }
+  .mt-live-tl-desc{ font-size:14px; color:var(--mt-ivory-100); }
+  .mt-live-tl-desc b{ color:var(--mt-ivory-50); }
+
+  .mt-live-action-row{ display:flex; gap:10px; }
+  .mt-btn-secondary{
+    flex:1; display:flex; align-items:center; justify-content:center; gap:7px;
+    font-family:'Rajdhani', var(--font); font-weight:600; font-size:13.5px; letter-spacing:.3px;
+    padding:12px; border-radius:999px; cursor:pointer;
+    background:var(--mt-navy-800); border:1.5px solid var(--mt-navy-600); color:var(--mt-ivory-100);
+  }
+  .mt-btn-secondary svg{ width:16px; height:16px; color:var(--mt-gold-400); flex-shrink:0; }
+  .mt-btn-secondary:disabled{ opacity:.4; cursor:not-allowed; }
 
   /* ================= Tela 6 — Escalação =================
      AJUSTE (refatoração completa, ver 06-escalacao-restyled.html do
@@ -1848,36 +1897,57 @@
      cancela a partida (não teria pra onde voltar no meio do jogo): o X
      resolve o resto na hora, igual "Pular pro fim" (ver
      closeLiveMatchViaX/skipLiveMatch em carreira.js). -->
+<!-- AJUSTE (refatoração completa, Tela 13b — ver
+     13b-partida-ao-vivo-restyled.html do designer) — barra superior
+     própria (.mt-live-topbar) com indicador "AO VIVO" piscando,
+     placar chanfrado reaproveitando .mt-card + .ct-next-match
+     (compartilhado com Central/Confirmar escalação/Resultado do jogo,
+     ainda não redesenhados — só o tamanho do placar muda aqui, escopado
+     a .mt-live-scoreboard), linha do tempo com marcador por tipo de
+     evento (gol/assistência/cartão/substituição — ver liveEventDot em
+     carreira.js), botões secundários (.mt-btn-secondary, novo) +
+     "Pular pro fim" reaproveitando .mt-btn-primary-gold (Tela 5). -->
 <div class="ct-modal-overlay ct-modal-fullscreen" id="liveMatchOverlay">
   <div class="ct-modal">
-    <div class="ct-modal-header">
-      <span class="ct-modal-icon">⚽</span>
-      <div class="ct-modal-header-text">
-        <h3>Ao vivo</h3>
-        <div class="ct-modal-sub" id="liveMatchMinute">0'</div>
+    <div class="mt-live-topbar">
+      <div class="mt-live-tag">
+        <span class="mt-live-dot"></span>
+        <div>
+          <div class="mt-live-title">AO VIVO</div>
+          <div class="mt-live-minute" id="liveMatchMinute">0'</div>
+        </div>
       </div>
-      <button class="ct-modal-close" id="liveMatchClose" title="Fechar — resolve o resto da partida na hora">✕</button>
+      <button class="mt-live-close" id="liveMatchClose" title="Fechar — resolve o resto da partida na hora">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
     </div>
     <div class="ct-modal-body" style="display:flex; flex-direction:column;">
-      <div class="ct-next-match" id="liveMatchScore"></div>
+      <div class="mt-card mt-live-scoreboard ct-next-match" id="liveMatchScore"></div>
       <!-- AJUSTE (pedido do usuário: "o jogo deve pausar no intervalo
            (45) e aguardar que o técnico clique em prosseguir") — só
            esse botão libera o 2º tempo (ver continueFromHalftime em
            carreira.js); Substituir/Ajustar tática continuam
            disponíveis normalmente enquanto o banner estiver visível. -->
-      <div class="ct-halftime-banner hidden" id="liveHalftimeBanner">
+      <div class="mt-live-halftime hidden" id="liveHalftimeBanner">
         <p>⏸️ Intervalo — aproveite pra mexer no time antes do 2º tempo.</p>
-        <button class="ct-btn full primary" id="btnLiveContinueSecondHalf">▶ Prosseguir para o 2º tempo</button>
+        <button class="mt-btn-primary-gold" id="btnLiveContinueSecondHalf">
+          <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="6,4 20,12 6,20"/></svg>
+          Prosseguir pro 2º tempo
+        </button>
       </div>
-      <div id="liveMatchFeed" style="flex:1; overflow-y:auto; margin-top:10px;"></div>
-      <div style="display:flex; gap:8px; margin-top:14px; flex-shrink:0;">
-        <button class="ct-btn full" id="btnLiveSub">🔄 Substituir</button>
-        <button class="ct-btn full" id="btnLiveTactics">⚙ Ajustar tática</button>
+      <div class="mt-live-timeline-title">Linha do jogo</div>
+      <div id="liveMatchFeed" class="mt-live-timeline" style="flex:1; overflow-y:auto;"></div>
+      <div class="mt-live-action-row" style="margin-top:14px; flex-shrink:0;">
+        <button class="mt-btn-secondary" id="btnLiveSub"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg><span id="btnLiveSubLabel">Substituir</span></button>
+        <button class="mt-btn-secondary" id="btnLiveTactics"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1.5"/><circle cx="12" cy="8.5" r="1.6"/><circle cx="7" cy="15" r="1.6"/><circle cx="17" cy="15" r="1.6"/></svg>Ajustar tática</button>
       </div>
       <!-- Não é da especificação — sem isso, cada rodada custaria ~6s
            de espera real mesmo pra quem só quer avançar a temporada
            sem interagir (ver skipLiveMatch). -->
-      <button class="ct-btn full" id="btnLiveSkip" style="margin-top:8px; flex-shrink:0;">⏩ Pular pro fim</button>
+      <button class="mt-btn-primary-gold" id="btnLiveSkip" style="margin-top:10px; flex-shrink:0;">
+        <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5,4 13,12 5,20"/><polygon points="13,4 21,12 13,20"/></svg>
+        Pular pro fim
+      </button>
     </div>
   </div>
 </div>
