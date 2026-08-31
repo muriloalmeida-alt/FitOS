@@ -1905,9 +1905,21 @@ function openLoanOutModal(id) {
   if (p.origin !== "principal") { toast("Só dá pra emprestar jogador do elenco principal."); return; }
   const principalCount = CAREER.squad.filter((x) => x.origin === "principal").length;
   if (principalCount <= 14) { toast("O elenco principal não pode ficar com menos de 14 jogadores."); return; }
-  LOAN_CTX = { direction: "out", playerId: id };
+  // AJUSTE (pedido do usuário: "toda confirmação de empréstimo e venda
+  // deve ter o clube para onde o jogador vai") — resolve o interessado
+  // AQUI, ao abrir o modal, em vez de só no confirmar (finalizeLoanOut
+  // recebia esse mesmo sorteio só depois de tudo configurado). Sem
+  // interessado, nem abre o modal de configuração — mesmo espírito da
+  // venda, evita o técnico configurar duração/cláusula à toa pra um
+  // empréstimo que não vai ter pra quem ir.
+  const buyer = findInterestedBuyer(CAREER.clubId);
+  if (!buyer) {
+    toast(`Nenhum time demonstrou interesse em pegar ${abbreviateName(p.name)} emprestado agora.`);
+    return;
+  }
+  LOAN_CTX = { direction: "out", playerId: id, buyer };
   document.getElementById("loanTitle").textContent = "Emprestar jogador";
-  document.getElementById("loanSub").textContent = `${abbreviateName(p.name)} · valor de mercado ${fmtBRL(p.value)}`;
+  document.getElementById("loanSub").textContent = `${abbreviateName(p.name)} · para o ${buyer.name} · valor de mercado ${fmtBRL(p.value)}`;
   document.getElementById("loanWagePctField").classList.add("hidden");
   resetLoanForm(p.value);
   document.getElementById("loanOverlay").classList.add("open");
@@ -1939,7 +1951,7 @@ async function confirmLoanFromModal() {
   const returnRound = durationSel === "meia" ? Math.min(CAREER.currentRound + LOAN_HALF_SEASON_ROUNDS, 38) : null;
   let ok;
   if (LOAN_CTX.direction === "out") {
-    ok = await finalizeLoanOut(LOAN_CTX.playerId, { returnRound, buyOption });
+    ok = await finalizeLoanOut(LOAN_CTX.playerId, { returnRound, buyOption, buyer: LOAN_CTX.buyer });
   } else {
     const wagePct = Number(document.getElementById("loanWagePctSelect").value) || 50;
     ok = await finalizeLoanIn(LOAN_CTX.clubId, LOAN_CTX.playerId, { returnRound, buyOption, wagePct });
@@ -1950,14 +1962,18 @@ async function confirmLoanFromModal() {
   persistCareer();
   renderMercado(); renderElenco(); renderCentral();
 }
-async function finalizeLoanOut(id, { returnRound, buyOption }) {
+async function finalizeLoanOut(id, { returnRound, buyOption, buyer: passedBuyer } = {}) {
   const p = CAREER.squad.find((x) => x.id === id);
   if (!p) return false;
   if (isLoanOutRefused(p)) {
     toast(`${abbreviateName(p.name)} recusou o empréstimo — quer continuar brigando por espaço no elenco principal.`, 5000);
     return false;
   }
-  const buyer = findInterestedBuyer(CAREER.clubId);
+  // AJUSTE (pedido do usuário, item 7) — o comprador já foi resolvido e
+  // mostrado ao técnico em openLoanOutModal (pra não trocar quem
+  // aparece na confirmação por outro clube no fim); só re-sorteia aqui
+  // se chamado direto sem passar por lá (ex: chamada avulsa/teste).
+  const buyer = passedBuyer || findInterestedBuyer(CAREER.clubId);
   if (!buyer) {
     toast(`Nenhum time demonstrou interesse em pegar ${abbreviateName(p.name)} emprestado agora.`);
     return false;
@@ -2708,9 +2724,20 @@ function newsItemHTML(n) {
     </div>
   </div>`;
 }
-function renderNewsScreen() {
+function renderNewsScreen(currentRoundOnly) {
   document.getElementById("newsTagline").textContent = `Edição do técnico do ${CAREER.clubName}`;
-  const feed = CAREER.newsFeed || [];
+  const fullFeed = CAREER.newsFeed || [];
+  // AJUSTE (pedido do usuário: "a modal de notícias do Brasileirão deve
+  // trazer apenas as 3 notícias da rodada. Pra ver o histórico deve-se
+  // acessar o menu notícias") — no fluxo pós-jogo (currentRoundOnly,
+  // mesma flag de chainToRoundResults — ver openNewsScreen) mostra só
+  // as manchetes da rodada que acabou de rolar (as primeiras do feed,
+  // que entra sempre com a rodada mais nova primeiro — ver
+  // simulateRound), até 3; aberta pelo menu "≡" (currentRoundOnly
+  // ausente) continua trazendo o retrospecto inteiro de sempre.
+  const feed = currentRoundOnly && fullFeed.length
+    ? fullFeed.filter((n) => n.round === fullFeed[0].round).slice(0, 3)
+    : fullFeed;
   const featuredBox = document.getElementById("newsFeatured");
   const listBox = document.getElementById("newsList");
   if (!feed.length) {
@@ -2764,7 +2791,7 @@ function renderTeamStatusNews() {
 // matchDetailOverlay: o X só fecha ESSA tela, não avança sozinho).
 let NEWS_CHAIN_TO_ROUND_RESULTS = false;
 function openNewsScreen(chainToRoundResults) {
-  renderNewsScreen();
+  renderNewsScreen(chainToRoundResults);
   NEWS_CHAIN_TO_ROUND_RESULTS = !!chainToRoundResults;
   document.getElementById("btnNewsContinue").classList.toggle("hidden", !chainToRoundResults);
   document.getElementById("newsOverlay").classList.add("open");
@@ -3284,8 +3311,26 @@ function pauseLiveMatch() {
 }
 function resumeLiveMatch() {
   if (!LIVE_MATCH || LIVE_MATCH.finished) return;
+  // AJUSTE — se ainda está no intervalo (ver resolveLiveChunk), fechar
+  // substituição/tática NÃO deve destravar o 2º tempo sozinho — só o
+  // botão "Prosseguir" faz isso (ver continueFromHalftime). Sem essa
+  // trava, abrir e fechar o sub-modal de substituição durante o
+  // intervalo já reiniciava o jogo por baixo, sem o técnico ter clicado
+  // em nada.
+  if (LIVE_MATCH.halftime) return;
   LIVE_MATCH.paused = false;
   scheduleNextChunk();
+}
+// AJUSTE (pedido do usuário: "o jogo deve pausar no intervalo (45) e
+// aguardar que o técnico clique em prosseguir") — único jeito de sair
+// do intervalo; substituir/ajustar tática continuam livres enquanto
+// pausado, exatamente como no meio de qualquer outra pausa.
+function continueFromHalftime() {
+  if (!LIVE_MATCH) return;
+  LIVE_MATCH.halftime = false;
+  LIVE_MATCH.paused = false;
+  scheduleNextChunk();
+  renderLiveMatch();
 }
 function resolveLiveChunk() {
   const lm = LIVE_MATCH;
@@ -3328,6 +3373,18 @@ function resolveLiveChunk() {
     // sempre — quem não quer acompanhar minuto a minuto não devia ficar
     // preso a ele.
     if (lm.skipping) finishLiveMatch(); else setTimeout(finishLiveMatch, 500);
+  } else if (minute === 45 && !lm.skipping) {
+    // AJUSTE (pedido do usuário: "o jogo deve pausar no intervalo e
+    // aguardar que o técnico clique em prosseguir") — pausa automática
+    // igual uma pausa manual (ver pauseLiveMatch), só que sem
+    // depender do usuário ter aberto substituição/tática — os dois
+    // continuam disponíveis normalmente durante o intervalo (é
+    // exatamente quando um técnico de verdade mexeria no time), quem
+    // libera o 2º tempo é o botão "Prosseguir" (ver
+    // continueFromHalftime/renderLiveMatch).
+    lm.paused = true;
+    lm.halftime = true;
+    renderLiveMatch();
   } else if (!lm.skipping) {
     scheduleNextChunk();
   }
@@ -3420,7 +3477,7 @@ function renderLiveMatch() {
     <span class="vs" style="font-size:22px;">${lm.gh} × ${lm.ga}</span>
     <div class="side">${crestImg(lm.away)}<span class="n">${escapeHtml(lm.away.name)}</span></div>`;
   const minute = lm.chunkIndex === 0 ? 0 : LIVE_MATCH_CHUNK_MINUTES[Math.min(lm.chunkIndex, LIVE_MATCH_CHUNK_MINUTES.length) - 1];
-  document.getElementById("liveMatchMinute").textContent = lm.finished ? "Fim de jogo — carregando..." : `${minute}'`;
+  document.getElementById("liveMatchMinute").textContent = lm.finished ? "Fim de jogo — carregando..." : lm.halftime ? "Intervalo" : `${minute}'`;
   document.getElementById("liveMatchFeed").innerHTML = lm.events.length
     ? [...lm.events].reverse().map((e) => `<div class="ct-transfer-feed-item"><b>${e.minute}'</b> ${liveEventLabel(e)}</div>`).join("")
     : `<p class="ct-empty">Bola rolando...</p>`;
@@ -3430,6 +3487,14 @@ function renderLiveMatch() {
   subBtn.disabled = lm.finished || lm.subsUsed >= subsTotal;
   document.getElementById("btnLiveTactics").disabled = lm.finished;
   document.getElementById("btnLiveSkip").disabled = lm.finished;
+  // AJUSTE (pedido do usuário: "o jogo deve pausar no intervalo (45) e
+  // aguardar que o técnico clique em prosseguir") — banner só aparece
+  // nessa pausa específica (não numa pausa manual pra substituição/
+  // tática, que já tem sua própria modal aberta por cima); Substituir/
+  // Ajustar tática continuam funcionando normalmente durante o
+  // intervalo, ver resumeLiveMatch (não libera o 2º tempo sozinho
+  // enquanto lm.halftime for true).
+  document.getElementById("liveHalftimeBanner").classList.toggle("hidden", !lm.halftime);
 }
 // ---- Sub-modal: substituição ----
 function openLiveSubModal() {
@@ -4527,14 +4592,20 @@ async function sellPlayer(id) {
   if (!p) return false;
   const principalCount = CAREER.squad.filter((x) => x.origin === "principal").length;
   if (principalCount <= 14) { toast("O elenco principal não pode ficar com menos de 14 jogadores."); return false; }
-  if (!(await confirmModal(`Vender ${p.name} por ${fmtBRL(p.value)}?`, "Vender"))) return false;
-  // AJUSTE (pedido do usuário) — sem comprador interessado, a venda
-  // não acontece: nada muda de lugar, o jogador continua no elenco.
+  // AJUSTE (pedido do usuário: "toda confirmação de empréstimo e venda
+  // deve ter o clube para onde o jogador vai") — resolve o comprador
+  // ANTES de perguntar, não depois: assim o técnico já vê pra quem tá
+  // vendendo no próprio texto de confirmação, em vez de descobrir só
+  // depois de já ter confirmado. Sem interessado, nem chega a abrir o
+  // diálogo — já era o comportamento de sempre (ver comentário de
+  // findInterestedBuyer), só que agora sem a etapa de confirmação
+  // inútil no meio.
   const buyer = findInterestedBuyer(CAREER.clubId);
   if (!buyer) {
     toast(`Nenhum time demonstrou interesse em ${abbreviateName(p.name)} agora — ele continua no seu elenco.`);
     return false;
   }
+  if (!(await confirmModal(`Vender ${p.name} pro ${buyer.name} por ${fmtBRL(p.value)}?`, "Vender"))) return false;
   CAREER.finances.cash += p.value;
   CAREER.squad = CAREER.squad.filter((x) => x.id !== id);
   CAREER.lineup.starters = CAREER.lineup.starters.map((x) => (x === id ? null : x));
@@ -4581,6 +4652,32 @@ function declineOffer() {
   CAREER.pendingOffer = null;
   persistCareer();
   renderMercado();
+}
+// AJUSTE (pedido do usuário, item 6) — mesma decisão de aceitar/
+// recusar de sempre (ver acceptOffer/declineOffer), só que disparada
+// de dentro desse modal de destaque em vez de só pela aba Mercado.
+// Fechar no X (closePlayerOfferModal) NÃO decide nada — a proposta
+// continua pendente, com o cartão de sempre esperando na aba Mercado —
+// mas o fluxo pós-jogo segue adiante do mesmo jeito (ver
+// btnRoundResultsContinue), exceção documentada acima na modal.
+function openPlayerOfferModal() {
+  const offer = CAREER.pendingOffer;
+  if (!offer) return;
+  document.getElementById("playerOfferText").textContent =
+    `${offer.clubName} oferece ${fmtBRL(offer.fee)} pelo seu jogador ${offer.playerName}.`;
+  document.getElementById("playerOfferOverlay").classList.add("open");
+}
+function closePlayerOfferModal() {
+  document.getElementById("playerOfferOverlay").classList.remove("open");
+  openTabelaModal();
+}
+function acceptOfferFromModal() {
+  acceptOffer();
+  closePlayerOfferModal();
+}
+function declineOfferFromModal() {
+  declineOffer();
+  closePlayerOfferModal();
 }
 
 /* ---------- Tela do jogo ---------- */
@@ -4664,8 +4761,12 @@ function showRoundResultsModal(summary) {
     : "";
   // FASE 2 (c) — avisa aqui se surgiu proposta nova por um jogador seu
   // (resolvida na aba Mercado com aceitar/recusar).
+  // AJUSTE (pedido do usuário, item 6) — antes mandava "veja na aba
+  // Mercado"; agora essa mesma proposta pede decisão logo em seguida
+  // (ver btnRoundResultsContinue/openPlayerOfferModal), então o aviso
+  // aqui só avisa que ela existe, sem precisar apontar pra outra aba.
   document.getElementById("roundResultsOffer").textContent = summary.newOffer
-    ? `💰 Proposta recebida: ${summary.newOffer.clubName} oferece ${fmtBRL(summary.newOffer.fee)} pelo jogador ${abbreviateName(summary.newOffer.playerName)} — veja na aba Mercado.`
+    ? `💰 Proposta recebida: ${summary.newOffer.clubName} oferece ${fmtBRL(summary.newOffer.fee)} pelo jogador ${abbreviateName(summary.newOffer.playerName)}.`
     : "";
   // FASE 2 (a) — Copa do Brasil: só existe summary.cup nas 4 rodadas
   // certas com seu clube ainda vivo (ver resolveCupPhase).
@@ -4866,6 +4967,10 @@ function wireStaticListeners() {
   // aplicar nada — ver closeLiveSubModal/closeLiveTacticsModal, que só
   // retomam a progressão da partida).
   document.getElementById("btnLiveSkip").addEventListener("click", skipLiveMatch);
+  // AJUSTE (pedido do usuário: "o jogo deve pausar no intervalo e
+  // aguardar que o técnico clique em prosseguir") — único jeito de sair
+  // do intervalo (ver continueFromHalftime/resolveLiveChunk).
+  document.getElementById("btnLiveContinueSecondHalf").addEventListener("click", continueFromHalftime);
   // Pedido do usuário: toda modal precisa de X. Aqui não tem "fechar
   // de verdade" possível (sair no meio perderia a partida) — o X
   // resolve o resto na hora, mesmo efeito de "Pular pro fim".
@@ -4904,10 +5009,22 @@ function wireStaticListeners() {
   });
   document.getElementById("btnRoundResultsContinue").addEventListener("click", () => {
     document.getElementById("roundResultsOverlay").classList.remove("open");
-    openTabelaModal();
+    // AJUSTE (pedido do usuário, item 6) — proposta por jogador seu
+    // pendente ganha destaque ANTES da Tabela em vez de só aparecer
+    // discreta na aba Mercado (ver openPlayerOfferModal/
+    // closePlayerOfferModal, que segue o fluxo pra Tabela sozinho).
+    if (CAREER.pendingOffer) openPlayerOfferModal();
+    else openTabelaModal();
   });
   document.getElementById("tabelaModalClose").addEventListener("click", closeTabelaModal);
   document.getElementById("tabelaModalOverlay").addEventListener("click", (e) => { if (e.target.id === "tabelaModalOverlay") closeTabelaModal(); });
+  // FASE 4 (item 6, ajuste) — modal de destaque pra proposta recebida
+  // por jogador seu, aberta de dentro do fluxo pós-jogo (ver
+  // btnRoundResultsContinue acima).
+  document.getElementById("playerOfferClose").addEventListener("click", closePlayerOfferModal);
+  document.getElementById("playerOfferOverlay").addEventListener("click", (e) => { if (e.target.id === "playerOfferOverlay") closePlayerOfferModal(); });
+  document.getElementById("btnPlayerOfferAccept").addEventListener("click", acceptOfferFromModal);
+  document.getElementById("btnPlayerOfferDecline").addEventListener("click", declineOfferFromModal);
   // FASE 4 (item 5) — modal de propostas de patrocínio.
   document.getElementById("sponsorProposalsClose").addEventListener("click", closeSponsorProposalsModal);
   document.getElementById("sponsorProposalsOverlay").addEventListener("click", (e) => { if (e.target.id === "sponsorProposalsOverlay") closeSponsorProposalsModal(); });

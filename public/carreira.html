@@ -401,6 +401,10 @@
      / seu time / classificação, ver #newsOverlay em carreira.html). */
   .ct-news-section-title{ font-size:12px; font-weight:800; color:var(--text-1); text-transform:uppercase; letter-spacing:.5px; margin:22px 0 10px; padding-top:16px; border-top:1px solid var(--border); }
   .ct-news-section-title:first-of-type{ margin-top:0; padding-top:0; border-top:none; }
+  /* AJUSTE — banner de intervalo na tela Ao Vivo (ver
+     #liveHalftimeBanner em carreira.js/continueFromHalftime). */
+  .ct-halftime-banner{ background:linear-gradient(160deg, var(--navy-card2), var(--navy-card)); border:1px solid var(--gold); border-radius:var(--radius-md); padding:14px 16px; margin-top:10px; text-align:center; flex-shrink:0; }
+  .ct-halftime-banner p{ margin:0 0 10px; font-size:13px; font-weight:700; color:var(--gold); }
   /* FASE 2 (b) — barra de uso do teto salarial, card "Financeiro" da
      Central (largura cheia, diferente de .ct-cond-track que é pra
      dentro de célula de tabela). Vira vermelha perto do limite. */
@@ -1067,6 +1071,15 @@
     </div>
     <div class="ct-modal-body" style="display:flex; flex-direction:column;">
       <div class="ct-next-match" id="liveMatchScore"></div>
+      <!-- AJUSTE (pedido do usuário: "o jogo deve pausar no intervalo
+           (45) e aguardar que o técnico clique em prosseguir") — só
+           esse botão libera o 2º tempo (ver continueFromHalftime em
+           carreira.js); Substituir/Ajustar tática continuam
+           disponíveis normalmente enquanto o banner estiver visível. -->
+      <div class="ct-halftime-banner hidden" id="liveHalftimeBanner">
+        <p>⏸️ Intervalo — aproveite pra mexer no time antes do 2º tempo.</p>
+        <button class="ct-btn full primary" id="btnLiveContinueSecondHalf">▶ Prosseguir para o 2º tempo</button>
+      </div>
       <div id="liveMatchFeed" style="flex:1; overflow-y:auto; margin-top:10px;"></div>
       <div style="display:flex; gap:8px; margin-top:14px; flex-shrink:0;">
         <button class="ct-btn full" id="btnLiveSub">🔄 Substituir</button>
@@ -1345,6 +1358,39 @@
       <div style="display:flex; flex-direction:column; gap:8px;">
         <button class="ct-btn full primary" id="btnClubProposalAccept">Aceitar e trocar de clube</button>
         <button class="ct-btn full" id="btnClubProposalDecline">Recusar e continuar aqui</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- AJUSTE (pedido do usuário: "dar mais destaque a propostas
+     recebidas. Modal para ação imediata") — antes, uma proposta por um
+     jogador SEU só aparecia discreta num cartão lá na aba Mercado (ver
+     pendingOfferCard/renderMercado); o técnico podia terminar a rodada
+     inteira sem nem notar. Agora, assim que aparece (ver
+     maybeGenerateOffer), esse modal entra NO MEIO do fluxo pós-jogo
+     (ver btnRoundResultsContinue) — mesmo estilo compacto do
+     clubProposalOverlay acima, decisão binária igual, só que aqui é
+     sobre UM JOGADOR, não o clube inteiro. Fechar no X não força
+     decisão (a proposta continua pendente, resolvível a qualquer hora
+     na aba Mercado como sempre) mas ainda segue o fluxo normal pra
+     Tabela (mesma exceção documentada da coletiva de imprensa — ver
+     closePressConferenceModal). -->
+<div class="ct-modal-overlay" id="playerOfferOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header">
+      <span class="ct-modal-icon">💰</span>
+      <div class="ct-modal-header-text">
+        <h3>Proposta por um jogador seu</h3>
+        <div class="ct-modal-sub">Decida agora ou resolva depois na aba Mercado</div>
+      </div>
+      <button class="ct-modal-close" id="playerOfferClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <p class="ct-sub" id="playerOfferText" style="margin-bottom:16px;"></p>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <button class="ct-btn full primary" id="btnPlayerOfferAccept">Aceitar proposta</button>
+        <button class="ct-btn full" id="btnPlayerOfferDecline">Recusar</button>
       </div>
     </div>
   </div>
