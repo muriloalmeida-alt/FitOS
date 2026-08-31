@@ -556,7 +556,15 @@
        si (sem o cadastro com escolha de plano/pagamento, que continua
        vivendo só na página principal; link "Cadastre-se" manda pra
        lá). Pedido do usuário: mostrar a tela de login de verdade em
-       vez de um botão saindo da página. -->
+       vez de um botão saindo da página.
+       BUG CORRIGIDO (usuário: "ao clicar em criar conta está enviando
+       pra home do BR Data") — esse link só mandava pra "/" puro, e
+       desde o "Freemium sem login" (ver AJUSTE 14/08/2026 em
+       startAuthFlow, public/js/app.js) isso já não abre mais o gate
+       sozinho — o visitante caía direto no app, sem rastro nenhum de
+       como criar a conta de verdade. "?signup=1" é reconhecido em
+       startAuthFlow/hasSignupIntent, que abre o gate direto na view de
+       cadastro (ver requireSignup). -->
   <div class="hidden" id="screenLoginRequired">
     <div class="auth-gate" style="min-height:100vh;">
       <div class="auth-gate-inner">
@@ -570,7 +578,7 @@
             <div class="apoie-form-error" id="ctLoginError" style="display:none;"></div>
             <button type="submit" class="btn btn-accent full">Entrar</button>
           </form>
-          <p class="auth-gate-switch">Não tem uma conta? <a href="/">Cadastre-se no BR Data</a></p>
+          <p class="auth-gate-switch">Não tem uma conta? <a href="/?signup=1">Cadastre-se no BR Data</a></p>
         </div>
       </div>
     </div>
