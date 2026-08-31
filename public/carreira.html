@@ -69,7 +69,7 @@
     --font: 'Inter', system-ui, sans-serif;
   }
   #ctShell, .ct-modal-header h3, .ct-modal-title, .ct-topbar-title, .ct-tab,
-  .ct-card h2, .ct-card h3, .ct-kpi .v, .ct-stats-table-title,
+  .ct-card h2, .ct-card h3, .ct-stats-table-title,
   .ct-full h1, .ct-rr-score, .ct-round-inline{
     font-family:'Barlow Condensed', var(--font);
     font-weight:700;
@@ -88,6 +88,7 @@
     --mt-sky-400:#5B9BD9; --mt-violet-400:#A78BDA;
     --mt-ivory-50:#F5F1E6; --mt-ivory-100:#E8E2D0;
     --mt-ink-muted:#8FA3BF; --mt-ink-faint:#5C7192;
+    --mt-navh:74px; /* altura da nav inferior fixa, ver .mt-bottom-nav */
   }
   /* Escudo hexagonal (ver crestImg() em carreira.js) — mesmo clip-path
      de .crest-hex no shared.css do designer. Reaproveitado por toda
@@ -129,45 +130,142 @@
      — só 3 elementos fixos, nenhuma informação do clube nem da rodada
      aqui (foram pro card "Próximo jogo" na Central, pedido do
      usuário). */
-  .ct-topbar{
-    display:flex; align-items:center; gap:10px; position:relative;
-    padding:14px 18px; background:linear-gradient(135deg, var(--brd-navy), var(--navy-mid));
-    border-bottom:1px solid var(--navy-line);
-    color:#fff; box-shadow:0 4px 14px rgba(0,0,0,.2);
+  /* ================= Tela 3 — Central + chrome global =================
+     AJUSTE (refatoração completa, ver 03-central-restyled.html do
+     designer) — topbar/nav inferior REAIS do jogo (dentro de
+     #screenGame, com menu de verdade — Notícias/Premiações/Perfil/
+     Reiniciar/Sair) adotam as mesmas classes "mt-" já usadas nas telas
+     1 e 2. Como topbar/nav são compartilhados por TODO painel (Central,
+     Elenco, Escalação...), essa mudança vale pro app inteiro a partir
+     daqui — cada painel ainda não reconstruído continua com seu miolo
+     antigo por enquanto, só ganha o chrome novo ao redor. */
+  .mt-topbar-menu{
+    position:absolute; top:100%; right:14px; margin-top:8px; z-index:60;
+    background:linear-gradient(160deg, var(--mt-navy-700), var(--mt-navy-800) 65%);
+    border:1px solid var(--mt-navy-600); border-top:1px solid rgba(232,184,75,.3);
+    border-radius:10px; box-shadow:0 14px 32px rgba(0,0,0,.4); min-width:190px; padding:6px; display:none;
   }
-  .ct-topbar-logo{ display:flex; align-items:center; flex-shrink:0; }
-  .ct-topbar-logo img{ height:24px; display:block; }
-  .ct-topbar-title{ flex:1; text-align:center; font-weight:800; font-size:15px; }
-  .ct-menu-btn{ background:none; border:none; padding:8px 4px; cursor:pointer; display:flex; flex-direction:column; gap:4px; flex-shrink:0; }
-  .ct-menu-btn span{ width:20px; height:2px; background:#fff; border-radius:2px; display:block; }
-  .ct-topbar-menu{
-    position:absolute; top:100%; right:14px; margin-top:6px; z-index:60;
-    background:var(--bg-surface); border:1px solid var(--border); border-radius:10px;
-    box-shadow:0 10px 28px rgba(0,0,0,.22); min-width:170px; padding:6px; display:none;
-  }
-  .ct-topbar-menu.open{ display:block; }
-  .ct-topbar-menu-item{ display:block; width:100%; text-align:left; background:none; border:none; padding:10px 12px; border-radius:8px; font-size:13px; font-weight:700; color:var(--text-0); cursor:pointer; }
-  .ct-topbar-menu-item:hover{ background:var(--bg-app); }
-  .ct-topbar-menu-item.danger{ color:var(--brd-red); }
-  @media (max-width:360px){
-    .ct-topbar{ padding:12px 14px; }
-    .ct-topbar-title{ font-size:13.5px; }
-  }
-  /* Rodada, agora inline no título "Próximo jogo" (pedido do usuário:
-     "Próximo Jogo (XX / XX)") em vez de pill separada. */
-  .ct-round-inline{ font-weight:600; color:var(--text-2); font-size:13px; }
+  .mt-topbar-menu.open{ display:block; }
+  .mt-topbar-menu-item{ display:block; width:100%; text-align:left; background:none; border:none; padding:11px 12px; border-radius:8px; font-size:13.5px; font-weight:600; color:var(--mt-ivory-100); cursor:pointer; font-family:var(--font); }
+  .mt-topbar-menu-item:hover{ background:var(--mt-navy-800); }
+  .mt-topbar-menu-item.danger{ color:var(--mt-crimson-400); }
+  /* Rodada, inline no título "Próximo jogo" ("Próximo Jogo (XX / XX)"). */
+  .ct-round-inline{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:13px; letter-spacing:1px; color:var(--mt-ink-muted); text-transform:uppercase; }
 
-  /* ---------- Tabs ----------
-     AJUSTE (mockup): trocou o visual de "aba erguida" (fundo claro +
-     cantos arredondados por cima) pelo do mockup — sublinhado dourado
-     na aba ativa, sem troca de fundo (ver .tabitem/.tabitem.active no
-     documento). */
-  .ct-tabs{ display:flex; gap:16px; padding:0 16px; background:var(--bg-app); border-bottom:1px solid var(--navy-line); overflow-x:auto; }
-  .ct-tab{ border:none; border-bottom:2px solid transparent; background:transparent; color:var(--text-2); letter-spacing:.3px; font-size:13px; padding:12px 2px; cursor:pointer; white-space:nowrap; }
-  .ct-tab.active{ color:var(--gold); border-bottom-color:var(--gold); }
-  .ct-body{ flex:1; background:var(--bg-app); padding:18px; }
+  /* AJUSTE: padding-bottom precisa reservar espaço pra NAV + BARRA DE
+     AÇÃO fixas juntas (não só a nav) — sem isso o fim do último card
+     (Financeiro, no caso da Central) ficava escondido atrás do botão
+     flutuante. 150px bate com o .content{padding-bottom:150px} do
+     mock-up original (nav ~74px + barra de ação ~76px). */
+  .mt-body{ flex:1; background:linear-gradient(180deg, var(--mt-navy-900) 0%, var(--mt-navy-950) 60%, #030811 100%); padding:20px 18px 150px; }
   .ct-panel{ display:none; max-width:1080px; margin:0 auto; }
   .ct-panel.active{ display:block; }
+
+  /* ---- painel chanfrado (Central e demais telas que forem refeitas) ---- */
+  .mt-card{
+    position:relative; background:linear-gradient(160deg, var(--mt-navy-700), var(--mt-navy-800) 65%);
+    border:1px solid var(--mt-navy-600); border-top:1px solid rgba(232,184,75,.22);
+    clip-path:polygon(0 0, calc(100% - 22px) 0, 100% 22px, 100% 100%, 0 100%);
+    padding:20px 18px; margin-bottom:16px;
+  }
+  .mt-card::before{
+    content:""; position:absolute; top:0; right:0; width:22px; height:22px;
+    background:linear-gradient(135deg, var(--mt-gold-400), transparent 60%);
+    clip-path:polygon(100% 0, 100% 100%, 0 0); opacity:.6;
+  }
+  .mt-card-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:2px; }
+  .mt-card-title{ font-family:'Bebas Neue', var(--font); font-size:19px; letter-spacing:.5px; color:var(--mt-ivory-50); margin:0; }
+  .mt-card-sub{ color:var(--mt-ink-faint); font-size:12px; margin:2px 0 14px; }
+
+  .mt-badge-alert{
+    display:inline-flex; align-items:center; gap:6px;
+    background:rgba(214,69,69,.14); border:1px solid rgba(214,69,69,.4); color:var(--mt-crimson-400);
+    font-family:'Rajdhani', var(--font); font-weight:700; font-size:12.5px; padding:5px 10px; border-radius:4px; margin-bottom:12px;
+  }
+  /* AJUSTE (Tela 3) — #lineupWarning só recebe texto quando a escalação
+     está incompleta (ver renderCentral); :empty esconde o badge de
+     vez, sem precisar de JS extra pra alternar visibilidade. */
+  .mt-badge-alert:empty{ display:none; }
+  .mt-badge-gold{
+    display:inline-flex; align-items:center; gap:6px;
+    background:rgba(232,184,75,.12); border:1px solid rgba(232,184,75,.35); color:var(--mt-gold-300);
+    font-family:'Rajdhani', var(--font); font-weight:700; font-size:12.5px; padding:5px 10px; border-radius:4px; margin-bottom:12px;
+  }
+
+  .mt-stat-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .mt-stat-block{ background:var(--mt-navy-900); border:1px solid var(--mt-navy-600); padding:14px 10px; text-align:center; }
+  .mt-stat-block .num{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:26px; color:var(--mt-ivory-50); }
+  .mt-stat-block .num.gold{ color:var(--mt-gold-400); }
+  .mt-stat-block .num.red{ color:var(--mt-crimson-400); }
+  .mt-stat-block .lbl{ font-size:10.5px; letter-spacing:.5px; color:var(--mt-ink-faint); margin-top:3px; font-family:'Rajdhani', var(--font); font-weight:600; }
+
+  .mt-fin-row{ display:flex; gap:12px; margin-bottom:14px; }
+  .mt-fin-block{ flex:1; text-align:center; background:var(--mt-navy-900); border:1px solid var(--mt-navy-600); padding:16px 8px; }
+  .mt-fin-block .num{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:24px; color:var(--mt-gold-400); }
+  .mt-fin-block .lbl{ font-size:10.5px; color:var(--mt-ink-faint); letter-spacing:.5px; margin-top:2px; font-family:'Rajdhani', var(--font); }
+
+  .mt-btn-ghost{
+    width:100%; display:flex; align-items:center; justify-content:center; gap:8px;
+    font-family:'Rajdhani', var(--font); font-weight:600; font-size:14px; letter-spacing:.5px;
+    padding:12px; border-radius:999px; cursor:pointer; background:transparent; border:1.5px solid var(--mt-navy-600); color:var(--mt-ivory-100);
+  }
+  .mt-btn-ghost:disabled{ opacity:.5; cursor:not-allowed; }
+
+  .mt-sponsor-row{ display:flex; justify-content:space-between; align-items:flex-start; padding:12px 0; border-bottom:1px solid var(--mt-navy-700); gap:10px; }
+  .mt-sponsor-row:last-child{ border-bottom:none; padding-bottom:0; }
+  .mt-sponsor-name{ font-weight:600; font-size:14.5px; margin-bottom:2px; color:var(--mt-ivory-50); }
+  .mt-sponsor-detail{ font-size:12px; color:var(--mt-ink-muted); }
+  .mt-sponsor-tag{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:11px; letter-spacing:.5px; color:var(--mt-gold-300); text-transform:uppercase; white-space:nowrap; flex-shrink:0; }
+  .mt-sponsor-btn{
+    font-family:'Rajdhani', var(--font); font-weight:700; font-size:11.5px; letter-spacing:.3px;
+    padding:6px 12px; border-radius:999px; cursor:pointer; flex-shrink:0; white-space:nowrap;
+    background:transparent; border:1.5px solid var(--mt-gold-400); color:var(--mt-gold-300);
+  }
+
+  .mt-icon-badge{ width:38px; height:38px; border-radius:8px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(232,184,75,.14); border:1px solid rgba(232,184,75,.35); color:var(--mt-gold-400); }
+  .mt-icon-badge svg{ width:18px; height:18px; }
+  .mt-proposal-row{ display:flex; align-items:flex-start; gap:12px; margin-bottom:14px; }
+  .mt-proposal-text b{ display:block; font-size:14.5px; margin-bottom:2px; color:var(--mt-ivory-50); }
+  .mt-proposal-text span{ font-size:12.5px; color:var(--mt-ink-muted); }
+
+  /* ---- nav inferior fixa (chrome global de todo #screenGame) ---- */
+  .mt-bottom-nav{
+    position:fixed; bottom:0; left:0; right:0; z-index:120; height:var(--mt-navh);
+    display:flex; justify-content:space-around; align-items:flex-end;
+    background:linear-gradient(180deg, rgba(15,32,56,.97), rgba(6,13,26,.99));
+    border-top:1px solid var(--mt-gold-600);
+    box-shadow:0 -8px 24px rgba(0,0,0,.4);
+    padding:9px 6px 12px;
+  }
+  .mt-nav-item{
+    flex:1; min-width:0; display:flex; flex-direction:column; align-items:center; gap:4px;
+    color:var(--mt-ink-faint); background:transparent; border:none; cursor:pointer;
+    font-family:'Rajdhani', var(--font); font-size:10.5px; font-weight:600; letter-spacing:.3px;
+    padding:6px 4px; border-radius:14px; position:relative; transition:color .15s, transform .15s;
+  }
+  .mt-nav-item svg{ width:22px; height:22px; opacity:.75; flex-shrink:0; }
+  .mt-nav-item.active{
+    color:#2A1D02;
+    background:linear-gradient(180deg, var(--mt-gold-300), var(--mt-gold-600));
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.5), 0 4px 14px rgba(232,184,75,.45);
+    transform:translateY(-6px);
+  }
+  .mt-nav-item.active svg{ opacity:1; }
+
+  /* ---- barra de ação fixa, ancorada acima da nav (Central por ora) ---- */
+  .mt-action-bar{
+    position:fixed; left:0; right:0; bottom:var(--mt-navh); z-index:110;
+    padding:12px 18px calc(12px + env(safe-area-inset-bottom, 0px));
+    background:linear-gradient(0deg, var(--mt-navy-950) 55%, rgba(6,13,26,0));
+  }
+  .mt-btn-primary{
+    width:100%; display:flex; align-items:center; justify-content:center; gap:9px;
+    font-family:'Rajdhani', var(--font); font-weight:700; font-size:16px; letter-spacing:1px; text-transform:uppercase;
+    padding:15px; border:none; border-radius:999px; cursor:pointer;
+    background:linear-gradient(180deg, var(--mt-pitch-400), var(--mt-pitch-700)); color:#0A2415;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.35), 0 6px 16px rgba(46,158,91,.3), 0 2px 0 var(--mt-pitch-700);
+  }
+  .mt-btn-primary:disabled{ opacity:.5; cursor:not-allowed; }
 
   /* AJUSTE (mockup): .ct-card explicitamente em --navy-card (não em
      --bg-app/--bg-surface) — com as variáveis compartilhadas
@@ -221,19 +319,19 @@
      quebrar -- é isso que causava o scroll horizontal na tela de
      escolha de clube em telas estreitas (celular). */
   /* ---------- Central ---------- */
-  .ct-next-match{ display:flex; align-items:center; justify-content:center; gap:18px; padding:14px 0; }
-  .ct-next-match .side{ display:flex; flex-direction:column; align-items:center; gap:6px; width:110px; }
-  .ct-next-match .side .n{ font-size:12px; font-weight:700; color:var(--text-0); text-align:center; }
-  .ct-next-match .vs{ font-size:12px; color:var(--text-2); font-weight:700; }
+  /* AJUSTE (redesign, Tela 3) — mesma marcação de sempre (.side/.n/.vs,
+     usada também em Ao Vivo/Resultado do jogo/Resultados da rodada —
+     ver crestImg() em carreira.js), só reestilizada com os tokens
+     novos; nenhum HTML/JS precisou mudar aqui. */
+  .ct-next-match{ display:flex; align-items:center; justify-content:center; gap:22px; padding:6px 0 4px; }
+  .ct-next-match .side{ display:flex; flex-direction:column; align-items:center; gap:8px; width:110px; }
+  .ct-next-match .side .n{ font-family:'Rajdhani', var(--font); font-size:14px; font-weight:700; color:var(--mt-ivory-100); text-align:center; }
+  .ct-next-match .vs{ font-family:'Bebas Neue', var(--font); color:var(--mt-ink-faint); font-size:16px; }
   .ct-kpis{ display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:10px; }
   /* --navy-card2 explícito (mesmo motivo do .ct-card acima) — dentro
      de um .ct-card (--navy-card), a caixinha de KPI precisa de mais um
      degrau de profundidade, como no mockup (.stat-box). */
-  .ct-kpi{ background:var(--navy-card2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 12px; text-align:center; }
-  .ct-kpi .v{ font-size:19px; font-weight:800; color:var(--text-0); }
-  .ct-kpi .v.gold{ color:var(--gold); }
-  .ct-kpi .v.red{ color:var(--brd-red); }
-  .ct-kpi .l{ font-size:10.5px; color:var(--text-2); text-transform:uppercase; letter-spacing:.3px; font-weight:700; }
+  /* .ct-kpi removido — kpiHTML() agora emite .mt-stat-block (ver Tela 3). */
 
   /* ---------- Escalação: campinho "jogo de botão" ----------
      Reaproveita as classes .button-pitch/.button-row/.button-disc/
@@ -342,10 +440,8 @@
   .ct-prematch-row .nm{ flex:1; min-width:0; font-weight:700; color:var(--text-0); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .ct-prematch-row .nm.problem{ color:var(--brd-red); }
   .ct-prematch-row .ovr{ font-weight:800; color:var(--gold); flex-shrink:0; }
-  /* FASE 4 (item 5) — linha de patrocínio (Financeiro/Central), mesmo
-     espírito de separador do .ct-market-row acima. */
-  .ct-sponsor-row{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:9px 0; border-bottom:1px solid rgba(255,255,255,.05); }
-  .ct-sponsor-row:last-child{ border-bottom:none; }
+  /* .ct-sponsor-row removido (redesign, Tela 3) — renderSponsorship()
+     agora emite .mt-sponsor-row (ver CSS lá em cima). */
   /* Fase 2 (olheiro) — faixa de potencial embaixo do overall na lista
      do Elenco, só pra quem tem potencial (base) — tom neutro
      (var(--text-2)), não dourado, de propósito: é uma ESTIMATIVA de
@@ -432,10 +528,14 @@
   /* FASE 2 (b) — barra de uso do teto salarial, card "Financeiro" da
      Central (largura cheia, diferente de .ct-cond-track que é pra
      dentro de célula de tabela). Vira vermelha perto do limite. */
-  .ct-wagecap-track{ width:100%; height:8px; border-radius:100px; background:var(--border); overflow:hidden; }
-  .ct-wagecap-fill{ display:block; height:100%; background:var(--brd-blue); transition:width .3s; }
-  .ct-wagecap-fill.warn{ background:#D97706; }
-  .ct-wagecap-fill.over{ background:var(--brd-red); }
+  /* AJUSTE (redesign, Tela 3) — mesmas classes/ids de sempre (JS só
+     ajusta width e alterna .warn/.over), só recolorido: gradiente
+     dourado brilhante no lugar do azul chapado, âmbar/vermelho no
+     aviso/estouro. */
+  .ct-wagecap-track{ width:100%; height:8px; border-radius:100px; background:var(--mt-navy-900); border:1px solid var(--mt-navy-600); overflow:hidden; }
+  .ct-wagecap-fill{ display:block; height:100%; background:linear-gradient(90deg, var(--mt-gold-600), var(--mt-gold-300)); box-shadow:0 0 8px rgba(232,184,75,.5); transition:width .3s; }
+  .ct-wagecap-fill.warn{ background:linear-gradient(90deg, #8F6316, var(--mt-gold-400)); }
+  .ct-wagecap-fill.over{ background:linear-gradient(90deg, var(--mt-crimson-500), var(--mt-crimson-400)); box-shadow:0 0 8px rgba(227,101,101,.5); }
 
   /* Nome do jogador (Elenco/Banco/picker) — pedido do usuário: nome
      abreviado (ver abbreviateName em carreira.js, ex.: "K. Viveiros")
@@ -827,106 +927,160 @@
 
   <!-- ================= Jogo ================= -->
   <div class="hidden" id="screenGame" style="display:flex; flex-direction:column; flex:1;">
-    <div class="ct-topbar">
-      <a class="ct-topbar-logo" href="/" title="Voltar pro BR Data"><img src="img/logo.png" alt="BR Data"></a>
-      <span class="ct-topbar-title">Modo Carreira</span>
-      <button class="ct-menu-btn" id="btnTopbarMenu" aria-label="Menu" aria-expanded="false" aria-controls="topbarMenu">
-        <span></span><span></span><span></span>
-      </button>
-      <div class="ct-topbar-menu" id="topbarMenu">
-        <!-- AJUSTE (pedido do usuário: "esperava uma tela exclusiva
-             pra notícias nos padrões de um portal de esportes") — ver
-             openNewsScreen em carreira.js. -->
-        <button class="ct-topbar-menu-item" id="btnOpenNews">📰 Notícias</button>
-        <!-- FASE 4 (item 6) — tela própria de histórico de premiações
-             (ver openAwardsScreen em carreira.js), pedido do usuário:
-             "uma tela que armazena os resultados de cada ano". -->
-        <button class="ct-topbar-menu-item" id="btnOpenAwards">🏆 Premiações</button>
-        <!-- FASE 4 (item 4) — currículo do técnico (reputação +
-             histórico de clubes), ver openCoachProfileScreen. -->
-        <button class="ct-topbar-menu-item" id="btnOpenCoachProfile">👔 Perfil do Técnico</button>
-        <button class="ct-topbar-menu-item" id="btnRestart">↺ Reiniciar</button>
-        <button class="ct-topbar-menu-item danger" id="btnLogout">⎋ Sair</button>
+    <div class="mt-topbar">
+      <div class="mt-topbar-row">
+        <div class="mt-brand-mini">
+          <div class="mt-crest-mini"><img src="img/logo.png" alt=""></div>
+          <div class="t">MODO <span>CARREIRA</span></div>
+        </div>
+        <button class="mt-icon-btn" id="btnTopbarMenu" aria-label="Menu" aria-expanded="false" aria-controls="topbarMenu">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+        </button>
+        <div class="mt-topbar-menu" id="topbarMenu">
+          <!-- AJUSTE (pedido do usuário: "esperava uma tela exclusiva
+               pra notícias nos padrões de um portal de esportes") — ver
+               openNewsScreen em carreira.js. -->
+          <button class="mt-topbar-menu-item" id="btnOpenNews">📰 Notícias</button>
+          <!-- FASE 4 (item 6) — tela própria de histórico de premiações
+               (ver openAwardsScreen em carreira.js), pedido do usuário:
+               "uma tela que armazena os resultados de cada ano". -->
+          <button class="mt-topbar-menu-item" id="btnOpenAwards">🏆 Premiações</button>
+          <!-- FASE 4 (item 4) — currículo do técnico (reputação +
+               histórico de clubes), ver openCoachProfileScreen. -->
+          <button class="mt-topbar-menu-item" id="btnOpenCoachProfile">👔 Perfil do Técnico</button>
+          <button class="mt-topbar-menu-item" id="btnRestart">↺ Reiniciar</button>
+          <button class="mt-topbar-menu-item danger" id="btnLogout">⎋ Sair</button>
+        </div>
       </div>
     </div>
 
-    <nav class="ct-tabs">
-      <button class="ct-tab active" data-panel="central">Central</button>
-      <button class="ct-tab" data-panel="elenco">Elenco</button>
-      <button class="ct-tab" data-panel="escalacao">Escalação</button>
-      <button class="ct-tab" data-panel="tabela">Tabela</button>
-      <button class="ct-tab" data-panel="estatisticas">Estatísticas</button>
-      <button class="ct-tab" data-panel="mercado">Mercado</button>
+    <!-- AJUSTE (redesign, Tela 3) — nav inferior fixa, ícone+label,
+         pílula dourada no item ativo (mesmas classes/ids de sempre nos
+         <button>, switchToPanel só lê data-panel/.active — nenhuma
+         lógica mudou). 6º ícone (Mercado) somado ao layout de 5 do
+         mock-up do designer (que não cobria essa aba). -->
+    <nav class="mt-bottom-nav">
+      <button class="mt-nav-item active" data-panel="central">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg>
+        Central
+      </button>
+      <button class="mt-nav-item" data-panel="elenco">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><circle cx="17" cy="9" r="2.6"/><path d="M15.5 14.3c2.7.3 4.5 2.3 4.5 5.7"/></svg>
+        Elenco
+      </button>
+      <button class="mt-nav-item" data-panel="escalacao">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1.5"/><circle cx="12" cy="8.5" r="1.6"/><circle cx="7" cy="15" r="1.6"/><circle cx="17" cy="15" r="1.6"/></svg>
+        Táticas
+      </button>
+      <button class="mt-nav-item" data-panel="tabela">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1.5"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="10" x2="9" y2="20"/></svg>
+        Tabela
+      </button>
+      <button class="mt-nav-item" data-panel="estatisticas">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="20" x2="5" y2="12"/><line x1="12" y1="20" x2="12" y2="6"/><line x1="19" y1="20" x2="19" y2="15"/></svg>
+        Stats
+      </button>
+      <button class="mt-nav-item" data-panel="mercado">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 11V7a4 4 0 0 0-8 0v4M5 9h14l1 11H4z"/></svg>
+        Mercado
+      </button>
     </nav>
 
-    <div class="ct-body">
+    <div class="mt-body">
 
-      <!-- ---------- Central ---------- -->
+      <!-- ---------- Central — REFATORAÇÃO COMPLETA =================
+           AJUSTE (idêntico a 03-central-restyled.html do designer, +
+           imagem "depois" de "12 · Central — Estados de Alerta" pros
+           cards condicionais que essa 1ª referência não mostra: aviso
+           de escalação incompleta, proposta de outro clube). Ação
+           principal ("Simular rodada"/"Avançar temporada") sai do
+           fluxo normal do card e vira .mt-action-bar, fixa acima da
+           nav — sempre alcançável sem rolar a tela. -->
       <section class="ct-panel active" id="panel-central">
-        <div class="ct-card">
-          <h2>Próximo jogo <span class="ct-round-inline" id="roundPill">(1 / 38)</span></h2>
-          <div class="ct-next-match" id="nextMatchBox"></div>
-          <p class="ct-sub" id="lineupWarning"></p>
-          <div style="text-align:center;">
-            <button class="ct-btn accent full lg" id="btnSimulate">▶ Simular rodada</button>
-            <!-- FASE 3 (c) — pedido do usuário: seguir jogando ano após
-                 ano (multitemporadas) — só aparece quando a temporada
-                 termina, ver renderCentral/advanceSeason. -->
-            <button class="ct-btn accent full lg hidden" id="btnAdvanceSeason">🏆 Avançar para a próxima temporada</button>
+        <div class="mt-card">
+          <div class="mt-card-head">
+            <div class="mt-card-title">Próximo jogo</div>
+            <div class="ct-round-inline" id="roundPill">1 / 38</div>
           </div>
+          <div class="ct-next-match" id="nextMatchBox"></div>
+          <!-- :empty (ver CSS) esconde o badge quando a escalação está
+               completa — lineupWarning só recebe texto quando falta
+               titular (ver renderCentral em carreira.js). -->
+          <p class="mt-badge-alert" id="lineupWarning"></p>
         </div>
-        <div class="ct-card">
-          <h2>Situação do elenco <span class="ct-round-inline" id="seasonYearLabel"></span></h2>
+        <div class="mt-card">
+          <div class="mt-card-head">
+            <div class="mt-card-title">Situação do elenco</div>
+            <div class="mt-card-sub" id="seasonYearLabel" style="margin:0;"></div>
+          </div>
           <!-- FASE 1 (item 3) — meta da diretoria sempre visível durante
                a temporada, não só no modal de virada de ano (ver
                CAREER.boardGoal/renderCentral em carreira.js) — sem isso
                dava pra esquecer completamente qual era a meta até o fim
                da temporada. -->
-          <p class="ct-sub" id="boardGoalLabel" style="color:var(--gold); font-weight:700;"></p>
-          <div class="ct-kpis" id="squadKpis"></div>
+          <p class="mt-badge-gold" id="boardGoalLabel" style="margin-top:10px;"></p>
+          <div class="mt-stat-grid" id="squadKpis"></div>
         </div>
         <!-- FASE 4 (item 4) — banner reaproveitável caso o técnico feche
              o "X" da notificação de proposta sem decidir na hora (ver
              btnViewClubProposal/openClubProposalModal em carreira.js) —
              sem isso a proposta ficava sem jeito nenhum de reabrir. -->
-        <div class="ct-card" id="clubProposalCard" style="display:none;">
-          <h2>📨 Proposta de outro clube</h2>
-          <p class="ct-sub" id="clubProposalSummary"></p>
-          <div style="text-align:center; margin-top:8px;">
-            <button class="ct-btn small" id="btnViewClubProposal">Ver proposta</button>
+        <div class="mt-card" id="clubProposalCard" style="display:none;">
+          <div class="mt-proposal-row">
+            <div class="mt-icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="m4 6 8 7 8-7"/></svg></div>
+            <div class="mt-proposal-text">
+              <b>Proposta de outro clube</b>
+              <span id="clubProposalSummary"></span>
+            </div>
           </div>
+          <button class="mt-btn-ghost" id="btnViewClubProposal">Ver proposta</button>
         </div>
         <!-- FASE 2 (b) — pedido do usuário: contrato/salário/valor com
              orçamento real (ver CAREER.finances em carreira.js). -->
-        <div class="ct-card">
-          <h2>Financeiro</h2>
-          <div class="ct-kpis" id="financeKpis"></div>
+        <div class="mt-card">
+          <div class="mt-card-title" style="margin-bottom:14px;">Financeiro</div>
+          <div class="mt-fin-row" id="financeKpis"></div>
           <div class="ct-wagecap-track"><span class="ct-wagecap-fill" id="wageCapFill" style="width:0%"></span></div>
-          <p class="ct-sub" id="wageCapLabel" style="margin-top:6px;"></p>
+          <p class="mt-card-sub" id="wageCapLabel" style="margin-top:6px;"></p>
           <!-- FASE 3 (a) — pedido do usuário: diretoria avalia risco de
                rebaixamento/disputa de título pra decidir se libera mais
                orçamento (ver askBoard em carreira.js). -->
-          <div style="text-align:center; margin-top:10px;">
-            <button class="ct-btn small" id="btnAskBoard">🏛️ Pedir mais orçamento à diretoria</button>
-          </div>
-          <p class="ct-sub" id="boardDecisionText" style="margin-top:8px; text-align:center;"></p>
+          <button class="mt-btn-ghost" id="btnAskBoard" style="margin-top:10px;">🏛️ Pedir mais orçamento à diretoria</button>
+          <p class="mt-card-sub" id="boardDecisionText" style="margin-top:8px; margin-bottom:0; text-align:center;"></p>
         </div>
         <!-- FASE 4 (item 5) — patrocínio e material esportivo (ver
              renderSponsorship/openSponsorProposalsModal em
              carreira.js). Efeito puramente financeiro, soma no caixa
              em parcelas ao longo da temporada — sem nada visual de
              camisa estampada, como a própria especificação já decide. -->
-        <div class="ct-card">
-          <div class="ct-card-head">
-            <h2>Patrocínios</h2>
+        <div class="mt-card">
+          <div class="mt-card-head">
+            <div class="mt-card-title">Patrocínios</div>
             <button class="ct-help-btn" data-help="helpPatrocinios" aria-label="Ajuda">?</button>
           </div>
-          <p class="ct-sub ct-help-text" id="helpPatrocinios" hidden>Contratos comerciais somam receita fixa por temporada, pagos aos poucos a cada rodada. Ao vencer, aparecem propostas concorrentes pra renovar — o valor melhora conforme o desempenho recente do clube.</p>
-          <div id="sponsorshipBox"></div>
+          <p class="mt-card-sub ct-help-text" id="helpPatrocinios" hidden style="margin-top:10px;">Contratos comerciais somam receita fixa por temporada, pagos aos poucos a cada rodada. Ao vencer, aparecem propostas concorrentes pra renovar — o valor melhora conforme o desempenho recente do clube.</p>
+          <div id="sponsorshipBox" style="margin-top:2px;"></div>
         </div>
-        <div class="ct-card" id="lastResultCard" style="display:none;">
-          <h2>Resultado da última rodada</h2>
+        <div class="mt-card" id="lastResultCard" style="display:none;">
+          <div class="mt-card-title" style="margin-bottom:12px;">Resultado da última rodada</div>
           <div id="lastResultBox"></div>
+        </div>
+        <!-- AJUSTE (redesign, Tela 3) — barra de ação fixa: "Simular
+             rodada"/"Avançar temporada" ficam ancoradas acima da nav
+             inferior, sempre visíveis sem depender de rolar. Fica
+             DENTRO do painel (não como irmão) de propósito — o mesmo
+             display:none que esconde o painel quando outra aba está
+             ativa esconde a barra fixa junto, sem precisar de nenhum
+             JS extra pra saber que aba está aberta. -->
+        <div class="mt-action-bar" id="centralActionBar">
+          <button class="mt-btn-primary" id="btnSimulate">
+            <svg viewBox="0 0 24 24" fill="currentColor" style="width:18px;height:18px;"><polygon points="6,4 20,12 6,20"/></svg>
+            Simular rodada
+          </button>
+          <!-- FASE 3 (c) — pedido do usuário: seguir jogando ano após
+               ano (multitemporadas) — só aparece quando a temporada
+               termina, ver renderCentral/advanceSeason. -->
+          <button class="mt-btn-primary hidden" id="btnAdvanceSeason">🏆 Avançar para a próxima temporada</button>
         </div>
       </section>
 
