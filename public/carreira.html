@@ -589,7 +589,9 @@
      ter o logo vetorizado à mão); aqui dentro do app de verdade o
      brasão de marca já existe (img/logo.png) — a moldura hexagonal é a
      mesma, só com o logo real dentro em vez de um monograma de texto. */
-  .mt-crest img{ height:52px; width:52px; object-fit:contain; }
+  /* AJUSTE (pedido do usuário: "a logo pode ficar maior no badge") —
+     52px -> 66px, ainda com folga dentro do hexágono (88x96). */
+  .mt-crest img{ height:66px; width:66px; object-fit:contain; }
   .mt-brand-name{ font-family:'Bebas Neue', var(--font); font-size:26px; letter-spacing:3px; color:#F5F1E6; }
   .mt-brand-name span{ background:linear-gradient(180deg,#F5D68A,#B8860B); -webkit-background-clip:text; background-clip:text; color:transparent; }
 
