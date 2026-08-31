@@ -4326,7 +4326,13 @@ function renderPreMatchConfirm() {
     box.innerHTML = `<p class="ct-empty">Sem jogo do seu time nessa rodada (folga) — pode simular direto.</p>`;
   }
   const filled = CAREER.lineup.starters.filter(Boolean).length;
-  document.getElementById("preMatchWarning").textContent = filled < 11
+  // AJUSTE (refatoração completa, Tela 12f) — #preMatchWarning virou
+  // .mt-badge-alert (pílula), que precisa ficar .hidden quando vazio
+  // (senão mostra uma pílula sem texto, ver o mesmo tratamento em
+  // #marketWindowBanner, Tela 10).
+  const warningEl = document.getElementById("preMatchWarning");
+  warningEl.classList.toggle("hidden", filled >= 11);
+  warningEl.textContent = filled < 11
     ? `⚠️ Escalação incompleta: ${filled}/11 titulares definidos — o time entra com força reduzida.`
     : "";
   document.getElementById("preMatchMeta").textContent = `Esquema ${CAREER.lineup.formation} · Banco: ${CAREER.lineup.bench.length} jogador(es)`;

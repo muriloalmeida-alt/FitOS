@@ -423,12 +423,15 @@
   /* AJUSTE — linha de titular no modal de confirmar escalação (ver
      #preMatchLineup em carreira.js), mesmo espírito de separador do
      .ct-market-row acima. */
-  .ct-prematch-row{ display:flex; align-items:center; gap:10px; padding:8px 6px; border-bottom:1px solid rgba(255,255,255,.05); }
+  /* AJUSTE (refatoração completa, Tela 12f) — cores atualizadas pros
+     tokens novos (--mt-*), no lugar dos antigos --gold/--brd-red (só
+     usados aqui e no .ct-market-row de Patrocínio antes desta tela). */
+  .ct-prematch-row{ display:flex; align-items:center; gap:10px; padding:9px 6px; border-bottom:1px solid var(--mt-navy-700); }
   .ct-prematch-row:last-child{ border-bottom:none; }
-  .ct-prematch-row .pos{ width:64px; flex-shrink:0; font-size:10.5px; color:var(--text-2); font-weight:700; text-transform:uppercase; letter-spacing:.3px; }
-  .ct-prematch-row .nm{ flex:1; min-width:0; font-weight:700; color:var(--text-0); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-  .ct-prematch-row .nm.problem{ color:var(--brd-red); }
-  .ct-prematch-row .ovr{ font-weight:800; color:var(--gold); flex-shrink:0; }
+  .ct-prematch-row .pos{ width:64px; flex-shrink:0; font-family:'Rajdhani', var(--font); font-size:11px; color:var(--mt-ink-faint); font-weight:700; text-transform:uppercase; letter-spacing:.3px; }
+  .ct-prematch-row .nm{ flex:1; min-width:0; font-weight:600; color:var(--mt-ivory-50); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ct-prematch-row .nm.problem{ color:var(--mt-crimson-400); }
+  .ct-prematch-row .ovr{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:15px; color:var(--mt-gold-400); flex-shrink:0; }
   /* .ct-sponsor-row removido (redesign, Tela 3) — renderSponsorship()
      agora emite .mt-sponsor-row (ver CSS lá em cima). */
   /* Fase 2 (olheiro) — faixa de potencial embaixo do overall na lista
@@ -966,6 +969,23 @@
     background:linear-gradient(180deg, var(--mt-gold-300), var(--mt-gold-600)); color:#3A2A03;
     box-shadow:inset 0 1px 0 rgba(255,255,255,.4), 0 3px 10px rgba(184,134,11,.3);
   }
+
+  /* ---- cabeçalho reutilizável pra modais em tela cheia (ícone
+     pequeno em quadrado dourado, no lugar do gradiente/emoji genérico
+     do .ct-modal-header) — modificador escopado, mesmo espírito do
+     .mt-sheet-overlay/.mt-confirm-overlay: só reestiliza o header já
+     existente, sem trocar a marcação. Primeiro uso: Tela 12f
+     (Confirmar escalação). ---- */
+  .mt-fullheader{ background:linear-gradient(180deg, rgba(6,13,26,.97), rgba(6,13,26,.9)); border-bottom:1px solid var(--mt-navy-600); }
+  .mt-fullheader .ct-modal-icon{
+    width:36px; height:36px; border-radius:9px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(180deg, var(--mt-gold-300), var(--mt-gold-600)); color:#2A1D02;
+  }
+  .mt-fullheader .ct-modal-icon svg{ width:18px; height:18px; }
+  .mt-fullheader .ct-modal-header-text h3{ font-family:'Bebas Neue', var(--font); font-size:19px; letter-spacing:.5px; color:var(--mt-ivory-50); }
+  .mt-fullheader .ct-modal-sub{ font-family:'Rajdhani', var(--font); font-size:12px; color:var(--mt-ink-muted); font-weight:600; }
+  .mt-fullheader .ct-modal-close{ width:34px; height:34px; border-radius:8px; background:var(--mt-navy-800); border:1px solid var(--mt-navy-600); color:var(--mt-ink-muted); }
 
   /* ---- diálogo de confirmação genérico (Tela 10b — ver
      10b-confirmar-venda-restyled.html do designer) — escopado a
@@ -2033,10 +2053,16 @@
      simulateRound() direto). "Ir para o jogo" só então dispara a
      simulação de sempre; "Ajustar escalação" fecha e leva pra aba
      Escalação; o X só fecha, sem simular nada. -->
+<!-- AJUSTE (refatoração completa, Tela 12f — ver imagem "depois" do
+     docx, 12f-confirmar-escalacao) — cabeçalho reestilizado
+     (.mt-fullheader, ícone de estádio SVG), placar/meta e lista de
+     titulares em .mt-card, aviso de escalação incompleta virou
+     .mt-badge-alert (Tela 3) no lugar de texto vermelho solto, botões
+     .mt-btn-primary-gold/.mt-btn-ghost (Tela 5). -->
 <div class="ct-modal-overlay ct-modal-fullscreen" id="preMatchOverlay">
   <div class="ct-modal">
-    <div class="ct-modal-header">
-      <span class="ct-modal-icon">🏟️</span>
+    <div class="ct-modal-header mt-fullheader">
+      <span class="ct-modal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 5 0 0 0-9 5v6a9 5 0 0 0 18 0V8a9 5 0 0 0-9-5Z"/><path d="M3 8a9 5 0 0 0 18 0"/><path d="M12 8v10M7 9.5v8M17 9.5v8"/></svg></span>
       <div class="ct-modal-header-text">
         <h3>Confirmar escalação</h3>
         <div class="ct-modal-sub">Rodada <span id="preMatchRound"></span></div>
@@ -2044,13 +2070,17 @@
       <button class="ct-modal-close" id="preMatchClose">✕</button>
     </div>
     <div class="ct-modal-body">
-      <div class="ct-next-match" id="preMatchOpponent"></div>
-      <p class="ct-sub" id="preMatchWarning" style="color:var(--brd-red); font-weight:700;"></p>
-      <p class="ct-sub" id="preMatchMeta" style="font-weight:700; color:var(--text-0);"></p>
-      <div id="preMatchLineup" style="margin:10px 0 16px;"></div>
+      <div class="mt-card">
+        <div class="ct-next-match" id="preMatchOpponent"></div>
+        <p class="mt-badge-alert hidden" id="preMatchWarning" style="display:flex; width:100%; box-sizing:border-box;"></p>
+        <p class="ct-sub" id="preMatchMeta" style="text-align:center; font-weight:700; color:var(--mt-ink-muted);"></p>
+      </div>
+      <div class="mt-card">
+        <div id="preMatchLineup"></div>
+      </div>
       <div style="display:flex; flex-direction:column; gap:8px;">
-        <button class="ct-btn full primary" id="btnPreMatchGo">▶ Ir para o jogo</button>
-        <button class="ct-btn full" id="btnPreMatchAdjust">✏️ Ajustar escalação</button>
+        <button class="mt-btn-primary-gold" id="btnPreMatchGo"><svg viewBox="0 0 24 24" fill="currentColor"><polygon points="6,4 20,12 6,20"/></svg>Ir para o jogo</button>
+        <button class="mt-btn-ghost" id="btnPreMatchAdjust"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Ajustar escalação</button>
       </div>
     </div>
   </div>
