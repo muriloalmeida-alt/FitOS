@@ -502,30 +502,44 @@
      jornal, manchete principal em destaque, feed com tag por tipo de
      notícia e realce dourado quando é do SEU clube (ver
      renderNewsScreen). */
-  /* AJUSTE (refatoração completa, Telas 11d/15 — ver imagens "depois"
-     do docx, 11d-noticias e 15-noticias-rodada, mesma tela em 2
-     estados) — cores novas do design system + chamfer (.mt-card) na
-     manchete/masthead, no lugar dos tokens antigos (--gold, os
-     --text-N, --border e --navy-card). */
-  .mt-news-masthead{ text-align:center; padding:16px; }
-  .mt-news-masthead .brand{ font-family:'Bebas Neue', var(--font); font-size:19px; letter-spacing:.5px; color:var(--mt-ivory-50); }
-  .mt-news-masthead .tagline{ font-family:'Rajdhani', var(--font); font-size:11px; font-weight:600; color:var(--mt-ink-muted); text-transform:uppercase; letter-spacing:1px; margin-top:4px; }
-  .ct-news-featured{ border:1px solid var(--mt-gold-600); clip-path:polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%); padding:16px 18px; background:linear-gradient(160deg, var(--mt-navy-700), var(--mt-navy-800) 65%); }
-  .ct-news-featured .eyebrow{ font-family:'Rajdhani', var(--font); font-size:10.5px; font-weight:700; letter-spacing:.8px; text-transform:uppercase; color:var(--mt-gold-400); margin-bottom:6px; }
-  .ct-news-featured .headline{ font-size:16.5px; font-weight:700; color:var(--mt-ivory-50); line-height:1.35; }
-  .ct-news-featured .meta{ font-family:'Rajdhani', var(--font); font-size:11.5px; color:var(--mt-ink-muted); margin-top:10px; }
-  .ct-news-item{ display:flex; gap:12px; padding:12px 4px; border-bottom:1px solid var(--mt-navy-700); }
-  .ct-news-item:last-child{ border-bottom:none; }
-  .ct-news-item.mine{ background:rgba(232,184,75,.06); border-radius:8px; border-bottom-color:transparent; }
-  .ct-news-item .icon{ font-size:19px; flex-shrink:0; line-height:1.4; }
-  .ct-news-item .body{ flex:1; min-width:0; }
-  .ct-news-item .headline{ font-size:13.5px; font-weight:600; color:var(--mt-ivory-50); line-height:1.4; }
-  .ct-news-item .meta{ font-size:11px; color:var(--mt-ink-faint); margin-top:5px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
-  .ct-news-tag{ font-family:'Rajdhani', var(--font); font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; padding:2px 8px; border-radius:100px; background:var(--mt-navy-700); border:1px solid var(--mt-navy-600); color:var(--mt-ink-muted); }
-  /* AJUSTE — separador de seção dentro da tela de Notícias (Brasileirão
-     / seu time / classificação, ver #newsOverlay em carreira.html). */
-  .ct-news-section-title{ font-family:'Rajdhani', var(--font); font-size:12px; font-weight:700; color:var(--mt-ink-muted); text-transform:uppercase; letter-spacing:1px; margin:22px 0 10px; padding-top:16px; border-top:1px solid var(--mt-navy-700); }
-  .ct-news-section-title:first-of-type{ margin-top:0; padding-top:0; border-top:none; }
+  /* AJUSTE (refatoração completa, "Opção B — Capa de jornal", ver
+     mockup de comparação noticias-opcoes.html, escolhida pelo
+     usuário) — vira capa de jornal de verdade: manchete grande em
+     Bebas Neue sem card/borda (só uma régua fina embaixo separando do
+     resto), notas secundárias como "notinhas" com bloco de cor à
+     esquerda por categoria (mesmo espírito do marcador de eventos do
+     Ao Vivo/Resultado do jogo — ver liveEventDot), título de seção com
+     régua preenchendo o resto da largura, "seu time" + "classificação"
+     deixam de ser 2 seções cheias (a 2ª só com um botão) e viram 1
+     cartão resumo compacto no fim. */
+  .mt-news-masthead{ text-align:center; padding:0 0 14px; border-bottom:2px solid var(--mt-gold-400); margin-bottom:16px; }
+  .mt-news-masthead .brand{ font-family:'Bebas Neue', var(--font); font-size:22px; letter-spacing:1px; color:var(--mt-ivory-50); }
+  .mt-news-masthead .tagline{ font-family:'Rajdhani', var(--font); font-size:11px; font-weight:600; color:var(--mt-ink-muted); text-transform:uppercase; letter-spacing:1.5px; margin-top:4px; }
+  .mt-news-kicker{ font-family:'Rajdhani', var(--font); font-size:10.5px; font-weight:700; color:var(--mt-gold-400); text-transform:uppercase; letter-spacing:1px; margin-bottom:6px; }
+  .mt-news-headline{ font-family:'Bebas Neue', var(--font); font-size:21px; line-height:1.15; letter-spacing:.3px; color:var(--mt-ivory-50); }
+  .mt-news-feature-meta{ font-family:'Rajdhani', var(--font); font-size:11px; color:var(--mt-ink-muted); margin-top:6px; }
+  .mt-news-rule{ height:1px; background:linear-gradient(90deg, var(--mt-gold-600), transparent); margin:16px 0; }
+  .mt-news-sectitle{ display:flex; align-items:center; gap:10px; margin:20px 0 12px; }
+  .mt-news-sectitle span{ font-family:'Rajdhani', var(--font); font-size:11px; font-weight:700; color:var(--mt-ink-muted); text-transform:uppercase; letter-spacing:1px; white-space:nowrap; }
+  .mt-news-sectitle .line{ flex:1; height:1px; background:var(--mt-navy-700); }
+  .mt-news-brief{ display:flex; gap:11px; padding:11px 0; border-bottom:1px solid var(--mt-navy-700); }
+  .mt-news-brief:last-child{ border-bottom:none; }
+  .mt-news-brief.mine{ background:rgba(232,184,75,.06); border-radius:8px; border-bottom-color:transparent; padding-left:6px; padding-right:6px; margin:0 -6px; }
+  .mt-news-sq{ width:32px; height:32px; border-radius:8px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:15px; margin-top:1px; }
+  .mt-news-sq.lider{ background:rgba(232,184,75,.15); }
+  .mt-news-sq.zebra, .mt-news-sq.empate_defendido{ background:rgba(91,155,217,.15); }
+  .mt-news-sq.goleada{ background:rgba(227,101,101,.15); }
+  .mt-news-sq.jejum_quebrado{ background:rgba(61,184,106,.15); }
+  .mt-news-sq.lanterna_reage{ background:rgba(167,139,218,.15); }
+  .mt-news-sq.generico{ background:var(--mt-navy-700); }
+  .mt-news-brief .h{ font-size:13px; font-weight:600; color:var(--mt-ivory-50); line-height:1.35; }
+  .mt-news-brief .m{ font-family:'Rajdhani', var(--font); font-size:10.5px; font-weight:600; color:var(--mt-ink-faint); margin-top:4px; text-transform:uppercase; letter-spacing:.4px; }
+  .mt-news-summary{ background:var(--mt-navy-800); border:1px solid var(--mt-navy-600); border-radius:10px; padding:2px 14px; }
+  .mt-news-summary-row{ display:flex; align-items:center; gap:10px; padding:12px 0; border-bottom:1px solid var(--mt-navy-700); }
+  .mt-news-summary-row.last{ border-bottom:none; }
+  .mt-news-summary-row .t{ flex:1; min-width:0; font-size:12.5px; color:var(--mt-ivory-100); }
+  .mt-news-summary-row button{ display:flex; align-items:center; gap:5px; background:transparent; border:none; color:var(--mt-gold-400); font-family:'Rajdhani', var(--font); font-weight:700; font-size:12.5px; cursor:pointer; padding:0; white-space:nowrap; }
+  .mt-news-summary-row button svg{ width:14px; height:14px; }
   /* .ct-halftime-banner removido (redesign, Tela 13b) — o banner de
      intervalo (#liveHalftimeBanner) agora usa .mt-live-halftime (ver
      CSS da Tela 13b mais abaixo). */
@@ -2304,13 +2318,16 @@
      duplica a tabela aqui dentro). "Continuar" só aparece quando essa
      tela faz parte do fluxo pós-jogo (ver openNewsScreen) — aberta
      pelo menu, funciona como qualquer outra tela de consulta (só X). -->
-<!-- AJUSTE (refatoração completa, Telas 11d/15 — ver imagens "depois"
-     do docx, mesma tela em 2 estados: consulta pelo menu (11d, sem
-     botão Continuar) e fluxo pós-jogo (15, com Continuar)) —
-     .mt-fullheader (Tela 12f), masthead num .mt-card centralizado,
-     manchete em destaque chanfrada (.ct-news-featured, cores novas),
-     botão de classificação .mt-btn-ghost, Continuar
-     .mt-btn-primary-gold. -->
+<!-- AJUSTE (Opção B — "capa de jornal", feedback do usuário em cima
+     das Telas 11d/15 já refeitas — ver mercado-row-opcoes/
+     noticias-opcoes, mockups publicados como Artifact) — masthead sem
+     .mt-card (só régua dourada embaixo), manchete grande sem moldura
+     (.mt-news-headline, Bebas Neue) com linha-guia dourada
+     (.mt-news-rule) separando do resto, notícias secundárias como
+     "notas" com quadrado colorido por categoria (.mt-news-brief/-sq,
+     mesmas cores de NEWS_ICON), "seu time" + "classificação" deixam
+     de ser 2 seções cheias e viram 1 cartão-resumo compacto no fim
+     (.mt-news-summary), cada linha com sua ação. -->
 <div class="ct-modal-overlay ct-modal-fullscreen" id="newsOverlay">
   <div class="ct-modal">
     <div class="ct-modal-header mt-fullheader">
@@ -2322,22 +2339,26 @@
       <button class="ct-modal-close" id="newsClose">✕</button>
     </div>
     <div class="ct-modal-body">
-      <div class="mt-card mt-news-masthead">
+      <div class="mt-news-masthead">
         <div class="brand">📰 Jornal do Brasileirão</div>
         <div class="tagline" id="newsTagline">Edição do técnico</div>
       </div>
 
-      <h2 class="ct-news-section-title">Notícias do Brasileirão</h2>
-      <div class="ct-news-featured" id="newsFeatured"></div>
+      <div id="newsFeatured"></div>
+
+      <div class="mt-news-sectitle"><span>Mais notícias</span><div class="line"></div></div>
       <div id="newsList"></div>
 
-      <h2 class="ct-news-section-title">Notícias do seu time</h2>
-      <div id="newsTeamStatus" style="margin-bottom:8px;"></div>
+      <div class="mt-news-sectitle"><span>Resumo</span><div class="line"></div></div>
+      <div class="mt-news-summary">
+        <div id="newsTeamStatus"></div>
+        <div class="mt-news-summary-row last">
+          <div class="t">Classificação atualizada</div>
+          <button id="btnNewsOpenTabela"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="5" width="3" height="13"/></svg>Ver</button>
+        </div>
+      </div>
 
-      <h2 class="ct-news-section-title">Classificação</h2>
-      <button class="mt-btn-ghost" id="btnNewsOpenTabela" style="margin-bottom:18px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="12" width="3" height="6"/><rect x="12" y="8" width="3" height="10"/><rect x="17" y="5" width="3" height="13"/></svg>Ver classificação atualizada</button>
-
-      <button class="mt-btn-primary-gold hidden" id="btnNewsContinue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>Continuar</button>
+      <button class="mt-btn-primary-gold hidden" id="btnNewsContinue" style="margin-top:14px;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>Continuar</button>
     </div>
   </div>
 </div>

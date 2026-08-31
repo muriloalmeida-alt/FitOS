@@ -2797,11 +2797,12 @@ function roundNewsHTML(news) {
 // navegável (ver CAREER.newsFeed), com manchete principal em destaque
 // e o resto em feed, mais nova primeiro.
 function newsItemHTML(n) {
-  return `<div class="ct-news-item${n.mine ? " mine" : ""}">
-    <span class="icon">${NEWS_ICON[n.type] || "📰"}</span>
-    <div class="body">
-      <div class="headline">${escapeHtml(n.texto)}</div>
-      <div class="meta"><span class="ct-news-tag">${NEWS_TAG_LABEL[n.type] || "Rodada"}</span><span>Rodada ${n.round} · Temporada ${n.seasonYear}</span></div>
+  const cat = NEWS_ICON[n.type] ? n.type : "generico";
+  return `<div class="mt-news-brief${n.mine ? " mine" : ""}">
+    <div class="mt-news-sq ${cat}">${NEWS_ICON[n.type] || "📰"}</div>
+    <div>
+      <div class="h">${escapeHtml(n.texto)}</div>
+      <div class="m">${NEWS_TAG_LABEL[n.type] || "Rodada"} · Rodada ${n.round} · Temporada ${n.seasonYear}</div>
     </div>
   </div>`;
 }
@@ -2827,40 +2828,35 @@ function renderNewsScreen(currentRoundOnly) {
   } else {
     const [top, ...rest] = feed;
     featuredBox.innerHTML = `
-      <div class="eyebrow">${top.mine ? "Manchete — seu clube" : "Manchete da rodada"}</div>
-      <div class="headline">${NEWS_ICON[top.type] || "📰"} ${escapeHtml(top.texto)}</div>
-      <div class="meta">Rodada ${top.round} · Temporada ${top.seasonYear}</div>`;
+      <div class="mt-news-kicker">${top.mine ? "Manchete — seu clube" : "Manchete da rodada"}</div>
+      <div class="mt-news-headline">${escapeHtml(top.texto)}</div>
+      <div class="mt-news-feature-meta">${NEWS_ICON[top.type] || "📰"} ${NEWS_TAG_LABEL[top.type] || "Rodada"} · Rodada ${top.round} · Temporada ${top.seasonYear}</div>
+      <div class="mt-news-rule"></div>`;
     listBox.innerHTML = rest.map(newsItemHTML).join("");
   }
   renderTeamStatusNews();
 }
 // AJUSTE (pedido do usuário: "notícias do seu time — quem se lesionou
-// ou está suspenso") — segunda seção da tela, lida direto de
-// CAREER.squad (mesmo critério de status usado no Elenco/detalhe do
-// jogador, ver playerRow/openDetail) — sem precisar de mais nenhum
-// dado novo no save.
-function teamStatusNewsItemHTML(p, kind) {
-  const icon = kind === "lesao" ? "🩹" : "🟥";
-  const headline = kind === "lesao" ? `${abbreviateName(p.name)} está fora, lesionado` : `${abbreviateName(p.name)} está suspenso`;
-  const tag = kind === "lesao" ? `Lesão ${injurySeverityLabel(p.injurySeverity)}` : "Suspensão";
-  return `<div class="ct-news-item">
-    <span class="icon">${icon}</span>
-    <div class="body">
-      <div class="headline">${escapeHtml(headline)}</div>
-      <div class="meta"><span class="ct-news-tag">${tag}</span><span>Volta na rodada ${p.outUntilRound}</span></div>
-    </div>
-  </div>`;
+// ou está suspenso") — lida direto de CAREER.squad (mesmo critério de
+// status usado no Elenco/detalhe do jogador, ver playerRow/openDetail)
+// — sem precisar de mais nenhum dado novo no save. Linha de texto
+// simples dentro do cartão-resumo (.mt-news-summary, ver newsOverlay
+// em carreira.html) — sem ícone/quadrado de categoria, que fica só
+// pras notícias da rodada (.mt-news-brief).
+function teamStatusNewsRowHTML(p, kind) {
+  const headline = kind === "lesao" ? `${abbreviateName(p.name)} está fora, lesionado (${injurySeverityLabel(p.injurySeverity)})` : `${abbreviateName(p.name)} está suspenso`;
+  return `<div class="mt-news-summary-row"><div class="t">${escapeHtml(headline)} — volta na rodada ${p.outUntilRound}</div></div>`;
 }
 function renderTeamStatusNews() {
   const injured = CAREER.squad.filter((p) => p.status === "contundido");
   const suspended = CAREER.squad.filter((p) => p.status === "suspenso");
   const box = document.getElementById("newsTeamStatus");
   if (!injured.length && !suspended.length) {
-    box.innerHTML = `<p class="ct-empty">Elenco 100% disponível — ninguém contundido ou suspenso.</p>`;
+    box.innerHTML = `<div class="mt-news-summary-row"><div class="t">Elenco 100% disponível — ninguém contundido ou suspenso.</div></div>`;
     return;
   }
-  box.innerHTML = injured.map((p) => teamStatusNewsItemHTML(p, "lesao")).join("")
-    + suspended.map((p) => teamStatusNewsItemHTML(p, "suspensao")).join("");
+  box.innerHTML = injured.map((p) => teamStatusNewsRowHTML(p, "lesao")).join("")
+    + suspended.map((p) => teamStatusNewsRowHTML(p, "suspensao")).join("");
 }
 // AJUSTE (pedido do usuário: "as notícias devem ser mostradas em tela
 // cheia antes dos resultados dos jogos") — essa tela agora tem 2
