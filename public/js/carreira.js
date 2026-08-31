@@ -2763,10 +2763,11 @@ function generateRoundNews(round, allResults, standingsBefore) {
 function roundNewsHTML(news) {
   if (!news || !news.length) return "";
   const rows = news.map((n) => `<div class="ct-transfer-feed-item">${NEWS_ICON[n.type] || "📰"} ${escapeHtml(n.texto)}</div>`).join("");
-  return `<div style="margin-top:16px;">
-    <p class="ct-sub" style="font-weight:700; margin-bottom:6px;">📻 Rádio Data FM — Notícias da rodada</p>
-    ${rows}
-  </div>`;
+  // AJUSTE (refatoração completa, Tela 16) — título vira .mt-card-title
+  // (o próprio #roundResultsNews virou .mt-card no HTML, ver
+  // #roundResultsOverlay em carreira.html) no lugar do <p> em negrito
+  // solto de antes.
+  return `<div class="mt-card-title" style="margin-bottom:8px;">📻 Rádio Data FM — Notícias da rodada</div>${rows}`;
 }
 // AJUSTE (pedido do usuário: "esperava uma tela exclusiva pra
 // notícias nos padrões de um portal de esportes") — tela própria
@@ -4961,7 +4962,12 @@ function showRoundResultsModal(summary) {
   // Mercado"; agora essa mesma proposta pede decisão logo em seguida
   // (ver btnRoundResultsContinue/openPlayerOfferModal), então o aviso
   // aqui só avisa que ela existe, sem precisar apontar pra outra aba.
-  document.getElementById("roundResultsOffer").textContent = summary.newOffer
+  // AJUSTE (refatoração completa, Tela 16) — #roundResultsOffer virou
+  // .mt-badge-gold (pílula), que precisa ficar .hidden quando vazio
+  // (mesmo tratamento de #marketWindowBanner/#preMatchWarning).
+  const offerEl = document.getElementById("roundResultsOffer");
+  offerEl.classList.toggle("hidden", !summary.newOffer);
+  offerEl.textContent = summary.newOffer
     ? `💰 Proposta recebida: ${summary.newOffer.clubName} oferece ${fmtBRL(summary.newOffer.fee)} pelo jogador ${abbreviateName(summary.newOffer.playerName)}.`
     : "";
   // FASE 2 (a) — Copa do Brasil: só existe summary.cup nas 4 rodadas
@@ -4991,13 +4997,17 @@ function cupRoundResultsHTML(cupResult) {
   const cup = CAREER.cup;
   let statusLine = "";
   if (cup.championIsHuman && phase === "final") {
-    statusLine = `<p class="ct-sub" style="color:var(--gold); font-weight:700; margin-top:8px;">🏆 Campeão da Copa do Brasil ${CAREER.seasonYear}!</p>`;
+    statusLine = `<p class="ct-sub" style="color:var(--mt-gold-400); font-weight:700; margin-top:8px;">🏆 Campeão da Copa do Brasil ${CAREER.seasonYear}!</p>`;
   } else if (!cup.humanAlive && cup.humanEliminatedStage === phase) {
-    statusLine = `<p class="ct-sub" style="color:var(--brd-red); font-weight:700; margin-top:8px;">❌ Eliminado da Copa do Brasil nas ${CUP_PHASE_LABEL[phase]}.</p>`;
+    statusLine = `<p class="ct-sub" style="color:var(--mt-crimson-400); font-weight:700; margin-top:8px;">❌ Eliminado da Copa do Brasil nas ${CUP_PHASE_LABEL[phase]}.</p>`;
   } else if (cup.humanAlive) {
-    statusLine = `<p class="ct-sub" style="color:var(--gold); font-weight:700; margin-top:8px;">✅ Classificado pra ${CUP_PHASE_LABEL[cup.phase]} da Copa do Brasil!</p>`;
+    statusLine = `<p class="ct-sub" style="color:var(--mt-gold-400); font-weight:700; margin-top:8px;">✅ Classificado pra ${CUP_PHASE_LABEL[cup.phase]} da Copa do Brasil!</p>`;
   }
-  return `<h3 class="ct-stats-table-title" style="margin-top:14px;">🏆 Copa do Brasil — ${CUP_PHASE_LABEL[phase]}</h3>${rows}${statusLine}`;
+  // AJUSTE (refatoração completa, Tela 16) — .mt-card montado aqui
+  // dentro (não estático no #roundResultsCup do HTML) porque essa
+  // seção só existe em 4 rodadas da temporada — um .mt-card vazio nas
+  // outras rodadas mostraria uma caixa chanfrada sem conteúdo.
+  return `<div class="mt-card"><div class="mt-card-title" style="margin-bottom:10px;">🏆 Copa do Brasil — ${CUP_PHASE_LABEL[phase]}</div>${rows}${statusLine}</div>`;
 }
 // FASE 3 (c) — modal de resumo ao avançar de temporada (ver
 // advanceSeason). Sem botão X de propósito — só "Começar a temporada"
