@@ -232,10 +232,22 @@ function teamById(id) {
   return LEAGUE_TEAMS.find((t) => String(t.id) === String(id))
     || { id, name: `Time #${id}`, short: String(id).slice(0, 3).toUpperCase(), c1: "#8892A0", c2: "#333" };
 }
+// AJUSTE (pedido do usuário: "refaça 100% do front pra refletir o
+// material enviado / idêntico às 30 telas") — moldura hexagonal (ver
+// .ct-crest em carreira.html, mesmo clip-path de .crest-hex no
+// shared.css do designer) no lugar da bolinha antiga; o brasão real
+// (<img>) fica por cima, sem ser recortado — recortar o LOGO em si
+// arriscava cortar brasões de formato estranho, a moldura por trás
+// resolve sem esse risco. Usado em toda tela que já chamava
+// crestImg() — Central, Tabela, Ao Vivo, Resultados, Escolha do
+// Clube etc. — muda a aparência do escudo de uma vez só, no lugar
+// certo, conforme cada uma dessas telas for reconstruída.
 function crestImg(t, size = 40) {
-  if (t && t.logo) return `<img src="${t.logo}" alt="" style="height:${size}px;width:${size}px;object-fit:contain;flex-shrink:0;">`;
   const c1 = t?.c1 || "#8892A0", c2 = t?.c2 || "#333";
-  return `<div style="height:${size}px;width:${size}px;border-radius:50%;background:linear-gradient(135deg, ${c1}, ${c2});flex-shrink:0;"></div>`;
+  const inner = t && t.logo
+    ? `<img src="${t.logo}" alt="" style="height:${Math.round(size * 0.62)}px;width:${Math.round(size * 0.62)}px;object-fit:contain;">`
+    : "";
+  return `<span class="ct-crest" style="height:${size}px;width:${size}px;background:linear-gradient(160deg, ${c1}, ${c2});">${inner}</span>`;
 }
 // Mesmo degradê de cores do clube usado no "jogo de botão" do dashboard
 // principal (ver teamGradientStops em public/js/app.js) — duplicado
@@ -2146,12 +2158,15 @@ function renderClubPicker(filterIds, bannerText) {
   else { banner.textContent = ""; banner.hidden = true; }
   const teams = filterIds ? LEAGUE_TEAMS.filter((t) => filterIds.some((id) => String(id) === String(t.id))) : LEAGUE_TEAMS;
   const grid = document.getElementById("clubGrid");
+  // AJUSTE (refatoração completa, tela "Escolha do Clube") — .mt-club-card
+  // no lugar de .ct-club-card (ver 02-escolha-do-clube-restyled.html do
+  // designer); crestImg(t, 48) já devolve o escudo hexagonal certo.
   grid.innerHTML = teams.map((t) => `
-    <div class="ct-club-card" data-id="${escapeHtml(String(t.id))}">
-      ${crestImg(t)}
-      <span class="name">${escapeHtml(t.name)}</span>
+    <div class="mt-club-card" data-id="${escapeHtml(String(t.id))}">
+      ${crestImg(t, 48)}
+      <span class="mt-club-name">${escapeHtml(t.name)}</span>
     </div>`).join("");
-  grid.querySelectorAll(".ct-club-card").forEach((el) => el.addEventListener("click", () => startCareer(el.dataset.id)));
+  grid.querySelectorAll(".mt-club-card").forEach((el) => el.addEventListener("click", () => startCareer(el.dataset.id)));
 }
 async function startCareer(clubId) {
   const club = LEAGUE_TEAMS.find((t) => String(t.id) === String(clubId));
@@ -5097,6 +5112,15 @@ function wireStaticListeners() {
   });
   document.getElementById("btnLogout").addEventListener("click", async () => {
     document.getElementById("topbarMenu").classList.remove("open");
+    try { await fetchJSON("/api/auth/logout", { method: "POST" }); } catch { /* segue mesmo se falhar */ }
+    location.href = "/";
+  });
+  // AJUSTE (refatoração completa, tela "Escolha do Clube") — mesmo
+  // logout de sempre, só que a partir do ícone da topbar dessa tela
+  // (que não tem menu de "≡" nenhum — carreira ainda não existe antes
+  // de escolher o clube, então não tem Notícias/Premiações/Perfil do
+  // Técnico pra mostrar ali; o ícone vira ação direta de sair).
+  document.getElementById("btnPickerLogout").addEventListener("click", async () => {
     try { await fetchJSON("/api/auth/logout", { method: "POST" }); } catch { /* segue mesmo se falhar */ }
     location.href = "/";
   });
