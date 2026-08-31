@@ -950,6 +950,26 @@
     box-shadow:inset 0 1px 0 rgba(255,255,255,.35), 0 4px 14px rgba(46,158,91,.3);
   }
 
+  /* ---- diálogo de confirmação genérico (Tela 10b — ver
+     10b-confirmar-venda-restyled.html do designer) — escopado a
+     #confirmOverlay (.mt-confirm-overlay), reaproveitado por TODA
+     confirmação do jogo, não só Mercado. ---- */
+  .mt-confirm-overlay .ct-modal{
+    background:linear-gradient(160deg, var(--mt-navy-700), var(--mt-navy-800) 70%);
+    border:1px solid var(--mt-gold-600);
+    clip-path:polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 0 100%);
+  }
+  .mt-confirm-overlay .ct-modal-header{ background:none; border-bottom:none; padding:22px 22px 0; }
+  .mt-confirm-overlay .ct-modal-icon{
+    width:36px; height:36px; border-radius:9px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    background:rgba(232,184,75,.14); border:1px solid rgba(232,184,75,.4); color:var(--mt-gold-400);
+  }
+  .mt-confirm-overlay .ct-modal-icon svg{ width:19px; height:19px; }
+  .mt-confirm-overlay .ct-modal-header h3{ font-family:'Bebas Neue', var(--font); font-size:19px; letter-spacing:.5px; color:var(--mt-ivory-50); }
+  .mt-confirm-overlay .ct-modal-body{ padding:14px 22px 22px; }
+  .mt-confirm-overlay .ct-modal-body .ct-sub{ font-family:var(--font); font-size:14px; color:var(--mt-ivory-100); line-height:1.5; }
+
   /* ================= Tela 6 — Escalação =================
      AJUSTE (refatoração completa, ver 06-escalacao-restyled.html do
      designer) — campinho, banco e táticas próprios, prefixo "mt-" de
@@ -2235,18 +2255,27 @@
      PWA, ainda mais no celular). Substitui todo window.confirm() do
      jogo (comprar, vender, reiniciar, avançar temporada) — ver
      confirmModal() em carreira.js, que devolve uma Promise<boolean>
-     no lugar do valor síncrono que confirm() devolvia. -->
-<div class="ct-modal-overlay" id="confirmOverlay">
+     no lugar do valor síncrono que confirm() devolvia.
+     AJUSTE (refatoração completa, Tela 10b — ver
+     10b-confirmar-venda-restyled.html do designer) — modificador
+     .mt-confirm-overlay escopado só a este overlay (mesmo espírito do
+     .mt-sheet-overlay da Tela 5): diálogo chanfrado com borda dourada
+     no lugar do modal genérico simples, ícone de interrogação em
+     círculo (SVG, no lugar do emoji), botões reaproveitando
+     .mt-btn-ghost/.mt-btn-primary-gold (Tela 5). Usado por TODA
+     confirmação do jogo (comprar/vender/emprestar, reiniciar carreira,
+     avançar temporada), não só Mercado — ganham a pele nova de graça. -->
+<div class="ct-modal-overlay mt-confirm-overlay" id="confirmOverlay">
   <div class="ct-modal">
     <div class="ct-modal-header">
-      <span class="ct-modal-icon">❓</span>
+      <span class="ct-modal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 2-3 4"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
       <div class="ct-modal-header-text"><h3 id="confirmTitle">Confirmar</h3></div>
     </div>
     <div class="ct-modal-body">
       <p class="ct-sub" id="confirmText"></p>
       <div style="display:flex; gap:8px; margin-top:14px;">
-        <button class="ct-btn" id="confirmCancelBtn" style="flex:1;">Cancelar</button>
-        <button class="ct-btn primary" id="confirmOkBtn" style="flex:1;">Confirmar</button>
+        <button class="mt-btn-ghost" id="confirmCancelBtn" style="flex:1;">Cancelar</button>
+        <button class="mt-btn-primary-gold" id="confirmOkBtn" style="flex:1;">Confirmar</button>
       </div>
     </div>
   </div>
