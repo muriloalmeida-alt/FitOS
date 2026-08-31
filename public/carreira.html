@@ -568,10 +568,14 @@
     content:""; position:absolute; inset:0; pointer-events:none;
     background-image:repeating-linear-gradient(0deg, rgba(255,255,255,.015) 0px, rgba(255,255,255,.015) 1px, transparent 1px, transparent 64px);
   }
-  .mt-login-content{ position:relative; z-index:1; padding:72px 26px 40px; min-height:100vh; display:flex; flex-direction:column; }
+  /* AJUSTE (pedido do usuário: "ajustar pra caber na primeira dobra —
+     diminuir delicadamente os espaços no topo e entre a logo e o texto
+     principal") — só respiros reduzidos (padding-top e as 2 margens do
+     bloco da marca); nenhum tamanho de fonte/crest/painel muda. */
+  .mt-login-content{ position:relative; z-index:1; padding:40px 26px 40px; min-height:100vh; display:flex; flex-direction:column; }
 
   /* ---- marca/escudo ---- */
-  .mt-brand{ display:flex; flex-direction:column; align-items:center; margin-bottom:44px; }
+  .mt-brand{ display:flex; flex-direction:column; align-items:center; margin-bottom:26px; }
   .mt-crest{
     width:88px; height:96px; position:relative; flex-shrink:0;
     clip-path:polygon(50% 0%, 100% 18%, 100% 62%, 50% 100%, 0% 62%, 0% 18%);
@@ -579,7 +583,7 @@
     border:1.5px solid #E8B84B;
     display:flex; align-items:center; justify-content:center;
     box-shadow:0 0 24px rgba(232,184,75,.18), inset 0 1px 0 rgba(255,255,255,.08);
-    margin-bottom:14px;
+    margin-bottom:10px;
   }
   /* AJUSTE: o arquivo original do designer usa o texto "BR" solto (sem
      ter o logo vetorizado à mão); aqui dentro do app de verdade o
