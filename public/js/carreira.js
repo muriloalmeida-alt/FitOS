@@ -4419,21 +4419,28 @@ function pickerChoose(playerId) {
 // parâmetro deixa essa mesma função alimentar tanto a tabela de sempre
 // (aba Tabela, chamada sem argumento por renderAll) quanto a cópia
 // dentro do modal, sem duplicar a lógica de montar as linhas.
-function renderTabela(tableId = "standingsTable") {
+// AJUSTE (refatoração completa, Tela 8 — ver 08-tabela-restyled.html do
+// designer) — lista flex (.mt-tr) no lugar de <table>; bolinha de zona
+// (.mt-zone-dot) em TODA linha agora, não só campeão/libertadores/
+// rebaixamento — as faixas "sula"/sem zona também ganham cor (pre/
+// safe), preenchendo visualmente o meio da tabela como no mockup, sem
+// mudar os LIMIARES de zona (mesma lógica de sempre, só a cor mudou).
+function renderTabela(containerId = "standingsTable") {
   const rows = Object.values(CAREER.standings).sort((a, b) => (b.pts - a.pts) || (b.v - a.v) || (b.sg - a.sg) || (b.gp - a.gp));
   const total = rows.length;
-  const thead = `<tr><th>#</th><th>Time</th><th>P</th><th>J</th><th>V</th><th>E</th><th>D</th><th>SG</th></tr>`;
-  const tbody = rows.map((r, i) => {
+  const body = rows.map((r, i) => {
     const t = teamById(r.id);
     const pos = i + 1;
     const zone = pos === 1 ? "campeao" : pos <= 6 ? "libertadores" : pos <= 12 ? "sula" : pos > total - 4 ? "reb" : "";
+    const dotClass = zone === "campeao" || zone === "libertadores" ? "libertadores" : zone === "sula" ? "pre" : zone === "reb" ? "rebaixamento" : "safe";
     const isMe = String(r.id) === String(CAREER.clubId);
-    return `<tr class="${isMe ? "me" : ""}"><td>${zone ? `<span class="zone-dot zone-${zone}"></span>` : ""}${pos}</td>
-      <td>${escapeHtml(t.name)}</td><td><b>${r.pts}</b></td><td>${r.j}</td><td>${r.v}</td><td>${r.e}</td><td>${r.d}</td><td>${r.sg > 0 ? "+" : ""}${r.sg}</td></tr>`;
+    return `<div class="mt-tr${isMe ? " highlight" : ""}">
+      <div class="mt-pos-num"><span class="mt-zone-dot ${dotClass}"></span>${pos}</div>
+      <div class="mt-team-cell">${crestImg(t, 20)}<div class="name">${escapeHtml(t.name)}</div></div>
+      <div class="mt-stat-col">${r.pts}</div><div class="mt-stat-col">${r.j}</div><div class="mt-stat-col">${r.v}</div><div class="mt-stat-col">${r.e}</div><div class="mt-stat-col">${r.d}</div><div class="mt-stat-col">${r.sg > 0 ? "+" : ""}${r.sg}</div>
+    </div>`;
   }).join("");
-  const table = document.getElementById(tableId);
-  table.querySelector("thead").innerHTML = thead;
-  table.querySelector("tbody").innerHTML = tbody;
+  document.getElementById(containerId).innerHTML = body;
 }
 
 /* ---------- FASE 2 (a) — Copa do Brasil: card de status/histórico
@@ -4539,16 +4546,19 @@ function renderEstatisticas() {
       ["Cartões (A+V)", stats.yellow + stats.red],
     ].map(([l, v]) => kpiHTML(l, v)).join("");
 
+  // AJUSTE (refatoração completa, Tela 9 — ver 09-estatisticas-restyled.html
+  // do designer) — .mt-mini-row no lugar de <tr> nas 3 mini-tabelas
+  // (cabeçalho fixo já vem do HTML, ver panel-estatisticas).
   const topPlayers = CAREER.squad.slice()
     .filter((p) => (p.goalsCareer || 0) > 0 || (p.assistsCareer || 0) > 0)
     .sort((a, b) => (b.goalsCareer || 0) - (a.goalsCareer || 0) || (b.assistsCareer || 0) - (a.assistsCareer || 0))
     .slice(0, 10);
-  const tbody = topPlayers.map((p) => `<tr>
-    <td class="ct-name-cell">${escapeHtml(abbreviateName(p.name))}</td><td>${subPositionOf(p)}</td>
-    <td><b>${p.goalsCareer || 0}</b></td><td>${p.assistsCareer || 0}</td>
-  </tr>`).join("");
-  document.getElementById("teamTopPlayersTable").querySelector("tbody").innerHTML =
-    tbody || `<tr><td colspan="4" class="ct-empty">Ninguém marcou gol ou deu assistência ainda.</td></tr>`;
+  const teamTopRows = topPlayers.map((p) => `<div class="mt-mini-row">
+    <div class="mt-mini-col name">${escapeHtml(abbreviateName(p.name))}</div><div class="mt-mini-col">${subPositionOf(p)}</div>
+    <div class="mt-mini-col">${p.goalsCareer || 0}</div><div class="mt-mini-col">${p.assistsCareer || 0}</div>
+  </div>`).join("");
+  document.getElementById("teamTopPlayersTable").innerHTML =
+    teamTopRows || `<p class="ct-empty">Ninguém marcou gol ou deu assistência ainda.</p>`;
 
   // FASE 2 (a) — pedido do usuário: "estatísticas reais de todos os
   // times". Artilheiros/garçons da LIGA INTEIRA (seu elenco +
@@ -4562,15 +4572,15 @@ function renderEstatisticas() {
     .filter(({ p }) => (p.goalsCareer || 0) > 0 || (p.assistsCareer || 0) > 0)
     .sort((a, b) => (b.p.goalsCareer || 0) - (a.p.goalsCareer || 0) || (b.p.assistsCareer || 0) - (a.p.assistsCareer || 0))
     .slice(0, 15);
-  const leagueTbody = topLeague.map(({ p, teamId }) => {
+  const leagueTopRows = topLeague.map(({ p, teamId }) => {
     const t = teamById(teamId);
-    return `<tr>
-      <td class="ct-name-cell">${escapeHtml(abbreviateName(p.name))}</td><td>${escapeHtml(t.short || t.name)}</td>
-      <td><b>${p.goalsCareer || 0}</b></td><td>${p.assistsCareer || 0}</td>
-    </tr>`;
+    return `<div class="mt-mini-row">
+      <div class="mt-mini-col name">${escapeHtml(abbreviateName(p.name))}</div><div class="mt-mini-col">${escapeHtml(t.short || t.name)}</div>
+      <div class="mt-mini-col">${p.goalsCareer || 0}</div><div class="mt-mini-col">${p.assistsCareer || 0}</div>
+    </div>`;
   }).join("");
-  document.getElementById("leagueTopScorersTable").querySelector("tbody").innerHTML =
-    leagueTbody || `<tr><td colspan="4" class="ct-empty">Ninguém marcou gol ou deu assistência ainda.</td></tr>`;
+  document.getElementById("leagueTopScorersTable").innerHTML =
+    leagueTopRows || `<p class="ct-empty">Ninguém marcou gol ou deu assistência ainda.</p>`;
 
   // Times da competição — ranking por gols/cartões usando os dados já
   // reais de CAREER.standings (isso já vinha da API antes da Fase 2,
@@ -4578,12 +4588,12 @@ function renderEstatisticas() {
   const teamRows = sorted.map((r) => {
     const t = teamById(r.id);
     const aprov = r.j ? Math.round((r.pts / (r.j * 3)) * 100) : 0;
-    return `<tr class="${String(r.id) === String(CAREER.clubId) ? "me" : ""}">
-      <td class="ct-name-cell">${escapeHtml(t.short || t.name)}</td><td>${r.j}</td>
-      <td>${r.gp}</td><td>${r.gc}</td><td>${r.sg}</td><td>${aprov}%</td>
-    </tr>`;
+    return `<div class="mt-mini-row${String(r.id) === String(CAREER.clubId) ? " highlight" : ""}">
+      <div class="mt-mini-col name">${escapeHtml(t.short || t.name)}</div><div class="mt-mini-col">${r.j}</div>
+      <div class="mt-mini-col">${r.gp}</div><div class="mt-mini-col">${r.gc}</div><div class="mt-mini-col">${r.sg}</div><div class="mt-mini-col">${aprov}%</div>
+    </div>`;
   }).join("");
-  document.getElementById("leagueTeamStatsTable").querySelector("tbody").innerHTML = teamRows;
+  document.getElementById("leagueTeamStatsTable").innerHTML = teamRows;
 }
 
 /* ---------- FASE 2 (c) — Mercado de transferências ---------- */
@@ -4616,7 +4626,7 @@ function renderMercado() {
   }
 
   // FASE 1 (item 2) — banner só aparece com a janela FECHADA (ver
-  // .ct-window-banner em carreira.html); "Comprar" fica desabilitado
+  // .mt-badge-gold em carreira.html, Tela 10); "Comprar" fica desabilitado
   // nesse período, "Vender" continua liberado (ver transferWindowStatus).
   const mktWindow = transferWindowStatus(CAREER.currentRound);
   const windowBanner = document.getElementById("marketWindowBanner");
@@ -4645,33 +4655,33 @@ function renderMercado() {
   // Sem busca, mostra só os 40 mais valiosos (evita renderizar ~500
   // linhas à toa) — buscando, mostra até 60 resultados batendo o termo.
   const capped = list.slice(0, search || posFilter ? 60 : 40);
-  // Pedido do usuário: cada jogador em 2 linhas — nome/time/posição/
-  // overall em cima, salário/valor/ação embaixo. Ação muda pra "Vender"
-  // quando é jogador do SEU elenco (ver "mine" em allMarketPlayers).
-  const rows = capped.map(({ p, club, mine }) => `<div class="ct-market-row">
-    <div class="ct-market-row-top">
-      <span class="nm">${escapeHtml(abbreviateName(p.name))}</span>
-      <span class="tm">${escapeHtml(club.short || club.name)}</span>
-      <span class="pos">${subPositionOf(p)}</span>
-      <span class="ovr">${p.overall}</span>
-    </div>
-    <div class="ct-market-row-bottom">
-      <div class="money">
-        <div>Salário: ${fmtBRLShort(p.wage)}/mês</div>
-        <div>Valor: ${fmtBRLShort(p.value)}</div>
-      </div>
-      <!-- Empréstimo: 2º botão pequeno embaixo do 1º (ver
-           .ct-market-actions) — Emprestar/Pegar emprestado só some
-           junto com Vender/Comprar, mesma trava de janela. -->
-      <div class="ct-market-actions">
-        ${mine
-          ? `<button class="ct-btn small" data-sell="${p.id}">Vender</button>
-             <button class="ct-btn small" data-loanout="${p.id}" ${loanOutBtnAttrs(p, mktWindow)}>Emprestar</button>`
-          : `<button class="ct-btn small${mktWindow.open ? " primary" : ""}" data-buy="${p.id}" data-club="${escapeHtml(String(club.id))}" ${mktWindow.open ? "" : `disabled title="Janela de contratações encerrada"`}>Comprar</button>
-             <button class="ct-btn small" data-loanin="${p.id}" data-club="${escapeHtml(String(club.id))}" ${loanOutBtnAttrs(p, mktWindow)}>Pegar emprestado</button>`}
+  // AJUSTE (refatoração completa, Tela 10 — ver
+  // 10-mercado-de-transferencias-restyled.html do designer) — badge de
+  // OVR (mesma faixa de cor do Elenco/Detalhe) + chip de posição
+  // colorido (mesmo mapeamento do banco, Tela 6) em cima; salário/valor
+  // + botões embaixo, alinhados com o badge (padding-left). Ação muda
+  // pra "Vender" quando é jogador do SEU elenco (ver "mine" em
+  // allMarketPlayers).
+  const rows = capped.map(({ p, club, mine }) => {
+    const subpos = subPositionOf(p);
+    return `<div class="mt-market-row">
+    <div class="mt-market-top">
+      <div class="mt-ovr-badge ${ovrTierClass(p.overall)}">${p.overall}</div>
+      <div class="mt-market-info">
+        <div class="mt-market-name">${escapeHtml(abbreviateName(p.name))}</div>
+        <div class="mt-market-tags"><span class="mt-market-club">${escapeHtml(club.short || club.name)}</span><span class="mt-pos-chip ${SUBPOS_DIVCLASS[subpos]}">${subpos}</span></div>
       </div>
     </div>
-  </div>`).join("");
+    <div class="mt-market-detail">Salário: <b>${fmtBRLShort(p.wage)}/mês</b> · Valor: <b>${fmtBRLShort(p.value)}</b></div>
+    <div class="mt-market-btns">
+      ${mine
+        ? `<button class="mt-btn-sell" data-sell="${p.id}">Vender</button>
+           <button class="mt-btn-loan" data-loanout="${p.id}" ${loanOutBtnAttrs(p, mktWindow)}>Emprestar</button>`
+        : `<button class="mt-btn-buy" data-buy="${p.id}" data-club="${escapeHtml(String(club.id))}" ${mktWindow.open ? "" : `disabled title="Janela de contratações encerrada"`}>Comprar</button>
+           <button class="mt-btn-loan" data-loanin="${p.id}" data-club="${escapeHtml(String(club.id))}" ${loanOutBtnAttrs(p, mktWindow)}>Pegar emprestado</button>`}
+    </div>
+  </div>`;
+  }).join("");
   document.getElementById("marketList").innerHTML = rows || `<p class="ct-empty">Nenhum jogador encontrado.</p>`;
   document.getElementById("marketList").querySelectorAll("[data-buy]").forEach((btn) => {
     btn.addEventListener("click", () => buyPlayer(btn.dataset.club, btn.dataset.buy));
