@@ -232,20 +232,10 @@ function teamById(id) {
   return LEAGUE_TEAMS.find((t) => String(t.id) === String(id))
     || { id, name: `Time #${id}`, short: String(id).slice(0, 3).toUpperCase(), c1: "#8892A0", c2: "#333" };
 }
-// AJUSTE (redesign "jogo mobile", fase 1 — princípio "canto chanfrado/
-// escudo hexagonal é a assinatura visual") — moldura hexagonal com o
-// degradê de cor do clube (ver .ct-crest), com o brasão real por
-// cima, ainda 100% visível (object-fit:contain, sem clip-path na
-// própria imagem) — recortar o LOGO real em hexágono arriscava cortar
-// brasões de formato estranho; a moldura por trás resolve sem esse
-// risco. Sem logo (fallback de sempre), a própria moldura colorida já
-// basta, sem imagem dentro.
 function crestImg(t, size = 40) {
+  if (t && t.logo) return `<img src="${t.logo}" alt="" style="height:${size}px;width:${size}px;object-fit:contain;flex-shrink:0;">`;
   const c1 = t?.c1 || "#8892A0", c2 = t?.c2 || "#333";
-  const inner = t && t.logo
-    ? `<img src="${t.logo}" alt="" style="height:${Math.round(size * 0.62)}px;width:${Math.round(size * 0.62)}px;object-fit:contain;">`
-    : "";
-  return `<span class="ct-crest" style="height:${size}px;width:${size}px;background:linear-gradient(160deg, ${c1}, ${c2});">${inner}</span>`;
+  return `<div style="height:${size}px;width:${size}px;border-radius:50%;background:linear-gradient(135deg, ${c1}, ${c2});flex-shrink:0;"></div>`;
 }
 // Mesmo degradê de cores do clube usado no "jogo de botão" do dashboard
 // principal (ver teamGradientStops em public/js/app.js) — duplicado
