@@ -3104,8 +3104,11 @@ function openPressConferenceModal() {
   if (!PENDING_PRESS) return;
   const { entry } = PENDING_PRESS;
   document.getElementById("pressQuestion").textContent = entry.pergunta;
+  // AJUSTE (refatoração completa, Tela 14b) — .mt-sheet-option (Tela 5)
+  // no lugar do .ct-btn genérico; primeira resposta (recomendada)
+  // ganha .primary (verde-ação), igual ao padrão de Conversa individual.
   document.getElementById("pressOptions").innerHTML = entry.respostas.map((r, i) =>
-    `<button class="ct-btn full${i === 0 ? " primary" : ""}" data-press="${r.letra}">${escapeHtml(r.texto)}</button>`).join("");
+    `<button class="mt-sheet-option${i === 0 ? " primary" : ""}" data-press="${r.letra}">${escapeHtml(r.texto)}</button>`).join("");
   document.getElementById("pressOverlay").classList.add("open");
 }
 // Pedido geral do app (toda modal fecha no X) — fechar sem responder
