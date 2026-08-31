@@ -2141,20 +2141,35 @@ function autoLineup(squad, formation, includeBase = true) {
   const principalPool = eligible.filter((p) => p.origin === "principal" || p.origin === "loan").sort((a, b) => b.overall - a.overall);
   const fullPool = eligible.sort((a, b) => b.overall - a.overall);
   const used = new Set();
-  const starters = slots.map(([grp]) => {
-    // prioriza o elenco principal; só desce pra base se NINGUÉM do
-    // principal tiver esse grupo reconhecido (comum pro goleiro quando
-    // o fornecedor de dado não informa posição — ver mapPositionGroup —
-    // sem esse fallback, a escalação automática colocaria por padrão
-    // um jogador de outra posição no gol).
+  // Escolhe o melhor disponível pro grupo pedido; prioriza o elenco
+  // principal, só desce pra base se NINGUÉM do principal tiver esse
+  // grupo reconhecido (comum pro goleiro quando o fornecedor de dado
+  // não informa posição — ver mapPositionGroup — sem esse fallback, a
+  // escalação automática colocaria por padrão um jogador de outra
+  // posição no gol); nos 2 últimos degraus, quando nem a base tem
+  // ninguém daquele grupo sobrando, aceita qualquer jogador só pra não
+  // deixar a vaga vazia à toa. Compartilhado entre titulares e banco.
+  function pickForGroup(grp) {
     const pick = principalPool.find((p) => !used.has(p.id) && p.group === grp)
       || fullPool.find((p) => !used.has(p.id) && p.group === grp)
       || principalPool.find((p) => !used.has(p.id))
       || fullPool.find((p) => !used.has(p.id));
     if (pick) used.add(pick.id);
     return pick ? pick.id : null;
-  });
-  const bench = principalPool.filter((p) => !used.has(p.id)).slice(0, MAX_BENCH).map((p) => p.id);
+  }
+  const starters = slots.map(([grp]) => pickForGroup(grp));
+  // AJUSTE (pedido do usuário: "a escalação automática deve sempre
+  // conter 1 goleiro, 4 defensores, 3 meias e 3 atacantes [no banco].
+  // Se não tiver atletas liberados para essas posições deve-se chamar
+  // atletas da base") — banco de reservas segue essa forma fixa (os
+  // mesmos 11 do MAX_BENCH), independente da formação titular
+  // escolhida; antes eram só "os próximos melhores do elenco
+  // principal" sem nenhuma garantia de posição (um banco podia sair
+  // sem reserva de goleiro nenhum). pickForGroup já cai pra base
+  // sozinho no 2º degrau quando o principal não tem mais ninguém
+  // daquele grupo.
+  const BENCH_SHAPE = [["G", 1], ["D", 4], ["M", 3], ["F", 3]];
+  const bench = BENCH_SHAPE.flatMap(([grp, count]) => Array.from({ length: count }, () => pickForGroup(grp))).filter(Boolean);
   return { formation, starters, bench, tactics: { mentality: "equilibrada", marking: "zona", tempo: "normal" } };
 }
 
