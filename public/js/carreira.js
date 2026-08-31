@@ -213,6 +213,24 @@ function realTeamColor(name) {
       return candidates.some((c) => norm.includes(c) || c.includes(norm));
     });
   }
+  // BUG CORRIGIDO (pedido do usuário: "Coritiba com fundo diferente da
+  // logo") — Coritiba não está em DEMO_TEAMS (Série A) porque essa
+  // lista foi curada numa temporada em que ele estava na Série B; o
+  // fornecedor de dado real, porém, reflete a temporada ATUAL (2026),
+  // com o time já de volta à Série A — subiu/desceu de divisão sem
+  // ninguém atualizar essa lista. Em vez de duplicar a cor curada nas
+  // 2 listas (ou torcer pra lembrar de mover o clube certo toda vez que
+  // acesso/queda mudar o elenco da Série A), busca por último também
+  // em DEMO_TEAMS_SERIE_B — mesma técnica de match exato + "contém".
+  if (!match) {
+    match = DEMO_TEAMS_SERIE_B.find((t) => normalizeNameForColor(t.name) === norm || (t.aliases || []).some((a) => normalizeNameForColor(a) === norm));
+  }
+  if (!match) {
+    match = DEMO_TEAMS_SERIE_B.find((t) => {
+      const candidates = [t.name, ...(t.aliases || [])].map(normalizeNameForColor).filter((c) => c.length > 3);
+      return candidates.some((c) => norm.includes(c) || c.includes(norm));
+    });
+  }
   return match ? { c1: match.c1, c2: match.c2, c3: match.c3 } : null;
 }
 async function loadLeague() {
