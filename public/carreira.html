@@ -649,7 +649,13 @@
   .mt-signup{ text-align:center; margin-top:20px; font-size:13px; color:#8FA3BF; }
   .mt-signup a{ color:#E8B84B; font-weight:600; text-decoration:none; border-bottom:1px solid rgba(232,184,75,.4); }
 
-  .mt-footer-note{ margin-top:auto; text-align:center; font-family:'Rajdhani', var(--font); font-size:11px; letter-spacing:1.5px; color:#5C7192; text-transform:uppercase; }
+  /* AJUSTE (pedido do usuário: "tem um texto inútil abaixo do Entrar")
+     — a nota de rodapé "Temporada 2026 · Modo Carreira" (puramente
+     decorativa, sem nenhuma função) foi removida — princípio adotado
+     daqui em diante: texto que só decora, sem servir pra nada, sai da
+     tela; texto útil mas não óbvio vira um "?" clicável (ver
+     .ct-help-btn/.ct-help-text, já usado em outras telas do app —
+     reaproveitado agora na Tela 2, Escolha do Clube). */
 
   /* ================= Tela 2 — Escolha do Clube =================
      AJUSTE (refatoração completa, ver 02-escolha-do-clube-restyled.html
@@ -768,8 +774,6 @@
 
           <p class="mt-signup">Não tem uma conta? <a href="/?signup=1">Cadastre-se no BR Data</a></p>
         </div>
-
-        <p class="mt-footer-note">Temporada 2026 · Modo Carreira</p>
       </div>
     </div>
   </div>
@@ -795,10 +799,21 @@
         </div>
       </div>
       <div class="mt-picker-content">
+        <!-- AJUSTE (pedido do usuário: "tirar esses textos das telas —
+             quando for útil coloca o ícone de interrogação") — o texto
+             explicativo (que não é óbvio pra quem tá vendo o app pela
+             1ª vez: os outros 19 times são jogados pela CPU, dá pra
+             promover da base) some da tela por padrão e vira um "?"
+             clicável, mesmo padrão já usado em outras telas do app (ver
+             .ct-help-btn/.ct-help-text, wireHelpToggles em
+             carreira.js — funciona automático, sem JS novo aqui). -->
         <div class="mt-intro">
           <div class="mt-intro-crest"><img src="img/logo.png" alt=""></div>
-          <h1>Escolha o clube que você vai comandar</h1>
-          <p>Você define escalação, formação, banco de reservas e as trocas — os outros 19 times são simulados pela CPU. Dá pra promover jogadores da base pro time principal a qualquer momento.</p>
+          <div style="display:flex; align-items:center; justify-content:center; gap:6px;">
+            <h1 style="margin:0;">Escolha o clube que você vai comandar</h1>
+            <button class="ct-help-btn" data-help="helpEscolhaClube" aria-label="Ajuda">?</button>
+          </div>
+          <p id="helpEscolhaClube" hidden style="margin-top:10px;">Você define escalação, formação, banco de reservas e as trocas — os outros 19 times são simulados pela CPU. Dá pra promover jogadores da base pro time principal a qualquer momento.</p>
         </div>
         <!-- FASE 4 (item 4) — banner de contexto quando essa tela reaparece
              no fluxo de "aceitar proposta de outro clube" (ver

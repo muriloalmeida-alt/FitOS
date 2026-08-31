@@ -2156,7 +2156,12 @@ function renderClubPicker(filterIds, bannerText) {
   const banner = document.getElementById("pickerContextBanner");
   if (bannerText) { banner.textContent = bannerText; banner.hidden = false; }
   else { banner.textContent = ""; banner.hidden = true; }
-  const teams = filterIds ? LEAGUE_TEAMS.filter((t) => filterIds.some((id) => String(id) === String(t.id))) : LEAGUE_TEAMS;
+  // AJUSTE (pedido do usuário: "clubes em ordem alfabética") — LEAGUE_TEAMS
+  // vem na ordem do fornecedor de dados (não alfabética); .slice() antes
+  // de ordenar pra não embaralhar o array original (usado por sorteio,
+  // tabela etc. em outros lugares do jogo).
+  const teams = (filterIds ? LEAGUE_TEAMS.filter((t) => filterIds.some((id) => String(id) === String(t.id))) : LEAGUE_TEAMS.slice())
+    .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
   const grid = document.getElementById("clubGrid");
   // AJUSTE (refatoração completa, tela "Escolha do Clube") — .mt-club-card
   // no lugar de .ct-club-card (ver 02-escolha-do-clube-restyled.html do
