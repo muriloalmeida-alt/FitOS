@@ -1868,10 +1868,15 @@
      carreira.js). Aberta ENTRE o modal "Seu jogo" e o de Resultados da
      rodada (ver btnMatchDetailContinue) — mensagem curta, mantém
      tamanho compacto. -->
-<div class="ct-modal-overlay" id="pressOverlay">
+<!-- AJUSTE (refatoração completa, Tela 14b — ver imagem "depois" do
+     docx, 14b-coletiva-de-imprensa) — mesmo bottom sheet do
+     .mt-sheet-overlay (Tela 5, Conversa individual), reaproveitado
+     verbatim: ícone de microfone (SVG), respostas em .mt-sheet-option
+     (a primeira, recomendada, com .primary). -->
+<div class="ct-modal-overlay mt-sheet-overlay" id="pressOverlay">
   <div class="ct-modal">
     <div class="ct-modal-header">
-      <span class="ct-modal-icon">🎙️</span>
+      <span class="ct-modal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v1a7 7 0 0 0 14 0v-1M12 18v4M8 22h8"/></svg></span>
       <div class="ct-modal-header-text">
         <h3>Coletiva de imprensa</h3>
         <div class="ct-modal-sub">Um jornalista pede sua palavra</div>
@@ -1879,7 +1884,7 @@
       <button class="ct-modal-close" id="pressClose">✕</button>
     </div>
     <div class="ct-modal-body">
-      <p class="ct-sub" id="pressQuestion" style="font-weight:700; color:var(--text-0); margin-bottom:14px;"></p>
+      <p class="ct-sub" id="pressQuestion" style="font-weight:700; color:var(--mt-ivory-50); margin-bottom:14px;"></p>
       <div id="pressOptions" style="display:flex; flex-direction:column; gap:8px;"></div>
     </div>
   </div>
