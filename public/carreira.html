@@ -324,9 +324,17 @@
      ver crestImg() em carreira.js), só reestilizada com os tokens
      novos; nenhum HTML/JS precisou mudar aqui. */
   .ct-next-match{ display:flex; align-items:center; justify-content:center; gap:22px; padding:6px 0 4px; }
-  .ct-next-match .side{ display:flex; flex-direction:column; align-items:center; gap:8px; width:110px; }
+  .ct-next-match .side{ display:flex; flex-direction:column; align-items:center; gap:8px; width:110px; min-width:0; }
   .ct-next-match .side .n{ font-family:'Rajdhani', var(--font); font-size:14px; font-weight:700; color:var(--mt-ivory-100); text-align:center; }
-  .ct-next-match .vs{ font-family:'Bebas Neue', var(--font); color:var(--mt-ink-faint); font-size:16px; }
+  /* AJUSTE (relato do usuário: "está quebrando o placar" — Tela 14,
+     "Seu jogo") — .vs nunca teve white-space:nowrap; passava
+     despercebido no tamanho pequeno de sempre (16px), mas as variantes
+     grandes de HUD (.mt-matchdetail-score/.mt-live-scoreboard, 34px/
+     40px) ficavam largas o bastante pra quebrar em "0 ×" / "1" quando
+     o espaço do flex apertava. flex-shrink:0 garante que o placar
+     nunca é o item espremido — os escudos (.side, largura fixa) cedem
+     antes. */
+  .ct-next-match .vs{ font-family:'Bebas Neue', var(--font); color:var(--mt-ink-faint); font-size:16px; white-space:nowrap; flex-shrink:0; }
   .ct-kpis{ display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:10px; }
   /* --navy-card2 explícito (mesmo motivo do .ct-card acima) — dentro
      de um .ct-card (--navy-card), a caixinha de KPI precisa de mais um
