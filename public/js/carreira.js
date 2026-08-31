@@ -856,13 +856,17 @@ function openSponsorProposalsModal(kind) {
   const proposals = CAREER.sponsorProposals[kind] || generateSponsorProposals(kind);
   CAREER.sponsorProposals[kind] = proposals;
   document.getElementById("sponsorProposalsTitle").textContent = `Propostas — ${SPONSOR_KIND_LABEL[kind]}`;
+  // AJUSTE (refatoração completa, Tela 12b) — linha simples (nome +
+  // valor/duração à esquerda, botão dourado à direita), no lugar do
+  // .ct-market-row de 2 linhas (que ainda serve o Mercado, Tela 10, com
+  // badge/chip que essa lista mais simples não precisa).
   document.getElementById("sponsorProposalsList").innerHTML = proposals.map((p, i) => `
-    <div class="ct-market-row">
-      <div class="ct-market-row-top"><span class="nm">${escapeHtml(p.empresa)}</span></div>
-      <div class="ct-market-row-bottom">
-        <div class="money"><div>${fmtBRL(p.valorTemporada)}/temporada</div><div>${p.duracao} temporada${p.duracao === 1 ? "" : "s"}</div></div>
-        <button class="ct-btn small primary" data-sponsor-sign="${i}">Assinar</button>
+    <div class="mt-sponsor-proposal-row">
+      <div>
+        <div class="mt-sponsor-proposal-name">${escapeHtml(p.empresa)}</div>
+        <div class="mt-sponsor-proposal-detail">${fmtBRL(p.valorTemporada)}/temporada · ${p.duracao} temporada${p.duracao === 1 ? "" : "s"}</div>
       </div>
+      <button class="mt-btn-sign" data-sponsor-sign="${i}">Assinar</button>
     </div>`).join("");
   document.getElementById("sponsorProposalsList").querySelectorAll("[data-sponsor-sign]").forEach((btn) => {
     btn.addEventListener("click", () => signSponsorProposal(kind, Number(btn.dataset.sponsorSign)));
