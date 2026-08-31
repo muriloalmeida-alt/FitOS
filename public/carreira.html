@@ -622,11 +622,9 @@
   .ct-modal-close{ background:none; border:none; color:var(--gray); width:26px; height:26px; font-size:18px; cursor:pointer; flex-shrink:0; display:flex; align-items:center; justify-content:center; line-height:1; }
   .ct-modal-close:hover{ color:#fff; }
   .ct-modal-body{ padding:18px; overflow-y:auto; }
-  .ct-pick-row{ display:flex; align-items:center; justify-content:space-between; padding:10px 8px; border-radius:9px; cursor:pointer; font-size:12.5px; }
-  .ct-pick-row:hover{ background:rgba(255,255,255,.05); }
-  .ct-pick-row .nm{ font-weight:700; color:var(--text-0); }
-  .ct-pick-row .meta{ color:var(--text-2); font-size:11px; }
-  .ct-pick-row .meta b{ color:var(--gold); font-weight:800; }
+  /* .ct-pick-row removida (redesign, Tela 7) — só era usada por
+     renderPickerList(), que agora usa .mt-sel-row (ver Tela 7 mais
+     abaixo). */
   /* AJUSTE (design system): foco dourado nos campos de busca/select
      (.bd-input:focus/.bd-select:focus), não mais o azul genérico do
      navegador — reforça o dourado como cor de marca/interação. */
@@ -853,9 +851,12 @@
     font-family:'Rajdhani', var(--font); font-weight:700; font-size:14.5px;
     box-shadow:inset 0 -2px 4px rgba(0,0,0,.25), 0 0 0 1.5px rgba(255,255,255,.12);
   }
-  .mt-ovr-badge.t-elite{ background:radial-gradient(circle at 35% 30%, var(--mt-gold-300), var(--mt-gold-600) 75%); color:#2A1D02; }
-  .mt-ovr-badge.t-good{ background:radial-gradient(circle at 35% 30%, #7FCB98, var(--mt-pitch-700) 75%); color:#0A2415; }
-  .mt-ovr-badge.t-mid{ background:radial-gradient(circle at 35% 30%, #8FA3BF, #3A5170 75%); color:#0A1628; }
+  /* AJUSTE (Tela 6) — .mt-pitch-badge/.mt-bench-ovr somados aqui pra
+     reaproveitar a MESMA regra de cor por faixa (elite/good/mid) do
+     .mt-ovr-badge (Elenco/Detalhe) sem duplicar o gradiente 3x. */
+  .mt-ovr-badge.t-elite, .mt-pitch-badge.t-elite, .mt-bench-ovr.t-elite{ background:radial-gradient(circle at 35% 30%, var(--mt-gold-300), var(--mt-gold-600) 75%); color:#2A1D02; }
+  .mt-ovr-badge.t-good, .mt-pitch-badge.t-good, .mt-bench-ovr.t-good{ background:radial-gradient(circle at 35% 30%, #7FCB98, var(--mt-pitch-700) 75%); color:#0A2415; }
+  .mt-ovr-badge.t-mid, .mt-pitch-badge.t-mid, .mt-bench-ovr.t-mid{ background:radial-gradient(circle at 35% 30%, #8FA3BF, #3A5170 75%); color:#0A1628; }
 
   .mt-player-main{ flex:1; min-width:0; }
   .mt-player-name{ font-weight:600; font-size:14.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--mt-ivory-50); }
@@ -888,6 +889,199 @@
   .mt-confidence{ display:flex; gap:3px; flex-shrink:0; }
   .mt-confidence .dot{ width:6px; height:6px; border-radius:50%; background:var(--mt-navy-600); }
   .mt-confidence .dot.on{ background:var(--mt-pitch-400); box-shadow:0 0 5px rgba(61,184,106,.6); }
+
+  /* ================= Tela 5/5b/5c — Detalhe do jogador, Conversa
+     individual, Renovar contrato =================
+     AJUSTE (refatoração completa, ver 05*-restyled.html do designer) —
+     chrome dos modais (.ct-modal-overlay/.ct-modal/.ct-modal-header)
+     MANTIDO igual ao resto do app de propósito (compartilhado por
+     dezenas de outros modais ainda não redesenhados) — só o CONTEÚDO
+     interno ganha marcação nova. Exceção: conversa/renovar ganham um
+     modificador .mt-sheet-overlay (bottom sheet, como no mockup),
+     escopado só a essas 2 (não mexe no .ct-modal-overlay base). */
+  .mt-player-hero{ display:flex; align-items:center; gap:14px; padding:16px 4px 4px; }
+  .mt-ovr-badge.sz-lg{ width:56px; height:56px; font-size:21px; }
+  .mt-player-hero-info b{ display:block; font-size:19px; font-family:'Bebas Neue', var(--font); letter-spacing:.4px; color:var(--mt-ivory-50); }
+  .mt-player-hero-info span{ font-family:'Rajdhani', var(--font); font-size:12.5px; color:var(--mt-ink-muted); font-weight:600; }
+
+  .mt-attr-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:18px 0; }
+  .mt-attr-block{ background:var(--mt-navy-900); border:1px solid var(--mt-navy-600); padding:14px 10px; text-align:center; }
+  .mt-attr-block .num{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:26px; color:var(--mt-ivory-50); }
+  .mt-attr-block .num.gold{ color:var(--mt-gold-400); }
+  .mt-attr-block .num.crimson{ color:var(--mt-crimson-400); }
+  .mt-attr-block .lbl{ font-size:10.5px; letter-spacing:.5px; color:var(--mt-ink-faint); margin-top:3px; font-family:'Rajdhani', var(--font); font-weight:600; }
+
+  .mt-info-line{ font-size:12.5px; color:var(--mt-ink-muted); line-height:1.7; padding:2px 2px 14px; border-bottom:1px solid var(--mt-navy-700); margin-bottom:14px; }
+  .mt-info-line b{ color:var(--mt-ivory-100); }
+  .mt-info-line:last-of-type{ border-bottom:none; }
+  .mt-action-list{ display:flex; flex-direction:column; gap:10px; margin-top:10px; }
+
+  /* ---- variantes de botão que faltavam (ver .mt-btn-primary/.mt-btn-ghost já existentes) ---- */
+  .mt-btn-primary-gold, .mt-btn-danger-outline{
+    width:100%; display:flex; align-items:center; justify-content:center; gap:8px;
+    font-family:'Rajdhani', var(--font); font-weight:700; font-size:15.5px; letter-spacing:.8px;
+    padding:14px; border-radius:999px; cursor:pointer; border:none; text-transform:uppercase;
+  }
+  .mt-btn-primary-gold{
+    background:linear-gradient(180deg, var(--mt-gold-300), var(--mt-gold-600)); color:#3A2A03;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.5), 0 6px 16px rgba(184,134,11,.35), 0 2px 0 var(--mt-gold-800);
+  }
+  .mt-btn-danger-outline{
+    background:transparent; border:1.5px solid var(--mt-crimson-500); color:var(--mt-crimson-400);
+    font-weight:600; text-transform:none;
+  }
+  .mt-btn-primary-gold:disabled, .mt-btn-danger-outline:disabled{ opacity:.4; cursor:not-allowed; }
+  .mt-btn-primary svg, .mt-btn-ghost svg, .mt-btn-primary-gold svg, .mt-btn-danger-outline svg{ width:17px; height:17px; flex-shrink:0; }
+
+  /* ---- bottom sheet (Conversa individual, Renovar contrato) ---- */
+  .mt-sheet-overlay{ align-items:flex-end; padding:0; }
+  .mt-sheet-overlay .ct-modal{
+    max-width:none; width:100%; max-height:82vh; border-radius:18px 18px 0 0;
+    background:linear-gradient(160deg, var(--mt-navy-700), var(--mt-navy-800) 70%);
+    border:none; border-top:1.5px solid var(--mt-gold-400);
+    box-shadow:0 -12px 40px rgba(0,0,0,.5);
+  }
+  .mt-sheet-overlay .ct-modal-header{ background:none; border-bottom:none; padding:20px 20px 4px; }
+  .mt-sheet-overlay .ct-modal-icon{
+    width:38px; height:38px; border-radius:9px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; font-size:18px;
+    background:linear-gradient(180deg, var(--mt-gold-300), var(--mt-gold-600));
+  }
+  .mt-sheet-overlay .ct-modal-header h3{ font-family:'Bebas Neue', var(--font); font-size:19px; letter-spacing:.5px; color:var(--mt-ivory-50); }
+  .mt-sheet-overlay .ct-modal-sub{ font-family:'Rajdhani', var(--font); font-size:12px; color:var(--mt-ink-muted); font-weight:600; margin-top:1px; }
+  .mt-sheet-overlay .ct-modal-body{ padding:4px 20px 24px; }
+  .mt-sheet-option{
+    width:100%; text-align:left; display:block;
+    padding:14px 16px; border-radius:10px;
+    font-family:'Rajdhani', var(--font); font-weight:700; font-size:14.5px;
+    border:1.5px solid var(--mt-navy-600); background:var(--mt-navy-800); color:var(--mt-ivory-50); cursor:pointer;
+  }
+  .mt-sheet-option.primary{
+    background:linear-gradient(180deg, var(--mt-pitch-300), var(--mt-pitch-700)); color:#0A2415; border:none;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.35), 0 4px 14px rgba(46,158,91,.3);
+  }
+
+  /* ================= Tela 6 — Escalação =================
+     AJUSTE (refatoração completa, ver 06-escalacao-restyled.html do
+     designer) — campinho, banco e táticas próprios, prefixo "mt-" de
+     propósito: .button-pitch/.button-row/.button-disc já existem em
+     css/style.css (compartilhada com o dashboard principal), colidiria
+     em silêncio se reaproveitasse os nomes genéricos aqui. */
+  .mt-field-label{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:11.5px; letter-spacing:1px; color:var(--mt-gold-300); text-transform:uppercase; margin-bottom:8px; display:block; }
+  .mt-formation-row{ display:flex; gap:10px; align-items:center; margin-bottom:14px; }
+  .mt-formation-select, .mt-select-box{
+    width:100%; appearance:none; -webkit-appearance:none;
+    background:var(--mt-navy-900) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23E8B84B' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") right 12px center/16px no-repeat;
+    border:1px solid var(--mt-navy-600); color:var(--mt-ivory-50);
+    padding:12px 34px 12px 14px; border-radius:6px; cursor:pointer;
+  }
+  .mt-formation-select{ flex:1; font-family:'Rajdhani', var(--font); font-weight:700; font-size:16px; letter-spacing:.5px; }
+  .mt-select-box{ font-family:var(--font); font-weight:500; font-size:14.5px; }
+  .mt-btn-swap{
+    width:44px; height:44px; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+    background:linear-gradient(180deg, var(--mt-gold-300), var(--mt-gold-600));
+    border-radius:8px; border:none; cursor:pointer;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.4), 0 3px 10px rgba(184,134,11,.3);
+  }
+  .mt-btn-swap svg{ width:20px; height:20px; color:#3A2A03; }
+
+  .mt-toggle-row{ display:flex; align-items:center; gap:10px; margin-bottom:18px; cursor:pointer; }
+  .mt-toggle-input{ position:absolute; opacity:0; width:0; height:0; }
+  .mt-toggle{ width:38px; height:22px; border-radius:99px; background:var(--mt-navy-900); border:1px solid var(--mt-navy-600); position:relative; flex-shrink:0; }
+  .mt-toggle .knob{ width:16px; height:16px; border-radius:50%; background:var(--mt-ink-faint); position:absolute; top:2px; left:2px; transition:left .15s, background .15s; }
+  .mt-toggle-input:checked + .mt-toggle{ background:rgba(61,184,106,.25); border-color:var(--mt-pitch-400); }
+  .mt-toggle-input:checked + .mt-toggle .knob{ left:18px; background:var(--mt-pitch-400); }
+  .mt-toggle-row .txt{ font-size:13px; color:var(--mt-ink-muted); line-height:1.4; }
+
+  /* ---- campinho ---- */
+  .mt-pitch{
+    position:relative;
+    background:
+      repeating-linear-gradient(180deg, rgba(255,255,255,.05) 0px, rgba(255,255,255,.05) 32px, rgba(0,0,0,.06) 32px, rgba(0,0,0,.06) 64px),
+      linear-gradient(180deg, var(--mt-pitch-600), var(--mt-pitch-900));
+    border:2px solid rgba(255,255,255,.18); border-radius:10px;
+    padding:16px 10px 20px; overflow:hidden; margin-top:14px;
+  }
+  .mt-pitch::before{ content:""; position:absolute; left:50%; top:50%; width:70px; height:70px; border:1.5px solid rgba(255,255,255,.25); border-radius:50%; transform:translate(-50%,-50%); }
+  .mt-pitch::after{ content:""; position:absolute; left:50%; top:50%; width:200%; height:1.5px; background:rgba(255,255,255,.25); transform:translate(-50%,-50%); }
+  .mt-pitch-line-top, .mt-pitch-line-bottom{ position:absolute; left:50%; transform:translateX(-50%); width:140px; height:36px; border:1.5px solid rgba(255,255,255,.25); border-top:none; }
+  .mt-pitch-line-top{ top:0; border-radius:0 0 6px 6px; }
+  .mt-pitch-line-bottom{ bottom:0; border-bottom:none; border-radius:6px 6px 0 0; }
+  .mt-pitch-row{ display:flex; justify-content:space-around; align-items:flex-start; position:relative; z-index:1; margin-bottom:20px; }
+  .mt-pitch-row.gk{ margin-bottom:4px; }
+  .mt-pos-slot{ display:flex; flex-direction:column; align-items:center; gap:4px; width:64px; min-width:0; cursor:pointer; }
+  /* BUG CORRIGIDO (mesmo motivo do antigo .ct-row-5, agora reaplicado
+     aqui): uma linha com 5 vagas (3-5-2, 4-2-3-1, 4-5-1 têm 5 no
+     meio-campo) não cabe em 64px por vaga na largura de um celular —
+     encolhe só as linhas de 5, linhas de até 4 continuam no tamanho
+     normal. */
+  .mt-pitch-row.row-5 .mt-pos-slot{ width:56px; }
+  .mt-pitch-row.row-5 .mt-pitch-badge{ width:34px; height:34px; font-size:12.5px; }
+  .mt-pitch-row.row-5 .role{ font-size:8.5px; }
+  .mt-pitch-row.row-5 .name{ font-size:10px; }
+  .mt-pos-slot .role{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:9.5px; letter-spacing:.5px; color:rgba(255,255,255,.55); text-transform:uppercase; }
+  .mt-pitch-badge{
+    width:38px; height:38px; border-radius:50%; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Rajdhani', var(--font); font-weight:700; font-size:14px;
+    box-shadow:inset 0 -2px 4px rgba(0,0,0,.3), 0 2px 6px rgba(0,0,0,.35), 0 0 0 2px rgba(255,255,255,.15);
+    position:relative;
+  }
+  .mt-pitch-badge.empty{ background:rgba(255,255,255,.18); border:2px dashed rgba(255,255,255,.4); box-shadow:none; color:rgba(255,255,255,.7); }
+  .mt-pitch-badge.problem{ box-shadow:0 0 0 2px var(--mt-crimson-400), 0 2px 6px rgba(0,0,0,.35); }
+  .mt-pos-slot .name{ font-family:'Rajdhani', var(--font); font-weight:600; font-size:11.5px; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.5); max-width:64px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .mt-injury-flag{
+    position:absolute; bottom:-4px; right:-4px; width:15px; height:15px; border-radius:50%;
+    background:var(--mt-gold-400); display:flex; align-items:center; justify-content:center; border:1.5px solid var(--mt-navy-950);
+  }
+  .mt-injury-flag svg{ width:9px; height:9px; color:#3A2A03; }
+
+  /* ---- banco de reservas ---- */
+  .mt-bench-row{ display:flex; align-items:center; gap:12px; padding:10px 2px; border-bottom:1px solid var(--mt-navy-700); cursor:pointer; }
+  .mt-bench-row:last-child{ border-bottom:none; }
+  .mt-bench-ovr{
+    width:34px; height:34px; border-radius:50%; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'Rajdhani', var(--font); font-weight:700; font-size:13px;
+    box-shadow:inset 0 -2px 4px rgba(0,0,0,.25), 0 0 0 1.5px rgba(255,255,255,.12);
+  }
+  .mt-bench-name{ flex:1; min-width:0; font-weight:600; font-size:14px; color:var(--mt-ivory-50); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .mt-pos-chip{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:11px; letter-spacing:.5px; padding:3px 9px; border-radius:4px; flex-shrink:0; }
+  .mt-pos-chip.gol{ background:rgba(232,184,75,.14); color:var(--mt-gold-300); border:1px solid rgba(232,184,75,.32); }
+  .mt-pos-chip.def{ background:rgba(91,155,217,.15); color:var(--mt-sky-400); border:1px solid rgba(91,155,217,.35); }
+  .mt-pos-chip.mei{ background:rgba(61,184,106,.15); color:var(--mt-pitch-300); border:1px solid rgba(61,184,106,.35); }
+  .mt-pos-chip.ata{ background:rgba(214,69,69,.15); color:var(--mt-crimson-400); border:1px solid rgba(214,69,69,.35); }
+  .mt-field-block{ margin-bottom:16px; }
+
+  /* ================= Tela 7 — Trocar jogador (modal de escolha) =================
+     AJUSTE (refatoração completa, ver 07-trocar-jogador-restyled.html
+     do designer) — usada tanto pro campinho (Escalação) quanto pro
+     banco (ver openPicker/renderPickerList em carreira.js). .pos-chip
+     reaproveitado do banco (Tela 6). */
+  .mt-search-box{
+    display:flex; align-items:center; gap:10px;
+    background:var(--mt-navy-900); border:1px solid var(--mt-navy-600);
+    padding:12px 14px; border-radius:8px; margin-bottom:16px;
+  }
+  .mt-search-box svg{ width:17px; height:17px; color:var(--mt-ink-faint); flex-shrink:0; }
+  .mt-search-box input{ background:none; border:none; outline:none; color:var(--mt-ivory-50); font-family:var(--font); font-size:14px; width:100%; }
+  .mt-search-box input::placeholder{ color:var(--mt-ink-faint); }
+  .mt-empty-option{
+    display:flex; align-items:center; gap:10px; padding:12px 4px; cursor:pointer;
+    color:var(--mt-ink-faint); font-family:'Rajdhani', var(--font); font-weight:600; font-size:13.5px;
+    border-bottom:1px solid var(--mt-navy-700); margin-bottom:4px;
+  }
+  .mt-sel-row{ display:flex; align-items:center; gap:12px; padding:11px 4px; border-bottom:1px solid var(--mt-navy-700); cursor:pointer; }
+  .mt-sel-row:last-child{ border-bottom:none; }
+  .mt-sel-name{ flex:1; min-width:0; font-weight:600; font-size:14px; color:var(--mt-ivory-50); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .mt-sel-name .status{ font-weight:400; color:var(--mt-ink-faint); font-size:12px; }
+  .mt-sel-meta{ display:flex; align-items:center; gap:8px; flex-shrink:0; }
+  .mt-sel-ovr{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:15px; color:var(--mt-ivory-100); }
+  .mt-sel-ovr.gold{ color:var(--mt-gold-400); }
+  .mt-sel-src{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:9.5px; letter-spacing:.3px; padding:2px 7px; border-radius:4px; text-transform:uppercase; }
+  .mt-sel-src.principal{ background:rgba(61,184,106,.14); color:var(--mt-pitch-300); border:1px solid rgba(61,184,106,.3); }
+  .mt-sel-src.base{ background:rgba(232,184,75,.12); color:var(--mt-gold-300); border:1px solid rgba(232,184,75,.28); }
+  .mt-sel-src.loan{ background:rgba(143,163,191,.12); color:var(--mt-ink-muted); border:1px solid rgba(143,163,191,.28); }
 </style>
 </head>
 <body>
@@ -1189,53 +1383,58 @@
       </section>
 
       <!-- ---------- Escalação ---------- -->
+      <!-- AJUSTE (refatoração completa, Tela 6 — ver 06-escalacao-
+           restyled.html do designer) — campinho próprio (.mt-pitch*,
+           NÃO reaproveita .button-pitch/.button-row/.button-disc de
+           css/style.css, que são compartilhadas com o dashboard
+           principal — ver aviso de sempre sobre colisão de nomes
+           genéricos), banco em lista (não mais tabela), teto de OVR na
+           mesma linguagem de cor do Elenco/Detalhe (ovrTierClass()).
+           Barra de ação fixa (.mt-action-bar, mesmo padrão da Central)
+           pro botão "Salvar". -->
       <section class="ct-panel" id="panel-escalacao">
-        <div class="ct-card">
-          <h2>Formação e titulares</h2>
-          <div style="display:flex; gap:10px; align-items:flex-end; justify-content:space-between; margin-bottom:10px;">
-            <div class="ct-field" style="max-width:220px; margin-bottom:0; flex:1; min-width:0;">
-              <label>Esquema tático</label>
-              <select id="formationSelect"></select>
-            </div>
-            <!-- Pedido do usuário: botão só ícone, na mesma linha da
-                 formação (era um botão de texto embaixo — ver
-                 autoFillLineup em carreira.js pra lógica). -->
-            <button class="ct-btn icon" id="btnAutoLineup" title="Escalar automaticamente — melhores overalls por posição" aria-label="Escalar automaticamente">🔁</button>
+        <div class="mt-card">
+          <div class="mt-card-head"><div class="mt-card-title">Formação e titulares</div></div>
+          <span class="mt-field-label">Esquema tático</span>
+          <div class="mt-formation-row">
+            <select id="formationSelect" class="mt-formation-select"></select>
+            <button class="mt-btn-swap" id="btnAutoLineup" title="Escalar automaticamente — melhores overalls por posição" aria-label="Escalar automaticamente"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></button>
           </div>
           <!-- Pedido do usuário: toggle discreto pra incluir (ou não) a
                categoria de base na escalação automática — default
                desligado (base costuma ter overall bem menor, não é o
                que o treinador quer no time principal na maioria das
                vezes). -->
-          <label class="ct-toggle-inline">
-            <input type="checkbox" id="autoLineupIncludeBase">
-            Incluir jogadores da base ao escalar automaticamente
+          <label class="mt-toggle-row">
+            <input type="checkbox" id="autoLineupIncludeBase" class="mt-toggle-input">
+            <span class="mt-toggle"><span class="knob"></span></span>
+            <span class="txt">Incluir jogadores da base ao escalar automaticamente</span>
           </label>
           <div id="pitchLines"></div>
         </div>
-        <div class="ct-card">
-          <h2>Banco de reservas <span style="font-weight:400; color:var(--text-2);">(até 11)</span></h2>
-          <div class="ct-scroll-x"><table class="ct-table" id="benchTable"><thead><tr><th>Nome</th><th>Posição</th><th>Overall</th></tr></thead><tbody id="benchList"></tbody></table></div>
+        <div class="mt-card">
+          <div class="mt-card-head"><div class="mt-card-title">Banco de reservas</div><span class="mt-card-sub" style="margin:0;">até 11</span></div>
+          <div id="benchList"></div>
         </div>
-        <div class="ct-card">
-          <div class="ct-card-head">
-            <h2>Instruções táticas</h2>
+        <div class="mt-card">
+          <div class="mt-card-head">
+            <div class="mt-card-title">Instruções táticas</div>
             <button class="ct-help-btn" data-help="helpInstrucoesTaticas" aria-label="Ajuda">?</button>
           </div>
-          <div class="ct-tactics">
-            <div class="ct-field"><label>Mentalidade</label><select id="tacticMentality"></select></div>
-            <div class="ct-field"><label>Marcação</label><select id="tacticMarking"></select></div>
-            <div class="ct-field"><label>Ritmo de jogo</label><select id="tacticTempo"></select></div>
-            <div class="ct-field"><label>Foco de treino</label><select id="trainingFocus"></select></div>
-          </div>
+          <div class="mt-field-block"><span class="mt-field-label">Mentalidade</span><select id="tacticMentality" class="mt-select-box"></select></div>
+          <div class="mt-field-block"><span class="mt-field-label">Marcação</span><select id="tacticMarking" class="mt-select-box"></select></div>
+          <div class="mt-field-block"><span class="mt-field-label">Ritmo de jogo</span><select id="tacticTempo" class="mt-select-box"></select></div>
+          <div class="mt-field-block" style="margin-bottom:0;"><span class="mt-field-label">Foco de treino</span><select id="trainingFocus" class="mt-select-box"></select></div>
           <!-- FASE 3 (item 4) — o foco de treino já existia como bônus
                de curto prazo em partida (ver TRAINING_MOD); agora
                também guia a evolução PERMANENTE de atributos rodada a
                rodada (ver applyTrainingEvolution) — aviso curto pra
                deixar isso claro sem precisar de uma aba nova só pra
                isso. -->
-          <p class="ct-sub ct-help-text" id="helpInstrucoesTaticas" style="margin-top:8px;" hidden>O foco também guia a evolução de longo prazo do elenco — o atributo escolhido cresce com mais chance a cada rodada jogada.</p>
-          <div style="margin-top:14px;"><button class="ct-btn primary" id="btnSaveLineup">Salvar escalação e táticas</button></div>
+          <p class="mt-card-sub ct-help-text" id="helpInstrucoesTaticas" style="margin-top:10px; margin-bottom:0;" hidden>O foco também guia a evolução de longo prazo do elenco — o atributo escolhido cresce com mais chance a cada rodada jogada.</p>
+        </div>
+        <div class="mt-action-bar">
+          <button class="mt-btn-primary" id="btnSaveLineup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Salvar escalação e táticas</button>
         </div>
       </section>
 
@@ -1345,7 +1544,14 @@
       <button class="ct-modal-close" id="pickerClose">✕</button>
     </div>
     <div class="ct-modal-body">
-      <input class="ct-search" id="pickerSearch" placeholder="Buscar por nome...">
+      <!-- AJUSTE (refatoração completa, Tela 7 — ver 07-trocar-jogador-
+           restyled.html do designer) — caixa de busca com ícone
+           (.mt-search-box), lista de jogadores (.mt-sel-row) no lugar
+           de .ct-pick-row (ver renderPickerList em carreira.js). -->
+      <div class="mt-search-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="pickerSearch" placeholder="Buscar por nome...">
+      </div>
       <div id="pickerList"></div>
     </div>
   </div>
@@ -1373,7 +1579,7 @@
      isContractExpiring/openRenewModal em carreira.js). "Propor" decide
      na hora (aceita/recusa) — sem passo intermediário, ver
      proposeRenewal. -->
-<div class="ct-modal-overlay" id="renewOverlay">
+<div class="ct-modal-overlay mt-sheet-overlay" id="renewOverlay">
   <div class="ct-modal">
     <div class="ct-modal-header">
       <span class="ct-modal-icon">✍️</span>
@@ -1399,7 +1605,7 @@
           <option value="5">5 anos</option>
         </select>
       </div>
-      <button class="ct-btn full primary" id="btnRenewPropose">Propor</button>
+      <button class="mt-btn-primary-gold" id="btnRenewPropose"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>Propor</button>
     </div>
   </div>
 </div>
@@ -1409,7 +1615,7 @@
      padrão do renewOverlay acima) só quando aplicável (ver
      canTalkTo/openTalkModal em carreira.js). Mensagem curta, decisão
      ternária — mantém tamanho compacto (não é modal de tela cheia). -->
-<div class="ct-modal-overlay" id="talkOverlay">
+<div class="ct-modal-overlay mt-sheet-overlay" id="talkOverlay">
   <div class="ct-modal">
     <div class="ct-modal-header">
       <span class="ct-modal-icon">💬</span>
@@ -1422,9 +1628,9 @@
     <div class="ct-modal-body">
       <p class="ct-sub" id="talkContext" style="margin-bottom:14px;"></p>
       <div style="display:flex; flex-direction:column; gap:8px;">
-        <button class="ct-btn full primary" data-talk="apoiar">Ouvir e apoiar</button>
-        <button class="ct-btn full" data-talk="prometer">Prometer mais chances</button>
-        <button class="ct-btn full" data-talk="cobrar">Cobrar postura</button>
+        <button class="mt-sheet-option primary" data-talk="apoiar">Ouvir e apoiar</button>
+        <button class="mt-sheet-option" data-talk="prometer">Prometer mais chances</button>
+        <button class="mt-sheet-option" data-talk="cobrar">Cobrar postura</button>
       </div>
     </div>
   </div>

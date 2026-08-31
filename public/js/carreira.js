@@ -283,12 +283,10 @@ function crestImg(t, size = 40) {
     : "";
   return `<span class="ct-crest" style="height:${size}px;width:${size}px;background:linear-gradient(160deg, ${c1}, ${c2});">${inner}</span>`;
 }
-// Mesmo degradê de cores do clube usado no "jogo de botão" do dashboard
-// principal (ver teamGradientStops em public/js/app.js) — duplicado
-// aqui pelo mesmo motivo de sempre (esta página não carrega app.js).
-function teamGradientStops(colors) {
-  return [colors?.c1 || "#0057B8", colors?.c2 || "#062B5C", colors?.c3].filter(Boolean).join(", ");
-}
+// teamGradientStops() removida (redesign, Tela 6) — só era usada pelo
+// disco antigo do campinho (.button-disc, cor do TIME); o campinho novo
+// usa a mesma faixa de cor por OVR do Elenco/Detalhe (ovrTierClass),
+// não mais a cor do escudo.
 function lastNameOf(name) {
   const parts = String(name || "").trim().split(/\s+/);
   return parts[parts.length - 1] || name || "?";
@@ -4006,8 +4004,16 @@ function openDetail(id) {
   const inBench = CAREER.lineup.bench.includes(id);
   const subpos = subPositionOf(p);
   const groupFull = SUBPOS_LABEL[subpos] || "—";
+  // AJUSTE (refatoração completa, Tela 5 — ver 05-detalhe-do-jogador-
+  // restyled.html do designer) — cabeçalho do modal (ícone/h3/sub)
+  // continua com o MESMO chrome compartilhado por dezenas de outros
+  // modais (.ct-modal-header), só que agora genérico ("Perfil do
+  // jogador") — a identidade de verdade (nome, posição, idade, OVR)
+  // vira o "hero" dentro do corpo, igual ao mockup, não mais duplicada
+  // no cabeçalho.
   document.getElementById("detailIcon").textContent = subpos === "GOL" ? "🧤" : "⚽";
-  document.getElementById("detailName").textContent = p.name;
+  document.getElementById("detailName").textContent = "Perfil do jogador";
+  document.getElementById("detailSub").textContent = "";
   // Pedido do usuário: tirar a tag "gerado" dos jogadores da BASE —
   // toda a categoria de base já vem gerada (a API não cobre elenco
   // sub-20 do Brasileirão, ver comentário em buildBasePlayer), então a
@@ -4015,7 +4021,7 @@ function openDetail(id) {
   // pro elenco PRINCIPAL gerado (jogador extra criado quando a busca
   // real veio incompleta — esse sim é uma exceção que vale marcar).
   const originLabel = p.origin === "principal" ? "Elenco principal" : p.origin === "loan" ? "Emprestado" : "Categoria de base";
-  document.getElementById("detailSub").textContent = `${groupFull} · ${p.age} anos · ${originLabel}${(!p.real && p.origin !== "base") ? " (gerado)" : ""}`;
+  const heroSub = `${groupFull} · ${p.age} anos · ${originLabel}${(!p.real && p.origin !== "base") ? " (gerado)" : ""}`;
   // FASE 2 (b) — promover um jogador de base soma o salário dele na
   // folha do elenco PRINCIPAL (ver wageBillOf) — bloqueia se estourar
   // o teto salarial do clube (CAREER.finances.wageCap).
@@ -4040,20 +4046,30 @@ function openDetail(id) {
   const trendArrow = (attr) => trend[attr] > 0 ? ` <span style="color:var(--brd-green);" title="Evoluindo desde a última checagem">▲</span>`
     : trend[attr] < 0 ? ` <span style="color:var(--brd-red);" title="Regredindo desde a última checagem">▼</span>` : "";
   document.getElementById("detailBody").innerHTML = `
-    <div class="ct-kpis" style="margin-bottom:12px;">
-      <div class="ct-kpi"><div class="v gold">${p.overall}${trendArrow("overall")}</div><div class="l">Geral</div></div>
-      <div class="ct-kpi"><div class="v">${p.atk}${trendArrow("atk")}</div><div class="l">Ataque</div></div>
-      <div class="ct-kpi"><div class="v">${p.def}${trendArrow("def")}</div><div class="l">Defesa</div></div>
-      <div class="ct-kpi"><div class="v">${p.phys}${trendArrow("phys")}</div><div class="l">Físico</div></div>
-      <div class="ct-kpi"><div class="v${moraleVariant ? ` ${moraleVariant}` : ""}">${morale}</div><div class="l">Moral</div></div>
+    <div class="mt-player-hero">
+      <div class="mt-ovr-badge sz-lg ${ovrTierClass(p.overall)}">${p.overall}</div>
+      <div class="mt-player-hero-info">
+        <b>${escapeHtml(p.name.toUpperCase())}</b>
+        <span>${heroSub}</span>
+      </div>
     </div>
-    ${potRange ? `<p class="ct-sub" style="color:var(--gold); font-weight:700;">🔭 Avaliação do olheiro: potencial entre ${potRange.lo} e ${potRange.hi}.</p>` : ""}
-    <p class="ct-sub">Condição: ${conditionRating(p.condition)}/5 (${CONDITION_RATING_LABEL[conditionRating(p.condition)]}) · Jogos: ${p.apps || 0} · Gols na carreira: ${p.goalsCareer || 0} · Cartões amarelos (ciclo atual): ${p.yellowCards || 0}</p>
+    <div class="mt-attr-grid">
+      <div class="mt-attr-block"><div class="num gold">${p.overall}${trendArrow("overall")}</div><div class="lbl">GERAL</div></div>
+      <div class="mt-attr-block"><div class="num">${p.atk}${trendArrow("atk")}</div><div class="lbl">ATAQUE</div></div>
+      <div class="mt-attr-block"><div class="num">${p.def}${trendArrow("def")}</div><div class="lbl">DEFESA</div></div>
+      <div class="mt-attr-block"><div class="num">${p.phys}${trendArrow("phys")}</div><div class="lbl">FÍSICO</div></div>
+      <div class="mt-attr-block" style="grid-column:span 2;"><div class="num${moraleVariant === "red" ? " crimson" : moraleVariant === "gold" ? " gold" : ""}">${morale}</div><div class="lbl">MORAL</div></div>
+    </div>
+    ${potRange ? `<p class="mt-badge-gold" style="display:flex;">🔭 Avaliação do olheiro: potencial entre ${potRange.lo} e ${potRange.hi}.</p>` : ""}
+    ${mtConditionBarHTML(p.condition)}
+    <p class="mt-info-line">Condição: ${conditionRating(p.condition)}/5 (${CONDITION_RATING_LABEL[conditionRating(p.condition)]}) · Jogos: ${p.apps || 0} · Gols na carreira: ${p.goalsCareer || 0} · Cartões amarelos (ciclo atual): ${p.yellowCards || 0}</p>
     <!-- FASE 4 (item 1) — seção "Relacionamento" pedida no documento:
-         motivo atual + tendência da moral, e alerta de "pede
-         transferência" quando aplicável (ver applyMoraleAfterMatch). -->
-    <p class="ct-sub">Relacionamento: ${escapeHtml(p.moraleReason || "Neutro no clube")}${moraleTrendArrowHTML(p)}${p.wantsTransfer ? ' · <span style="color:var(--brd-red); font-weight:700;">🏃 pede transferência</span>' : ""}</p>
-    <p class="ct-sub">Salário: ${fmtBRL(p.wage)}/mês · Contrato até: ${p.contractUntil} · Valor de mercado: ${fmtBRL(p.value)}</p>
+         motivo atual + tendência da moral (ver applyMoraleAfterMatch);
+         "pede transferência" vira o mt-badge-alert de destaque abaixo,
+         não fica escondido no meio do texto. -->
+    <p class="mt-info-line">Relacionamento: ${escapeHtml(p.moraleReason || "Neutro no clube")}${moraleTrendArrowHTML(p)}</p>
+    ${p.wantsTransfer ? `<p class="mt-badge-alert" style="display:flex;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="width:14px;height:14px;"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="6 11 12 5 18 11"/></svg>Insatisfeito — pede transferência</p>` : ""}
+    <p class="mt-info-line">Salário: ${fmtBRL(p.wage)}/mês · Contrato até: ${p.contractUntil} · Valor de mercado: ${fmtBRL(p.value)}</p>
     <!-- FASE 1 (item 1 da especificação "BR Data Treinador") — pedido
          do usuário: aviso visível de final de contrato, com
          antecedência, direto no card do jogador (ver
@@ -4062,37 +4078,37 @@ function openDetail(id) {
          hoje o jogador só saía de graça na virada de temporada
          (renewHumanSquad, Fase 3c), sem chance nenhuma de segurar
          antes disso. -->
-    ${isContractExpiring(p) ? `<p class="ct-sub" style="color:var(--gold); font-weight:700;">⚠️ Contrato até ${CAREER.seasonYear} — sai de graça se a temporada acabar sem renovar.</p>` : ""}
+    ${isContractExpiring(p) ? `<p class="mt-badge-gold" style="display:flex;">⚠️ Contrato até ${CAREER.seasonYear} — sai de graça se a temporada acabar sem renovar.</p>` : ""}
     <!-- FASE 1 (item 4) — mesmo padrão do aviso de contrato acima:
          destaque no detalhe pra quem tá fora de combate (ver
          INJURY_SEVERITY em carreira.js). -->
-    ${p.status === "contundido" ? `<p class="ct-sub" style="color:var(--brd-red); font-weight:700;">🩹 Lesão ${injurySeverityLabel(p.injurySeverity)} — de volta na rodada ${p.outUntilRound}.</p>` : ""}
-    ${p.status === "suspenso" ? `<p class="ct-sub" style="color:var(--brd-red); font-weight:700;">🟥 Suspenso — de volta na rodada ${p.outUntilRound}.</p>` : ""}
-    <!-- AJUSTE (pedido do usuário: "a modal de detalhes do jogador segue
-         com os botões diferentes" — mockup empilha os botões cheios,
-         em coluna, cada um do tamanho normal (ver .btn/.btn-outline/
-         .btn-blue/.btn-red-outline do documento) — não em linha com
-         quebra e botão "small", que era o que ainda sobrava daqui de
-         antes do ajuste de componentes. -->
-    <div style="display:flex; flex-direction:column; gap:8px; margin-top:10px;">
-      ${canTalkTo(p) ? `<button class="ct-btn full" data-act="talk">💬 Conversar</button>` : ""}
-      ${isContractExpiring(p) ? `<button class="ct-btn full primary" data-act="renew">✍️ Renovar contrato</button>` : ""}
-      ${inStarters ? `<button class="ct-btn full" data-act="removeStarter">Tirar do time titular</button>` : ""}
-      ${!inStarters && inBench ? `<button class="ct-btn full" data-act="removeBench">Tirar do banco</button>` : ""}
-      ${!inStarters && !inBench && p.status === "ok" ? `<button class="ct-btn full" data-act="addBench" ${CAREER.lineup.bench.length >= MAX_BENCH ? "disabled" : ""}>Colocar no banco</button>` : ""}
+    ${p.status === "contundido" ? `<p class="mt-badge-alert" style="display:flex;">🩹 Lesão ${injurySeverityLabel(p.injurySeverity)} — de volta na rodada ${p.outUntilRound}.</p>` : ""}
+    ${p.status === "suspenso" ? `<p class="mt-badge-alert" style="display:flex;">🟥 Suspenso — de volta na rodada ${p.outUntilRound}.</p>` : ""}
+    <!-- AJUSTE (refatoração completa, Tela 5) — botões empilhados em
+         coluna cheia, com a hierarquia de cor do mockup:
+         .mt-btn-primary-gold pras ações que avançam contrato/dinheiro
+         (renovar/promover/vender), .mt-btn-ghost pra gestão de rotina
+         do elenco, .mt-btn-danger-outline só pra dispensar (a única
+         ação irreversível de verdade aqui). -->
+    <div class="mt-action-list">
+      ${canTalkTo(p) ? `<button class="mt-btn-ghost" data-act="talk">💬 Conversar</button>` : ""}
+      ${isContractExpiring(p) ? `<button class="mt-btn-primary-gold" data-act="renew">✍️ Renovar contrato</button>` : ""}
+      ${inStarters ? `<button class="mt-btn-ghost" data-act="removeStarter">Tirar do time titular</button>` : ""}
+      ${!inStarters && inBench ? `<button class="mt-btn-ghost" data-act="removeBench">Tirar do banco</button>` : ""}
+      ${!inStarters && !inBench && p.status === "ok" ? `<button class="mt-btn-ghost" data-act="addBench" ${CAREER.lineup.bench.length >= MAX_BENCH ? "disabled" : ""}>Colocar no banco</button>` : ""}
       ${p.origin === "loan" ? "" : p.origin === "base"
-        ? `<button class="ct-btn full primary" data-act="promote" ${promoteBlocked ? "disabled" : ""} ${promoteBlocked ? `title="Estouraria o teto salarial (${fmtBRL(CAREER.finances.wageCap)}) — libere espaço dispensando ou enviando alguém pra base antes."` : ""}>Promover ao elenco principal</button>`
-        : `<button class="ct-btn full" data-act="demote">Enviar pra base</button>`}
-      ${p.origin === "principal" ? `<button class="ct-btn full primary" data-act="sell">Vender por ${fmtBRL(p.value)}</button>
-      <button class="ct-btn full" data-act="loanout" ${isLoanOutRefused(p) ? `disabled title="Jogador de destaque demais — não aceita ser emprestado"` : ""}>Emprestar</button>` : ""}
+        ? `<button class="mt-btn-primary-gold" data-act="promote" ${promoteBlocked ? "disabled" : ""} ${promoteBlocked ? `title="Estouraria o teto salarial (${fmtBRL(CAREER.finances.wageCap)}) — libere espaço dispensando ou enviando alguém pra base antes."` : ""}>Promover ao elenco principal</button>`
+        : `<button class="mt-btn-ghost" data-act="demote">Enviar pra base</button>`}
+      ${p.origin === "principal" ? `<button class="mt-btn-primary-gold" data-act="sell">Vender por ${fmtBRL(p.value)}</button>
+      <button class="mt-btn-ghost" data-act="loanout" ${isLoanOutRefused(p) ? `disabled title="Jogador de destaque demais — não aceita ser emprestado"` : ""}>Emprestar</button>` : ""}
       <!-- Empréstimo: sem vender/dispensar/renovar — o jogador não é
            seu, só está temporariamente no elenco (ver comentário na
            seção "empréstimo de jogadores" mais acima em carreira.js). -->
       ${p.origin === "loan"
-        ? `<p class="ct-sub" style="text-align:center;">📋 Emprestado do ${escapeHtml(teamById(p.loanFromClubId).name)} ${p.loanReturnRound ? `até a rodada ${p.loanReturnRound}` : "até o fim da temporada"}${p.loanBuyOption ? (p.loanBuyOption.mandatory ? ` · compra obrigatória de ${fmtBRL(p.loanBuyOption.value)} ao fim` : ` · opção de compra de ${fmtBRL(p.loanBuyOption.value)} ao fim`) : ""} — só dá pra escalar.</p>`
-        : `<button class="ct-btn full danger" data-act="release">Dispensar</button>`}
+        ? `<p class="mt-info-line" style="text-align:center; border-bottom:none;">📋 Emprestado do ${escapeHtml(teamById(p.loanFromClubId).name)} ${p.loanReturnRound ? `até a rodada ${p.loanReturnRound}` : "até o fim da temporada"}${p.loanBuyOption ? (p.loanBuyOption.mandatory ? ` · compra obrigatória de ${fmtBRL(p.loanBuyOption.value)} ao fim` : ` · opção de compra de ${fmtBRL(p.loanBuyOption.value)} ao fim`) : ""} — só dá pra escalar.</p>`
+        : `<button class="mt-btn-danger-outline" data-act="release">Dispensar</button>`}
     </div>
-    ${promoteBlocked ? `<p class="ct-sub" style="color:var(--brd-red); margin-top:8px;">⚠️ Promover esse jogador levaria a folha salarial a ${fmtBRL(wageAfterPromote)}, acima do teto de ${fmtBRL(CAREER.finances.wageCap)}.</p>` : ""}`;
+    ${promoteBlocked ? `<p class="mt-info-line" style="color:var(--mt-crimson-400); border-bottom:none;">⚠️ Promover esse jogador levaria a folha salarial a ${fmtBRL(wageAfterPromote)}, acima do teto de ${fmtBRL(CAREER.finances.wageCap)}.</p>` : ""}`;
   document.getElementById("detailBody").querySelectorAll("[data-act]").forEach((btn) => {
     btn.addEventListener("click", () => handlePlayerAction(p.id, btn.dataset.act));
   });
@@ -4177,72 +4193,70 @@ function autoFillLineup() {
   persistCareer();
   toast(`Escalação automática aplicada — melhores overalls por posição${includeBase ? " (incluindo base)" : ""}.`);
 }
-// Desenha a escalação no campinho "jogo de botão" — mesmas classes
-// .button-pitch/.button-row/.button-disc/.btn-name já usadas na
-// Escalação titular do último jogo do dashboard principal (ver
-// formationPitchHTML em public/js/app.js e o comentário de
-// .ct-piece* em carreira.html), só que aqui EDITÁVEL: cada disco é
-// clicável (abre o mesmo modal de escolha de jogador de sempre) e
-// mostra a posição da vaga (tag), o overall no lugar da camisa e um
-// contorno vermelho quando o titular ali estiver indisponível.
-function pitchPieceHTML(slot, gradient) {
+// AJUSTE (refatoração completa, Tela 6 — ver 06-escalacao-restyled.html
+// do designer) — campinho próprio (.mt-pitch*, NÃO reaproveita
+// .button-pitch/.button-row/.button-disc de css/style.css, que são
+// compartilhadas com o dashboard principal). Cada posição é clicável
+// (abre o mesmo modal de escolha de jogador de sempre), mostra o
+// rótulo da vaga, o OVR na mesma linguagem de cor do Elenco/Detalhe
+// (ovrTierClass) e um flag de alerta quando o titular ali estiver
+// indisponível — no lugar do "⚠️" solto no nome de antes.
+function pitchPieceHTML(slot) {
   const id = CAREER.lineup.starters[slot.i];
   const p = id ? CAREER.squad.find((x) => x.id === id) : null;
   const problem = p && p.status !== "ok";
-  const discBg = p ? `linear-gradient(160deg, ${gradient})` : "rgba(255,255,255,.18)";
-  const discContent = p ? p.overall : "+";
+  const badgeCls = p ? ovrTierClass(p.overall) : "empty";
+  const badgeContent = p ? p.overall : "+";
   const nameText = p ? lastNameOf(p.name) : "vazio";
-  return `<div class="button-piece ct-piece ${problem ? "ct-piece-problem" : ""} ${!p ? "ct-piece-empty" : ""}"
-      data-index="${slot.i}" data-label="${escapeHtml(slot.label)}"
+  return `<div class="mt-pos-slot" data-index="${slot.i}" data-label="${escapeHtml(slot.label)}"
       title="${escapeHtml(slot.label)}${p ? " — " + escapeHtml(p.name) : ""}">
-    <span class="ct-piece-tag">${escapeHtml(slot.label)}</span>
-    <div class="button-disc" style="background:${discBg};">${discContent}</div>
-    <span class="btn-name">${escapeHtml(nameText)}${problem ? " ⚠️" : ""}</span>
+    <span class="role">${escapeHtml(slot.label)}</span>
+    <div class="mt-pitch-badge ${problem ? "problem" : ""} ${badgeCls}">${badgeContent}${problem ? `<span class="mt-injury-flag"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2 1 21h22L12 2zm0 6 6.5 11h-13L12 8z"/></svg></span>` : ""}</div>
+    <span class="name">${escapeHtml(nameText)}</span>
   </div>`;
 }
 function renderPitch() {
   const slots = FORMATIONS[CAREER.lineup.formation].map(([grp, label], i) => ({ grp, label, i }));
-  const gradient = teamGradientStops(CAREER.clubColors);
-  // Ataque em cima, goleiro embaixo — mesma orientação do campinho já
-  // usado no resto do site (column-reverse em .button-pitch, ver
-  // css/style.css).
-  const rows = ["G", "D", "M", "F"].map((g) => slots.filter((s) => s.grp === g)).filter((r) => r.length);
-  // BUG CORRIGIDO (pedido do usuário: "na formação 3-5-2 o botão está
-  // quebrando no meio de campo"): .button-row (ver css/style.css) usa
-  // flex-wrap normal — uma linha com 5 jogadores (3-5-2, 4-2-3-1 e
-  // 4-5-1 têm 5 no meio-campo) não cabe na largura de um celular comum
-  // no tamanho padrão do disco, então o flex QUEBRA a linha em 2,
-  // sobrepondo o 5º jogador em cima da linha do meio do campinho —
-  // ver .ct-row-5 no <style> de carreira.html, que encolhe só as
-  // linhas de 5 (linhas de até 4 continuam do tamanho normal).
+  // Ataque em cima, goleiro embaixo — mesma orientação de sempre.
+  const rows = ["F", "M", "D", "G"].map((g) => slots.filter((s) => s.grp === g)).filter((r) => r.length);
   document.getElementById("pitchLines").innerHTML = `
-    <div class="button-pitch">
-      ${rows.map((row) => `<div class="button-row${row.length >= 5 ? " ct-row-5" : ""}">${row.map((s) => pitchPieceHTML(s, gradient)).join("")}</div>`).join("")}
+    <div class="mt-pitch">
+      <div class="mt-pitch-line-top"></div>
+      ${rows.map((row) => `<div class="mt-pitch-row${row[0].grp === "G" ? " gk" : ""}${row.length >= 5 ? " row-5" : ""}">${row.map((s) => pitchPieceHTML(s)).join("")}</div>`).join("")}
+      <div class="mt-pitch-line-bottom"></div>
     </div>`;
-  document.getElementById("pitchLines").querySelectorAll(".ct-piece").forEach((el) => {
+  document.getElementById("pitchLines").querySelectorAll(".mt-pos-slot").forEach((el) => {
     el.addEventListener("click", () => openPicker({ type: "slot", index: Number(el.dataset.index) }, `Escolher — ${el.dataset.label}`));
   });
 }
+// AJUSTE (refatoração completa, Tela 6 — ver 06-escalacao-restyled.html
+// do designer) — lista (.mt-bench-row) no lugar da tabela genérica
+// .ct-table de antes, badge de OVR na mesma faixa de cor de sempre e
+// chip de posição colorido (mesmo mapeamento gol/def/mei/ata do
+// divisor de posição do Elenco, ver SUBPOS_DIVCLASS).
 function renderBench() {
   // Mesma ordenação por posição do Elenco (ver squadSortKey) — só pra
   // exibição, não muda a ordem guardada em CAREER.lineup.bench (não
   // faz diferença nenhuma pra troca/auto-substituição, ver
   // autoFixLineup, que já procura por grupo em vez de depender de
-  // posição no array). Pedido do usuário: tabela (Nome/Posição/
-  // Overall) em vez de cards, e até 11 reservas (era 7) — ver
-  // MAX_BENCH.
+  // posição no array). Até 11 reservas (era 7) — ver MAX_BENCH.
   const benchPlayers = CAREER.lineup.bench
     .map((id) => CAREER.squad.find((x) => x.id === id))
     .filter(Boolean)
     .sort((a, b) => squadSortKey(a) - squadSortKey(b));
-  const rows = benchPlayers.map((p) => `<tr data-id="${p.id}" style="cursor:pointer;">
-    <td class="ct-name-cell">${escapeHtml(abbreviateName(p.name))}</td><td>${subPositionOf(p)}</td><td><b>${p.overall}</b></td>
-  </tr>`).join("");
+  const rows = benchPlayers.map((p) => {
+    const subpos = subPositionOf(p);
+    return `<div class="mt-bench-row" data-id="${p.id}">
+      <div class="mt-bench-ovr ${ovrTierClass(p.overall)}">${p.overall}</div>
+      <div class="mt-bench-name">${escapeHtml(abbreviateName(p.name))}</div>
+      <span class="mt-pos-chip ${SUBPOS_DIVCLASS[subpos]}">${subpos}</span>
+    </div>`;
+  }).join("");
   const canAdd = CAREER.lineup.bench.length < MAX_BENCH;
-  const addRow = canAdd ? `<tr id="benchAddRow" style="cursor:pointer; color:var(--text-2);"><td colspan="3">+ adicionar reserva</td></tr>` : "";
-  const emptyRow = (!benchPlayers.length && !canAdd) ? `<tr><td colspan="3" class="ct-empty">Banco vazio.</td></tr>` : "";
+  const addRow = canAdd ? `<div class="mt-bench-row" id="benchAddRow" style="color:var(--mt-ink-faint); justify-content:center;">+ adicionar reserva</div>` : "";
+  const emptyRow = (!benchPlayers.length && !canAdd) ? `<p class="ct-empty">Banco vazio.</p>` : "";
   document.getElementById("benchList").innerHTML = rows + addRow + emptyRow;
-  document.getElementById("benchList").querySelectorAll("tr[data-id]").forEach((el) => {
+  document.getElementById("benchList").querySelectorAll(".mt-bench-row[data-id]").forEach((el) => {
     el.addEventListener("click", () => openPicker({ type: "bench", currentId: el.dataset.id }, "Trocar reserva"));
   });
   const addRowEl = document.getElementById("benchAddRow");
@@ -4345,16 +4359,26 @@ function renderPickerList(filter) {
   if (f) pool = pool.filter((p) => p.name.toLowerCase().includes(f));
   pool.sort((a, b) => squadSortKey(a) - squadSortKey(b));
   const showClear = PICKER_CTX.type === "slot" || (PICKER_CTX.type === "bench" && PICKER_CTX.currentId);
-  const clearRow = showClear ? `<div class="ct-pick-row" data-clear="1"><span class="nm">— deixar vazio —</span></div>` : "";
+  // AJUSTE (refatoração completa, Tela 7 — ver 07-trocar-jogador-
+  // restyled.html do designer) — .mt-sel-row no lugar de .ct-pick-row:
+  // chip de posição colorido (mesmo mapeamento do banco, Tela 6), OVR
+  // em destaque dourado pra quem já é "elite" (>=80, mesmo limiar de
+  // ovrTierClass) e tag de origem (principal/base/emprestado) como
+  // pílula, não mais texto solto.
+  const clearRow = showClear ? `<div class="mt-empty-option" data-clear="1">— deixar vazio —</div>` : "";
   const list = document.getElementById("pickerList");
   list.innerHTML = clearRow + (pool.length ? pool.map((p) => {
     const loc = p.id === currentId ? null : locateInLineup(p.id);
     // Tag do lugar onde já está — escolher alguém marcado "titular" ou
     // "banco" faz a troca (ver pickerChoose), não só remove ele de lá.
     const tag = p.id === currentId ? " (atual)" : loc && loc.kind === "starter" ? " (titular)" : loc && loc.kind === "bench" ? " (banco)" : "";
-    return `<div class="ct-pick-row" data-id="${p.id}">
-      <span class="nm" style="white-space:nowrap;">${escapeHtml(abbreviateName(p.name))}${tag}</span>
-      <span class="meta">${subPositionOf(p)} · OVR <b>${p.overall}</b> · ${p.origin === "base" ? "base" : p.origin === "loan" ? "emprestado" : "principal"}</span>
+    const subpos = subPositionOf(p);
+    const srcClass = p.origin === "base" ? "base" : p.origin === "loan" ? "loan" : "principal";
+    const srcLabel = p.origin === "base" ? "base" : p.origin === "loan" ? "emprestado" : "principal";
+    return `<div class="mt-sel-row" data-id="${p.id}">
+      <span class="mt-pos-chip ${SUBPOS_DIVCLASS[subpos]}">${subpos}</span>
+      <div class="mt-sel-name">${escapeHtml(abbreviateName(p.name))}<span class="status">${tag}</span></div>
+      <div class="mt-sel-meta"><span class="mt-sel-ovr${p.overall >= 80 ? " gold" : ""}">${p.overall}</span><span class="mt-sel-src ${srcClass}">${srcLabel}</span></div>
     </div>`;
   }).join("") : `<p class="ct-empty">Nenhum jogador disponível.</p>`);
   list.querySelectorAll("[data-clear]").forEach((el) => el.addEventListener("click", () => pickerChoose(null)));
