@@ -1273,7 +1273,15 @@
      reaproveitado nas tags. */
   .mt-market-row{ padding:14px 0; border-bottom:1px solid var(--mt-navy-700); }
   .mt-market-row:last-child{ border-bottom:none; }
-  .mt-market-top{ display:flex; align-items:center; gap:12px; margin-bottom:10px; }
+  /* AJUSTE (pedido do usuário, "Opção B" do mockup de comparação —
+     linha mais calma, sem destacar o botão comprar) — ações sobem
+     pra um canto discreto ao lado do nome (.mt-market-actions-corner,
+     ícone sem contorno/preenchimento, só a cor do ícone diferencia a
+     ação) em vez de ocupar sua própria linha embaixo, cheia de peso
+     visual (fundo dourado com brilho); salário/valor ganham a linha
+     inteira sozinhos. align-items:flex-start porque nome+tags às
+     vezes ocupam mais altura que os 2 ícones ao lado. */
+  .mt-market-top{ display:flex; align-items:flex-start; gap:12px; margin-bottom:8px; }
   .mt-market-info{ flex:1; min-width:0; }
   .mt-market-name{ font-weight:600; font-size:14.5px; color:var(--mt-ivory-50); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .mt-market-tags{ display:flex; gap:6px; margin-top:4px; }
@@ -1282,24 +1290,18 @@
     color:var(--mt-ink-muted); background:var(--mt-navy-900); border:1px solid var(--mt-navy-600);
     padding:2px 7px; border-radius:4px;
   }
-  .mt-market-detail{ font-size:12px; color:var(--mt-ink-faint); margin-bottom:10px; padding-left:50px; }
+  .mt-market-detail{ font-size:12px; color:var(--mt-ink-faint); padding-left:50px; }
   .mt-market-detail b{ color:var(--mt-ink-muted); }
-  /* AJUSTE (pedido do usuário: "trocar os botões com texto Comprar,
-     Vender, Pegar Emprestado por três botões com um ícone que mostre
-     entrada, saída e empréstimo") — botão vira quadrado só com ícone
-     (sem texto), no lugar da pílula larga de antes; cor por ação
-     continua a mesma (dourado=comprar/entrada, contorno vermelho=
-     vender/saída, contorno neutro=emprestar em ambos os sentidos). */
-  .mt-market-btns{ display:flex; gap:10px; padding-left:50px; }
+  .mt-market-actions-corner{ display:flex; gap:4px; flex-shrink:0; margin-left:auto; }
   .mt-btn-buy, .mt-btn-loan, .mt-btn-sell{
-    width:42px; height:42px; flex-shrink:0; display:flex; align-items:center; justify-content:center;
-    border-radius:10px; cursor:pointer;
+    width:30px; height:30px; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+    border-radius:8px; cursor:pointer; background:transparent; border:none;
   }
-  .mt-btn-buy svg, .mt-btn-loan svg, .mt-btn-sell svg{ width:19px; height:19px; }
-  .mt-btn-buy{ border:none; background:linear-gradient(180deg, var(--mt-gold-300), var(--mt-gold-600)); color:#3A2A03; box-shadow:inset 0 1px 0 rgba(255,255,255,.4), 0 3px 10px rgba(184,134,11,.3); }
-  .mt-btn-loan{ background:transparent; border:1.5px solid var(--mt-navy-600); color:var(--mt-ink-muted); }
-  .mt-btn-sell{ background:transparent; border:1.5px solid var(--mt-crimson-500); color:var(--mt-crimson-400); }
-  .mt-btn-buy:disabled, .mt-btn-loan:disabled, .mt-btn-sell:disabled{ opacity:.45; cursor:not-allowed; }
+  .mt-btn-buy svg, .mt-btn-loan svg, .mt-btn-sell svg{ width:16px; height:16px; }
+  .mt-btn-buy{ color:var(--mt-gold-400); }
+  .mt-btn-loan{ color:var(--mt-ink-muted); }
+  .mt-btn-sell{ color:var(--mt-crimson-400); }
+  .mt-btn-buy:disabled, .mt-btn-loan:disabled, .mt-btn-sell:disabled{ opacity:.4; cursor:not-allowed; }
 </style>
 </head>
 <body>
