@@ -12,7 +12,15 @@
      corrido, só nessa página (o resto do site continua com --font de
      css/style.css). -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Bebas+Neue&family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- AJUSTE (pedido do usuário: "essa reestilização não é ajuste pequeno,
+     é refatoração completa — refaça 100% do front pra refletir o material
+     enviado / quero o jogo idêntico às 30 telas") — Bebas Neue e Rajdhani
+     são as fontes do design system entregue pelo designer (ver
+     BRDataTreinadorEspecificacao.docx, seção 1.3); somadas aqui ao lado
+     das que o app já carregava (Barlow Condensed segue em uso nas telas
+     que ainda não foram refeitas — sai de vez conforme cada uma for
+     reconstruída nas próximas fases). -->
 <style>
   /* ===================================================================
      MODO TÉCNICO — carreira estilo Elifoot em cima do elenco real do
@@ -525,18 +533,101 @@
   .ct-empty{ color:var(--text-2); font-size:13px; text-align:center; padding:20px 0; }
   .hidden{ display:none !important; }
 
-  /* ---------- Tela de login ----------
-     AJUSTE (mockup): .auth-gate/.auth-gate-card/.field/.btn-accent são
-     COMPARTILHADAS com o resto do site (ver css/style.css) — escopadas
-     em #screenLoginRequired pra escurecer/dourar só essa tela, sem
-     mudar o gate de login/cadastro do app principal. .auth-gate em si
-     já usa var(--brd-navy) (redefinida ali em cima), então o fundo
-     degradê já sai escuro sozinho — só falta o campo de senha/e-mail e
-     o botão "Entrar" dourado, como no mockup (.login-input/.btn-gold). */
-  #screenLoginRequired .field input{ background:var(--navy-card2); }
-  #screenLoginRequired .apoie-form-error{ color:var(--brd-red); }
-  #screenLoginRequired .auth-gate-switch a{ color:var(--gold); }
-  #screenLoginRequired .btn.btn-accent{ background:var(--gold); color:var(--navy-deep); }
+  /* ================= Tela de Login — REFATORAÇÃO COMPLETA =================
+     AJUSTE (pedido do usuário: "essa reestilização não é ajuste pequeno,
+     é refatoração completa. Quero que o jogo fique idêntico às 30 telas
+     que te enviei e ao documento") — essa tela para de reaproveitar
+     .auth-gate/.auth-gate-card/.field (classes GENÉRICAS e compartilhadas
+     com o resto do site, ver css/style.css) e passa a usar a estrutura e
+     as classes REAIS do design system entregue pelo designer (ver
+     01-login-restyled.html do pacote + a imagem "depois" embutida no
+     .docx, seção "01 · Login") — reconstruída aqui do zero, plugada nos
+     ids/lógica de verdade do login (submitCtLogin em carreira.js, que só
+     lê #ctLoginForm/#ctLoginEmail/#ctLoginPassword/#ctLoginError e o
+     <button type="submit"> — nada disso muda).
+
+     Classes prefixadas "mt-" (Modo Técnico) DE PROPÓSITO: o design
+     system do designer usa nomes genéricos (.screen, .content, .crest,
+     .field, .panel) que colidem de verdade com classes JÁ EXISTENTES em
+     css/style.css (compartilhado com o site principal, também carregado
+     nesta página) — .content{padding:22px;max-width:1400px} e
+     .crest{border-radius:50%} em particular, se usados sem prefixo,
+     vazariam estilo errado pra dentro desta tela. Esse prefixo é a
+     convenção adotada daqui em diante pra TODA tela reconstruída nas
+     próximas fases, evitando essa colisão de vez em qualquer uma delas. */
+  .mt-screen{
+    position:relative; min-height:100vh; overflow:hidden;
+    background:
+      radial-gradient(600px 500px at 50% -10%, rgba(232,184,75,.10), transparent 60%),
+      radial-gradient(500px 400px at 90% 100%, rgba(46,158,91,.06), transparent 60%),
+      linear-gradient(180deg, #0A1628 0%, #060D1A 55%, #030811 100%);
+  }
+  /* Textura sutil de linhas de campo (referência a estádio à noite) —
+     mesmo repeating-linear-gradient do arquivo original do designer. */
+  .mt-screen::before{
+    content:""; position:absolute; inset:0; pointer-events:none;
+    background-image:repeating-linear-gradient(0deg, rgba(255,255,255,.015) 0px, rgba(255,255,255,.015) 1px, transparent 1px, transparent 64px);
+  }
+  .mt-login-content{ position:relative; z-index:1; padding:72px 26px 40px; min-height:100vh; display:flex; flex-direction:column; }
+
+  /* ---- marca/escudo ---- */
+  .mt-brand{ display:flex; flex-direction:column; align-items:center; margin-bottom:44px; }
+  .mt-crest{
+    width:88px; height:96px; position:relative; flex-shrink:0;
+    clip-path:polygon(50% 0%, 100% 18%, 100% 62%, 50% 100%, 0% 62%, 0% 18%);
+    background:linear-gradient(160deg, #1F3E63, #0A1628 70%);
+    border:1.5px solid #E8B84B;
+    display:flex; align-items:center; justify-content:center;
+    box-shadow:0 0 24px rgba(232,184,75,.18), inset 0 1px 0 rgba(255,255,255,.08);
+    margin-bottom:14px;
+  }
+  /* AJUSTE: o arquivo original do designer usa o texto "BR" solto (sem
+     ter o logo vetorizado à mão); aqui dentro do app de verdade o
+     brasão de marca já existe (img/logo.png) — a moldura hexagonal é a
+     mesma, só com o logo real dentro em vez de um monograma de texto. */
+  .mt-crest img{ height:52px; width:52px; object-fit:contain; }
+  .mt-brand-name{ font-family:'Bebas Neue', var(--font); font-size:26px; letter-spacing:3px; color:#F5F1E6; }
+  .mt-brand-name span{ background:linear-gradient(180deg,#F5D68A,#B8860B); -webkit-background-clip:text; background-clip:text; color:transparent; }
+
+  /* ---- painel chanfrado (assinatura do sistema) ---- */
+  .mt-panel{
+    background:linear-gradient(160deg, #16304F, #0F2038 65%);
+    border:1px solid #1F3E63; border-top:1px solid rgba(232,184,75,.25);
+    clip-path:polygon(0 0, calc(100% - 26px) 0, 100% 26px, 100% 100%, 0 100%);
+    padding:28px 24px 26px; position:relative;
+  }
+  .mt-panel::before{
+    content:""; position:absolute; top:0; right:0; width:26px; height:26px;
+    background:linear-gradient(135deg, #E8B84B, transparent 60%);
+    clip-path:polygon(100% 0, 100% 100%, 0 0); opacity:.65;
+  }
+  .mt-panel h1{ font-family:'Bebas Neue', var(--font); font-size:30px; letter-spacing:1px; margin:0 0 8px; text-align:center; color:#F5F1E6; }
+  .mt-panel .mt-sub{ text-align:center; color:#8FA3BF; font-size:13.5px; line-height:1.55; margin:0 0 28px; }
+
+  /* ---- campos ---- */
+  .mt-field{ margin-bottom:18px; }
+  .mt-field label{ display:block; font-family:'Rajdhani', var(--font); font-weight:600; font-size:12.5px; letter-spacing:1px; color:#F5D68A; margin-bottom:7px; }
+  .mt-field input{
+    width:100%; background:#0A1628; border:1px solid #1F3E63; border-radius:3px;
+    padding:13px 14px; color:#F5F1E6; font-family:var(--font); font-size:14.5px; outline:none;
+  }
+  .mt-field input::placeholder{ color:#5C7192; }
+  .mt-field input:focus{ border-color:#E8B84B; box-shadow:0 0 0 3px rgba(232,184,75,.12); }
+
+  .mt-form-error{ color:#E36565; font-size:12.5px; margin:-6px 0 14px; text-align:center; }
+
+  .mt-btn-enter{
+    width:100%; margin-top:6px; font-family:'Rajdhani', var(--font); font-weight:700; font-size:16px;
+    letter-spacing:1px; text-transform:uppercase; padding:15px; border:none; border-radius:999px; cursor:pointer;
+    background:linear-gradient(180deg, #F5D68A, #B8860B); color:#3A2A03;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.5), 0 6px 18px rgba(184,134,11,.35), 0 2px 0 #7A5A08;
+  }
+  .mt-btn-enter:disabled{ opacity:.6; cursor:not-allowed; }
+
+  .mt-signup{ text-align:center; margin-top:20px; font-size:13px; color:#8FA3BF; }
+  .mt-signup a{ color:#E8B84B; font-weight:600; text-decoration:none; border-bottom:1px solid rgba(232,184,75,.4); }
+
+  .mt-footer-note{ margin-top:auto; text-align:center; font-family:'Rajdhani', var(--font); font-size:11px; letter-spacing:1.5px; color:#5C7192; text-transform:uppercase; }
 </style>
 </head>
 <body>
@@ -566,20 +657,34 @@
        startAuthFlow/hasSignupIntent, que abre o gate direto na view de
        cadastro (ver requireSignup). -->
   <div class="hidden" id="screenLoginRequired">
-    <div class="auth-gate" style="min-height:100vh;">
-      <div class="auth-gate-inner">
-        <div class="auth-gate-brand"><img src="img/logo.png" alt="BR Data" class="auth-gate-logo"></div>
-        <div class="auth-gate-card">
-          <h2>Entrar</h2>
-          <p class="auth-gate-sub">Faça login pra acessar o Modo Técnico — o progresso da sua carreira fica salvo na sua conta BR Data.</p>
-          <form id="ctLoginForm" class="auth-gate-form">
-            <div class="field"><label for="ctLoginEmail">E-mail</label><input type="text" inputmode="email" id="ctLoginEmail" autocomplete="username" placeholder="voce@email.com"></div>
-            <div class="field"><label for="ctLoginPassword">Senha</label><input type="password" id="ctLoginPassword" autocomplete="current-password" placeholder="Sua senha"></div>
-            <div class="apoie-form-error" id="ctLoginError" style="display:none;"></div>
-            <button type="submit" class="btn btn-accent full">Entrar</button>
-          </form>
-          <p class="auth-gate-switch">Não tem uma conta? <a href="/?signup=1">Cadastre-se no BR Data</a></p>
+    <div class="mt-screen">
+      <div class="mt-login-content">
+        <div class="mt-brand">
+          <div class="mt-crest"><img src="img/logo.png" alt="BR Data"></div>
+          <div class="mt-brand-name">DATA <span>TREINADOR</span></div>
         </div>
+
+        <div class="mt-panel">
+          <h1>Entrar</h1>
+          <p class="mt-sub">Faça login pra acessar o Modo Técnico — o progresso da sua carreira fica salvo na sua conta BR Data.</p>
+
+          <form id="ctLoginForm">
+            <div class="mt-field">
+              <label for="ctLoginEmail">E-mail</label>
+              <input type="text" inputmode="email" id="ctLoginEmail" autocomplete="username" placeholder="voce@email.com">
+            </div>
+            <div class="mt-field">
+              <label for="ctLoginPassword">Senha</label>
+              <input type="password" id="ctLoginPassword" autocomplete="current-password" placeholder="Sua senha">
+            </div>
+            <p class="mt-form-error" id="ctLoginError" style="display:none;"></p>
+            <button type="submit" class="mt-btn-enter">Entrar</button>
+          </form>
+
+          <p class="mt-signup">Não tem uma conta? <a href="/?signup=1">Cadastre-se no BR Data</a></p>
+        </div>
+
+        <p class="mt-footer-note">Temporada 2026 · Modo Carreira</p>
       </div>
     </div>
   </div>
