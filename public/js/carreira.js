@@ -4662,6 +4662,19 @@ function allMarketPlayers() {
   );
   return [...mine, ...others];
 }
+// AJUSTE (pedido do usuário: "trocar os botões com texto Comprar,
+// Vender, Pegar Emprestado por três botões com um ícone que mostre
+// entrada, saída e empréstimo") — ícone substitui o texto nos botões
+// de ação de cada linha do Mercado; "entrada" (comprar) e "saída"
+// (vender) reaproveitam o mesmo desenho de porta+seta já usado no
+// botão "Sair" do app (mt-icon-btn), só espelhado pra "entrada";
+// "empréstimo" reaproveita o ícone de troca já usado em "Substituir"
+// (Ao Vivo, Tela 13b) e no marcador de substituição da linha do tempo.
+const MARKET_ICON = {
+  entrada: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>`,
+  saida: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>`,
+  emprestimo: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`,
+};
 function renderMercado() {
   const offer = CAREER.pendingOffer;
   const offerCard = document.getElementById("pendingOfferCard");
@@ -4721,10 +4734,10 @@ function renderMercado() {
     <div class="mt-market-detail">Salário: <b>${fmtBRLShort(p.wage)}/mês</b> · Valor: <b>${fmtBRLShort(p.value)}</b></div>
     <div class="mt-market-btns">
       ${mine
-        ? `<button class="mt-btn-sell" data-sell="${p.id}">Vender</button>
-           <button class="mt-btn-loan" data-loanout="${p.id}" ${loanOutBtnAttrs(p, mktWindow)}>Emprestar</button>`
-        : `<button class="mt-btn-buy" data-buy="${p.id}" data-club="${escapeHtml(String(club.id))}" ${mktWindow.open ? "" : `disabled title="Janela de contratações encerrada"`}>Comprar</button>
-           <button class="mt-btn-loan" data-loanin="${p.id}" data-club="${escapeHtml(String(club.id))}" ${loanOutBtnAttrs(p, mktWindow)}>Pegar emprestado</button>`}
+        ? `<button class="mt-btn-sell" data-sell="${p.id}" aria-label="Vender" title="Vender">${MARKET_ICON.saida}</button>
+           <button class="mt-btn-loan" data-loanout="${p.id}" aria-label="Emprestar" ${loanOutBtnAttrs(p, mktWindow) || `title="Emprestar"`}>${MARKET_ICON.emprestimo}</button>`
+        : `<button class="mt-btn-buy" data-buy="${p.id}" data-club="${escapeHtml(String(club.id))}" aria-label="Comprar" ${mktWindow.open ? `title="Comprar"` : `disabled title="Janela de contratações encerrada"`}>${MARKET_ICON.entrada}</button>
+           <button class="mt-btn-loan" data-loanin="${p.id}" data-club="${escapeHtml(String(club.id))}" aria-label="Pegar emprestado" ${loanOutBtnAttrs(p, mktWindow) || `title="Pegar emprestado"`}>${MARKET_ICON.emprestimo}</button>`}
     </div>
   </div>`;
   }).join("");

@@ -587,7 +587,16 @@
      da topbar/gate de login do site (navy) — antes era só um "✕"
      flutuando sobre um <h3> solto. Corpo rolável separado do
      cabeçalho (que fica fixo mesmo se o conteúdo for grande). */
-  .ct-modal-overlay{ position:fixed; inset:0; background:rgba(0,0,0,.55); display:none; align-items:center; justify-content:center; z-index:200; padding:16px; }
+  /* AJUSTE (pedido do usuário: "todas as modais que não são tela cheia
+     devem estar alinhadas ao rodapé, igual a de proposta de
+     patrocinador") — toda modal não-tela-cheia agora nasce como bottom
+     sheet (alinhada embaixo, sem respiro lateral) — antes só as
+     marcadas .mt-sheet-overlay tinham esse tratamento; as de
+     confirmação (.mt-confirm-overlay) e as sem modificador nenhum
+     (#loanOverlay, #liveSubOverlay, #liveTacticsOverlay) ainda
+     nasciam centralizadas. .ct-modal-fullscreen sobrescreve isso
+     mais abaixo (ocupa a tela inteira, alinhamento não importa). */
+  .ct-modal-overlay{ position:fixed; inset:0; background:rgba(0,0,0,.55); display:none; align-items:flex-end; justify-content:center; z-index:200; padding:0; }
   .ct-modal-overlay.open{ display:flex; }
   /* AJUSTE — tabelaModalOverlay é aberto de dentro de VÁRIOS outros
      lugares (Central, Resultados da rodada, e agora a tela de
@@ -597,17 +606,13 @@
      abriu por último). Sobe explícito pra sempre ficar por cima de
      qualquer outro overlay, não importa de onde foi aberto. */
   #tabelaModalOverlay{ z-index:210; }
-  /* AJUSTE (design system): modal padrão bem mais estreito (380px, era
-     520px) — o documento usa um diálogo compacto tipo "cartão", não
-     uma folha grande; o de confirmação (#confirmOverlay) é ainda mais
-     estreito (.bd-modal-confirm, 300px), ver regra dedicada mais
-     abaixo. Modais com tabela/grade bem mais larga que texto corrido
-     (resultados da rodada, escolher jogador) sobem um pouco esse teto
-     (460px) pra não espremer demais em telas maiores — o documento é
-     todo pensado pra um frame de celular de 340px, mas essa página
-     também roda em desktop. */
-  .ct-modal{ background:var(--navy-card2); border:1px solid var(--navy-line); border-radius:var(--radius-lg); max-width:380px; width:100%; max-height:86vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 20px 50px rgba(0,0,0,.5); }
-  #confirmOverlay .ct-modal{ max-width:320px; }
+  /* AJUSTE (pedido do usuário, ver .ct-modal-overlay acima) — modal
+     padrão agora é bottom sheet: largura cheia (era 380px centralizado),
+     canto de cima arredondado/embaixo reto, sombra pra cima (a folha
+     "sobe" da base da tela). Substitui o antigo diálogo "cartão"
+     centralizado (inclusive o #confirmOverlay ainda mais estreito, que
+     não faz mais sentido numa folha de largura cheia — regra removida). */
+  .ct-modal{ background:var(--navy-card2); border:1px solid var(--navy-line); border-radius:18px 18px 0 0; max-width:none; width:100%; max-height:86vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 -12px 40px rgba(0,0,0,.5); }
   /* Pedido do usuário: "as modais que ocupam mais espaço podem assumir
      tela cheia — só as de mensagens curtas ficam do tamanho atual".
      Marca (ver .ct-modal-fullscreen na tag do overlay, em carreira.html)
@@ -930,10 +935,17 @@
   .mt-action-list{ display:flex; flex-direction:column; gap:10px; margin-top:10px; }
 
   /* ---- variantes de botão que faltavam (ver .mt-btn-primary/.mt-btn-ghost já existentes) ---- */
+  /* AJUSTE (pedido do usuário: "os botões devem ter textos com uma
+     fonte mais discreta") — texto normal (sem caixa alta) e sem
+     tracking largo, igual ao .mt-btn-danger-outline logo abaixo (que
+     já tinha essa fonte mais discreta desde a Tela 5). Vale pros
+     botões DENTRO de modal/sheet (confirmar, aceitar, propor etc.) —
+     .mt-btn-primary (verde, fora de modal, nas barras de ação fixas)
+     continua com o tratamento de destaque de sempre. */
   .mt-btn-primary-gold, .mt-btn-danger-outline{
     width:100%; display:flex; align-items:center; justify-content:center; gap:8px;
-    font-family:'Rajdhani', var(--font); font-weight:700; font-size:15.5px; letter-spacing:.8px;
-    padding:14px; border-radius:999px; cursor:pointer; border:none; text-transform:uppercase;
+    font-family:'Rajdhani', var(--font); font-weight:600; font-size:15.5px; letter-spacing:.2px;
+    padding:14px; border-radius:999px; cursor:pointer; border:none;
   }
   .mt-btn-primary-gold{
     background:linear-gradient(180deg, var(--mt-gold-300), var(--mt-gold-600)); color:#3A2A03;
@@ -941,7 +953,6 @@
   }
   .mt-btn-danger-outline{
     background:transparent; border:1.5px solid var(--mt-crimson-500); color:var(--mt-crimson-400);
-    font-weight:600; text-transform:none;
   }
   .mt-btn-primary-gold:disabled, .mt-btn-danger-outline:disabled{ opacity:.4; cursor:not-allowed; }
   .mt-btn-primary svg, .mt-btn-ghost svg, .mt-btn-primary-gold svg, .mt-btn-danger-outline svg{ width:17px; height:17px; flex-shrink:0; }
@@ -1020,10 +1031,16 @@
      10b-confirmar-venda-restyled.html do designer) — escopado a
      #confirmOverlay (.mt-confirm-overlay), reaproveitado por TODA
      confirmação do jogo, não só Mercado. ---- */
+  /* AJUSTE (pedido do usuário: "todas as modais que não são tela cheia
+     devem estar alinhadas ao rodapé, igual a de proposta de
+     patrocinador") — diálogo de confirmação vira bottom sheet igual
+     ao .mt-sheet-overlay (Tela 5): chanfra (clip-path) removida — não
+     faz sentido numa folha de largura cheia encostada na base da tela,
+     só combinava com o diálogo centralizado flutuante de antes —
+     borda dourada só no topo, mesmo tratamento do sheet. */
   .mt-confirm-overlay .ct-modal{
     background:linear-gradient(160deg, var(--mt-navy-700), var(--mt-navy-800) 70%);
-    border:1px solid var(--mt-gold-600);
-    clip-path:polygon(0 0, calc(100% - 20px) 0, 100% 20px, 100% 100%, 0 100%);
+    border:none; border-top:1.5px solid var(--mt-gold-600);
   }
   .mt-confirm-overlay .ct-modal-header{ background:none; border-bottom:none; padding:22px 22px 0; }
   .mt-confirm-overlay .ct-modal-icon{
@@ -1267,14 +1284,21 @@
   }
   .mt-market-detail{ font-size:12px; color:var(--mt-ink-faint); margin-bottom:10px; padding-left:50px; }
   .mt-market-detail b{ color:var(--mt-ink-muted); }
-  .mt-market-btns{ display:flex; gap:8px; padding-left:50px; }
+  /* AJUSTE (pedido do usuário: "trocar os botões com texto Comprar,
+     Vender, Pegar Emprestado por três botões com um ícone que mostre
+     entrada, saída e empréstimo") — botão vira quadrado só com ícone
+     (sem texto), no lugar da pílula larga de antes; cor por ação
+     continua a mesma (dourado=comprar/entrada, contorno vermelho=
+     vender/saída, contorno neutro=emprestar em ambos os sentidos). */
+  .mt-market-btns{ display:flex; gap:10px; padding-left:50px; }
   .mt-btn-buy, .mt-btn-loan, .mt-btn-sell{
-    text-align:center; padding:10px; border-radius:999px; cursor:pointer;
-    font-family:'Rajdhani', var(--font); font-weight:700; font-size:13.5px; letter-spacing:.3px;
+    width:42px; height:42px; flex-shrink:0; display:flex; align-items:center; justify-content:center;
+    border-radius:10px; cursor:pointer;
   }
-  .mt-btn-buy{ flex:2; border:none; background:linear-gradient(180deg, var(--mt-gold-300), var(--mt-gold-600)); color:#3A2A03; box-shadow:inset 0 1px 0 rgba(255,255,255,.4), 0 3px 10px rgba(184,134,11,.3); }
-  .mt-btn-loan{ flex:1; font-weight:600; background:transparent; border:1.5px solid var(--mt-navy-600); color:var(--mt-ink-muted); }
-  .mt-btn-sell{ flex:2; background:transparent; border:1.5px solid var(--mt-crimson-500); color:var(--mt-crimson-400); }
+  .mt-btn-buy svg, .mt-btn-loan svg, .mt-btn-sell svg{ width:19px; height:19px; }
+  .mt-btn-buy{ border:none; background:linear-gradient(180deg, var(--mt-gold-300), var(--mt-gold-600)); color:#3A2A03; box-shadow:inset 0 1px 0 rgba(255,255,255,.4), 0 3px 10px rgba(184,134,11,.3); }
+  .mt-btn-loan{ background:transparent; border:1.5px solid var(--mt-navy-600); color:var(--mt-ink-muted); }
+  .mt-btn-sell{ background:transparent; border:1.5px solid var(--mt-crimson-500); color:var(--mt-crimson-400); }
   .mt-btn-buy:disabled, .mt-btn-loan:disabled, .mt-btn-sell:disabled{ opacity:.45; cursor:not-allowed; }
 </style>
 </head>
