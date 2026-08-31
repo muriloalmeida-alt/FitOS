@@ -73,10 +73,22 @@ function realTeamColor(name, competitionId) {
   // de dado real vs "Athletico Paranaense" aqui, mesmo bug de fundo
   // que já rendeu o card do Athletico aparecendo VERDE em modo ao
   // vivo, sem relação nenhuma com a cor real do clube).
-  const match = demoTeams.find(t =>
+  let match = demoTeams.find(t =>
     normalizeNameForColor(t.name) === norm ||
     (t.aliases || []).some(a => normalizeNameForColor(a) === norm)
   );
+  // AJUSTE (pedido do usuário: "cores de fundo sem relação com o
+  // degradê proposto") — variação de nome ainda não reportada/somada a
+  // `aliases` caía direto pro hash genérico (colorForId), sem relação
+  // nenhuma com o clube de verdade. Antes de desistir, tenta um 2º
+  // match por "contém" nos dois sentidos — seguro aqui porque
+  // demoTeams só cobre os clubes fixos desta competição.
+  if (!match) {
+    match = demoTeams.find(t => {
+      const candidates = [t.name, ...(t.aliases || [])].map(normalizeNameForColor).filter(c => c.length > 3);
+      return candidates.some(c => norm.includes(c) || c.includes(norm));
+    });
+  }
   // c3 é OPCIONAL (só clube tricolor de verdade tem, ver AJUSTE em
   // data.js) -- sem incluir aqui, o degradê de 3 cores do modo
   // Exemplo virava 2 cores de novo assim que passava pro modo ao
