@@ -794,15 +794,21 @@ const SPONSOR_KIND_LABEL = { master: "Patrocinador Master", material: "Material 
 // material), cada uma com o contrato atual ou um botão "Ver propostas"
 // quando o contrato venceu (ver advanceSponsorshipSeason).
 function renderSponsorship() {
+  // AJUSTE (redesign, Tela 3) — .mt-sponsor-row no lugar de
+  // .ct-sponsor-row (ver 03-central-restyled.html do designer): nome
+  // + detalhe em 2 linhas à esquerda, "N temp." em destaque à
+  // direita (ou "Ver propostas" quando não tem contrato ainda).
   const rows = ["master", "material"].map((kind) => {
     const deal = CAREER.sponsorship[kind];
-    const info = deal
-      ? `${escapeHtml(deal.empresa)} · ${fmtBRL(deal.valorTemporada)}/temporada · ${deal.temporadasRestantes} temporada${deal.temporadasRestantes === 1 ? "" : "s"} restante${deal.temporadasRestantes === 1 ? "" : "s"}`
+    const detail = deal
+      ? `${escapeHtml(deal.empresa)} · ${fmtBRL(deal.valorTemporada)}/temporada`
       : "Sem contrato — escolha uma proposta";
-    const btn = deal ? "" : `<button class="ct-btn small" data-sponsor-choose="${kind}">Ver propostas</button>`;
-    return `<div class="ct-sponsor-row">
-      <div><b>${SPONSOR_KIND_LABEL[kind]}</b><div class="ct-sub">${info}</div></div>
-      ${btn}
+    const right = deal
+      ? `<span class="mt-sponsor-tag">${deal.temporadasRestantes} temp.</span>`
+      : `<button class="mt-sponsor-btn" data-sponsor-choose="${kind}">Ver propostas</button>`;
+    return `<div class="mt-sponsor-row">
+      <div><div class="mt-sponsor-name">${SPONSOR_KIND_LABEL[kind]}</div><div class="mt-sponsor-detail">${detail}</div></div>
+      ${right}
     </div>`;
   }).join("");
   const box = document.getElementById("sponsorshipBox");
@@ -3601,7 +3607,10 @@ function renderCentral() {
   // Pedido do usuário: número da rodada saiu do header (agora só logo
   // + "Modo Carreira" + menu, ver ct-topbar) e virou parte do título
   // deste card: "Próximo jogo (X / 38)".
-  document.getElementById("roundPill").textContent = `(${Math.min(CAREER.currentRound, 38)} / 38)`;
+  // AJUSTE (redesign, Tela 3) — sem parênteses: virou um chip próprio
+  // ao lado do título (ver .ct-round-inline em carreira.html), não
+  // mais texto parentético dentro do <h2>.
+  document.getElementById("roundPill").textContent = `${Math.min(CAREER.currentRound, 38)} / 38`;
   const box = document.getElementById("nextMatchBox");
   const btn = document.getElementById("btnSimulate");
   const round = CAREER.currentRound;
@@ -3648,7 +3657,7 @@ function renderCentral() {
   ].map(([l, v]) => kpiHTML(l, v)).join("") + kpiHTML("Moral do elenco", avgMorale, avgMorale >= 80 ? "gold" : avgMorale <= 30 ? "red" : null);
   // FASE 3 (c) — ano da carreira sempre visível (não só no modal de
   // transição), mesmo padrão do "(X / 38)" ao lado de "Próximo jogo".
-  document.getElementById("seasonYearLabel").textContent = `(Temporada ${CAREER.seasonYear})`;
+  document.getElementById("seasonYearLabel").textContent = `Temporada ${CAREER.seasonYear}`;
   // FASE 1 (item 3) — meta da diretoria sempre visível (ver comentário
   // no HTML). CAREER.boardGoal já existe garantido a essa altura
   // (startCareer/migrateCareerDefaults sempre calculam um).
@@ -3659,8 +3668,8 @@ function renderCentral() {
   const wageBill = wageBillOf(squad);
   const { cash, wageCap } = CAREER.finances;
   document.getElementById("financeKpis").innerHTML =
-    kpiHTML("Caixa", fmtBRLShort(cash), "gold") +
-    kpiHTML("Folha salarial", fmtBRLShort(wageBill), wageBill >= wageCap ? "red" : null);
+    kpiHTML("Caixa", fmtBRLShort(cash), "gold", "fin") +
+    kpiHTML("Folha salarial", fmtBRLShort(wageBill), wageBill >= wageCap ? "red" : null, "fin");
   const wagePct = wageCap ? clamp(Math.round((wageBill / wageCap) * 100), 0, 100) : 0;
   const wageFill = document.getElementById("wageCapFill");
   wageFill.style.width = `${wagePct}%`;
@@ -4375,12 +4384,17 @@ function closeTabelaModal() {
    CAREER.standings) e da própria equipe (gols, cartões, assistências —
    gols vem de standings[clubId].gp; assistência/cartão de
    CAREER.teamStats, ver tallyTeamStats). */
-function kpiHTML(label, value, variant) {
+function kpiHTML(label, value, variant, block) {
   // variant: "gold" (destaque de marca) ou "red" (alerta — ex.: folha
-  // salarial estourando o teto), ver .ct-kpi .v.gold/.red em
-  // carreira.html (design system anexado pelo usuário: .bd-stat-value
-  // tem as duas variantes, não só a dourada).
-  return `<div class="ct-kpi"><div class="v${variant ? ` ${variant}` : ""}">${value}</div><div class="l">${label}</div></div>`;
+  // salarial estourando o teto). AJUSTE (redesign, Tela 3) —
+  // .mt-stat-block no lugar de .ct-kpi (ver 03-central-restyled.html
+  // do designer); usado por toda tela que monta KPI numérico
+  // (Central, Estatísticas), reestilizando as duas de uma vez.
+  // "block" (opcional): "fin" usa o bloco largo .mt-fin-block, próprio
+  // do card "Financeiro" (só 2 valores, lado a lado, mais largos que o
+  // grid 2×2 de "Situação do elenco") — default continua .mt-stat-block.
+  const cls = block === "fin" ? "mt-fin-block" : "mt-stat-block";
+  return `<div class="${cls}"><div class="num${variant ? ` ${variant}` : ""}">${value}</div><div class="lbl">${label}</div></div>`;
 }
 function renderEstatisticas() {
   const rows = Object.values(CAREER.standings);
@@ -4727,7 +4741,7 @@ function showGameScreen() {
   renderAll();
 }
 function switchToPanel(name) {
-  document.querySelectorAll(".ct-tab").forEach((b) => b.classList.toggle("active", b.dataset.panel === name));
+  document.querySelectorAll(".mt-nav-item").forEach((b) => b.classList.toggle("active", b.dataset.panel === name));
   document.querySelectorAll(".ct-panel").forEach((p) => p.classList.toggle("active", p.id === "panel-" + name));
 }
 
@@ -4912,7 +4926,7 @@ function wireStaticListeners() {
   populateSelect("liveTacticsMarking", TACTIC_OPTIONS.marking);
   populateSelect("liveTacticsTempo", TACTIC_OPTIONS.tempo);
 
-  document.querySelectorAll(".ct-tab").forEach((btn) => {
+  document.querySelectorAll(".mt-nav-item").forEach((btn) => {
     btn.addEventListener("click", () => switchToPanel(btn.dataset.panel));
   });
   // Pedido do usuário: textos explicativos (ex.: "Clique num jogador
