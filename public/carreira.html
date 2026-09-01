@@ -1644,6 +1644,14 @@
            mesma linguagem de cor do Elenco/Detalhe (ovrTierClass()).
            Barra de ação fixa (.mt-action-bar, mesmo padrão da Central)
            pro botão "Salvar". -->
+      <!-- AJUSTE (pedido do usuário: "o botão Ajustar Escalação deve
+           abrir uma modal") — marcador vazio, só pra
+           openAdjustLineupModal()/closeAdjustLineupModal() (ver
+           carreira.js) saberem devolver a seção #panel-escalacao pro
+           lugar certo depois de movê-la (de verdade, o mesmo nó do
+           DOM) pra dentro do #adjustLineupOverlay e de volta — sem
+           duplicar nenhum id/render/wiring dos controles daqui. -->
+      <div id="escalacaoPanelAnchor" hidden></div>
       <section class="ct-panel" id="panel-escalacao">
         <div class="mt-card">
           <div class="mt-card-head"><div class="mt-card-title">Formação e titulares</div></div>
@@ -2151,8 +2159,16 @@
      qualquer simulação rodar de verdade (ver openPreMatchConfirm,
      chamada agora de dentro do clique de "Simular rodada" em vez de
      simulateRound() direto). "Ir para o jogo" só então dispara a
-     simulação de sempre; "Ajustar escalação" fecha e leva pra aba
-     Escalação; o X só fecha, sem simular nada. -->
+     simulação de sempre; o X só fecha, sem simular nada. AJUSTE
+     (pedido do usuário: "o botão Ajustar Escalação deve abrir uma
+     modal para que o cliente confirme a escalação com todas as opções
+     que tem na tela e com o botão Ir para o jogo") — "Ajustar
+     escalação" não fecha mais esta modal pra navegar pra aba
+     Escalação; abre #adjustLineupOverlay POR CIMA dela (que continua
+     aberta por baixo, mesmo padrão de sub-modal do resto do app —
+     ver openAdjustLineupModal em carreira.js), com a seção de
+     Escalação inteira (campinho, banco, táticas) e seu próprio "Ir
+     para o jogo". -->
 <!-- AJUSTE (refatoração completa, Tela 12f — ver imagem "depois" do
      docx, 12f-confirmar-escalacao) — cabeçalho reestilizado
      (.mt-fullheader, ícone de estádio SVG), placar/meta e lista de
@@ -2182,6 +2198,35 @@
     <div class="ct-modal-footer">
       <button class="mt-btn-primary-gold" id="btnPreMatchGo"><svg viewBox="0 0 24 24" fill="currentColor"><polygon points="6,4 20,12 6,20"/></svg>Ir para o jogo</button>
       <button class="mt-btn-ghost" id="btnPreMatchAdjust"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>Ajustar escalação</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= Modal: ajustar escalação (dentro do fluxo de
+     Confirmar escalação) =================
+     Pedido do usuário: "o botão Ajustar Escalação deve abrir uma
+     modal para que o cliente confirme a escalação com todas as
+     opções que tem na tela e com o botão Ir para o jogo" — aberta POR
+     CIMA do #preMatchOverlay (que fica aberto por baixo — mesmo
+     z-index 200, vence por ordem de HTML, ver openAdjustLineupModal
+     em carreira.js). O corpo (#adjustLineupBody) começa vazio: a
+     seção #panel-escalacao inteira (formação, escalar automaticamente,
+     campinho, banco, instruções táticas — TODOS os controles que já
+     existem na aba Escalação, sem duplicar nada) é movida pra dentro
+     dela ao abrir e devolvida pro lugar de sempre (ver
+     #escalacaoPanelAnchor) ao fechar. "Ir para o jogo" aqui faz
+     exatamente o mesmo que o da modal de baixo (mesma função
+     goToMatch, compartilhada). -->
+<div class="ct-modal-overlay ct-modal-fullscreen" id="adjustLineupOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header mt-fullheader">
+      <span class="ct-modal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg></span>
+      <div class="ct-modal-header-text"><h3>Ajustar escalação</h3></div>
+      <button class="ct-modal-close" id="adjustLineupClose">✕</button>
+    </div>
+    <div class="ct-modal-body" id="adjustLineupBody"></div>
+    <div class="ct-modal-footer">
+      <button class="mt-btn-primary-gold" id="btnAdjustLineupGo"><svg viewBox="0 0 24 24" fill="currentColor"><polygon points="6,4 20,12 6,20"/></svg>Ir para o jogo</button>
     </div>
   </div>
 </div>

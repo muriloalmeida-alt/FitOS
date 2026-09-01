@@ -4243,6 +4243,21 @@ function autoFillLineup() {
   persistCareer();
   toast(`Escalação automática aplicada — melhores overalls por posição${includeBase ? " (incluindo base)" : ""}.`);
 }
+// AJUSTE (pedido do usuário: "Ajustar Escalação deve abrir uma modal
+// ... com o botão Ir para o jogo") — extraída de dentro do clique de
+// "Salvar escalação e táticas" (única cópia antes) pra também ser
+// chamada por "Ir para o jogo" (ver goToMatch) — sem isso, mudar as
+// táticas na modal (ou até na própria aba) e ir direto pro jogo sem
+// clicar em "Salvar" perderia a escolha em silêncio, já que esses 4
+// selects só valiam de verdade quando lidos aqui. Esquema/titulares/
+// banco não precisam disso — já são aplicados na hora (ver
+// formationSelect/autoFillLineup/openPicker).
+function commitLineupTactics() {
+  CAREER.lineup.tactics.mentality = document.getElementById("tacticMentality").value;
+  CAREER.lineup.tactics.marking = document.getElementById("tacticMarking").value;
+  CAREER.lineup.tactics.tempo = document.getElementById("tacticTempo").value;
+  CAREER.trainingFocus = document.getElementById("trainingFocus").value;
+}
 // AJUSTE (refatoração completa, Tela 6 — ver 06-escalacao-restyled.html
 // do designer) — campinho próprio (.mt-pitch*, NÃO reaproveita
 // .button-pitch/.button-row/.button-disc de css/style.css, que são
@@ -4368,6 +4383,80 @@ function openPreMatchConfirm() {
 }
 function closePreMatchConfirm() {
   document.getElementById("preMatchOverlay").classList.remove("open");
+}
+// AJUSTE (pedido do usuário: "o botão Ajustar Escalação deve abrir
+// uma modal para que o cliente confirme a escalação com todas as
+// opções que tem na tela e com o botão Ir para o jogo") — em vez de
+// duplicar a seção #panel-escalacao inteira (campinho, banco, táticas
+// — muitos ids e listeners) numa 2ª marcação só pra essa modal, move
+// o MESMO nó do DOM pra dentro do corpo de #adjustLineupOverlay
+// (#panel-escalacao guarda a posição original em
+// #escalacaoPanelAnchor, ver carreira.html) — zero duplicação, os
+// mesmos ids/render/wiring de sempre continuam funcionando idênticos.
+// #preMatchOverlay fica aberta POR BAIXO (mesmo padrão de sub-modal
+// usado no resto do app — ver renewOverlay/detailOverlay), não
+// precisa reabrir a confirmação do zero ao fechar esta.
+let ADJUST_LINEUP_WAS_ACTIVE = false;
+function openAdjustLineupModal() {
+  const panel = document.getElementById("panel-escalacao");
+  ADJUST_LINEUP_WAS_ACTIVE = panel.classList.contains("active");
+  panel.classList.add("active"); // .ct-panel só fica visível com essa classe (ver CSS)
+  // A barra de ação própria da aba ("Salvar escalação e táticas") não
+  // faz sentido aqui dentro — esta modal já tem seu próprio rodapé
+  // fixo com "Ir para o jogo" (ver .ct-modal-footer abaixo).
+  panel.querySelector(".mt-action-bar").classList.add("hidden");
+  document.getElementById("adjustLineupBody").appendChild(panel);
+  renderEscalacao();
+  document.getElementById("adjustLineupOverlay").classList.add("open");
+}
+function closeAdjustLineupModal() {
+  const overlay = document.getElementById("adjustLineupOverlay");
+  if (!overlay.classList.contains("open")) return; // já fechada, nada a devolver
+  const panel = document.getElementById("panel-escalacao");
+  const anchor = document.getElementById("escalacaoPanelAnchor");
+  anchor.parentNode.insertBefore(panel, anchor);
+  panel.classList.toggle("active", ADJUST_LINEUP_WAS_ACTIVE);
+  panel.querySelector(".mt-action-bar").classList.remove("hidden");
+  overlay.classList.remove("open");
+  // A confirmação de escalação continua aberta por baixo — atualiza
+  // com qualquer mudança feita aqui (formação/titulares/banco/táticas).
+  if (document.getElementById("preMatchOverlay").classList.contains("open")) renderPreMatchConfirm();
+}
+// Fluxo de "Simular rodada" (pedido do usuário): confirmar escalação
+// em tela cheia (ver openPreMatchConfirm) -> "Ir para o jogo" -> modal
+// com o jogo do clube (resultado/gols/assistências/cartões) ->
+// "Continuar" -> modal com o resultado da rodada inteira (+ trocas
+// forçadas de escalação, se houve) -> "Continuar" -> aba Tabela já
+// atualizada. Ver showMatchDetailModal/showRoundResultsModal. AJUSTE
+// (pedido do usuário: "Ajustar Escalação deve abrir uma modal ... com
+// o botão Ir para o jogo") — extraída do clique único de "Ir para o
+// jogo" em #preMatchOverlay (única cópia antes) pra também ser usada
+// pelo "Ir para o jogo" de #adjustLineupOverlay (ver wireStaticListeners)
+// — fecha as duas modais (a que estiver aberta) e dispara a simulação
+// de sempre. commitLineupTactics() garante que táticas mudadas sem
+// clicar em "Salvar escalação e táticas" não se percam.
+async function goToMatch() {
+  closePreMatchConfirm();
+  closeAdjustLineupModal();
+  commitLineupTactics();
+  const btn = document.getElementById("btnSimulate");
+  btn.disabled = true;
+  const summary = simulateRound();
+  // FASE 3 (itens 1 e 2) — existindo jogo seu na rodada, simulateRound()
+  // já abriu a tela Ao Vivo e devolve o sentinela "live" — o resto do
+  // fluxo (persistir/renderizar/mostrar os modais de sempre) roda
+  // sozinho quando a partida termina, ver finishLiveMatch. Só reabilita
+  // o botão se o fluxo antigo (sem jogo seu, ver resolveRoundInstant)
+  // rodou de verdade.
+  if (summary === "live") return;
+  const saved = await persistCareer();
+  // Se não deu pra salvar (ex.: sessão expirada — ver persistCareer),
+  // não mostra o modal do jogo por cima da tela de login: ela já foi
+  // trocada lá dentro, e ao logar de novo o save do servidor (sem essa
+  // rodada) é recarregado mesmo.
+  if (!saved) { btn.disabled = false; return; }
+  renderAll();
+  if (summary) showMatchDetailModal(summary);
 }
 
 /* ---------- Modal: escolher jogador ---------- */
@@ -5169,10 +5258,7 @@ function wireStaticListeners() {
   });
   document.getElementById("btnAutoLineup").addEventListener("click", autoFillLineup);
   document.getElementById("btnSaveLineup").addEventListener("click", () => {
-    CAREER.lineup.tactics.mentality = document.getElementById("tacticMentality").value;
-    CAREER.lineup.tactics.marking = document.getElementById("tacticMarking").value;
-    CAREER.lineup.tactics.tempo = document.getElementById("tacticTempo").value;
-    CAREER.trainingFocus = document.getElementById("trainingFocus").value;
+    commitLineupTactics();
     persistCareer();
     toast("Escalação e táticas salvas.");
     renderCentral();
@@ -5187,37 +5273,22 @@ function wireStaticListeners() {
   document.getElementById("btnSimulate").addEventListener("click", () => {
     openPreMatchConfirm();
   });
-  // AJUSTE — X e "Ajustar escalação" só fecham a confirmação sem
-  // simular nada (mesmo padrão de sempre: nenhum passo avança sozinho
-  // sem o usuário clicar no botão de continuar/ir); "Ajustar
-  // escalação" já leva direto pra aba certa, poupando 1 clique.
+  // AJUSTE — X só fecha a confirmação sem simular nada (mesmo padrão
+  // de sempre: nenhum passo avança sozinho sem o usuário clicar no
+  // botão de continuar/ir).
   document.getElementById("preMatchClose").addEventListener("click", closePreMatchConfirm);
   document.getElementById("preMatchOverlay").addEventListener("click", (e) => { if (e.target.id === "preMatchOverlay") closePreMatchConfirm(); });
-  document.getElementById("btnPreMatchAdjust").addEventListener("click", () => {
-    closePreMatchConfirm();
-    switchToPanel("escalacao");
-  });
-  document.getElementById("btnPreMatchGo").addEventListener("click", async () => {
-    closePreMatchConfirm();
-    const btn = document.getElementById("btnSimulate");
-    btn.disabled = true;
-    const summary = simulateRound();
-    // FASE 3 (itens 1 e 2) — existindo jogo seu na rodada,
-    // simulateRound() já abriu a tela Ao Vivo e devolve o sentinela
-    // "live" — o resto do fluxo (persistir/renderizar/mostrar os
-    // modais de sempre) roda sozinho quando a partida termina, ver
-    // finishLiveMatch. Só reabilita o botão se o fluxo antigo (sem
-    // jogo seu, ver resolveRoundInstant) rodou de verdade.
-    if (summary === "live") return;
-    const saved = await persistCareer();
-    // Se não deu pra salvar (ex.: sessão expirada — ver persistCareer),
-    // não mostra o modal do jogo por cima da tela de login: ela já foi
-    // trocada lá dentro, e ao logar de novo o save do servidor (sem
-    // essa rodada) é recarregado mesmo.
-    if (!saved) { btn.disabled = false; return; }
-    renderAll();
-    if (summary) showMatchDetailModal(summary);
-  });
+  // AJUSTE (pedido do usuário: "o botão Ajustar Escalação deve abrir
+  // uma modal ... com o botão Ir para o jogo") — antes fechava esta
+  // modal e navegava pra aba Escalação (perdendo o fluxo de "Simular
+  // rodada" de vez, exigia clicar em "Simular rodada" de novo pra
+  // voltar); agora abre #adjustLineupOverlay por cima, sem fechar esta
+  // (ver openAdjustLineupModal).
+  document.getElementById("btnPreMatchAdjust").addEventListener("click", openAdjustLineupModal);
+  document.getElementById("btnPreMatchGo").addEventListener("click", goToMatch);
+  document.getElementById("adjustLineupClose").addEventListener("click", closeAdjustLineupModal);
+  document.getElementById("adjustLineupOverlay").addEventListener("click", (e) => { if (e.target.id === "adjustLineupOverlay") closeAdjustLineupModal(); });
+  document.getElementById("btnAdjustLineupGo").addEventListener("click", goToMatch);
   // FASE 3 (itens 1 e 2) — botões fixos da tela Ao Vivo (substituição/
   // tática) e os 2 sub-modais que eles abrem, mesmo padrão de
   // fechamento dos outros sub-modais (X e clique fora cancelam sem
