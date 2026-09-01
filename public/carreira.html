@@ -4,7 +4,25 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Modo Técnico · BR Data</title>
+<!-- AJUSTE (pedido do usuário: "quando eu clico em adicionar à tela
+     de início no Chrome eu quero que a logo do BR Data fique em
+     destaque e que o título seja BR Treinador") — manifest PRÓPRIO
+     desta página (manifest-treinador.json), separado do
+     manifest.json do site principal (index.html, "BR Data" — não
+     mexido): "Adicionar à tela de início" aqui instala como app
+     distinto, ícone/nome próprios, sem afetar a instalação do site
+     principal. Ícones reaproveitados de img/icons/ (mesmos do site
+     principal — já é só o brasão/escudo em destaque, sem a marca
+     "BR DATA" por extenso, o corte certo pra um ícone de app). -->
+<link rel="manifest" href="manifest-treinador.json">
+<meta name="theme-color" content="#060D1A">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="BR Treinador">
+<link rel="apple-touch-icon" href="img/icons/apple-touch-icon.png">
 <link rel="icon" type="image/png" sizes="32x32" href="img/icons/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="img/icons/favicon-16.png">
 <link rel="stylesheet" href="css/style.css">
 <!-- AJUSTE (pedido do usuário: refatorar visualmente seguindo o mockup
      "BR Data — Modo Carreira (adaptado)") — Barlow Condensed pros
