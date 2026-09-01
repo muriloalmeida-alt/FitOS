@@ -253,9 +253,18 @@
   .mt-nav-item.active svg{ opacity:1; }
 
   /* ---- barra de ação fixa, ancorada acima da nav (Central por ora) ---- */
+  /* AJUSTE (pedido do usuário: "quando eu rolo a tela o botão Ir para
+     o jogo deve colar no menu que está fixo no rodapé — está criando
+     um espaço entre eles") — o padding-bottom de 12px (+ o respiro de
+     safe-area, que não faz sentido aqui: quem toca a borda física da
+     tela é a nav logo abaixo, não esta barra) empurrava o botão pra
+     cima, sobrando uma faixa vazia com o fundo da própria barra entre
+     ele e a borda dourada da nav. Zerado — o botão agora encosta
+     direto na nav (a barra ainda tem 74px = var(--mt-navh) até ali,
+     só que sem padding nenhum sobrando embaixo). */
   .mt-action-bar{
     position:fixed; left:0; right:0; bottom:var(--mt-navh); z-index:110;
-    padding:12px 18px calc(12px + env(safe-area-inset-bottom, 0px));
+    padding:12px 18px 0;
     background:linear-gradient(0deg, var(--mt-navy-950) 55%, rgba(6,13,26,0));
   }
   .mt-btn-primary{
