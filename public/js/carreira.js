@@ -146,9 +146,52 @@ async function fetchJSON(url, opts) {
   return data;
 }
 let toastTimer = null;
+// AJUSTE (pedido do usuário: "as mensagens que aparecem em várias
+// situações no rodapé estão ficando acima dos botões") — .ct-toast
+// tinha um bottom:18px fixo, sem saber que chrome fixo existe embaixo
+// dele no momento (a nav inferior, e às vezes também a barra de ação
+// da Central/Escalação — ou, com uma modal aberta por cima de tudo, o
+// rodapé fixo DELA, ver .ct-modal-footer) — o toast ficava por trás/
+// colado nesses botões em vez de flutuar por cima, limpo. Calcula na
+// hora de mostrar, em vez de um valor fixo: com modal aberta, sobe
+// acima do rodapé DELA (é o que cobre a tela, escondendo nav/barra de
+// ação por baixo); sem modal, sobe acima da nav (+ a barra de ação,
+// só quando o painel atual tiver uma — Central/Escalação). Onde não
+// existe chrome fixo nenhum (login, escolha de clube, diálogos curtos
+// sem rodapé fixo) cai no mesmo 18px de sempre.
+// AJUSTE: offsetParent NÃO serve pra checar visibilidade aqui — um
+// elemento position:fixed (a nav e a barra de ação são) devolve
+// offsetParent nulo mesmo quando está bem visível na tela (gambiarra
+// conhecida do próprio DOM, nada a ver com display:none). O jeito
+// confiável de saber se um elemento realmente está renderizado (nem
+// ele nem nenhum ancestral com display:none) é conferir se o retângulo
+// que ele ocupa tem tamanho de verdade.
+function isRendered(el) {
+  if (!el) return false;
+  const r = el.getBoundingClientRect();
+  return r.width > 0 && r.height > 0;
+}
+function toastBottomOffset() {
+  const openModals = document.querySelectorAll(".ct-modal-overlay.open");
+  if (openModals.length) {
+    // A última no HTML é a que está por cima quando há mais de uma
+    // aberta ao mesmo tempo (ex.: Confirmar escalação + Ajustar
+    // escalação) — mesma convenção de empilhamento usada no resto do
+    // app (ver AJUSTE do #adjustLineupOverlay).
+    const footer = openModals[openModals.length - 1].querySelector(".ct-modal-footer");
+    return isRendered(footer) ? footer.getBoundingClientRect().height + 14 : 18;
+  }
+  const nav = document.querySelector(".mt-bottom-nav");
+  if (!isRendered(nav)) return 18;
+  let offset = nav.getBoundingClientRect().height + 14;
+  const actionBar = [...document.querySelectorAll(".mt-action-bar")].find(isRendered);
+  if (actionBar) offset += actionBar.getBoundingClientRect().height;
+  return offset;
+}
 function toast(msg, durationMs = 3600) {
   const el = document.getElementById("toast");
   el.textContent = msg;
+  el.style.bottom = toastBottomOffset() + "px";
   el.style.display = "block";
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.style.display = "none"; }, durationMs);
