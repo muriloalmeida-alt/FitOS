@@ -2778,18 +2778,6 @@ function generateRoundNews(round, allResults, standingsBefore) {
   headlines.sort((a, b) => ((b.mine ? 1 : 0) - (a.mine ? 1 : 0)) || (NEWS_PRIORITY[a.type] - NEWS_PRIORITY[b.type]));
   return headlines.slice(0, 6);
 }
-// Feed dentro do modal "Resultados da rodada" (ver showRoundResultsModal)
-// — nome de fonte fictícia (pedido opcional da especificação) só pra
-// dar sabor de jornal de verdade.
-function roundNewsHTML(news) {
-  if (!news || !news.length) return "";
-  const rows = news.map((n) => `<div class="ct-transfer-feed-item">${NEWS_ICON[n.type] || "📰"} ${escapeHtml(n.texto)}</div>`).join("");
-  // AJUSTE (refatoração completa, Tela 16) — título vira .mt-card-title
-  // (o próprio #roundResultsNews virou .mt-card no HTML, ver
-  // #roundResultsOverlay em carreira.html) no lugar do <p> em negrito
-  // solto de antes.
-  return `<div class="mt-card-title" style="margin-bottom:8px;">📻 Rádio Data FM — Notícias da rodada</div>${rows}`;
-}
 // AJUSTE (pedido do usuário: "esperava uma tela exclusiva pra
 // notícias nos padrões de um portal de esportes") — tela própria
 // acessível pelo menu "≡", separada do flash rápido acima (que
@@ -3269,16 +3257,20 @@ function finishRoundTail(round, allResults, humanMatch, standingsBefore) {
   const news = generateRoundNews(round, allResults, standingsBefore);
   // AJUSTE (pedido do usuário: "esperava uma tela exclusiva pra
   // notícias nos padrões de um portal de esportes") — até aqui as
-  // manchetes só existiam durante o modal de resultados da rodada,
-  // sem ficar guardadas em lugar nenhum (ver roundNewsHTML, que segue
-  // existindo pro flash rápido). Agora também entram num feed
+  // manchetes só existiam durante o modal de resultados da rodada, sem
+  // ficar guardadas em lugar nenhum. Agora também entram num feed
   // navegável (ver renderNewsScreen), com round/temporada anexados pra
   // dar contexto — mais NOVAS primeiro, capado em NEWS_FEED_MAX pra
-  // não pesar o save (mesmo espírito de MAX_SEASON_HISTORY).
+  // não pesar o save (mesmo espírito de MAX_SEASON_HISTORY). AJUSTE
+  // (pedido do usuário, revisão das modais de pós-jogo) — o flash
+  // rápido dentro do modal de resultados da rodada foi removido (a
+  // cobertura completa já mora na tela de Notícias, que abre antes
+  // dele no mesmo fluxo); `news` não sai mais no objeto devolvido
+  // abaixo, só alimenta CAREER.newsFeed aqui.
   const roundEntries = news.map((n) => ({ ...n, round, seasonYear: CAREER.seasonYear }));
   CAREER.newsFeed = roundEntries.concat(CAREER.newsFeed || []);
   if (CAREER.newsFeed.length > NEWS_FEED_MAX) CAREER.newsFeed.length = NEWS_FEED_MAX;
-  return { round, humanMatch, allResults, lineupChanges, wagePaid, sponsorIncome, newOffer: CAREER.pendingOffer, cup, news };
+  return { round, humanMatch, allResults, lineupChanges, wagePaid, sponsorIncome, newOffer: CAREER.pendingOffer, cup };
 }
 // Fallback pra uma rodada em que o SEU clube não jogue (não deveria
 // acontecer no returno completo de pontos corridos, mas o calendário é
@@ -4977,6 +4969,14 @@ function showMatchDetailModal(summary) {
   PENDING_ROUND_SUMMARY = summary;
   document.getElementById("matchDetailOverlay").classList.add("open");
 }
+// AJUSTE (pedido do usuário, revisão das modais de pós-jogo) — usada
+// tanto pelo X do cabeçalho quanto pelo "Fechar" no rodapé (ver
+// #matchDetailClose/#btnMatchDetailCloseFooter) — só fecha, sem seguir
+// o fluxo pós-jogo (quem quiser ver Notícias/Resultados clica em
+// "Continuar" mesmo).
+function closeMatchDetailModal() {
+  document.getElementById("matchDetailOverlay").classList.remove("open");
+}
 // 2º modal: placar dos 20 times nessa rodada + trocas forçadas de
 // escalação (jogador que ficou indisponível — ver autoFixLineup),
 // quando houve. "Continuar" leva pra Tabela já atualizada.
@@ -5019,11 +5019,16 @@ function showRoundResultsModal(summary) {
   // FASE 2 (a) — Copa do Brasil: só existe summary.cup nas 4 rodadas
   // certas com seu clube ainda vivo (ver resolveCupPhase).
   document.getElementById("roundResultsCup").innerHTML = summary.cup ? cupRoundResultsHTML(summary.cup) : "";
-  // FASE 4 (item 3) — notícias da rodada, logo abaixo da lista de
-  // placares (ver generateRoundNews/roundNewsHTML).
-  document.getElementById("roundResultsNews").innerHTML = roundNewsHTML(summary.news);
   PENDING_ROUND_SUMMARY = null;
   document.getElementById("roundResultsOverlay").classList.add("open");
+}
+// AJUSTE (pedido do usuário, revisão das modais de pós-jogo) — usada
+// tanto pelo X do cabeçalho quanto pelo "Fechar" no rodapé (ver
+// #roundResultsClose/#btnRoundResultsCloseFooter) — só fecha, sem
+// seguir o fluxo (quem quiser ver a proposta em destaque/Tabela clica
+// em "Continuar" mesmo).
+function closeRoundResultsModal() {
+  document.getElementById("roundResultsOverlay").classList.remove("open");
 }
 // Lista os confrontos da fase da Copa que acabou de rolar (mesmo
 // componente visual .ct-round-result-row/.me da lista de resultados do
@@ -5269,6 +5274,10 @@ function wireStaticListeners() {
     else openTabelaModal();
   });
   document.getElementById("tabelaModalClose").addEventListener("click", closeTabelaModal);
+  // AJUSTE (pedido do usuário, revisão das modais de pós-jogo:
+  // "aplicar o mesmo layout das demais modais e incluir abaixo apenas
+  // o botão fechar") — "Fechar" no rodapé fixo, mesma função do X.
+  document.getElementById("btnTabelaModalCloseFooter").addEventListener("click", closeTabelaModal);
   document.getElementById("tabelaModalOverlay").addEventListener("click", (e) => { if (e.target.id === "tabelaModalOverlay") closeTabelaModal(); });
   // FASE 4 (item 6, ajuste) — modal de destaque pra proposta recebida
   // por jogador seu, aberta de dentro do fluxo pós-jogo (ver
@@ -5289,6 +5298,10 @@ function wireStaticListeners() {
     openNewsScreen();
   });
   document.getElementById("newsClose").addEventListener("click", closeNewsScreen);
+  // AJUSTE (pedido do usuário, revisão das modais de pós-jogo) —
+  // "Fechar" no rodapé (ver #newsFooter em carreira.html, só existe
+  // junto do "Continuar" no fluxo pós-jogo), mesma função do X.
+  document.getElementById("btnNewsCloseFooter").addEventListener("click", closeNewsScreen);
   document.getElementById("newsOverlay").addEventListener("click", (e) => { if (e.target.id === "newsOverlay") closeNewsScreen(); });
   // AJUSTE — "Continuar" só existe quando a tela faz parte do fluxo
   // pós-jogo (ver openNewsScreen/continueFromNewsScreen); o atalho de
@@ -5447,10 +5460,16 @@ function wireStaticListeners() {
   });
   // Pedido do usuário: X também nas modais de detalhe do jogo e de
   // resultados da rodada (só fecha, igual às outras 2 — quem quiser ver
-  // o próximo passo do fluxo clica em "Continuar" mesmo).
-  document.getElementById("matchDetailClose").addEventListener("click", () => document.getElementById("matchDetailOverlay").classList.remove("open"));
+  // o próximo passo do fluxo clica em "Continuar" mesmo). AJUSTE
+  // (pedido do usuário, revisão das modais de pós-jogo) — "Fechar" no
+  // rodapé (ver #btnMatchDetailCloseFooter/#btnRoundResultsCloseFooter
+  // em carreira.html) faz exatamente o mesmo que o X do cabeçalho, só
+  // mais fácil de alcançar — mesma função pros dois.
+  document.getElementById("matchDetailClose").addEventListener("click", closeMatchDetailModal);
+  document.getElementById("btnMatchDetailCloseFooter").addEventListener("click", closeMatchDetailModal);
   document.getElementById("matchDetailOverlay").addEventListener("click", (e) => { if (e.target.id === "matchDetailOverlay") e.currentTarget.classList.remove("open"); });
-  document.getElementById("roundResultsClose").addEventListener("click", () => document.getElementById("roundResultsOverlay").classList.remove("open"));
+  document.getElementById("roundResultsClose").addEventListener("click", closeRoundResultsModal);
+  document.getElementById("btnRoundResultsCloseFooter").addEventListener("click", closeRoundResultsModal);
   document.getElementById("roundResultsOverlay").addEventListener("click", (e) => { if (e.target.id === "roundResultsOverlay") e.currentTarget.classList.remove("open"); });
 
   document.getElementById("ctLoginForm").addEventListener("submit", submitCtLogin);

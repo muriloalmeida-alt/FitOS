@@ -2220,20 +2220,29 @@
     </div>
     <div class="ct-modal-footer">
       <button class="mt-btn-primary-gold" id="btnMatchDetailContinue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>Continuar</button>
+      <button class="mt-btn-ghost" id="btnMatchDetailCloseFooter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Fechar</button>
     </div>
   </div>
 </div>
 
 <!-- ================= Modal: resultados da rodada inteira =================
      2º passo do fluxo (pedido do usuário) — placar dos 20 times nessa
-     rodada. "Continuar" fecha e leva pra aba Tabela já atualizada. -->
+     rodada. "Continuar" fecha e leva pra aba Tabela já atualizada;
+     "Fechar" (pedido do usuário, revisão das modais de pós-jogo) só
+     fecha, sem seguir o fluxo. -->
 <!-- AJUSTE (refatoração completa, Tela 16 — ver imagem "depois" do
      docx, 16-resultados-da-rodada) — .mt-fullheader (Tela 12f), lista
      de jogos + resumo financeiro num .mt-card (linha do próprio clube
      com borda dourada), proposta recebida virou .mt-badge-gold no
-     lugar do texto azul solto, "Rádio Data FM" e Copa do Brasil (só
-     aparece em 4 rodadas) em .mt-card próprios, botão
-     .mt-btn-primary-gold. -->
+     lugar do texto azul solto, Copa do Brasil (só aparece em 4
+     rodadas) em .mt-card próprio, botão .mt-btn-primary-gold. -->
+<!-- AJUSTE (pedido do usuário, revisão das modais de pós-jogo) —
+     seção "Rádio Data FM" (flash de notícias da rodada, ver
+     roundNewsHTML em carreira.js) removida — a cobertura completa já
+     mora na tela de Notícias (11d/15), que abre ANTES desta no mesmo
+     fluxo pós-jogo; botão "Ver tabela atualizada" renomeado pra
+     "Continuar" (mesmo destino de sempre: proposta por jogador em
+     destaque quando houver, senão a Tabela). -->
 <div class="ct-modal-overlay ct-modal-fullscreen" id="roundResultsOverlay">
   <div class="ct-modal">
     <div class="ct-modal-header mt-fullheader">
@@ -2256,14 +2265,10 @@
            carreira.js). Vazio (hidden por não ter innerHTML) no resto
            das rodadas. -->
       <div id="roundResultsCup"></div>
-      <!-- FASE 4 (item 3) — notícias da rodada, formato RSS (ver
-           generateRoundNews/roundNewsHTML em carreira.js). Vazio no
-           meio da montagem — sempre tem pelo menos a manchete genérica
-           de fallback, nunca fica realmente vazio. -->
-      <div class="mt-card" id="roundResultsNews"></div>
     </div>
     <div class="ct-modal-footer">
-      <button class="mt-btn-primary-gold" id="btnRoundResultsContinue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/></svg>Ver tabela atualizada</button>
+      <button class="mt-btn-primary-gold" id="btnRoundResultsContinue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>Continuar</button>
+      <button class="mt-btn-ghost" id="btnRoundResultsCloseFooter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Fechar</button>
     </div>
   </div>
 </div>
@@ -2276,6 +2281,12 @@
      carreira.js) — a aba Tabela em si continua existindo do jeito que
      sempre foi, esse modal só dá uma segunda forma de ver a mesma
      informação sem trocar de aba. -->
+<!-- AJUSTE (pedido do usuário, revisão das modais de pós-jogo:
+     "aplicar o mesmo layout das demais modais e incluir abaixo apenas
+     o botão fechar") — ganha o mesmo .ct-modal-footer fixo (irmão da
+     .ct-modal-body) das outras telas cheias, só que com um único
+     botão: não faz parte de nenhuma sequência de "Continuar" (é o fim
+     de qualquer fluxo que chega até aqui), só "Fechar". -->
 <div class="ct-modal-overlay ct-modal-fullscreen" id="tabelaModalOverlay">
   <div class="ct-modal">
     <div class="ct-modal-header">
@@ -2295,6 +2306,9 @@
       <h2 style="font-family:'Barlow Condensed', var(--font); font-weight:700; font-size:14.5px; margin:22px 0 12px; color:var(--text-0);">Copa do Brasil</h2>
       <p class="ct-sub" id="cupStatusTextModal"></p>
       <div id="cupHistoryModal"></div>
+    </div>
+    <div class="ct-modal-footer">
+      <button class="mt-btn-ghost" id="btnTabelaModalCloseFooter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Fechar</button>
     </div>
   </div>
 </div>
@@ -2382,6 +2396,7 @@
     </div>
     <div class="ct-modal-footer hidden" id="newsFooter">
       <button class="mt-btn-primary-gold" id="btnNewsContinue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>Continuar</button>
+      <button class="mt-btn-ghost" id="btnNewsCloseFooter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Fechar</button>
     </div>
   </div>
 </div>
