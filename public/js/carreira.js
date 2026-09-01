@@ -2870,7 +2870,14 @@ let NEWS_CHAIN_TO_ROUND_RESULTS = false;
 function openNewsScreen(chainToRoundResults) {
   renderNewsScreen(chainToRoundResults);
   NEWS_CHAIN_TO_ROUND_RESULTS = !!chainToRoundResults;
-  document.getElementById("btnNewsContinue").classList.toggle("hidden", !chainToRoundResults);
+  // AJUSTE (pedido do usuário: "botões de ação principal... travados
+  // no rodapé") — "Continuar" mora no rodapé fixo da modal
+  // (.ct-modal-footer, ver #newsFooter em carreira.html), separado do
+  // corpo rolável; esconde o RODAPÉ inteiro (não só o botão) quando a
+  // tela é aberta como simples consulta (sem chainToRoundResults) —
+  // senão sobraria uma faixa vazia com borda em cima, sem botão nenhum
+  // dentro.
+  document.getElementById("newsFooter").classList.toggle("hidden", !chainToRoundResults);
   document.getElementById("newsOverlay").classList.add("open");
 }
 function closeNewsScreen() {
