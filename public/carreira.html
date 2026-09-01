@@ -2332,6 +2332,19 @@
      .ct-modal-body) das outras telas cheias, só que com um único
      botão: não faz parte de nenhuma sequência de "Continuar" (é o fim
      de qualquer fluxo que chega até aqui), só "Fechar". -->
+<!-- AJUSTE (pedido do usuário: "a modal de Tabela segue fora do novo
+     layout") — o corpo tinha ficado pra trás da refatoração completa
+     da Tela 8 (aba Tabela, #panel-tabela): faltava o cartão chanfrado
+     (.mt-card) em volta da lista e da Copa do Brasil, a legenda de
+     cores das zonas (.mt-legend-row, Libertadores/Pré-Libertadores/
+     Rebaixamento — não existia aqui) e o título "Copa do Brasil" era
+     um <h2> solto em Barlow Condensed (fonte de ANTES do design
+     system atual) no lugar de .mt-card-title. Corrigido pra bater
+     exatamente com a aba (mesmos elementos, só com os ids da modal —
+     #standingsTableModal/#cupStatusTextModal/#cupHistoryModal — que
+     renderTabela/renderCopa já aceitavam por parâmetro). O título "Tabela
+     da carreira" não repete dentro do cartão (já está no cabeçalho da
+     própria modal, ver .ct-modal-header-text acima). -->
 <div class="ct-modal-overlay ct-modal-fullscreen" id="tabelaModalOverlay">
   <div class="ct-modal">
     <div class="ct-modal-header">
@@ -2340,17 +2353,24 @@
       <button class="ct-modal-close" id="tabelaModalClose">✕</button>
     </div>
     <div class="ct-modal-body">
-      <p class="ct-sub">Classificação própria dessa carreira (não é a tabela real do Brasileirão).</p>
-      <!-- AJUSTE (redesign, Tela 8) — mesma lista flex de #standingsTable
-           (ver renderTabela em carreira.js), não mais <table>. -->
-      <div class="mt-table-head-row">
-        <div class="mt-pos-num">#</div><div class="mt-team-cell">TIME</div>
-        <div class="mt-stat-col head">P</div><div class="mt-stat-col head">J</div><div class="mt-stat-col head">V</div><div class="mt-stat-col head">E</div><div class="mt-stat-col head">D</div><div class="mt-stat-col head">SG</div>
+      <div class="mt-card">
+        <p class="mt-card-sub">Classificação própria dessa carreira (não é a tabela real do Brasileirão).</p>
+        <div class="mt-table-head-row">
+          <div class="mt-pos-num">#</div><div class="mt-team-cell">TIME</div>
+          <div class="mt-stat-col head">P</div><div class="mt-stat-col head">J</div><div class="mt-stat-col head">V</div><div class="mt-stat-col head">E</div><div class="mt-stat-col head">D</div><div class="mt-stat-col head">SG</div>
+        </div>
+        <div id="standingsTableModal"></div>
+        <div class="mt-legend-row">
+          <div class="mt-legend-item"><span class="dot" style="background:var(--mt-gold-400);"></span>Libertadores</div>
+          <div class="mt-legend-item"><span class="dot" style="background:var(--mt-sky-400);"></span>Pré-Libertadores</div>
+          <div class="mt-legend-item"><span class="dot" style="background:var(--mt-crimson-400);"></span>Rebaixamento</div>
+        </div>
       </div>
-      <div id="standingsTableModal"></div>
-      <h2 style="font-family:'Barlow Condensed', var(--font); font-weight:700; font-size:14.5px; margin:22px 0 12px; color:var(--text-0);">Copa do Brasil</h2>
-      <p class="ct-sub" id="cupStatusTextModal"></p>
-      <div id="cupHistoryModal"></div>
+      <div class="mt-card">
+        <div class="mt-card-title">Copa do Brasil</div>
+        <p class="mt-card-sub" id="cupStatusTextModal" style="margin-bottom:0;"></p>
+        <div id="cupHistoryModal"></div>
+      </div>
     </div>
     <div class="ct-modal-footer">
       <button class="mt-btn-ghost" id="btnTabelaModalCloseFooter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Fechar</button>
