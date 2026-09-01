@@ -1582,10 +1582,16 @@
              ativa esconde a barra fixa junto, sem precisar de nenhum
              JS extra pra saber que aba está aberta. -->
         <div class="mt-action-bar" id="centralActionBar">
-          <button class="mt-btn-primary" id="btnSimulate">
-            <svg viewBox="0 0 24 24" fill="currentColor" style="width:18px;height:18px;"><polygon points="6,4 20,12 6,20"/></svg>
-            Simular rodada
-          </button>
+          <!-- AJUSTE (pedido do usuário: "o botão Simular Rodada pode
+               mudar para Ir para o jogo e manter o mesmo estilo dos
+               demais botões Ir para o Jogo já existentes") — texto e
+               classe (.mt-btn-primary-gold no lugar do verde
+               .mt-btn-primary) batendo com #btnPreMatchGo/
+               #btnAdjustLineupGo, mesmo ícone de "play" que já usava.
+               Continua abrindo a mesma confirmação de escalação de
+               sempre (ver openPreMatchConfirm) — só o botão que dá
+               esse primeiro passo mudou de nome/cor, não o fluxo. -->
+          <button class="mt-btn-primary-gold" id="btnSimulate"><svg viewBox="0 0 24 24" fill="currentColor"><polygon points="6,4 20,12 6,20"/></svg>Ir para o jogo</button>
           <!-- FASE 3 (c) — pedido do usuário: seguir jogando ano após
                ano (multitemporadas) — só aparece quando a temporada
                termina, ver renderCentral/advanceSeason. -->
@@ -2277,10 +2283,10 @@
      fecha, sem seguir o fluxo. -->
 <!-- AJUSTE (refatoração completa, Tela 16 — ver imagem "depois" do
      docx, 16-resultados-da-rodada) — .mt-fullheader (Tela 12f), lista
-     de jogos + resumo financeiro num .mt-card (linha do próprio clube
-     com borda dourada), proposta recebida virou .mt-badge-gold no
-     lugar do texto azul solto, Copa do Brasil (só aparece em 4
-     rodadas) em .mt-card próprio, botão .mt-btn-primary-gold. -->
+     de jogos num .mt-card (linha do próprio clube com borda dourada),
+     proposta recebida virou .mt-badge-gold no lugar do texto azul
+     solto, Copa do Brasil (só aparece em 4 rodadas) em .mt-card
+     próprio, botão .mt-btn-primary-gold. -->
 <!-- AJUSTE (pedido do usuário, revisão das modais de pós-jogo) —
      seção "Rádio Data FM" (flash de notícias da rodada, ver
      roundNewsHTML em carreira.js) removida — a cobertura completa já
@@ -2288,6 +2294,12 @@
      fluxo pós-jogo; botão "Ver tabela atualizada" renomeado pra
      "Continuar" (mesmo destino de sempre: proposta por jogador em
      destaque quando houver, senão a Tabela). -->
+<!-- AJUSTE (pedido do usuário: "tem uma informação de salários pagos
+     e renda que aparece no resultado da rodada que deveria aparecer
+     na tela de notícias do time") — #roundResultsFinance (salários
+     pagos/patrocínio/caixa) removida daqui, mesmo raciocínio do ajuste
+     acima: já aparece no cartão-resumo da tela de Notícias
+     (#newsFinanceRow), que abre ANTES desta no mesmo fluxo. -->
 <div class="ct-modal-overlay ct-modal-fullscreen" id="roundResultsOverlay">
   <div class="ct-modal">
     <div class="ct-modal-header mt-fullheader">
@@ -2301,7 +2313,6 @@
     <div class="ct-modal-body">
       <div class="mt-card">
         <div id="roundResultsList"></div>
-        <p class="ct-sub" id="roundResultsFinance" style="margin-top:10px;"></p>
         <p class="ct-sub" id="roundResultsChanges"></p>
       </div>
       <p class="mt-badge-gold hidden" id="roundResultsOffer" style="display:flex; width:100%; box-sizing:border-box;"></p>
@@ -2452,6 +2463,15 @@
 
       <div class="mt-news-sectitle"><span>Resumo</span><div class="line"></div></div>
       <div class="mt-news-summary">
+        <!-- AJUSTE (pedido do usuário: "tem uma informação de
+             salários pagos e renda que aparece no resultado da
+             rodada que deveria aparecer na tela de notícias do
+             time") — mesma linha que antes só vivia em
+             #roundResultsFinance (Resultados da rodada, removida de
+             lá — ver comentário no #roundResultsOverlay), só aparece
+             no fluxo pós-jogo (ver renderNewsScreen), quando o resumo
+             financeiro da rodada que acabou de rolar está disponível. -->
+        <div id="newsFinanceRow"></div>
         <div id="newsTeamStatus"></div>
         <div class="mt-news-summary-row last">
           <div class="t">Classificação atualizada</div>
