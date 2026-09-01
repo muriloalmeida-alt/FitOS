@@ -2822,6 +2822,19 @@ function renderNewsScreen(currentRoundOnly) {
       <div class="mt-news-rule"></div>`;
     listBox.innerHTML = rest.map(newsItemHTML).join("");
   }
+  // AJUSTE (pedido do usuário: "tem uma informação de salários pagos
+  // e renda que aparece no resultado da rodada que deveria aparecer
+  // na tela de notícias do time") — movida de #roundResultsFinance
+  // (Resultados da rodada, removida de lá) pro cartão-resumo daqui;
+  // só existe no fluxo pós-jogo (currentRoundOnly), quando
+  // PENDING_ROUND_SUMMARY ainda guarda o resumo financeiro da rodada
+  // que acabou de rolar (ver showMatchDetailModal/showRoundResultsModal
+  // — só é limpo depois que essa tela já rodou).
+  const financeEl = document.getElementById("newsFinanceRow");
+  const finance = currentRoundOnly && PENDING_ROUND_SUMMARY;
+  financeEl.innerHTML = (finance && finance.wagePaid)
+    ? `<div class="mt-news-summary-row"><div class="t">Salários pagos: ${fmtBRL(finance.wagePaid)}${finance.sponsorIncome ? ` · Patrocínio: +${fmtBRL(finance.sponsorIncome)}` : ""} · Caixa: ${fmtBRL(CAREER.finances.cash)}</div></div>`
+    : "";
   renderTeamStatusNews();
 }
 // AJUSTE (pedido do usuário: "notícias do seu time — quem se lesionou
@@ -5083,14 +5096,12 @@ function showRoundResultsModal(summary) {
   document.getElementById("roundResultsChanges").textContent = (summary.lineupChanges && summary.lineupChanges.length)
     ? `Mudanças no time pra próxima rodada: ${summary.lineupChanges.join("; ")}.`
     : "";
-  // FASE 2 (b) — folha salarial paga nessa rodada (ver simulateRound)
-  // e caixa restante, pra dar pra acompanhar o orçamento sem precisar
-  // ir até a Central toda vez.
-  // FASE 4 (item 5) — patrocínio entra na mesma linha, mesma lógica de
-  // transparência financeira por rodada de sempre.
-  document.getElementById("roundResultsFinance").textContent = summary.wagePaid
-    ? `Salários pagos: ${fmtBRL(summary.wagePaid)}${summary.sponsorIncome ? ` · Patrocínio: +${fmtBRL(summary.sponsorIncome)}` : ""} · Caixa: ${fmtBRL(CAREER.finances.cash)}`
-    : "";
+  // AJUSTE (pedido do usuário: "tem uma informação de salários pagos
+  // e renda que aparece no resultado da rodada que deveria aparecer
+  // na tela de notícias do time") — resumo financeiro da rodada
+  // (folha salarial + patrocínio + caixa, ver renderNewsScreen) saiu
+  // daqui; a tela de Notícias, que abre ANTES desta no mesmo fluxo
+  // pós-jogo, já mostra a mesma informação.
   // FASE 2 (c) — avisa aqui se surgiu proposta nova por um jogador seu
   // (resolvida na aba Mercado com aceitar/recusar).
   // AJUSTE (pedido do usuário, item 6) — antes mandava "veja na aba
