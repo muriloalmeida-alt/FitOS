@@ -724,26 +724,40 @@
      carreira.js), título em negrito separado do detalhe, e números
      (reputação, moral etc.) viram pílulas coloridas próprias (ver
      .ct-toast-stat) em vez de texto solto no meio da frase. */
+  /* AJUSTE (pedido do usuário: "como todo jogo tá com fundo azul
+     escuro acho que o toast ficaria melhor em fundo cor gelo") — o
+     toast era o único elemento flutuante com o MESMO fundo navy do
+     resto da tela por trás dele, então tendia a se misturar com o
+     cenário; fundo marfim (var(--mt-ivory-50/100), mesmo tom "gelo"
+     já usado em texto sobre navy no resto do app) inverte o
+     contraste e faz o toast saltar aos olhos por cima de qualquer
+     tela. Isso obriga a inverter TODAS as cores de texto/ícone pro
+     par escuro-sobre-claro (título/detalhe em navy, ícones/pílulas
+     nas variantes mais escuras de cada cor semântica — pitch-700/
+     crimson-500/gold-600 em vez de pitch-300/crimson-400/gold-300,
+     que foram calibradas pra saltar num fundo ESCURO e ficam
+     ilegíveis num fundo claro). */
   .ct-toast{
     position:fixed; left:18px; right:18px; margin:0 auto; max-width:420px; bottom:18px;
     display:none; align-items:flex-start; gap:11px;
-    background:linear-gradient(160deg, var(--mt-navy-700), var(--mt-navy-800) 65%);
-    border:1px solid var(--mt-navy-600); border-radius:14px; padding:13px 16px;
-    z-index:300; box-shadow:0 12px 32px rgba(0,0,0,.45);
+    background:linear-gradient(160deg, var(--mt-ivory-50), var(--mt-ivory-100) 65%);
+    border:1px solid rgba(10,22,40,.14); border-top:1px solid rgba(232,184,75,.5);
+    border-radius:14px; padding:13px 16px;
+    z-index:300; box-shadow:0 12px 32px rgba(10,22,40,.24);
   }
   .ct-toast-icon{ width:32px; height:32px; border-radius:9px; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
   .ct-toast-icon svg{ width:17px; height:17px; }
-  .ct-toast.pos .ct-toast-icon{ background:rgba(95,203,133,.16); color:var(--mt-pitch-300); }
-  .ct-toast.info .ct-toast-icon{ background:rgba(232,184,75,.16); color:var(--mt-gold-300); }
-  .ct-toast.warn .ct-toast-icon{ background:rgba(227,101,101,.16); color:var(--mt-crimson-400); }
+  .ct-toast.pos .ct-toast-icon{ background:rgba(29,107,61,.14); color:var(--mt-pitch-700); }
+  .ct-toast.info .ct-toast-icon{ background:rgba(184,134,11,.14); color:var(--mt-gold-600); }
+  .ct-toast.warn .ct-toast-icon{ background:rgba(214,69,69,.14); color:var(--mt-crimson-500); }
   .ct-toast-body{ min-width:0; flex:1; padding-top:1px; }
-  .ct-toast-title{ font-size:13.5px; font-weight:700; color:#fff; line-height:1.35; }
-  .ct-toast-detail{ font-size:12px; color:var(--mt-ink-muted); margin-top:3px; line-height:1.45; }
+  .ct-toast-title{ font-size:13.5px; font-weight:700; color:var(--mt-navy-900); line-height:1.35; }
+  .ct-toast-detail{ font-size:12px; color:rgba(10,22,40,.62); margin-top:3px; line-height:1.45; }
   .ct-toast-stats{ display:flex; gap:6px; margin-top:7px; flex-wrap:wrap; }
   .ct-toast-stat{ font-family:'Rajdhani', var(--font); font-size:11.5px; font-weight:700; padding:2px 8px; border-radius:100px; }
-  .ct-toast-stat.pos{ background:rgba(95,203,133,.16); color:var(--mt-pitch-300); }
-  .ct-toast-stat.neg{ background:rgba(227,101,101,.16); color:var(--mt-crimson-400); }
-  .ct-toast-stat.zero{ background:var(--mt-navy-600); color:var(--mt-ink-muted); }
+  .ct-toast-stat.pos{ background:rgba(29,107,61,.14); color:var(--mt-pitch-700); }
+  .ct-toast-stat.neg{ background:rgba(214,69,69,.14); color:var(--mt-crimson-500); }
+  .ct-toast-stat.zero{ background:rgba(10,22,40,.08); color:rgba(10,22,40,.62); }
   .ct-empty{ color:var(--text-2); font-size:13px; text-align:center; padding:20px 0; }
   .hidden{ display:none !important; }
 
