@@ -200,11 +200,53 @@ function toastBottomOffset() {
 // destino. Reposiciona sozinho a cada 150ms enquanto estiver visível,
 // acompanhando qualquer transição de tela no meio do caminho.
 let toastRepositionTimer = null;
-function toast(msg, durationMs = 3600) {
+// AJUSTE (pedido do usuário: "gosto da opção 2 [cápsula reforçada]
+// mas acho que ela deve ter largura fixa do tamanho do botão ir para
+// o jogo. e todos os textos devem ser bem escritos") — ícone-quadrado
+// por tipo (positivo/informativo/alerta), título separado de detalhe,
+// números viram pílulas próprias (ver CSS de .ct-toast em
+// carreira.html). Um ícone svg por linha de raciocínio (não emoji) —
+// mesmo padrão do resto do app.
+const TOAST_ICON = {
+  pos: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
+  warn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>',
+  info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.6" r=".6" fill="currentColor" stroke="currentColor"/></svg>',
+};
+function toastStatHTML(stat) {
+  const cls = stat.value > 0 ? "pos" : stat.value < 0 ? "neg" : "zero";
+  const sign = stat.value > 0 ? "+" : "";
+  return `<span class="ct-toast-stat ${cls}">${escapeHtml(stat.label)} ${sign}${stat.value}</span>`;
+}
+// `input` aceita uma string simples (vira só o título) ou um objeto
+// {title, detail, stats} pra mensagens com mais de uma informação
+// (ex.: reputação + moral do elenco de uma coletiva, ver
+// applyPressAnswer). Uma string com " — " (o mesmo separador informal
+// já usado em boa parte dos textos do jogo) quebra sozinha em título +
+// detalhe, sem precisar reescrever cada chamada existente. `opts`
+// aceita um número (dura esse tanto, mesmo default de sempre) ou
+// {durationMs, type: "pos"|"info"|"warn"} — "info" (dourado) por
+// padrão quando não especificado.
+function toast(input, opts = {}) {
+  const { durationMs = 3600, type = "info" } = typeof opts === "number" ? { durationMs: opts } : opts;
   const el = document.getElementById("toast");
-  el.textContent = msg;
+  let title, detail, stats;
+  if (typeof input === "string") {
+    const dash = input.match(/^(.+?)\s+—\s+(.+)$/);
+    if (dash) { title = dash[1]; detail = dash[2].charAt(0).toUpperCase() + dash[2].slice(1); }
+    else title = input;
+  } else {
+    ({ title, detail, stats } = input);
+  }
+  el.className = `ct-toast ${type}`;
+  el.innerHTML = `
+    <div class="ct-toast-icon">${TOAST_ICON[type] || TOAST_ICON.info}</div>
+    <div class="ct-toast-body">
+      <div class="ct-toast-title">${escapeHtml(title)}</div>
+      ${detail ? `<div class="ct-toast-detail">${escapeHtml(detail)}</div>` : ""}
+      ${stats && stats.length ? `<div class="ct-toast-stats">${stats.map(toastStatHTML).join("")}</div>` : ""}
+    </div>`;
   el.style.bottom = toastBottomOffset() + "px";
-  el.style.display = "block";
+  el.style.display = "flex";
   clearTimeout(toastTimer);
   clearInterval(toastRepositionTimer);
   toastRepositionTimer = setInterval(() => { el.style.bottom = toastBottomOffset() + "px"; }, 150);
@@ -615,7 +657,7 @@ function applyTalkOption(option) {
   p.wantsTransfer = p.benchStreak >= WANTS_TRANSFER_BENCH_STREAK && p.morale <= WANTS_TRANSFER_MORALE_MAX;
   p.lastTalkRound = CAREER.currentRound;
   closeTalkModal();
-  toast(resultText, 4500);
+  toast(resultText, { durationMs: 4500, type: delta > 0 ? "pos" : "warn" });
   persistCareer();
   if (document.getElementById("detailOverlay").classList.contains("open")) openDetail(p.id);
 }
@@ -944,7 +986,7 @@ function signSponsorProposal(kind, idx) {
   document.getElementById("sponsorProposalsOverlay").classList.remove("open");
   persistCareer();
   renderCentral();
-  toast(`Contrato assinado com ${proposal.empresa}!`);
+  toast(`Contrato assinado com ${proposal.empresa}!`, { type: "pos" });
 }
 
 /* ---------- FASE 3 (a) — diretoria (pedido de orçamento) ----------
@@ -998,10 +1040,10 @@ function askBoard() {
     CAREER.finances.wageCap += result.raise;
     CAREER.finances.cash += result.cashBoost;
     CAREER.boardDecision = `✅ ${result.reason} Teto salarial +${fmtBRLShort(result.raise)}, caixa +${fmtBRLShort(result.cashBoost)}.`;
-    toast("A diretoria aprovou o pedido!");
+    toast("A diretoria aprovou o pedido!", { type: "pos" });
   } else {
     CAREER.boardDecision = `❌ ${result.reason}`;
-    toast("A diretoria negou o pedido.");
+    toast("A diretoria negou o pedido.", { type: "warn" });
   }
   persistCareer();
   renderCentral();
@@ -1942,7 +1984,7 @@ function settleLoanOut(clubId, p) {
   delete p.onLoanFromClubId; delete p.loanReturnRound; delete p.loanBuyOption;
   CAREER.squad.push(p);
   pushTransferLog(`${p.name} voltou do empréstimo no ${club.name}.`, CAREER.currentRound);
-  toast(`${abbreviateName(p.name)} voltou do empréstimo!`);
+  toast(`${abbreviateName(p.name)} voltou do empréstimo!`, { type: "pos" });
 }
 // Resolve o lado de um empréstimo QUE VOCÊ PEGOU (jogador está no seu
 // CAREER.squad, origin "loan").
@@ -1965,7 +2007,7 @@ function settleLoanIn(p) {
     p.origin = "principal";
     delete p.loanFromClubId; delete p.loanOriginalWage; delete p.loanReturnRound; delete p.loanBuyOption;
     pushTransferLog(`Você acionou a cláusula e comprou ${p.name} em definitivo por ${fmtBRL(option.value)}.`, CAREER.currentRound);
-    toast(`${abbreviateName(p.name)} contratado em definitivo!`);
+    toast(`${abbreviateName(p.name)} contratado em definitivo!`, { type: "pos" });
     return;
   }
   const fromId = String(p.loanFromClubId);
@@ -2017,14 +2059,14 @@ function resetLoanForm(suggestedValue) {
 }
 function openLoanOutModal(id) {
   if (!transferWindowStatus(CAREER.currentRound).open) {
-    toast("Janela de contratações encerrada — não dá pra negociar empréstimo agora.");
+    toast("Janela de contratações encerrada — não dá pra negociar empréstimo agora.", { type: "warn" });
     return;
   }
   const p = CAREER.squad.find((x) => x.id === id);
   if (!p) return;
-  if (p.origin !== "principal") { toast("Só dá pra emprestar jogador do elenco principal."); return; }
+  if (p.origin !== "principal") { toast("Só dá pra emprestar jogador do elenco principal.", { type: "warn" }); return; }
   const principalCount = CAREER.squad.filter((x) => x.origin === "principal").length;
-  if (principalCount <= 14) { toast("O elenco principal não pode ficar com menos de 14 jogadores."); return; }
+  if (principalCount <= 14) { toast("O elenco principal não pode ficar com menos de 14 jogadores.", { type: "warn" }); return; }
   // AJUSTE (pedido do usuário: "toda confirmação de empréstimo e venda
   // deve ter o clube para onde o jogador vai") — resolve o interessado
   // AQUI, ao abrir o modal, em vez de só no confirmar (finalizeLoanOut
@@ -2046,7 +2088,7 @@ function openLoanOutModal(id) {
 }
 function openLoanInModal(clubId, playerId) {
   if (!transferWindowStatus(CAREER.currentRound).open) {
-    toast("Janela de contratações encerrada — não dá pra pegar jogador emprestado agora.");
+    toast("Janela de contratações encerrada — não dá pra pegar jogador emprestado agora.", { type: "warn" });
     return;
   }
   const p = leagueSquadFor(clubId).find((x) => x.id === playerId);
@@ -2086,7 +2128,7 @@ async function finalizeLoanOut(id, { returnRound, buyOption, buyer: passedBuyer 
   const p = CAREER.squad.find((x) => x.id === id);
   if (!p) return false;
   if (isLoanOutRefused(p)) {
-    toast(`${abbreviateName(p.name)} recusou o empréstimo — quer continuar brigando por espaço no elenco principal.`, 5000);
+    toast(`${abbreviateName(p.name)} recusou o empréstimo — quer continuar brigando por espaço no elenco principal.`, { durationMs: 5000, type: "warn" });
     return false;
   }
   // AJUSTE (pedido do usuário, item 7) — o comprador já foi resolvido e
@@ -2112,7 +2154,7 @@ async function finalizeLoanOut(id, { returnRound, buyOption, buyer: passedBuyer 
   const durationLabel = returnRound ? "por 6 meses" : "até o fim da temporada";
   const clauseLabel = buyOption ? (buyOption.mandatory ? ` (compra obrigatória de ${fmtBRL(buyOption.value)} ao fim)` : ` (opção de compra de ${fmtBRL(buyOption.value)} ao fim)`) : "";
   pushTransferLog(`Você emprestou ${p.name} pro ${buyer.name} ${durationLabel} por ${fmtBRL(fee)}${clauseLabel}.`, CAREER.currentRound);
-  toast(`${abbreviateName(p.name)} emprestado por ${fmtBRL(fee)}.`);
+  toast(`${abbreviateName(p.name)} emprestado por ${fmtBRL(fee)}.`, { type: "pos" });
   return true;
 }
 async function finalizeLoanIn(clubId, playerId, { returnRound, buyOption, wagePct }) {
@@ -2121,15 +2163,15 @@ async function finalizeLoanIn(clubId, playerId, { returnRound, buyOption, wagePc
   if (idx < 0) return false;
   const p = squad[idx];
   if (isLoanOutRefused(p)) {
-    toast(`${teamById(clubId).name} recusou emprestar ${abbreviateName(p.name)} — é peça importante demais pro clube.`, 5000);
+    toast(`${teamById(clubId).name} recusou emprestar ${abbreviateName(p.name)} — é peça importante demais pro clube.`, { durationMs: 5000, type: "warn" });
     return false;
   }
   const loanWage = Math.round((p.wage * (wagePct / 100)) / 100) * 100;
   if (wageBillOf(CAREER.squad) + loanWage > CAREER.finances.wageCap) {
-    toast(`Pegar esse jogador emprestado estouraria o teto salarial (${fmtBRL(CAREER.finances.wageCap)}).`);
+    toast(`Pegar esse jogador emprestado estouraria o teto salarial (${fmtBRL(CAREER.finances.wageCap)}).`, { type: "warn" });
     return false;
   }
-  if (CAREER.squad.length >= MAX_PRINCIPAL + 20) { toast("Elenco já está muito grande — dispense ou negocie alguém antes."); return false; }
+  if (CAREER.squad.length >= MAX_PRINCIPAL + 20) { toast("Elenco já está muito grande — dispense ou negocie alguém antes.", { type: "warn" }); return false; }
   squad.splice(idx, 1);
   p.loanFromClubId = String(clubId);
   p.loanOriginalWage = p.wage;
@@ -2141,7 +2183,7 @@ async function finalizeLoanIn(clubId, playerId, { returnRound, buyOption, wagePc
   const durationLabel = returnRound ? "por 6 meses" : "até o fim da temporada";
   const clauseLabel = buyOption ? (buyOption.mandatory ? `, com compra obrigatória de ${fmtBRL(buyOption.value)} ao fim` : `, com opção de compra de ${fmtBRL(buyOption.value)} ao fim`) : "";
   pushTransferLog(`Você pegou ${p.name} emprestado do ${teamById(clubId).name} ${durationLabel} (${wagePct}% do salário)${clauseLabel}.`, CAREER.currentRound);
-  toast(`${abbreviateName(p.name)} chegou emprestado!`);
+  toast(`${abbreviateName(p.name)} chegou emprestado!`, { type: "pos" });
   return true;
 }
 // 0 a 2 transferências entre times CPU por rodada (chance decrescente
@@ -2250,10 +2292,10 @@ async function persistCareer() {
     // acesso ao servidor, e distingue sessão expirada do resto.
     console.error("[carreira] falha ao salvar progresso:", err.status, err.message);
     if (err.status === 401) {
-      toast("Sua sessão expirou — faça login de novo pra continuar salvando.");
+      toast("Sua sessão expirou — faça login de novo pra continuar salvando.", { type: "warn" });
       show("screenLoginRequired");
     } else if (err.status === 413) {
-      toast("O save dessa carreira ficou grande demais — reinicie a carreira pra continuar salvando.");
+      toast("O save dessa carreira ficou grande demais — reinicie a carreira pra continuar salvando.", { type: "warn" });
     } else {
       // Código/motivo aparecem no toast de propósito (mesmo sendo mais
       // "técnico" do que o ideal pro usuário final): sem acesso aos
@@ -2261,7 +2303,7 @@ async function persistCareer() {
       // causa real de um erro que não é nem sessão expirada nem save
       // grande demais — quem estiver vendo isso pode repassar o texto.
       const detail = err.status ? `erro ${err.status}${err.message ? " — " + err.message : ""}` : (err.message || "sem conexão com o servidor");
-      toast(`Não deu pra salvar o progresso agora (${detail}) — tente de novo em instantes.`);
+      toast({ title: "Não deu pra salvar o progresso agora", detail: `${detail} — tente de novo em instantes.` }, { type: "warn" });
     }
     return false;
   }
@@ -3227,7 +3269,12 @@ function applyPressAnswer(letra) {
   CAREER.pressLog = CAREER.pressLog || [];
   CAREER.pressLog.unshift({ round: roundPlayed, gatilho: entry.gatilho, pergunta: entry.pergunta, letra, texto: resposta.texto, reputacao: repDelta, moral: moralDelta });
   if (CAREER.pressLog.length > PRESS_LOG_MAX) CAREER.pressLog.length = PRESS_LOG_MAX;
-  toast(`Reputação ${repDelta >= 0 ? "+" : ""}${repDelta} · Moral do elenco ${moralDelta >= 0 ? "+" : ""}${moralDelta}`, 4000);
+  // AJUSTE (pedido do usuário: "gosto da opção 2... todos os textos
+  // devem ser bem escritos") — reputação e moral eram espremidas numa
+  // frase só ("Reputação +1 · Moral do elenco +3"); agora cada uma
+  // vira sua própria pílula colorida (ver toastStatHTML/.ct-toast-stat).
+  toast({ title: "Coletiva respondida", stats: [{ label: "Reputação", value: repDelta }, { label: "Moral do elenco", value: moralDelta }] },
+    { durationMs: 4000, type: repDelta < 0 || moralDelta < 0 ? "warn" : "pos" });
   persistCareer();
   closePressConferenceModal();
 }
@@ -3675,7 +3722,7 @@ function renderLiveMatch() {
 function openLiveSubModal() {
   const lm = LIVE_MATCH;
   if (!lm || lm.finished) return;
-  if (lm.subsUsed >= MAX_SUBS_PER_MATCH + lm.subsBonus) { toast("Sem substituições disponíveis."); return; }
+  if (lm.subsUsed >= MAX_SUBS_PER_MATCH + lm.subsBonus) { toast("Sem substituições disponíveis.", { type: "warn" }); return; }
   pauseLiveMatch();
   const starters = CAREER.lineup.starters.map((id) => id && CAREER.squad.find((p) => p.id === id)).filter(Boolean);
   const bench = CAREER.lineup.bench.map((id) => CAREER.squad.find((p) => p.id === id)).filter((p) => p && p.status === "ok");
@@ -3698,7 +3745,7 @@ function confirmLiveSub() {
   const inId = document.getElementById("liveSubInSelect").value;
   if (!outId || !inId) { toast("Escolha quem sai e quem entra."); return; }
   const outIdx = CAREER.lineup.starters.indexOf(outId);
-  if (outIdx < 0) { toast("Esse jogador não está em campo."); return; }
+  if (outIdx < 0) { toast("Esse jogador não está em campo.", { type: "warn" }); return; }
   const outPlayer = CAREER.squad.find((p) => p.id === outId);
   const inPlayer = CAREER.squad.find((p) => p.id === inId);
   if (!outPlayer || !inPlayer) return;
@@ -4079,7 +4126,7 @@ function proposeRenewal() {
   if (newWage > p.wage && p.origin === "principal") {
     const wageAfter = wageBillOf(CAREER.squad) - p.wage + newWage;
     if (wageAfter > CAREER.finances.wageCap) {
-      toast(`Essa renovação estouraria o teto salarial (${fmtBRL(CAREER.finances.wageCap)}).`);
+      toast(`Essa renovação estouraria o teto salarial (${fmtBRL(CAREER.finances.wageCap)}).`, { type: "warn" });
       return; // mantém o sub-modal aberto pra ajustar o valor
     }
   }
@@ -4093,21 +4140,21 @@ function proposeRenewal() {
   const morale = p.morale == null ? 70 : p.morale;
   if (morale < 30) {
     closeRenewModal();
-    toast(`${abbreviateName(p.name)} recusou a proposta — está infeliz no clube e não quer renovar agora.`, 5000);
+    toast(`${abbreviateName(p.name)} recusou a proposta — está infeliz no clube e não quer renovar agora.`, { durationMs: 5000, type: "warn" });
     firePressConference("19", CAREER.currentRound, false);
     openPressConferenceModal();
     return;
   }
   if (newWage < minWage) {
     closeRenewModal();
-    toast(`${abbreviateName(p.name)} recusou a proposta — quer pelo menos ${fmtBRL(minWage)}/mês.`, 5000);
+    toast(`${abbreviateName(p.name)} recusou a proposta — quer pelo menos ${fmtBRL(minWage)}/mês.`, { durationMs: 5000, type: "warn" });
     firePressConference("19", CAREER.currentRound, false);
     openPressConferenceModal();
     return;
   }
   if (duration === 1 && (p.age <= 23 || p.overall >= 85 || morale >= 85)) {
     closeRenewModal();
-    toast(`${abbreviateName(p.name)} recusou a proposta — quer um contrato mais longo (pelo menos 2 anos).`, 5000);
+    toast(`${abbreviateName(p.name)} recusou a proposta — quer um contrato mais longo (pelo menos 2 anos).`, { durationMs: 5000, type: "warn" });
     firePressConference("19", CAREER.currentRound, false);
     openPressConferenceModal();
     return;
@@ -4115,7 +4162,7 @@ function proposeRenewal() {
   p.wage = Math.max(p.wage, newWage);
   p.contractUntil = CAREER.seasonYear + duration;
   closeRenewModal();
-  toast(`${abbreviateName(p.name)} renovou até ${p.contractUntil} por ${fmtBRL(p.wage)}/mês!`);
+  toast(`${abbreviateName(p.name)} renovou até ${p.contractUntil} por ${fmtBRL(p.wage)}/mês!`, { type: "pos" });
   persistCareer();
   renderElenco(); renderCentral();
   if (document.getElementById("detailOverlay").classList.contains("open")) openDetail(p.id);
@@ -4267,7 +4314,7 @@ async function handlePlayerAction(id, act) {
     // desabilita o botão) — reforçado aqui pro caso de handlePlayerAction
     // ser chamado de algum outro lugar no futuro sem passar por lá.
     if (wageBillOf(CAREER.squad) + p.wage > CAREER.finances.wageCap) {
-      toast(`Promover esse jogador estouraria o teto salarial (${fmtBRL(CAREER.finances.wageCap)}).`);
+      toast(`Promover esse jogador estouraria o teto salarial (${fmtBRL(CAREER.finances.wageCap)}).`, { type: "warn" });
       return;
     }
     p.origin = "principal";
@@ -4277,7 +4324,7 @@ async function handlePlayerAction(id, act) {
     CAREER.lineup.bench = CAREER.lineup.bench.filter((x) => x !== id);
   } else if (act === "release") {
     const principalCount = CAREER.squad.filter((x) => x.origin === "principal").length;
-    if (p.origin === "principal" && principalCount <= 14) { toast("O elenco principal não pode ficar com menos de 14 jogadores."); return; }
+    if (p.origin === "principal" && principalCount <= 14) { toast("O elenco principal não pode ficar com menos de 14 jogadores.", { type: "warn" }); return; }
     CAREER.squad = CAREER.squad.filter((x) => x.id !== id);
     CAREER.lineup.starters = CAREER.lineup.starters.map((x) => (x === id ? null : x));
     CAREER.lineup.bench = CAREER.lineup.bench.filter((x) => x !== id);
@@ -4314,7 +4361,7 @@ function autoFillLineup() {
   CAREER.lineup.bench = result.bench;
   renderPitch(); renderBench();
   persistCareer();
-  toast(`Escalação automática aplicada — melhores overalls por posição${includeBase ? " (incluindo base)" : ""}.`);
+  toast(`Escalação automática aplicada — melhores overalls por posição${includeBase ? " (incluindo base)" : ""}.`, { type: "pos" });
 }
 // AJUSTE (pedido do usuário: "Ajustar Escalação deve abrir uma modal
 // ... com o botão Ir para o jogo") — extraída de dentro do clique de
@@ -4947,7 +4994,7 @@ async function buyPlayer(clubId, playerId) {
   // fora da janela, ver renderMercado) só por segurança contra estado
   // desatualizado na tela.
   if (!transferWindowStatus(CAREER.currentRound).open) {
-    toast("Janela de contratações encerrada — não dá pra contratar agora.");
+    toast("Janela de contratações encerrada — não dá pra contratar agora.", { type: "warn" });
     return;
   }
   const squad = leagueSquadFor(clubId);
@@ -4955,21 +5002,21 @@ async function buyPlayer(clubId, playerId) {
   if (idx < 0) return;
   const p = squad[idx];
   if (CAREER.finances.cash < p.value) {
-    toast(`Caixa insuficiente — você tem ${fmtBRL(CAREER.finances.cash)}, o jogador custa ${fmtBRL(p.value)}.`);
+    toast(`Caixa insuficiente — você tem ${fmtBRL(CAREER.finances.cash)}, o jogador custa ${fmtBRL(p.value)}.`, { type: "warn" });
     return;
   }
   if (wageBillOf(CAREER.squad) + p.wage > CAREER.finances.wageCap) {
-    toast(`Contratar esse jogador estouraria o teto salarial (${fmtBRL(CAREER.finances.wageCap)}).`);
+    toast(`Contratar esse jogador estouraria o teto salarial (${fmtBRL(CAREER.finances.wageCap)}).`, { type: "warn" });
     return;
   }
-  if (CAREER.squad.length >= MAX_PRINCIPAL + 20) { toast("Elenco já está muito grande — dispense ou venda alguém antes."); return; }
+  if (CAREER.squad.length >= MAX_PRINCIPAL + 20) { toast("Elenco já está muito grande — dispense ou venda alguém antes.", { type: "warn" }); return; }
   if (!(await confirmModal(`Contratar ${p.name} por ${fmtBRL(p.value)}?`, "Contratar"))) return;
   squad.splice(idx, 1);
   CAREER.finances.cash -= p.value;
   p.origin = "principal";
   CAREER.squad.push(p);
   pushTransferLog(`Você contratou ${p.name} do ${teamById(clubId).name} por ${fmtBRL(p.value)}.`, CAREER.currentRound);
-  toast(`${abbreviateName(p.name)} contratado!`);
+  toast(`${abbreviateName(p.name)} contratado!`, { type: "pos" });
   // FASE 4 (item 2) — "contratação polêmica anunciada" (PRESS_LIBRARY
   // id 15): proxy pra polêmica é o próprio overall — contratação de
   // craque sempre puxa opinião dividida de torcida na vida real,
@@ -4988,7 +5035,7 @@ async function sellPlayer(id) {
   const p = CAREER.squad.find((x) => x.id === id);
   if (!p) return false;
   const principalCount = CAREER.squad.filter((x) => x.origin === "principal").length;
-  if (principalCount <= 14) { toast("O elenco principal não pode ficar com menos de 14 jogadores."); return false; }
+  if (principalCount <= 14) { toast("O elenco principal não pode ficar com menos de 14 jogadores.", { type: "warn" }); return false; }
   // AJUSTE (pedido do usuário: "toda confirmação de empréstimo e venda
   // deve ter o clube para onde o jogador vai") — resolve o comprador
   // ANTES de perguntar, não depois: assim o técnico já vê pra quem tá
@@ -4999,7 +5046,12 @@ async function sellPlayer(id) {
   // inútil no meio.
   const buyer = findInterestedBuyer(CAREER.clubId);
   if (!buyer) {
-    toast(`Nenhum time demonstrou interesse em ${abbreviateName(p.name)} agora — ele continua no seu elenco.`);
+    // AJUSTE (pedido do usuário: "todos os textos devem ser bem
+    // escritos") — "interesse em {nome}" ficava ambíguo fora de
+    // contexto; "interesse em comprar {nome}" deixa claro o que
+    // ninguém quis fazer, igual já era pro texto equivalente do
+    // empréstimo ("interesse em pegar {nome} emprestado").
+    toast(`Nenhum time demonstrou interesse em comprar ${abbreviateName(p.name)} agora — ele continua no seu elenco.`, { type: "info" });
     return false;
   }
   if (!(await confirmModal(`Vender ${p.name} pro ${buyer.name} por ${fmtBRL(p.value)}?`, "Vender"))) return false;
@@ -5009,7 +5061,7 @@ async function sellPlayer(id) {
   CAREER.lineup.bench = CAREER.lineup.bench.filter((x) => x !== id);
   (CAREER.leagueSquads[String(buyer.id)] = CAREER.leagueSquads[String(buyer.id)] || []).push(p);
   pushTransferLog(`Você vendeu ${p.name} pro ${buyer.name} por ${fmtBRL(p.value)}.`, CAREER.currentRound);
-  toast(`${abbreviateName(p.name)} vendido por ${fmtBRL(p.value)}.`);
+  toast(`${abbreviateName(p.name)} vendido por ${fmtBRL(p.value)}.`, { type: "pos" });
   // FASE 4 (item 2) — "venda de jogador querido pela torcida"
   // (PRESS_LIBRARY id 16): mesmo proxy de overall alto (craque/titular
   // de peso) usado na contratação polêmica acima — quem rende bastante
@@ -5038,7 +5090,7 @@ function acceptOffer() {
   CAREER.lineup.bench = CAREER.lineup.bench.filter((x) => x !== p.id);
   (CAREER.leagueSquads[offer.clubId] = CAREER.leagueSquads[offer.clubId] || []).push(p);
   pushTransferLog(`Você vendeu ${p.name} pro ${offer.clubName} por ${fmtBRL(offer.fee)}.`, CAREER.currentRound);
-  toast(`Proposta aceita — ${fmtBRL(offer.fee)} no caixa.`);
+  toast(`Proposta aceita — ${fmtBRL(offer.fee)} no caixa.`, { type: "pos" });
   CAREER.pendingOffer = null;
   persistCareer();
   renderMercado(); renderElenco(); renderEscalacao(); renderCentral();
@@ -5095,7 +5147,7 @@ function renderAll() {
   ].forEach(([name, fn]) => {
     try { fn(); } catch (err) {
       console.error(`[carreira] falha ao renderizar ${name}:`, err);
-      toast(`Erro ao carregar ${name}: ${err.message}`, 15000); // mais tempo que o normal (3.6s) — dá pra ler/printar
+      toast(`Erro ao carregar ${name}: ${err.message}`, { durationMs: 15000, type: "warn" }); // mais tempo que o normal (3.6s) — dá pra ler/printar
     }
   });
 }
@@ -5331,7 +5383,7 @@ function wireStaticListeners() {
   document.getElementById("btnSaveLineup").addEventListener("click", () => {
     commitLineupTactics();
     persistCareer();
-    toast("Escalação e táticas salvas.");
+    toast("Escalação e táticas salvas.", { type: "pos" });
     renderCentral();
   });
 
