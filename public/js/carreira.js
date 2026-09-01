@@ -188,13 +188,30 @@ function toastBottomOffset() {
   if (actionBar) offset += actionBar.getBoundingClientRect().height;
   return offset;
 }
+// AJUSTE (pedido do usuário: "a mensagem de reputação e moral do
+// elenco ainda está acima dos botões") — calcular a posição só na
+// hora de MOSTRAR o toast não bastava: essa mensagem específica
+// (applyPressAnswer) dispara ENQUANTO a coletiva de imprensa ainda
+// está aberta (sem rodapé fixo próprio, ver #pressOverlay), e só
+// DEPOIS fecha a coletiva e abre Notícias (com rodapé fixo de
+// verdade) — tudo síncrono, então o toast calculava a posição pra
+// tela de ORIGEM (a coletiva, sem rodapé — caía no 18px padrão) que
+// já nem existia mais quando a mensagem realmente aparecia na tela de
+// destino. Reposiciona sozinho a cada 150ms enquanto estiver visível,
+// acompanhando qualquer transição de tela no meio do caminho.
+let toastRepositionTimer = null;
 function toast(msg, durationMs = 3600) {
   const el = document.getElementById("toast");
   el.textContent = msg;
   el.style.bottom = toastBottomOffset() + "px";
   el.style.display = "block";
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { el.style.display = "none"; }, durationMs);
+  clearInterval(toastRepositionTimer);
+  toastRepositionTimer = setInterval(() => { el.style.bottom = toastBottomOffset() + "px"; }, 150);
+  toastTimer = setTimeout(() => {
+    el.style.display = "none";
+    clearInterval(toastRepositionTimer);
+  }, durationMs);
 }
 function show(name) {
   ["screenLoading", "screenLoginRequired", "screenPicker", "screenGame"].forEach((id) => {
