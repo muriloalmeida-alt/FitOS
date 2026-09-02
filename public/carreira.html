@@ -947,14 +947,15 @@
   }
   .mt-topbar-row{ display:flex; align-items:center; justify-content:space-between; }
   .mt-brand-mini{ display:flex; align-items:center; gap:13px; }
-  .mt-crest-mini{
-    width:38px; height:41px; flex-shrink:0;
-    clip-path:polygon(50% 0%, 100% 18%, 100% 62%, 50% 100%, 0% 62%, 0% 18%);
-    background:linear-gradient(160deg, var(--mt-navy-600), var(--mt-navy-900) 70%);
-    border:1px solid var(--mt-gold-400);
-    display:flex; align-items:center; justify-content:center;
-  }
-  .mt-crest-mini img{ height:24px; width:24px; object-fit:contain; }
+  /* AJUSTE (pedido do usuário: "No Header deixa a logo sem o elemento
+     de fundo" — mockup de comparação, header-sem-moldura.html) — a
+     logo (brand-icon.png) já É um escudo desenhado por inteiro, sem
+     fundo; o hexágono com gradiente+borda dourada que existia aqui
+     era OUTRA moldura por cima dela, competindo com a forma da
+     própria marca. Removido — só o ícone, um pouco maior (34px) pra
+     compensar não ter mais moldura ao redor. */
+  .mt-crest-mini{ width:34px; height:34px; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+  .mt-crest-mini img{ height:100%; width:100%; object-fit:contain; }
   .mt-brand-mini .t{ font-family:'Bebas Neue', var(--font); font-size:21px; letter-spacing:2px; color:var(--mt-ivory-50); }
   .mt-brand-mini .t span{ color:var(--mt-gold-400); }
   .mt-icon-btn{
@@ -1569,7 +1570,7 @@
       <div class="mt-topbar">
         <div class="mt-topbar-row">
           <div class="mt-brand-mini">
-            <div class="mt-crest-mini"><img src="img/logo.png" alt=""></div>
+            <div class="mt-crest-mini"><img src="img/brand-icon.png" alt=""></div>
             <div class="t">MODO <span>CARREIRA</span></div>
           </div>
           <button class="mt-icon-btn" id="btnPickerLogout" aria-label="Sair" title="Sair">
@@ -1609,7 +1610,7 @@
     <div class="mt-topbar">
       <div class="mt-topbar-row">
         <div class="mt-brand-mini">
-          <div class="mt-crest-mini"><img src="img/logo.png" alt=""></div>
+          <div class="mt-crest-mini"><img src="img/brand-icon.png" alt=""></div>
           <div class="t">MODO <span>CARREIRA</span></div>
         </div>
         <button class="mt-icon-btn" id="btnTopbarMenu" aria-label="Menu" aria-expanded="false" aria-controls="topbarMenu">
