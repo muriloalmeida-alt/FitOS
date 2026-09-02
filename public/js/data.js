@@ -174,6 +174,15 @@ const DEMO_TEAMS_LA_LIGA = [
    em DEMO_TEAMS (Série A) mesmo pros 2 clubes em comum (Cuiabá,
    Athletico Paranaense) — cada competição tem seu próprio "elenco" de
    ids, não compartilha com as outras. */
+// AJUSTE (pedido do usuário: "Atualiza a imagem dos clubes da Série
+// B", BRDataSerieBClubes.docx) — documento trouxe escudo real de 19
+// clubes da Série B 2026, mas só 11 batem com o elenco fictício
+// abaixo (o resto do documento diverge da lista, que é da Série B
+// 2025) — por decisão do usuário, só esses 11 ganham `logo` (arquivo
+// local em public/img/teams/<id>_b.png, mesmo padrão/pasta já usado
+// pelos escudos da Série A — ver README.md lá); os outros 9 continuam
+// sem `logo`, caindo pro monograma (sigla) que crestImg() já usa como
+// fallback.
 const DEMO_TEAMS_SERIE_B = [
   // AJUSTE: mesmo motivo da entrada de Athletico em DEMO_TEAMS (Série
   // A) -- ver comentário lá.
@@ -181,20 +190,20 @@ const DEMO_TEAMS_SERIE_B = [
   { id: "cta", name: "Coritiba",             short: "CTA", uf: "PR", c1: "#0B6E33", c2: "#FFFFFF", atk: 1.50, def: 0.88, venue: { name: "Couto Pereira", city: "Curitiba" } },
   { id: "cha", name: "Chapecoense",          short: "CHA", uf: "SC", c1: "#1E7A3D", c2: "#FFFFFF", atk: 1.46, def: 0.90, venue: { name: "Arena Condá", city: "Chapecó" } },
   { id: "rem", name: "Remo",                 short: "REM", uf: "PA", c1: "#003DA5", c2: "#FFFFFF", atk: 1.44, def: 0.92, venue: { name: "Baenão", city: "Belém" } },
-  { id: "goi", name: "Goiás",                short: "GOI", uf: "GO", c1: "#0B6E33", c2: "#FFFFFF", atk: 1.42, def: 0.94, venue: { name: "Hailé Pinheiro", city: "Goiânia" } },
-  { id: "ava", name: "Avaí",                 short: "AVA", uf: "SC", c1: "#0057B8", c2: "#FFFFFF", atk: 1.38, def: 0.96, venue: { name: "Ressacada", city: "Florianópolis" } },
-  { id: "cri", name: "Criciúma",             short: "CRI", uf: "SC", c1: "#1A1A1A", c2: "#FFFFFF", atk: 1.36, def: 0.98, venue: { name: "Heriberto Hülse", city: "Criciúma" } },
-  { id: "vno", name: "Vila Nova",            short: "VNO", uf: "GO", c1: "#C8102E", c2: "#1A1A1A", atk: 1.34, def: 1.00, venue: { name: "Serra Dourada", city: "Goiânia" } },
-  { id: "cub", name: "Cuiabá",               short: "CUI", uf: "MT", c1: "#00A650", c2: "#FFC72C", atk: 1.32, def: 1.02, venue: { name: "Arena Pantanal", city: "Cuiabá" } },
-  { id: "acg", name: "Atlético Goianiense",  short: "ACG", uf: "GO", c1: "#C8102E", c2: "#1A1A1A", atk: 1.30, def: 1.04, venue: { name: "Antônio Accioly", city: "Goiânia" } },
+  { id: "goi", name: "Goiás",                short: "GOI", uf: "GO", logo: "img/teams/goi_b.png", c1: "#0B6E33", c2: "#FFFFFF", atk: 1.42, def: 0.94, venue: { name: "Hailé Pinheiro", city: "Goiânia" } },
+  { id: "ava", name: "Avaí",                 short: "AVA", uf: "SC", logo: "img/teams/ava_b.png", c1: "#0057B8", c2: "#FFFFFF", atk: 1.38, def: 0.96, venue: { name: "Ressacada", city: "Florianópolis" } },
+  { id: "cri", name: "Criciúma",             short: "CRI", uf: "SC", logo: "img/teams/cri_b.png", c1: "#1A1A1A", c2: "#FFFFFF", atk: 1.36, def: 0.98, venue: { name: "Heriberto Hülse", city: "Criciúma" } },
+  { id: "vno", name: "Vila Nova",            short: "VNO", uf: "GO", logo: "img/teams/vno_b.png", c1: "#C8102E", c2: "#1A1A1A", atk: 1.34, def: 1.00, venue: { name: "Serra Dourada", city: "Goiânia" } },
+  { id: "cub", name: "Cuiabá",               short: "CUI", uf: "MT", logo: "img/teams/cub_b.png", c1: "#00A650", c2: "#FFC72C", atk: 1.32, def: 1.02, venue: { name: "Arena Pantanal", city: "Cuiabá" } },
+  { id: "acg", name: "Atlético Goianiense",  short: "ACG", uf: "GO", logo: "img/teams/acg_b.png", c1: "#C8102E", c2: "#1A1A1A", atk: 1.30, def: 1.04, venue: { name: "Antônio Accioly", city: "Goiânia" } },
   { id: "ame", name: "América Mineiro",      short: "AME", uf: "MG", c1: "#1E7A3D", c2: "#FFFFFF", atk: 1.28, def: 1.06, venue: { name: "Independência", city: "Belo Horizonte" } },
-  { id: "crb", name: "CRB",                  short: "CRB", uf: "AL", c1: "#DC2626", c2: "#1A1A1A", atk: 1.26, def: 1.08, venue: { name: "Rei Pelé", city: "Maceió" } },
-  { id: "nvz", name: "Novorizontino",        short: "NOV", uf: "SP", c1: "#DC2626", c2: "#1A1A1A", atk: 1.24, def: 1.10, venue: { name: "Jorge Ismael de Biasi", city: "Novo Horizonte" } },
-  { id: "ope", name: "Operário-PR",          short: "OPE", uf: "PR", c1: "#1E7A3D", c2: "#FFFFFF", atk: 1.22, def: 1.12, venue: { name: "Germano Krüger", city: "Ponta Grossa" } },
+  { id: "crb", name: "CRB",                  short: "CRB", uf: "AL", logo: "img/teams/crb_b.png", c1: "#DC2626", c2: "#1A1A1A", atk: 1.26, def: 1.08, venue: { name: "Rei Pelé", city: "Maceió" } },
+  { id: "nvz", name: "Novorizontino",        short: "NOV", uf: "SP", logo: "img/teams/nvz_b.png", c1: "#DC2626", c2: "#1A1A1A", atk: 1.24, def: 1.10, venue: { name: "Jorge Ismael de Biasi", city: "Novo Horizonte" } },
+  { id: "ope", name: "Operário-PR",          short: "OPE", uf: "PR", logo: "img/teams/ope_b.png", c1: "#1E7A3D", c2: "#FFFFFF", atk: 1.22, def: 1.12, venue: { name: "Germano Krüger", city: "Ponta Grossa" } },
   { id: "amz", name: "Amazonas",             short: "AMZ", uf: "AM", c1: "#1E3A8A", c2: "#DC2626", atk: 1.20, def: 1.14, venue: { name: "Arena da Amazônia", city: "Manaus" } },
   { id: "pay", name: "Paysandu",             short: "PAY", uf: "PA", c1: "#003DA5", c2: "#FFFFFF", atk: 1.18, def: 1.16, venue: { name: "Curuzu", city: "Belém" } },
-  { id: "bsp", name: "Botafogo-SP",          short: "BSP", uf: "SP", c1: "#DC2626", c2: "#FFFFFF", atk: 1.16, def: 1.18, venue: { name: "Santa Cruz", city: "Ribeirão Preto" } },
-  { id: "atc", name: "Athletic Club",        short: "ATH", uf: "MG", c1: "#1A1A1A", c2: "#FFFFFF", atk: 1.14, def: 1.20, venue: { name: "Antônio Guimarães de Almeida", city: "São João del-Rei" } },
+  { id: "bsp", name: "Botafogo-SP",          short: "BSP", uf: "SP", logo: "img/teams/bsp_b.png", c1: "#DC2626", c2: "#FFFFFF", atk: 1.16, def: 1.18, venue: { name: "Santa Cruz", city: "Ribeirão Preto" } },
+  { id: "atc", name: "Athletic Club",        short: "ATH", uf: "MG", logo: "img/teams/atc_b.png", c1: "#1A1A1A", c2: "#FFFFFF", atk: 1.14, def: 1.20, venue: { name: "Antônio Guimarães de Almeida", city: "São João del-Rei" } },
   { id: "vre", name: "Volta Redonda",        short: "VOL", uf: "RJ", c1: "#FFC93C", c2: "#1A1A1A", atk: 1.12, def: 1.22, venue: { name: "Raulino de Oliveira", city: "Volta Redonda" } },
   { id: "frv", name: "Ferroviária",          short: "FER", uf: "SP", c1: "#DC2626", c2: "#FFFFFF", atk: 1.10, def: 1.24, venue: { name: "Fonte Luminosa", city: "Araraquara" } },
 ];
