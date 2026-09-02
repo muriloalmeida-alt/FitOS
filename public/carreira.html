@@ -173,7 +173,7 @@
     border-radius:10px; box-shadow:0 14px 32px rgba(0,0,0,.4); min-width:190px; padding:6px; display:none;
   }
   .mt-topbar-menu.open{ display:block; }
-  .mt-topbar-menu-item{ display:block; width:100%; text-align:left; background:none; border:none; padding:11px 12px; border-radius:8px; font-size:13.5px; font-weight:600; color:var(--mt-ivory-100); cursor:pointer; font-family:var(--font); }
+  .mt-topbar-menu-item{ display:block; width:100%; text-align:left; background:none; border:none; padding:11px 12px; border-radius:8px; font-size:13.5px; font-weight:600; color:var(--mt-ivory-100); cursor:pointer; font-family:var(--font); text-decoration:none; box-sizing:border-box; }
   .mt-topbar-menu-item:hover{ background:var(--mt-navy-800); }
   .mt-topbar-menu-item.danger{ color:var(--mt-crimson-400); }
   /* Rodada, inline no título "Próximo jogo" ("Próximo Jogo (XX / XX)"). */
@@ -1628,6 +1628,12 @@
           <!-- FASE 4 (item 4) — currículo do técnico (reputação +
                histórico de clubes), ver openCoachProfileScreen. -->
           <button class="mt-topbar-menu-item" id="btnOpenCoachProfile">👔 Perfil do Técnico</button>
+          <!-- AJUSTE (pedido do usuário: "página estática que controle
+               o histórico de mudanças do jogo") — página própria,
+               fora do SPA (ver historico.html), por isso é um <a>
+               normal (navega de verdade) e não um botão com listener
+               JS como os outros itens deste menu. -->
+          <a class="mt-topbar-menu-item" href="historico.html">🗒️ Histórico de Atualizações</a>
           <button class="mt-topbar-menu-item" id="btnRestart">↺ Reiniciar</button>
           <button class="mt-topbar-menu-item danger" id="btnLogout">⎋ Sair</button>
         </div>
