@@ -996,6 +996,25 @@
   .mt-club-card:active{ filter:brightness(1.08); }
   .mt-club-name{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:13.5px; letter-spacing:.3px; color:var(--mt-ivory-100); }
 
+  /* AJUSTE (pedido do usuário: "acrescentar a Série B, C [ao Modo
+     Carreira] com dados reais") — lista de campeonatos (novo 1º passo
+     antes da Escolha do Clube, ver renderCompetitionPicker em
+     carreira.js) — mesmo .mt-card chanfrado de sempre, só clicável. */
+  .mt-competition-list{ display:flex; flex-direction:column; gap:12px; max-width:480px; margin:0 auto; }
+  .mt-competition-card{
+    display:flex; align-items:center; gap:14px; width:100%; text-align:left; color:inherit; font:inherit; cursor:pointer;
+    background:linear-gradient(160deg, var(--mt-navy-700), var(--mt-navy-800) 65%);
+    border:1px solid var(--mt-navy-600); border-top:1px solid rgba(232,184,75,.22);
+    clip-path:polygon(0 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%);
+    padding:16px 18px;
+  }
+  .mt-competition-card:active{ filter:brightness(1.08); }
+  .mt-competition-flag{ font-size:26px; flex-shrink:0; }
+  .mt-competition-body{ flex:1; min-width:0; }
+  .mt-competition-title{ font-family:'Bebas Neue', var(--font); font-size:18px; letter-spacing:.3px; color:var(--mt-ivory-50); }
+  .mt-competition-sub{ font-size:12px; color:var(--mt-ink-muted); margin-top:2px; }
+  .mt-competition-chevron{ flex-shrink:0; width:18px; height:18px; color:var(--mt-ink-faint); }
+
   /* ================= Tela 4 — Elenco =================
      AJUSTE (refatoração completa, ver 04-elenco-restyled.html do
      designer) — divisor de posição, linha de jogador com badge de OVR +
@@ -1554,6 +1573,39 @@
 
           <p class="mt-signup">Não tem uma conta? <a href="/?signup=1">Cadastre-se no BR Data</a></p>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= Escolha de campeonato =================
+       AJUSTE (pedido do usuário: "acrescentar a Série B, C [ao Modo
+       Carreira] com dados reais") — novo 1º passo, antes da Escolha do
+       Clube: até aqui o Modo Carreira só existia na Série A (fixo, sem
+       escolha nenhuma). Mesmo padrão visual de #screenPicker (mesmo
+       topbar/intro), só troca o grid de clubes por uma lista de
+       campeonatos (ver renderCompetitionPicker em carreira.js). Só
+       aparece ao criar uma carreira NOVA — uma carreira salva já sabe
+       seu campeonato (CAREER.competitionId) e pula direto pra
+       Escolha do Clube/Central, sem passar por aqui de novo. -->
+  <div class="hidden" id="screenCompetitionPicker">
+    <div class="mt-picker-screen">
+      <div class="mt-topbar">
+        <div class="mt-topbar-row">
+          <div class="mt-brand-mini">
+            <div class="mt-crest-mini"><img src="img/brand-icon.png" alt=""></div>
+            <div class="t">MODO <span>CARREIRA</span></div>
+          </div>
+          <button class="mt-icon-btn" id="btnCompetitionPickerLogout" aria-label="Sair" title="Sair">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="mt-picker-content">
+        <div class="mt-intro">
+          <div class="mt-intro-crest"><img src="img/logo.png" alt=""></div>
+          <h1 style="margin:0;">Em qual divisão você vai treinar?</h1>
+        </div>
+        <div class="mt-competition-list" id="competitionList"></div>
       </div>
     </div>
   </div>
