@@ -337,7 +337,17 @@ async function withCache(key, ttl, fetcher) {
 // parâmetro). Valida em 2 camadas: o plano do usuário alcança esse
 // campeonato (403), e o campeonato já está habilitado de verdade
 // (501 "em breve" — ver server/src/competitions.js).
-function resolveCompetition(req, searchParams) {
+// AJUSTE (pedido do usuário: "acrescentar Série B, C [ao Modo Carreira]
+// com dados reais... liberar pra todo mundo no Modo Carreira") — as
+// rotas /api/career/* (ver mais abaixo) passam skipPlanCheck:true de
+// propósito: a trava de plano (Pro/Enterprise) do site principal NÃO
+// vale dentro do Modo Carreira, por decisão explícita do usuário — as
+// duas travas ficam INDEPENDENTES (mudar uma não afeta a outra). Isso
+// NÃO abre mão da checagem de "campeonato existe de verdade" logo
+// abaixo (enabled + liga mapeada no fornecedor) — essa é sobre o dado
+// real estar configurado, não sobre monetização, e continua valendo
+// nos dois casos.
+function resolveCompetition(req, searchParams, opts = {}) {
   const compId = searchParams.get("competition") || "brasileirao";
   const comp = competitions.getCompetition(compId);
   if (!comp) {
@@ -358,7 +368,7 @@ function resolveCompetition(req, searchParams) {
   // crawler de busca) via sempre dado de mentira, mesmo com a API
   // funcionando normalmente. Mesmo fallback já usado em /api/competitions
   // logo acima: sem conta = trata como Freemium.
-  if (!competitions.planAllowsCompetition(req.authUser?.plan || "freemium", comp)) {
+  if (!opts.skipPlanCheck && !competitions.planAllowsCompetition(req.authUser?.plan || "freemium", comp)) {
     const err = new Error("Esse campeonato não está disponível no seu plano — faça upgrade pra Pro ou Enterprise.");
     err.status = 403; err.code = "PLAN_UPGRADE_REQUIRED";
     throw err;
@@ -1785,6 +1795,40 @@ const server = http.createServer(async (req, res) => {
       return sendJSON(res, 200, { standings });
     }
 
+    // AJUSTE (pedido do usuário: "acrescentar Série B, C [ao Modo
+    // Carreira] com dados reais... liberar pra todo mundo no Modo
+    // Carreira") — variantes de /api/teams, /api/standings e
+    // /api/teams/:id/players (mais abaixo) SEM a trava de plano
+    // (resolveCompetition com skipPlanCheck:true — ver comentário lá),
+    // usadas só pelo Modo Carreira (ver loadLeague/fetchRealPlayers em
+    // carreira.js) — nomes de rota distintos de propósito, pra deixar
+    // óbvio pra quem ler o código depois que essa ausência de trava é
+    // intencional, não um descuido de segurança. Continuam exigindo
+    // sessão (mesma seção "Login obrigatório" acima) e continuam
+    // respeitando "campeonato existe de verdade" (enabled + liga
+    // mapeada), que não é sobre plano — se a Série B/C ainda não tiver
+    // o id da liga configurado, cai no mesmo catch de sempre e o
+    // cliente usa o modo exemplo (ver DEMO_DATA_BY_COMPETITION).
+    if (pathname === "/api/career/teams") {
+      const season = searchParams.get("season");
+      if (!season) return sendJSON(res, 400, { error: "parâmetro season é obrigatório" });
+      const comp = resolveCompetition(req, searchParams, { skipPlanCheck: true });
+      const teams = await withCache(`teams:${comp.id}:${season}`, TTL.teams, () =>
+        dataProvider.getTeams({ leagueId: comp.leagueId, season })
+      );
+      return sendJSON(res, 200, { teams });
+    }
+
+    if (pathname === "/api/career/standings") {
+      const season = searchParams.get("season");
+      if (!season) return sendJSON(res, 400, { error: "parâmetro season é obrigatório" });
+      const comp = resolveCompetition(req, searchParams, { skipPlanCheck: true });
+      const standings = await withCache(`standings:${comp.id}:${season}`, TTL.standings, () =>
+        dataProvider.getStandings({ leagueId: comp.leagueId, season })
+      );
+      return sendJSON(res, 200, { standings });
+    }
+
     if (pathname === "/api/fixtures") {
       const season = searchParams.get("season");
       if (!season) return sendJSON(res, 400, { error: "parâmetro season é obrigatório" });
@@ -1830,6 +1874,21 @@ const server = http.createServer(async (req, res) => {
       // contrato em providers/index.js) — resolveCompetition() já
       // trata "competição não informada" caindo pro Brasileirão.
       const comp = resolveCompetition(req, searchParams);
+      const players = await withCache(`teamplayers:${comp.id}:${teamId}:${season}`, TTL.teams, () =>
+        dataProvider.getTeamPlayers({ teamId, season, leagueId: comp.leagueId })
+      );
+      return sendJSON(res, 200, { players });
+    }
+
+    // AJUSTE (pedido do usuário, Modo Carreira multi-divisão) — mesma
+    // rota, sem a trava de plano (ver comentário em /api/career/teams
+    // acima).
+    const careerTeamPlayersMatch = pathname.match(/^\/api\/career\/teams\/(\d+)\/players$/);
+    if (careerTeamPlayersMatch) {
+      const teamId = careerTeamPlayersMatch[1];
+      const season = searchParams.get("season");
+      if (!season) return sendJSON(res, 400, { error: "parâmetro season é obrigatório" });
+      const comp = resolveCompetition(req, searchParams, { skipPlanCheck: true });
       const players = await withCache(`teamplayers:${comp.id}:${teamId}:${season}`, TTL.teams, () =>
         dataProvider.getTeamPlayers({ teamId, season, leagueId: comp.leagueId })
       );

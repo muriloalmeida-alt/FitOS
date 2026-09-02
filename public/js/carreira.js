@@ -123,6 +123,14 @@ function squadSortKey(p) { return (SUBPOS_ORDER[subPositionOf(p)] ?? 9) * 1000 -
 let LIVE_MODE = false;
 let LIVE_SEASON = new Date().getFullYear();
 let LEAGUE_TEAMS = []; // 20 clubes ativos (real ou DEMO_TEAMS — ver loadLeague)
+// AJUSTE (pedido do usuário: "acrescentar a Série B, C [ao Modo
+// Carreira] com dados reais") — qual campeonato está carregado em
+// LEAGUE_TEAMS agora ("brasileirao"/"serie_b"/"serie_c", mesmos ids de
+// server/src/competitions.js) — usado por loadLeague/fetchRealPlayers
+// pra saber qual endpoint/fallback de exemplo usar, e gravado em
+// CAREER.competitionId na criação da carreira (ver startCareer) pra
+// carregar o campeonato certo ao retomar uma carreira salva.
+let CURRENT_COMPETITION_ID = "brasileirao";
 let CAREER = null;     // save inteiro da carreira atual (null = sem carreira ainda)
 let PICKER_CTX = null; // contexto do modal de escolha de jogador ({type:"slot",index} ou {type:"bench",currentId})
 let PENDING_ROUND_SUMMARY = null; // resumo da rodada entre o modal de detalhe do jogo e o de resultados (ver simulateRound)
@@ -256,7 +264,7 @@ function toast(input, opts = {}) {
   }, durationMs);
 }
 function show(name) {
-  ["screenLoading", "screenLoginRequired", "screenPicker", "screenGame"].forEach((id) => {
+  ["screenLoading", "screenLoginRequired", "screenCompetitionPicker", "screenPicker", "screenGame"].forEach((id) => {
     document.getElementById(id).classList.toggle("hidden", id !== name);
   });
   // BUG CORRIGIDO: trocar de tela (ex.: escolher um clube mais pra
@@ -333,16 +341,38 @@ function realTeamColor(name) {
       return candidates.some((c) => norm.includes(c) || c.includes(norm));
     });
   }
+  // AJUSTE (pedido do usuário: "acrescentar a Série B, C [ao Modo
+  // Carreira] com dados reais") — mesma técnica de novo, agora também
+  // em DEMO_TEAMS_SERIE_C, pro caso de um time real da Série C não
+  // estar coberto em nenhuma das 2 listas acima.
+  if (!match) {
+    match = DEMO_TEAMS_SERIE_C.find((t) => normalizeNameForColor(t.name) === norm || (t.aliases || []).some((a) => normalizeNameForColor(a) === norm));
+  }
+  if (!match) {
+    match = DEMO_TEAMS_SERIE_C.find((t) => {
+      const candidates = [t.name, ...(t.aliases || [])].map(normalizeNameForColor).filter((c) => c.length > 3);
+      return candidates.some((c) => norm.includes(c) || c.includes(norm));
+    });
+  }
   return match ? { c1: match.c1, c2: match.c2, c3: match.c3 } : null;
 }
-async function loadLeague() {
+// AJUSTE (pedido do usuário: "acrescentar a Série B, C [ao Modo
+// Carreira] com dados reais") — competitionId agora é parâmetro (era
+// sempre "brasileirao" fixo); rotas /api/career/teams e
+// /api/career/standings (server.js) em vez de /api/teams/
+// /api/standings — mesma resposta, só sem a trava de plano do site
+// principal (decisão do usuário: as 2 travas ficam independentes).
+// Fallback de exemplo agora escolhe o catálogo certo por competição
+// (DEMO_DATA_BY_COMPETITION, de js/data.js) em vez de sempre DEMO_TEAMS.
+async function loadLeague(competitionId = "brasileirao") {
+  CURRENT_COMPETITION_ID = competitionId;
   try {
     const health = await fetchJSON("/api/health");
     if (!health.hasKey) throw new Error("sem chave configurada");
     if (health.season) LIVE_SEASON = Number(health.season) || LIVE_SEASON;
     const [teamsData, standingsData] = await Promise.all([
-      fetchJSON(`/api/teams?season=${LIVE_SEASON}&competition=brasileirao`),
-      fetchJSON(`/api/standings?season=${LIVE_SEASON}&competition=brasileirao`),
+      fetchJSON(`/api/career/teams?season=${LIVE_SEASON}&competition=${competitionId}`),
+      fetchJSON(`/api/career/standings?season=${LIVE_SEASON}&competition=${competitionId}`),
     ]);
     if (!teamsData.teams || !teamsData.teams.length) throw new Error("resposta vazia");
     const strengths = calibrateStrengths(standingsData.standings || []);
@@ -355,7 +385,11 @@ async function loadLeague() {
     });
     LIVE_MODE = true;
   } catch {
-    LEAGUE_TEAMS = DEMO_TEAMS; // global vindo de js/data.js
+    // globais vindos de js/data.js — DEMO_DATA_BY_COMPETITION não tem
+    // entrada pra "serie_d" (fora de escopo por enquanto, ver
+    // renderCompetitionPicker) nem pra competições de mata-mata; cai
+    // em DEMO_TEAMS (Série A) só como rede de segurança bem remota.
+    LEAGUE_TEAMS = (DEMO_DATA_BY_COMPETITION[competitionId] || { teams: DEMO_TEAMS }).teams;
     LIVE_MODE = false;
   }
 }
@@ -435,10 +469,17 @@ function fmtBRLShort(v) {
 }
 
 /* ---------- Elenco: jogadores reais (mesma fonte do BR Data) + base gerada ---------- */
+// AJUSTE (pedido do usuário: "acrescentar a Série B, C [ao Modo
+// Carreira] com dados reais") — competição certa (CURRENT_COMPETITION_ID,
+// ver loadLeague) tanto no fallback de exemplo quanto na rota real
+// (/api/career/teams/:id/players, sem trava de plano).
 async function fetchRealPlayers(teamId) {
-  if (!LIVE_MODE) return DEMO_PLAYERS.filter((p) => String(p.teamId) === String(teamId));
+  if (!LIVE_MODE) {
+    const demo = DEMO_DATA_BY_COMPETITION[CURRENT_COMPETITION_ID] || { players: DEMO_PLAYERS };
+    return demo.players.filter((p) => String(p.teamId) === String(teamId));
+  }
   try {
-    const data = await fetchJSON(`/api/teams/${teamId}/players?season=${LIVE_SEASON}&competition=brasileirao`);
+    const data = await fetchJSON(`/api/career/teams/${teamId}/players?season=${LIVE_SEASON}&competition=${CURRENT_COMPETITION_ID}`);
     return data.players || [];
   } catch { return []; }
 }
@@ -2330,6 +2371,45 @@ async function persistCareer() {
 // (nesse fluxo não é escolha livre — ver acceptClubProposal); em
 // qualquer outro fluxo (1ª escolha, reinício, demissão) segue mostrando
 // os 20 normalmente, sem banner nenhum.
+// AJUSTE (pedido do usuário: "acrescentar a Série B, C [ao Modo
+// Carreira] com dados reais") — 1º passo de uma carreira NOVA (ver
+// enterAfterAuth): mostra as divisões disponíveis pro Modo Carreira.
+// Lista fixa aqui (não vem do /api/competitions do site principal —
+// aquele endpoint já anota "locked" por PLANO, e a decisão do usuário
+// foi deixar as 2 travas independentes: dentro do Modo Carreira,
+// qualquer plano pode escolher qualquer uma destas 3). Série D fica de
+// fora de propósito (formato de grupos + mata-mata, não bate com o
+// motor de pontos corridos deste app — ver aviso em
+// server/src/competitions.js) até ganhar um motor próprio.
+const CAREER_COMPETITIONS = [
+  { id: "brasileirao", flag: "🇧🇷", name: "Brasileirão Série A", sub: "20 clubes — a elite do futebol brasileiro" },
+  { id: "serie_b", flag: "🇧🇷", name: "Brasileirão Série B", sub: "20 clubes — acesso e disputa direta pela Série A" },
+  { id: "serie_c", flag: "🇧🇷", name: "Brasileirão Série C", sub: "20 clubes — a base da pirâmide do futebol nacional" },
+];
+function renderCompetitionPicker() {
+  document.getElementById("competitionList").innerHTML = CAREER_COMPETITIONS.map((c) => `
+    <button class="mt-competition-card" data-competition="${escapeHtml(c.id)}">
+      <span class="mt-competition-flag">${c.flag}</span>
+      <span class="mt-competition-body">
+        <div class="mt-competition-title">${escapeHtml(c.name)}</div>
+        <div class="mt-competition-sub">${escapeHtml(c.sub)}</div>
+      </span>
+      <svg class="mt-competition-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>`).join("");
+  document.querySelectorAll(".mt-competition-card").forEach((btn) => {
+    btn.addEventListener("click", () => chooseCompetition(btn.dataset.competition));
+  });
+}
+// Escolhida a divisão, carrega o campeonato certo (real, se disponível
+// — ver loadLeague/DEMO_DATA_BY_COMPETITION) e só então mostra a
+// Escolha do Clube, agora restrita aos times DESSA divisão.
+async function chooseCompetition(competitionId) {
+  show("screenLoading");
+  document.getElementById("screenLoading").innerHTML = `<div class="ct-spinner"></div><p>Carregando o Modo Técnico...</p>`;
+  await loadLeague(competitionId);
+  renderClubPicker();
+  show("screenPicker");
+}
 function renderClubPicker(filterIds, bannerText) {
   const banner = document.getElementById("pickerContextBanner");
   if (bannerText) { banner.textContent = bannerText; banner.hidden = false; }
@@ -2377,6 +2457,12 @@ async function startCareer(clubId) {
       // de deixar de quebrar o save).
       clubId: String(club.id), clubName: club.name, clubShort: club.short || club.name.slice(0, 3).toUpperCase(),
       clubLogo: club.logo || null, clubColors: { c1: club.c1, c2: club.c2, c3: club.c3 },
+      // AJUSTE (pedido do usuário: "acrescentar a Série B, C [ao Modo
+      // Carreira] com dados reais") — grava em qual campeonato essa
+      // carreira nasceu (ver renderCompetitionPicker/CURRENT_COMPETITION_ID)
+      // pra reabrir no campeonato certo da próxima vez (ver
+      // enterAfterAuth, que lê isso ANTES de chamar loadLeague de novo).
+      competitionId: CURRENT_COMPETITION_ID,
       liveMode: LIVE_MODE, createdAt: Date.now(), updatedAt: Date.now(),
       squad, lineup, trainingFocus: "equilibrado", leagueSquads,
       schedule, currentRound: 1, standings, resultsByRound: {},
@@ -6010,8 +6096,12 @@ function wireStaticListeners() {
     if (!(await confirmModal(`Isso vai apagar sua carreira atual no ${CAREER.clubName} e começar do zero. Continuar?`, "Apagar e reiniciar"))) return;
     await fetchJSON("/api/career", { method: "DELETE" }).catch(() => {});
     CAREER = null;
-    renderClubPicker();
-    show("screenPicker");
+    // AJUSTE (pedido do usuário: "acrescentar a Série B, C [ao Modo
+    // Carreira] com dados reais") — reiniciar é uma carreira nova de
+    // verdade, então volta pro seletor de divisão também (antes ia
+    // direto pra Escolha do Clube, sempre na mesma divisão de antes).
+    renderCompetitionPicker();
+    show("screenCompetitionPicker");
   });
 
   // Menu hambúrguer (pedido do usuário: header enxuto, ações que
@@ -6043,6 +6133,13 @@ function wireStaticListeners() {
   // de escolher o clube, então não tem Notícias/Premiações/Perfil do
   // Técnico pra mostrar ali; o ícone vira ação direta de sair).
   document.getElementById("btnPickerLogout").addEventListener("click", async () => {
+    try { await fetchJSON("/api/auth/logout", { method: "POST" }); } catch { /* segue mesmo se falhar */ }
+    location.href = "/";
+  });
+  // Mesmo botão/ação da Escolha do Clube, agora também na Escolha de
+  // Campeonato (novo 1º passo, ver renderCompetitionPicker) — mesmo
+  // motivo: nenhuma carreira existe ainda, não tem menu de verdade.
+  document.getElementById("btnCompetitionPickerLogout").addEventListener("click", async () => {
     try { await fetchJSON("/api/auth/logout", { method: "POST" }); } catch { /* segue mesmo se falhar */ }
     location.href = "/";
   });
@@ -6094,8 +6191,10 @@ function wireStaticListeners() {
     endCurrentClubStint("dismissed");
     await fetchJSON("/api/career", { method: "DELETE" }).catch(() => {});
     CAREER = null;
-    renderClubPicker();
-    show("screenPicker");
+    // AJUSTE (pedido do usuário, mesmo motivo do "Reiniciar" acima) —
+    // demissão também é carreira nova, volta pro seletor de divisão.
+    renderCompetitionPicker();
+    show("screenCompetitionPicker");
   });
   // O X aqui só fecha (SEM apagar o save) — a demissão em si só
   // acontece de verdade em "Escolher outro clube" (ver comentário na
@@ -6206,6 +6305,11 @@ async function submitCtLogin(e) {
 // clubId+squad+lineup+schedule+standings+currentRound), pra abrir sem
 // quebrar não importa de qual fase seja o save.
 function migrateCareerDefaults() {
+  // AJUSTE (pedido do usuário: "acrescentar a Série B, C [ao Modo
+  // Carreira] com dados reais") — carreira criada ANTES do seletor de
+  // campeonato existir foi sempre Série A (não tinha outra opção),
+  // então "brasileirao" é o default certo aqui, não uma suposição.
+  if (!CAREER.competitionId) CAREER.competitionId = "brasileirao";
   if (!CAREER.leagueSquads) CAREER.leagueSquads = {};
   // Jogador criado antes da Fase 2b não tem wage/value/contractUntil
   // nenhum (esses campos só existem desde que buildRealPlayer/
@@ -6282,19 +6386,26 @@ function migrateCareerDefaults() {
   if (!CAREER.pressLog) CAREER.pressLog = [];
   if (CAREER.metaRiskWarnedSeason === undefined) CAREER.metaRiskWarnedSeason = null;
 }
+// AJUSTE (pedido do usuário: "acrescentar a Série B, C [ao Modo
+// Carreira] com dados reais") — loadLeague() não pode mais rodar
+// cego pra "brasileirao" ANTES de saber se existe carreira salva: uma
+// carreira salva na Série B precisa reabrir com o campeonato salvo
+// (CAREER.competitionId), não sempre Série A. Sem carreira salva, quem
+// decide o campeonato é o novo seletor (ver renderCompetitionPicker) —
+// loadLeague só roda depois que ele escolher.
 async function enterAfterAuth() {
   show("screenLoading");
   document.getElementById("screenLoading").innerHTML = `<div class="ct-spinner"></div><p>Carregando o Modo Técnico...</p>`;
-  await loadLeague();
   const saved = await fetchJSON("/api/career").catch(() => ({ career: null }));
   if (saved && saved.career) {
+    await loadLeague(saved.career.competitionId || "brasileirao");
     CAREER = saved.career;
     migrateCareerDefaults();
     persistCareer(); // grava os campos novos pra não migrar de novo (e de novo) a cada load
     showGameScreen();
   } else {
-    renderClubPicker();
-    show("screenPicker");
+    renderCompetitionPicker();
+    show("screenCompetitionPicker");
   }
 }
 async function boot() {
