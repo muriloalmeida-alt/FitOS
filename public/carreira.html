@@ -1693,8 +1693,16 @@
           <button class="mt-btn-primary-gold" id="btnSimulate"><svg viewBox="0 0 24 24" fill="currentColor"><polygon points="6,4 20,12 6,20"/></svg>Ir para o jogo</button>
           <!-- FASE 3 (c) — pedido do usuário: seguir jogando ano após
                ano (multitemporadas) — só aparece quando a temporada
-               termina, ver renderCentral/advanceSeason. -->
-          <button class="mt-btn-primary hidden" id="btnAdvanceSeason">🏆 Avançar para a próxima temporada</button>
+               termina, ver renderCentral/advanceSeason.
+               AJUSTE (pedido do usuário: "Botão 'Avançar a próxima
+               temporada' e 'Salvar escalação e táticas' deve ter o
+               padrão de todos os demais botões") — era o único botão
+               de ação principal que sobrou com o verde
+               .mt-btn-primary (caixa alta, tracking largo, cor de
+               ANTES do ajuste "fonte mais discreta") — trocado pro
+               .mt-btn-primary-gold de sempre; emoji 🏆 também trocado
+               por ícone SVG (nenhum outro botão do app usa emoji). -->
+          <button class="mt-btn-primary-gold hidden" id="btnAdvanceSeason"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4Z"/><path d="M7 5H4a1 1 0 0 0-1 1v1a4 4 0 0 0 4 4"/><path d="M17 5h3a1 1 0 0 1 1 1v1a4 4 0 0 1-4 4"/></svg>Avançar para a próxima temporada</button>
         </div>
       </section>
 
@@ -1799,7 +1807,14 @@
           <p class="mt-card-sub ct-help-text" id="helpInstrucoesTaticas" style="margin-top:10px; margin-bottom:0;" hidden>O foco também guia a evolução de longo prazo do elenco — o atributo escolhido cresce com mais chance a cada rodada jogada.</p>
         </div>
         <div class="mt-action-bar">
-          <button class="mt-btn-primary" id="btnSaveLineup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Salvar escalação e táticas</button>
+          <!-- AJUSTE (pedido do usuário: "Botão 'Avançar a próxima
+               temporada' e 'Salvar escalação e táticas' deve ter o
+               padrão de todos os demais botões") — era o último botão
+               de ação principal ainda com o verde .mt-btn-primary
+               (caixa alta/tracking largo) — trocado pro
+               .mt-btn-primary-gold de sempre; ícone SVG já existia,
+               sem mudança nele. -->
+          <button class="mt-btn-primary-gold" id="btnSaveLineup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Salvar escalação e táticas</button>
         </div>
       </section>
 
