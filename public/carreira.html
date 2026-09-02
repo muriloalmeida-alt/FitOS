@@ -2064,6 +2064,20 @@
             <option value="M">Meio-campo</option>
             <option value="F">Atacantes</option>
           </select>
+          <!-- AJUSTE (pedido do usuário: "o mercado deve trazer
+               jogadores das 3 ligas para que transações possam ser
+               feitas entre os 60 times das Séries A, B e C") — filtro
+               de divisão, só pra carreira "multi" (ver
+               CAREER.marketScope em carreira.js) -- carreira "single"
+               (de antes desta mudança) nunca tem jogador de outra
+               divisão no Mercado, então o filtro fica escondido pra
+               ela (toggle via renderMercado). -->
+          <select id="marketCompFilter" class="mt-select-box hidden" style="margin-bottom:4px;">
+            <option value="">Todas as divisões</option>
+            <option value="brasileirao">Série A</option>
+            <option value="serie_b">Série B</option>
+            <option value="serie_c">Série C</option>
+          </select>
           <div id="marketList"></div>
         </div>
         <div class="mt-card">

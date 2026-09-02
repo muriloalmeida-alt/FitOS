@@ -131,6 +131,21 @@ let LEAGUE_TEAMS = []; // 20 clubes ativos (real ou DEMO_TEAMS — ver loadLeagu
 // CAREER.competitionId na criação da carreira (ver startCareer) pra
 // carregar o campeonato certo ao retomar uma carreira salva.
 let CURRENT_COMPETITION_ID = "brasileirao";
+// AJUSTE (pedido do usuário: "o mercado deve trazer jogadores das 3
+// ligas para que transações possam ser feitas entre os 60 times das
+// Séries A, B e C") — LIVE_MODE (acima) e LEAGUE_TEAMS só cobrem a
+// competição da PRÓPRIA carreira (calendário/tabela/Ao Vivo continuam
+// só entre os 20 times dela — isso não muda). Pro mercado de 60
+// times, precisa saber o estado ao vivo/exemplo de CADA UMA das 3
+// competições ao mesmo tempo (LIVE_MODE_BY_COMPETITION, ver
+// fetchCompetitionTeams/loadOtherCompetitionsTeams) e ter os times
+// das outras 2 numa lista à parte, cada um marcado com a própria
+// competitionId pro selo na tela (ALL_TEAMS_FLAT, ver
+// loadOtherCompetitionsTeams) — nenhuma delas troca o
+// comportamento de LEAGUE_TEAMS/LIVE_MODE pra quem já existia.
+const ALL_COMPETITIONS_ORDER = ["brasileirao", "serie_b", "serie_c"];
+let LIVE_MODE_BY_COMPETITION = {};
+let ALL_TEAMS_FLAT = [];
 let CAREER = null;     // save inteiro da carreira atual (null = sem carreira ainda)
 let PICKER_CTX = null; // contexto do modal de escolha de jogador ({type:"slot",index} ou {type:"bench",currentId})
 let PENDING_ROUND_SUMMARY = null; // resumo da rodada entre o modal de detalhe do jogo e o de resultados (ver simulateRound)
@@ -382,48 +397,102 @@ function realTeamColor(name) {
 // depois de o dado real ser ligado, passa a usá-lo. Nenhum dado é
 // migrado/renomeado; a carreira antiga simplesmente continua 100% no
 // Modo Exemplo que sempre foi dela.
-async function loadLeague(competitionId = "brasileirao", opts = {}) {
-  CURRENT_COMPETITION_ID = competitionId;
-  if (opts.forceDemo) {
-    LEAGUE_TEAMS = (DEMO_DATA_BY_COMPETITION[competitionId] || { teams: DEMO_TEAMS }).teams;
-    LIVE_MODE = false;
-    return;
+// Busca a lista de times de UMA competição (id/nome/força/cores), sem
+// tocar em nenhum global — extraída de loadLeague (ver AJUSTE dela
+// acima) pra ser reaproveitada por loadOtherCompetitionsTeams (mercado
+// de 60 times) sem duplicar o mesmo fetch/try-catch duas vezes.
+// `health` é passado de fora (já resolvido 1x por chamador, evita
+// bater /api/health de novo pra cada uma das 3 competições).
+// opts.forceDemo pula o fetch e cai direto no catálogo de exemplo —
+// mesma trava do bug "Time #xxx" documentado em loadLeague, também
+// necessária aqui (ver loadOtherCompetitionsTeams).
+async function fetchCompetitionTeams(competitionId, health, opts = {}) {
+  if (opts.forceDemo || !health.hasKey) {
+    return { teams: (DEMO_DATA_BY_COMPETITION[competitionId] || { teams: DEMO_TEAMS }).teams, liveMode: false };
   }
   try {
-    const health = await fetchJSON("/api/health");
-    if (!health.hasKey) throw new Error("sem chave configurada");
-    if (health.season) LIVE_SEASON = Number(health.season) || LIVE_SEASON;
+    const season = health.season ? Number(health.season) || LIVE_SEASON : LIVE_SEASON;
     const [teamsData, standingsData] = await Promise.all([
-      fetchJSON(`/api/career/teams?season=${LIVE_SEASON}&competition=${competitionId}`),
-      fetchJSON(`/api/career/standings?season=${LIVE_SEASON}&competition=${competitionId}`),
+      fetchJSON(`/api/career/teams?season=${season}&competition=${competitionId}`),
+      fetchJSON(`/api/career/standings?season=${season}&competition=${competitionId}`),
     ]);
     if (!teamsData.teams || !teamsData.teams.length) throw new Error("resposta vazia");
     const strengths = calibrateStrengths(standingsData.standings || []);
-    LEAGUE_TEAMS = teamsData.teams.map((t) => {
+    const teams = teamsData.teams.map((t) => {
       const realColor = realTeamColor(t.name);
       return {
         ...t, atk: strengths[t.id]?.atk ?? 1.3, def: strengths[t.id]?.def ?? 1.05,
         c1: realColor?.c1 || "#0057B8", c2: realColor?.c2 || "#062B5C", c3: realColor?.c3,
       };
     });
-    LIVE_MODE = true;
+    return { teams, liveMode: true };
   } catch {
     // globais vindos de js/data.js — DEMO_DATA_BY_COMPETITION não tem
     // entrada pra "serie_d" (fora de escopo por enquanto, ver
     // renderCompetitionPicker) nem pra competições de mata-mata; cai
     // em DEMO_TEAMS (Série A) só como rede de segurança bem remota.
-    LEAGUE_TEAMS = (DEMO_DATA_BY_COMPETITION[competitionId] || { teams: DEMO_TEAMS }).teams;
-    LIVE_MODE = false;
+    return { teams: (DEMO_DATA_BY_COMPETITION[competitionId] || { teams: DEMO_TEAMS }).teams, liveMode: false };
   }
+}
+async function loadLeague(competitionId = "brasileirao", opts = {}) {
+  CURRENT_COMPETITION_ID = competitionId;
+  const health = opts.forceDemo ? { hasKey: false } : await fetchJSON("/api/health").catch(() => ({ hasKey: false }));
+  if (health.season) LIVE_SEASON = Number(health.season) || LIVE_SEASON;
+  const { teams, liveMode } = await fetchCompetitionTeams(competitionId, health, opts);
+  LEAGUE_TEAMS = teams;
+  LIVE_MODE = liveMode;
+  LIVE_MODE_BY_COMPETITION[competitionId] = liveMode;
+}
+// AJUSTE (pedido do usuário: "o mercado deve trazer jogadores das 3
+// ligas para que transações possam ser feitas entre os 60 times das
+// Séries A, B e C") — busca os times das OUTRAS 2 competições (a da
+// própria carreira já está em LEAGUE_TEAMS, carregada por loadLeague
+// de sempre) e monta ALL_TEAMS_FLAT com as 3 juntas, cada time já
+// marcado com a própria competitionId (pro selo de divisão no
+// Mercado, ver renderMercado). Chamada em 2 momentos: (1) criação de
+// carreira nova (startCareer), sem forceDemoMap — tenta dado real
+// pras 2 outras competições, cada uma cai pro exemplo sozinha se
+// faltar (mesmo try/catch de sempre); (2) retomada de uma carreira
+// "multi" já existente (enterAfterAuth), com forceDemoMap montado a
+// partir de CAREER.liveModeByCompetition — mesma trava do bug "Time
+// #xxx" (ver loadLeague), agora também pras outras 2 competições:
+// uma carreira que gravou uma delas como Modo Exemplo nunca tenta
+// dado real por conta própria pra ela depois.
+async function loadOtherCompetitionsTeams(homeCompetitionId, forceDemoMap = {}) {
+  const others = ALL_COMPETITIONS_ORDER.filter((c) => c !== homeCompetitionId);
+  const health = await fetchJSON("/api/health").catch(() => ({ hasKey: false }));
+  const liveModeByCompetition = { [homeCompetitionId]: LIVE_MODE };
+  const otherTeams = await Promise.all(others.map(async (compId) => {
+    const { teams, liveMode } = await fetchCompetitionTeams(compId, health, { forceDemo: forceDemoMap[compId] });
+    liveModeByCompetition[compId] = liveMode;
+    LIVE_MODE_BY_COMPETITION[compId] = liveMode;
+    return teams.map((t) => ({ ...t, competitionId: compId }));
+  }));
+  ALL_TEAMS_FLAT = [
+    ...LEAGUE_TEAMS.map((t) => ({ ...t, competitionId: homeCompetitionId })),
+    ...otherTeams.flat(),
+  ];
+  return liveModeByCompetition;
 }
 // Nunca deixa a tela quebrar por um id de clube que não existe mais em
 // LEAGUE_TEAMS (ex.: carreira criada em modo ao vivo, revisitada depois
 // sem a chave configurada — os 2 esquemas de id são diferentes, ver
 // aviso no topo do arquivo) — devolve um placeholder plausível em vez
 // de undefined.
+// AJUSTE (pedido do usuário: "o mercado deve trazer jogadores das 3
+// ligas") — carreira "multi" (ver startCareer/CAREER.marketScope) tem
+// jogador de clube de OUTRA divisão, que não existe em LEAGUE_TEAMS
+// (só a divisão da própria carreira) — cai pra ALL_TEAMS_FLAT (as 3
+// juntas, ver loadOtherCompetitionsTeams) antes do placeholder "Time
+// #<id>". Time achado em LEAGUE_TEAMS é sempre marcado com
+// CURRENT_COMPETITION_ID (não carrega esse campo por padrão) pra
+// renderMercado saber a divisão de qualquer time, próprio ou de fora.
 function teamById(id) {
-  return LEAGUE_TEAMS.find((t) => String(t.id) === String(id))
-    || { id, name: `Time #${id}`, short: String(id).slice(0, 3).toUpperCase(), c1: "#8892A0", c2: "#333" };
+  const own = LEAGUE_TEAMS.find((t) => String(t.id) === String(id));
+  if (own) return { ...own, competitionId: CURRENT_COMPETITION_ID };
+  const other = ALL_TEAMS_FLAT.find((t) => String(t.id) === String(id));
+  if (other) return other;
+  return { id, name: `Time #${id}`, short: String(id).slice(0, 3).toUpperCase(), c1: "#8892A0", c2: "#333" };
 }
 // AJUSTE (pedido do usuário: "refaça 100% do front pra refletir o
 // material enviado / idêntico às 30 telas") — moldura hexagonal (ver
@@ -496,13 +565,24 @@ function fmtBRLShort(v) {
 // Carreira] com dados reais") — competição certa (CURRENT_COMPETITION_ID,
 // ver loadLeague) tanto no fallback de exemplo quanto na rota real
 // (/api/career/teams/:id/players, sem trava de plano).
-async function fetchRealPlayers(teamId) {
-  if (!LIVE_MODE) {
-    const demo = DEMO_DATA_BY_COMPETITION[CURRENT_COMPETITION_ID] || { players: DEMO_PLAYERS };
+//
+// AJUSTE (pedido do usuário: "o mercado deve trazer jogadores das 3
+// ligas") — competitionId agora é parâmetro (era sempre
+// CURRENT_COMPETITION_ID, a competição da PRÓPRIA carreira) — times de
+// OUTRA divisão (ver buildLeagueSquad/loadOtherCompetitionsTeams)
+// passam a sua própria competitionId aqui. LIVE_MODE_BY_COMPETITION
+// (em vez do global LIVE_MODE, que só reflete a competição da
+// carreira) garante que times de uma divisão em Modo Exemplo não
+// tentem a API real só porque a divisão da carreira está ao vivo (e
+// vice-versa) — cada competição resolve sua própria fonte de dado,
+// independente das outras 2.
+async function fetchRealPlayers(teamId, competitionId = CURRENT_COMPETITION_ID) {
+  if (!LIVE_MODE_BY_COMPETITION[competitionId]) {
+    const demo = DEMO_DATA_BY_COMPETITION[competitionId] || { players: DEMO_PLAYERS };
     return demo.players.filter((p) => String(p.teamId) === String(teamId));
   }
   try {
-    const data = await fetchJSON(`/api/career/teams/${teamId}/players?season=${LIVE_SEASON}&competition=${CURRENT_COMPETITION_ID}`);
+    const data = await fetchJSON(`/api/career/teams/${teamId}/players?season=${LIVE_SEASON}&competition=${competitionId}`);
     return data.players || [];
   } catch { return []; }
 }
@@ -1145,9 +1225,20 @@ function averageOverall(list) {
   if (!list.length) return 0;
   return list.reduce((s, p) => s + p.overall, 0) / list.length;
 }
+// AJUSTE (pedido do usuário: "o mercado deve trazer jogadores das 3
+// ligas") — numa carreira "multi", CAREER.leagueSquads tem elenco de
+// OUTRAS 2 divisões também (ver buildLeagueSquads em startCareer) —
+// mas a força "da liga" pra calibrar a meta da diretoria é sempre a
+// da PRÓPRIA divisão (times mais fracos de outra série não podem
+// puxar a régua pra baixo/cima à toa). Filtrado por CAREER.standings
+// (só as chaves dos 20 times da própria divisão, sempre) pelo mesmo
+// motivo já aplicado em renderEstatisticas (artilheiros da liga).
 function computeBoardGoal() {
   const myAvg = averageOverall(CAREER.squad.filter((p) => p.origin === "principal"));
-  const leagueAvg = averageOverall(Object.values(CAREER.leagueSquads || {}).flat());
+  const leagueSquadsOwnDivision = Object.entries(CAREER.leagueSquads || {})
+    .filter(([teamId]) => Object.prototype.hasOwnProperty.call(CAREER.standings, teamId))
+    .flatMap(([, squad]) => squad);
+  const leagueAvg = averageOverall(leagueSquadsOwnDivision);
   const diff = myAvg - leagueAvg;
   if (diff >= 4) return { type: "posicao_tabela", target: 6, label: "Terminar entre os 6 primeiros" };
   if (diff <= -4) return { type: "posicao_tabela", target: 16, label: "Não cair (terminar fora do Z4)" };
@@ -1569,7 +1660,13 @@ function renewLeagueSquad(club, squad) {
   squad.forEach((p) => { p.age += 1; p.status = "ok"; p.outUntilRound = null; p.injurySeverity = null; p.yellowCards = 0; p.goalsSeason = 0; p.assistsSeason = 0; });
   const kept = squad.filter((p) => p.contractUntil >= CAREER.seasonYear);
   const rng = seededRngFromKey(`renew-league:${club.id}:${CAREER.seasonYear}`);
-  const missing = Math.max(0, MIN_LEAGUE_SQUAD - kept.length);
+  // AJUSTE (pedido do usuário: "o mercado deve trazer jogadores das 3
+  // ligas") — piso certo por time (ver minSquadSizeFor) — repor sempre
+  // até MIN_LEAGUE_SQUAD (16) reencheria de mais um time de outra
+  // divisão (piso menor de propósito, 12 — ver
+  // MIN_LEAGUE_SQUAD_OTHER_DIVISION), voltando a inflar o save a cada
+  // virada de temporada mesmo sem nenhuma negociação de verdade.
+  const missing = Math.max(0, minSquadSizeFor(club.id) - kept.length);
   const fresh = Array.from({ length: missing }, (_, i) => buildGeneratedProPlayer(club, i, rng));
   return [...kept, ...fresh];
 }
@@ -1855,22 +1952,56 @@ function advanceSeason() {
    base, como o seu) pros 20 times deixaria o save ~20x maior à toa. */
 const MAX_LEAGUE_SQUAD = 26;
 const MIN_LEAGUE_SQUAD = 16;
+// AJUSTE (pedido do usuário: "o mercado deve trazer jogadores das 3
+// ligas para que transações possam ser feitas entre os 60 times das
+// Séries A, B e C") — BUG CORRIGIDO antes mesmo de publicar (achado
+// testando com o server real: carreira "multi" recém-criada já nascia
+// com ~640KB de save, estourando o limite de 400KB do servidor —
+// server/src/careerStore.js — e ficando incapaz de salvar qualquer
+// progresso a partir da 1ª rodada). Time de OUTRA divisão nunca entra
+// em campo nesta carreira (o calendário só joga dentro da própria
+// divisão, ver CAREER.schedule) — só existe no mercado pra comprar/
+// vender/emprestar, então não precisa do mesmo elenco completo de um
+// adversário de verdade (MAX/MIN_LEAGUE_SQUAD acima). Elenco mais
+// enxuto SÓ pros 40 times de fora (os 19 da própria divisão continuam
+// com o elenco cheio de sempre, usados de verdade em pickCpuXI a cada
+// rodada) — ainda de sobra pra variedade de mercado (40 times × até 16
+// jogadores = 640 opções), cortando boa parte do peso extra no save.
+const MAX_LEAGUE_SQUAD_OTHER_DIVISION = 16;
+const MIN_LEAGUE_SQUAD_OTHER_DIVISION = 12;
 async function buildLeagueSquad(club) {
   const rng = seededRngFromKey(`league-squad:${club.id}:${LIVE_SEASON}`);
-  const raw = await fetchRealPlayers(club.id).catch(() => []);
-  const realPlayers = raw.slice(0, MAX_LEAGUE_SQUAD).map((p) => buildRealPlayer(p, club, rng));
-  const missing = Math.max(0, MIN_LEAGUE_SQUAD - realPlayers.length);
+  // AJUSTE (pedido do usuário: "o mercado deve trazer jogadores das 3
+  // ligas") — club.competitionId só existe pra times de OUTRA divisão
+  // (ver loadOtherCompetitionsTeams); time da própria divisão não tem
+  // esse campo, fetchRealPlayers já assume CURRENT_COMPETITION_ID nesse
+  // caso (mesmo comportamento de sempre).
+  const otherDivision = !!club.competitionId && club.competitionId !== CURRENT_COMPETITION_ID;
+  const maxSquad = otherDivision ? MAX_LEAGUE_SQUAD_OTHER_DIVISION : MAX_LEAGUE_SQUAD;
+  const minSquad = otherDivision ? MIN_LEAGUE_SQUAD_OTHER_DIVISION : MIN_LEAGUE_SQUAD;
+  const raw = await fetchRealPlayers(club.id, club.competitionId).catch(() => []);
+  const realPlayers = raw.slice(0, maxSquad).map((p) => buildRealPlayer(p, club, rng));
+  const missing = Math.max(0, minSquad - realPlayers.length);
   const filler = Array.from({ length: missing }, (_, i) => buildGeneratedProPlayer(club, i, rng));
   return [...realPlayers, ...filler];
 }
-// Constrói o elenco dos outros 19 times de uma vez (em paralelo — cada
+// Constrói o elenco dos outros times de uma vez (em paralelo — cada
 // busca já é cacheada 12h no servidor, ver TTL.teams em server.js, o
 // mesmo endpoint que /api/teams/:id/players sempre usou, então o custo
 // real de fornecedor só existe na 1ª carreira criada depois do cache
 // vencer, não a cada carreira nova). Falha isolada por time (ver catch
 // dentro de buildLeagueSquad) não derruba a criação da carreira.
-async function buildLeagueSquads(humanClubId) {
-  const others = LEAGUE_TEAMS.filter((t) => String(t.id) !== String(humanClubId));
+//
+// AJUSTE (pedido do usuário: "o mercado deve trazer jogadores das 3
+// ligas para que transações possam ser feitas entre os 60 times das
+// Séries A, B e C") — `teams` agora é parâmetro (era sempre
+// LEAGUE_TEAMS, só os 19 outros da própria divisão) — startCareer
+// passa ALL_TEAMS_FLAT (as 3 competições juntas, ver
+// loadOtherCompetitionsTeams), então o elenco é montado pros 59
+// outros times das 3 séries de uma vez, não só os 19 da divisão da
+// carreira.
+async function buildLeagueSquads(humanClubId, teams = LEAGUE_TEAMS) {
+  const others = teams.filter((t) => String(t.id) !== String(humanClubId));
   const entries = await Promise.all(others.map(async (club) => [String(club.id), await buildLeagueSquad(club)]));
   return Object.fromEntries(entries);
 }
@@ -1934,8 +2065,19 @@ function transferWindowStatus(round) {
   const next = TRANSFER_WINDOWS.find(([open]) => open > round);
   return { open: false, opensAtRound: next ? next[0] : null };
 }
+// AJUSTE (pedido do usuário: "o mercado deve trazer jogadores das 3
+// ligas para que transações possam ser feitas entre os 60 times das
+// Séries A, B e C" + confirmado que a IA entre times CPU também deve
+// negociar entre as 3 divisões) — carreira "multi" usa os 60 times
+// das 3 competições (ALL_TEAMS_FLAT) como universo de negociação, não
+// só os 20 da própria divisão; carreira "single" (de antes desta
+// mudança, ver migrateCareerDefaults) continua exatamente como
+// sempre foi, só entre os times de LEAGUE_TEAMS.
+function marketTeamsPool() {
+  return CAREER.marketScope === "multi" ? ALL_TEAMS_FLAT : LEAGUE_TEAMS;
+}
 function pickRandomOtherClub(excludeId) {
-  const pool = LEAGUE_TEAMS.filter((t) => String(t.id) !== String(excludeId));
+  const pool = marketTeamsPool().filter((t) => String(t.id) !== String(excludeId));
   if (!pool.length) return null;
   return pool[Math.floor(Math.random() * pool.length)];
 }
@@ -1949,9 +2091,27 @@ function pickRandomOtherClub(excludeId) {
 // chance de ninguém topar na hora (mercado nem sempre tem interessado
 // pra todo mundo) — ver sellPlayer, que agora cancela a venda sem
 // mexer em nada quando isso devolve null.
+// AJUSTE (pedido do usuário: "o mercado deve trazer jogadores das 3
+// ligas") — time de OUTRA divisão tem um teto de elenco menor
+// (MAX_LEAGUE_SQUAD_OTHER_DIVISION, ver buildLeagueSquad) — usar o
+// teto do time da PRÓPRIA divisão (maior) como limite pra QUALQUER
+// time deixaria um time de fora crescer sem limite de verdade (nunca
+// bateria "cheio"), corroendo aos poucos a economia de tamanho de
+// save que o teto menor foi feito pra garantir. Mesmo teste de
+// CAREER.standings já usado em renderEstatisticas/computeBoardGoal
+// pra saber se um id é da própria divisão.
+function isOwnDivisionTeam(teamId) {
+  return Object.prototype.hasOwnProperty.call(CAREER.standings, teamId);
+}
+function maxSquadSizeFor(teamId) {
+  return isOwnDivisionTeam(teamId) ? MAX_LEAGUE_SQUAD : MAX_LEAGUE_SQUAD_OTHER_DIVISION;
+}
+function minSquadSizeFor(teamId) {
+  return isOwnDivisionTeam(teamId) ? MIN_LEAGUE_SQUAD : MIN_LEAGUE_SQUAD_OTHER_DIVISION;
+}
 function findInterestedBuyer(excludeId) {
-  const eligible = LEAGUE_TEAMS.filter((t) =>
-    String(t.id) !== String(excludeId) && leagueSquadFor(t.id).length < MAX_LEAGUE_SQUAD
+  const eligible = marketTeamsPool().filter((t) =>
+    String(t.id) !== String(excludeId) && leagueSquadFor(t.id).length < maxSquadSizeFor(t.id)
   );
   if (!eligible.length) return null;
   if (Math.random() < 0.2) return null; // 20% de chance de ninguém topar agora, mesmo com vaga
@@ -2274,9 +2434,16 @@ function simulateAiTransfers(round) {
     const fromClub = pickRandomOtherClub(CAREER.clubId);
     if (!fromClub) continue;
     const fromSquad = leagueSquadFor(fromClub.id);
-    if (fromSquad.length <= MIN_LEAGUE_SQUAD) continue; // não esvazia um elenco CPU
+    // AJUSTE (pedido do usuário: "o mercado deve trazer jogadores das
+    // 3 ligas") — teto/piso certo por time (ver maxSquadSizeFor/
+    // minSquadSizeFor) — um time de outra divisão tem elenco menor de
+    // propósito (MAX/MIN_LEAGUE_SQUAD_OTHER_DIVISION), então usar o
+    // piso/teto do time da própria divisão pra ele deixaria o elenco
+    // dele encolher demais ou crescer sem limite de verdade.
+    if (fromSquad.length <= minSquadSizeFor(fromClub.id)) continue; // não esvazia um elenco CPU
     const toClub = pickRandomOtherClub(fromClub.id);
     if (!toClub || String(toClub.id) === String(CAREER.clubId)) continue; // negociação CPU x CPU só, não mexe no SEU elenco sem sua ação
+    if (leagueSquadFor(toClub.id).length >= maxSquadSizeFor(toClub.id)) continue; // elenco de destino já cheio
     const idx = Math.floor(Math.random() * fromSquad.length);
     const [player] = fromSquad.splice(idx, 1);
     (CAREER.leagueSquads[String(toClub.id)] = CAREER.leagueSquads[String(toClub.id)] || []).push(player);
@@ -2409,6 +2576,10 @@ const CAREER_COMPETITIONS = [
   { id: "serie_b", flag: "🇧🇷", name: "Brasileirão Série B", sub: "20 clubes — acesso e disputa direta pela Série A" },
   { id: "serie_c", flag: "🇧🇷", name: "Brasileirão Série C", sub: "20 clubes — a base da pirâmide do futebol nacional" },
 ];
+// Rótulo curto de cada divisão (selo no Mercado — ver renderMercado)
+// — mesmas 3 competições de CAREER_COMPETITIONS acima, sem o prefixo
+// "Brasileirão" (não cabe numa pílula pequena ao lado do time).
+const COMPETITION_SHORT = { brasileirao: "Série A", serie_b: "Série B", serie_c: "Série C" };
 function renderCompetitionPicker() {
   document.getElementById("competitionList").innerHTML = CAREER_COMPETITIONS.map((c) => `
     <button class="mt-competition-card" data-competition="${escapeHtml(c.id)}">
@@ -2460,7 +2631,24 @@ async function startCareer(clubId) {
   document.getElementById("clubGrid").style.opacity = "0.5";
   document.getElementById("clubGrid").style.pointerEvents = "none";
   try {
-    const [squad, leagueSquads] = await Promise.all([buildSquad(club), buildLeagueSquads(club.id)]);
+    // AJUSTE (pedido do usuário: "o mercado deve trazer jogadores das
+    // 3 ligas para que transações possam ser feitas entre os 60 times
+    // das Séries A, B e C") — carrega os times das OUTRAS 2
+    // competições (a da própria carreira já está em LEAGUE_TEAMS) e
+    // monta o elenco dos 59 outros times das 3 séries juntas, não só
+    // os 19 da divisão escolhida — ver loadOtherCompetitionsTeams/
+    // buildLeagueSquads. liveModeByCompetition grava a fonte de dado
+    // (real ou exemplo) de CADA UMA das 3, pro mesmo tipo de trava do
+    // bug "Time #xxx" (ver loadLeague) valer aqui também, competição
+    // por competição, quando essa carreira for retomada depois.
+    const [liveModeByCompetition, squad] = await Promise.all([
+      loadOtherCompetitionsTeams(CURRENT_COMPETITION_ID),
+      buildSquad(club),
+    ]);
+    // buildLeagueSquads depende de ALL_TEAMS_FLAT (populada por
+    // loadOtherCompetitionsTeams acima) — não dá pra paralelizar com
+    // ela, só com buildSquad (que não depende de nada disso).
+    const leagueSquads = await buildLeagueSquads(club.id, ALL_TEAMS_FLAT);
     const formation = "4-3-3";
     const lineup = autoLineup(squad, formation);
     const schedule = generateAllRounds(LEAGUE_TEAMS.map((t) => t.id)); // global de js/data.js
@@ -2487,6 +2675,17 @@ async function startCareer(clubId) {
       // enterAfterAuth, que lê isso ANTES de chamar loadLeague de novo).
       competitionId: CURRENT_COMPETITION_ID,
       liveMode: LIVE_MODE, createdAt: Date.now(), updatedAt: Date.now(),
+      // AJUSTE (pedido do usuário: "o mercado deve trazer jogadores
+      // das 3 ligas") — marca essa carreira como "mercado de 60
+      // times" (toda carreira nova passa a nascer assim; carreira já
+      // existente antes desta mudança fica sem esse campo — ver
+      // migrateCareerDefaults — e continua com o mercado só da
+      // própria divisão, por decisão do usuário, sem migração
+      // automática). liveModeByCompetition grava a fonte de dado das
+      // OUTRAS 2 competições (a própria já está em `liveMode` acima),
+      // lido de novo em enterAfterAuth pra decidir forceDemo por
+      // competição ao retomar essa carreira.
+      marketScope: "multi", liveModeByCompetition,
       squad, lineup, trainingFocus: "equilibrado", leagueSquads,
       schedule, currentRound: 1, standings, resultsByRound: {},
       // Agregado da temporada pra aba Estatísticas (gols já vêm de
@@ -5342,9 +5541,21 @@ function renderEstatisticas() {
   // times". Artilheiros/garçons da LIGA INTEIRA (seu elenco +
   // CAREER.leagueSquads dos outros 19 — ver buildLeagueSquads),
   // possível agora que todo clube tem elenco individual de verdade.
+  //
+  // AJUSTE (pedido do usuário: "o mercado deve trazer jogadores das 3
+  // ligas") — numa carreira "multi", CAREER.leagueSquads passa a ter
+  // elenco de OUTRAS 2 divisões também (ver buildLeagueSquads em
+  // startCareer) — mas "a liga" aqui é sempre a competição/tabela da
+  // PRÓPRIA carreira, não as 3 juntas. Filtrado por CAREER.standings
+  // (só tem as chaves dos 20 times da própria divisão, sempre — ver
+  // startCareer/generateAllRounds) pra nunca misturar artilheiro de
+  // outra série nesse ranking, mesmo com o mercado agora cobrindo as
+  // 3.
   const allLeaguePlayers = [
     ...CAREER.squad.map((p) => ({ p, teamId: CAREER.clubId })),
-    ...Object.entries(CAREER.leagueSquads || {}).flatMap(([teamId, squad]) => squad.map((p) => ({ p, teamId }))),
+    ...Object.entries(CAREER.leagueSquads || {})
+      .filter(([teamId]) => Object.prototype.hasOwnProperty.call(CAREER.standings, teamId))
+      .flatMap(([teamId, squad]) => squad.map((p) => ({ p, teamId }))),
   ];
   const topLeague = allLeaguePlayers
     .filter(({ p }) => (p.goalsCareer || 0) > 0 || (p.assistsCareer || 0) > 0)
@@ -5433,19 +5644,35 @@ function renderMercado() {
       : `🔒 <b>Janela de contratações encerrada</b> — próxima temporada`;
   }
 
+  // AJUSTE (pedido do usuário: "o mercado deve trazer jogadores das 3
+  // ligas para que transações possam ser feitas entre os 60 times das
+  // Séries A, B e C") — filtro de divisão só aparece (e só filtra
+  // algo de verdade) numa carreira "multi"; "single" nunca tem
+  // jogador de outra divisão no Mercado, então o filtro fica
+  // escondido e o texto de ajuda continua o de sempre.
+  const isMulti = CAREER.marketScope === "multi";
+  document.getElementById("marketCompFilter").classList.toggle("hidden", !isMulti);
+  document.getElementById("helpMercado").textContent = isMulti
+    ? "Seu elenco (pra vender) e os outros 59 times das 3 divisões — Série A, B e C (pra contratar). Contratar soma o salário na sua folha (mesmo teto do Financeiro)."
+    : "Seu elenco (pra vender) e os outros 19 times da competição (pra contratar). Contratar soma o salário na sua folha (mesmo teto do Financeiro).";
+
   const search = (document.getElementById("marketSearch").value || "").trim().toLowerCase();
   const posFilter = document.getElementById("marketPosFilter").value;
+  const compFilter = isMulti ? document.getElementById("marketCompFilter").value : "";
   let list = allMarketPlayers();
   if (posFilter) list = list.filter(({ p }) => p.group === posFilter);
+  if (compFilter) list = list.filter(({ club }) => (club.competitionId || CURRENT_COMPETITION_ID) === compFilter);
   if (search) {
     list = list.filter(({ p, club }) =>
       p.name.toLowerCase().includes(search) || (club.name || "").toLowerCase().includes(search) || (club.short || "").toLowerCase().includes(search)
     );
   }
   list.sort((a, b) => b.p.value - a.p.value);
-  // Sem busca, mostra só os 40 mais valiosos (evita renderizar ~500
-  // linhas à toa) — buscando, mostra até 60 resultados batendo o termo.
-  const capped = list.slice(0, search || posFilter ? 60 : 40);
+  // Sem busca/filtro, mostra só os 40 mais valiosos (evita renderizar
+  // uma lista enorme à toa, ainda mais agora com até 3x mais times
+  // numa carreira "multi") — buscando ou filtrando, mostra até 60
+  // resultados batendo o critério.
+  const capped = list.slice(0, search || posFilter || compFilter ? 60 : 40);
   // AJUSTE (refatoração completa, Tela 10 — ver
   // 10-mercado-de-transferencias-restyled.html do designer) — badge de
   // OVR (mesma faixa de cor do Elenco/Detalhe) + chip de posição
@@ -5461,12 +5688,20 @@ function renderMercado() {
   // salário/valor ganham a linha de baixo inteira, sozinhos.
   const rows = capped.map(({ p, club, mine }) => {
     const subpos = subPositionOf(p);
+    // AJUSTE (pedido do usuário: "o mercado deve trazer jogadores das
+    // 3 ligas") — selo de divisão só numa carreira "multi" (numa
+    // "single" todo mundo é sempre da mesma competição, o selo não
+    // diria nada de novo) — mesmo estilo de pílula do chip de posição
+    // ao lado, cor neutra (não é uma das cores semânticas do jogo).
+    const compTag = isMulti
+      ? `<span class="mt-pos-chip" style="background:rgba(143,163,191,.14); color:var(--mt-ink-muted); border:1px solid rgba(143,163,191,.3);">${escapeHtml(COMPETITION_SHORT[club.competitionId] || club.competitionId || "")}</span>`
+      : "";
     return `<div class="mt-market-row">
     <div class="mt-market-top">
       <div class="mt-ovr-badge ${ovrTierClass(p.overall)}">${p.overall}</div>
       <div class="mt-market-info">
         <div class="mt-market-name">${escapeHtml(abbreviateName(p.name))}</div>
-        <div class="mt-market-tags"><span class="mt-market-club">${escapeHtml(club.short || club.name)}</span><span class="mt-pos-chip ${SUBPOS_DIVCLASS[subpos]}">${subpos}</span></div>
+        <div class="mt-market-tags"><span class="mt-market-club">${escapeHtml(club.short || club.name)}</span><span class="mt-pos-chip ${SUBPOS_DIVCLASS[subpos]}">${subpos}</span>${compTag}</div>
       </div>
       <div class="mt-market-actions-corner">
         ${mine
@@ -6171,6 +6406,7 @@ function wireStaticListeners() {
   // (sem debounce — a lista é local, filtrar de novo é instantâneo).
   document.getElementById("marketSearch").addEventListener("input", renderMercado);
   document.getElementById("marketPosFilter").addEventListener("change", renderMercado);
+  document.getElementById("marketCompFilter").addEventListener("change", renderMercado);
   document.getElementById("btnAcceptOffer").addEventListener("click", acceptOffer);
   document.getElementById("btnDeclineOffer").addEventListener("click", declineOffer);
   document.getElementById("btnAskBoard").addEventListener("click", askBoard);
@@ -6334,6 +6570,15 @@ function migrateCareerDefaults() {
   // então "brasileirao" é o default certo aqui, não uma suposição.
   if (!CAREER.competitionId) CAREER.competitionId = "brasileirao";
   if (!CAREER.leagueSquads) CAREER.leagueSquads = {};
+  // AJUSTE (pedido do usuário: "o mercado deve trazer jogadores das 3
+  // ligas") — carreira criada ANTES desta mudança nunca teve elenco
+  // das outras 2 competições montado — marca explicitamente como
+  // "single" (mercado só da própria divisão, do jeito que sempre foi)
+  // pra enterAfterAuth/pickRandomOtherClub/etc. saberem que não é pra
+  // tentar tratar como "multi" — decisão do usuário: sem migração
+  // automática pra carreira já existente, só carreira nova nasce
+  // "multi" (ver startCareer).
+  if (!CAREER.marketScope) CAREER.marketScope = "single";
   // Jogador criado antes da Fase 2b não tem wage/value/contractUntil
   // nenhum (esses campos só existem desde que buildRealPlayer/
   // buildBasePlayer/buildGeneratedProPlayer passaram a chamar
@@ -6426,7 +6671,23 @@ async function enterAfterAuth() {
     // antes desse campo existir (liveMode undefined), mantém o
     // comportamento de sempre (tenta dado real, cai pro exemplo se
     // faltar chave), sem mudança de risco pra quem nunca teve esse bug.
-    await loadLeague(saved.career.competitionId || "brasileirao", { forceDemo: saved.career.liveMode === false });
+    const homeCompetitionId = saved.career.competitionId || "brasileirao";
+    await loadLeague(homeCompetitionId, { forceDemo: saved.career.liveMode === false });
+    // AJUSTE (pedido do usuário: "o mercado deve trazer jogadores das
+    // 3 ligas") — carreira "multi" (ver startCareer) também recarrega
+    // os times das outras 2 competições ao retomar, mesma trava de
+    // forceDemo de cima, agora por competição (ver
+    // liveModeByCompetition/loadOtherCompetitionsTeams): uma que já
+    // gravou uma das outras 2 como Modo Exemplo nunca tenta dado real
+    // sozinha pra ela. Carreira "single" (de antes desta mudança, sem
+    // marketScope) não entra aqui — continua só com o mercado da
+    // própria divisão, por decisão do usuário (sem migração automática).
+    if (saved.career.marketScope === "multi") {
+      const lm = saved.career.liveModeByCompetition || {};
+      const forceDemoMap = {};
+      ALL_COMPETITIONS_ORDER.forEach((c) => { if (lm[c] === false) forceDemoMap[c] = true; });
+      await loadOtherCompetitionsTeams(homeCompetitionId, forceDemoMap);
+    }
     CAREER = saved.career;
     migrateCareerDefaults();
     persistCareer(); // grava os campos novos pra não migrar de novo (e de novo) a cada load
