@@ -1229,6 +1229,14 @@
   .mt-live-scoreboard .ct-next-match .vs{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:40px; letter-spacing:1.5px; color:var(--mt-ivory-50); text-shadow:0 0 20px rgba(232,184,75,.4); }
   .mt-live-scoreboard .ct-next-match .side .n{ font-family:'Bebas Neue', var(--font); font-size:14px; letter-spacing:.5px; color:var(--mt-gold-300); }
 
+  /* AJUSTE (Play-by-Play v2) — barra de posse ao vivo, 4px (documento,
+     Tela hifi-01) — .mt-stat-bar-fill/.mine/.opp reaproveitados da
+     tela "Seu jogo" (mesmas cores/semântica), só a altura muda aqui. */
+  .mt-live-poss{ margin-top:12px; flex-shrink:0; }
+  .mt-live-poss .mt-stat-bar-fill{ height:4px; }
+  .mt-live-poss-labels{ display:flex; justify-content:space-between; align-items:center; margin-top:5px; }
+  .mt-live-poss-labels .lbl{ font-family:'Rajdhani', var(--font); font-size:10px; font-weight:700; color:var(--mt-ink-faint); letter-spacing:.8px; text-transform:uppercase; }
+
   /* AJUSTE (Play-by-Play v1) — segmented control 1×/2×, ativo em
      preenchimento dourado (documento, especificação de tela 7.1). */
   .mt-live-speed-row{ display:flex; justify-content:flex-end; margin-top:10px; flex-shrink:0; }
@@ -1255,6 +1263,12 @@
      propósito (não pausam a narrativa, ver catálogo do documento). */
   .mt-live-tl-dot.chance{ background:var(--mt-navy-700); border:2px solid var(--mt-gold-600); color:var(--mt-gold-400); }
   .mt-live-tl-dot.defesa{ background:var(--mt-navy-700); border:2px solid var(--mt-sky-400); color:var(--mt-sky-400); }
+  /* AJUSTE (Play-by-Play v2) — lesão/pênalti/VAR, cada um com
+     identidade própria pra não se confundir com cartão (vermelho
+     sólido) ou chance/defesa (dourado/azul já usados). */
+  .mt-live-tl-dot.lesao{ background:var(--mt-navy-700); border:2px solid var(--mt-crimson-400); color:var(--mt-crimson-400); }
+  .mt-live-tl-dot.penalty{ background:var(--mt-navy-700); border:2px solid var(--mt-violet-400); color:var(--mt-violet-400); }
+  .mt-live-tl-dot.var{ background:var(--mt-navy-700); border:2px solid var(--mt-ink-muted); color:var(--mt-ink-muted); }
   .mt-live-tl-min{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:12px; color:var(--mt-gold-400); margin-bottom:2px; }
   .mt-live-tl-desc{ font-size:14px; color:var(--mt-ivory-100); }
   .mt-live-tl-desc b{ color:var(--mt-ivory-50); }
@@ -2246,6 +2260,20 @@
     </div>
     <div class="ct-modal-body" style="display:flex; flex-direction:column;">
       <div class="mt-card mt-live-scoreboard ct-next-match" id="liveMatchScore"></div>
+      <!-- AJUSTE (Play-by-Play v2, documento Tela hifi-01/catálogo
+           POSSESSION_SHIFT — "barra de posse, 4px, proporcional ao %,
+           labels abaixo em Rajdhani 10px") — indicador de domínio de
+           jogo AO VIVO (não só no resumo de fim de jogo), reaproveita
+           .mt-stat-bar-fill/.mine/.opp (mesmas classes da tela "Seu
+           jogo") — dourado sempre é o SEU time (ver renderLiveMatch). -->
+      <div class="mt-live-poss">
+        <div class="mt-stat-bar-fill" id="livePossBar"><span class="mine" style="width:50%;"></span><span class="opp" style="width:50%;"></span></div>
+        <div class="mt-live-poss-labels">
+          <span class="mt-stat-bar-val mine" id="livePossMineLabel">50%</span>
+          <span class="lbl">Posse de bola</span>
+          <span class="mt-stat-bar-val opp" id="livePossOppLabel">50%</span>
+        </div>
+      </div>
       <!-- AJUSTE (Play-by-Play v1, documento seção 6/7.1 — "3 botões:
            1×/2×/Pular. Estado ativo em preenchimento dourado") — 1×/2×
            controlam só a velocidade de REVELAÇÃO dos tempos (ver
