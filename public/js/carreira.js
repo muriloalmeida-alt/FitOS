@@ -2690,11 +2690,18 @@ function attributeGoals(starters, goals) {
     // separado) — bate com a estrutura de evento do documento e deixa
     // o banco de comentários tecer os dois na mesma frase ("Fulano
     // lança, Ciclano não perdoa"), em vez de 2 linhas soltas no feed.
+    // AJUSTE (Play-by-Play v2, catálogo PENALTY_AWARDED) — ~8% dos
+    // gols já decididos viram "de pênalti" na narrativa — NÃO soma
+    // gol nenhum a mais (o placar já estava fechado pelo lambda), só
+    // reaproveita um gol que já ia acontecer e muda como ele é
+    // contado: sem assistência (pênalti não tem passe pra ninguém) e
+    // com o comentário próprio (COMMENTARY_BANK.gol_penalti).
+    const isPenalty = Math.random() < 0.08;
     let assistName = null;
     // ~72% dos gols saem com assistência de um companheiro (nunca o
     // próprio artilheiro) — meio-campista pesa mais no sorteio, mas
     // qualquer titular pode ter dado o passe.
-    if (starters.length > 1 && Math.random() < 0.72) {
+    if (!isPenalty && starters.length > 1 && Math.random() < 0.72) {
       const assistPool = starters.filter((p) => p.id !== scorer.id);
       const assistWeights = assistPool.map((p) => ({ M: 3, F: 1.5, D: 0.8, G: 0.05 }[p.group] || 1) * moraleFactor(p));
       const assister = weightedPick(assistPool, assistWeights);
@@ -2702,7 +2709,8 @@ function attributeGoals(starters, goals) {
       assister.assistsSeason = (assister.assistsSeason || 0) + 1;
       assistName = assister.name;
     }
-    events.push({ type: "gol", player: scorer.name, assistPlayer: assistName });
+    if (isPenalty) events.push({ type: "penalty_awarded", player: scorer.name });
+    events.push({ type: "gol", player: scorer.name, assistPlayer: assistName, penalty: isPenalty });
   }
   return events;
 }
@@ -2738,6 +2746,12 @@ function applyMatchWearChunk(starters, round, chunkShare, appearedSet) {
       const severity = rollInjurySeverity();
       const dur = severity.minRounds + Math.floor(Math.random() * (severity.maxRounds - severity.minRounds + 1));
       p.status = "contundido"; p.outUntilRound = round + dur; p.injurySeverity = severity.type;
+      // AJUSTE (Play-by-Play v2, pedido do usuário — documento "BR Data
+      // Play-by-Play", catálogo INJURY) — a lesão já existia (a
+      // mecânica em si é de antes desta sessão), só era silenciosa: não
+      // virava evento nenhum no feed ao vivo. Agora narrada como
+      // qualquer outro evento (ver COMMENTARY_BANK.lesao).
+      events.push({ type: "lesao", player: p.name });
     }
     p.condition = clamp((p.condition == null ? 100 : p.condition) - (15 + Math.random() * 15) * chunkShare, 25, 100);
   });
@@ -2768,6 +2782,24 @@ function attributeChances(starters, atkStrength, defStrength, chunkShare) {
     // CHANCE_MISSED 8-15/jogo, SHOT_ON_TARGET_SAVED 4-8/jogo).
     events.push({ type: Math.random() < 0.38 ? "defesa" : "chance_perdida", player: player.name });
   }
+  return events;
+}
+// AJUSTE (Play-by-Play v2, pedido do usuário — documento seção 3/8,
+// catálogo PENALTY_MISSED) — pênalti perdido é decorativo puro (não
+// vira gol, então não precisa tocar em NADA do placar): gera o par
+// PENALTY_AWARDED + PENALTY_MISSED junto, bem mais raro que uma chance
+// comum (catálogo: 0-1/jogo, bem menor que os 8-15 de CHANCE_MISSED).
+// Pênalti CONVERTIDO (que vira gol de verdade) é tratado dentro de
+// attributeGoals — reaproveita um gol que o lambda JÁ decidiu, só
+// muda a narrativa, nunca soma um gol a mais (ver comentário lá).
+function attributePenaltyMisses(starters, atkStrength, defStrength, chunkShare) {
+  const events = [];
+  if (!starters || !starters.length) return events;
+  if (Math.random() >= 0.04 * chunkShare) return events;
+  const weights = starters.map((p) => ({ F: 4, M: 2, D: 0.7 }[p.group] || 1.2));
+  const player = weightedPick(starters, weights);
+  events.push({ type: "penalty_awarded", player: player.name });
+  events.push({ type: "penalty_missed", player: player.name });
   return events;
 }
 function simulatePlayerEvents(starters, goals, round) {
@@ -3575,6 +3607,37 @@ const COMMENTARY_BANK = {
     "Mudança no {team}: {entra} entra no lugar de {saiu}.",
     "{team} mexe na equipe — {entra} substitui {saiu}.",
   ],
+  // AJUSTE (Play-by-Play v2, pedido do usuário — catálogo INJURY/
+  // PENALTY_AWARDED/PENALTY_MISSED/VAR_CHECK) — os 4 tipos que
+  // faltavam do documento pra fechar o catálogo inteiro (só
+  // POSSESSION_SHIFT ficou de fora do feed, por natureza — vira a
+  // barra de posse ao vivo, ver updateLiveStats/renderLiveMatch).
+  gol_penalti: [
+    "{player} cobra com categoria e não desperdiça. GOL DE PÊNALTI do {team}!",
+    "Sem chances pro goleiro — {player} converte a cobrança de pênalti!",
+    "{player} bate no canto, o goleiro nem se estica. Pênalti confirmado!",
+  ],
+  penalty_awarded: [
+    "PÊNALTI! O árbitro assinala a marca da cal após a jogada na área.",
+    "Pênalti pro {team}! Falta clara dentro da área.",
+    "O juiz não hesita: pênalti assinalado depois do lance na grande área.",
+  ],
+  penalty_missed: [
+    "{player} bate mal e desperdiça o pênalti!",
+    "{player} cobra e o goleiro defende — pênalti perdido!",
+    "{player} manda a cobrança pra fora — chance desperdiçada da marca da cal.",
+  ],
+  var_check: [
+    "O árbitro vai rever o lance no monitor... decisão mantida.",
+    "Checagem do VAR — a arbitragem confirma o que foi decidido em campo.",
+    "Depois de revisar as imagens, o VAR confirma: nada muda.",
+  ],
+  lesao: [
+    "{player} sente a coxa e não consegue continuar — vai precisar de atendimento.",
+    "Lance mais forte e {player} não aguenta — o departamento médico já se prepara.",
+    "{player} pede pra sair, sentindo dores — parece lesão.",
+    "Contusão! {player} deixa o campo visivelmente incomodado.",
+  ],
 };
 // Sorteia uma variação do banco `bankKey`, substitui as {variáveis} e
 // evita repetir a MESMA variação 2x seguidas do mesmo tipo — `tracker`
@@ -3707,12 +3770,32 @@ function resolveLiveChunk() {
   // ghChunk/gaChunk — só enriquecem o feed e o resumo de fim de jogo.
   const chancesHome = attributeChances(hs.starters, hs.atk, as.def, chunkShare);
   const chancesAway = attributeChances(as.starters, as.atk, hs.def, chunkShare);
+  // AJUSTE (Play-by-Play v2, catálogo PENALTY_MISSED) — par
+  // PENALTY_AWARDED+PENALTY_MISSED, 100% decorativo (ver
+  // attributePenaltyMisses — nunca vira gol, então nunca precisa
+  // tocar no placar).
+  const penMissHome = attributePenaltyMisses(hs.starters, hs.atk, as.def, chunkShare);
+  const penMissAway = attributePenaltyMisses(as.starters, as.atk, hs.def, chunkShare);
   updateLiveStats(lm, hs, as, chunkShare, chancesHome, chancesAway, ghChunk, gaChunk);
+  const goalsHome = attributeGoals(hs.starters, ghChunk).map((e) => ({ ...e, mine: lm.isHome }));
+  const goalsAway = attributeGoals(as.starters, gaChunk).map((e) => ({ ...e, mine: !lm.isHome }));
+  // AJUSTE (Play-by-Play v2, catálogo VAR_CHECK) — depois de um gol,
+  // ~12% de chance do lance ser checado no VAR — SEMPRE confirma a
+  // decisão em campo (nunca anula um gol já contado no placar, decisão
+  // nossa pra não precisar desfazer um gol já creditado — ver
+  // comentário no topo de attributeGoals sobre pênalti pelo mesmo
+  // motivo).
+  const varEvents = [];
+  [...goalsHome, ...goalsAway].forEach((e) => {
+    if (Math.random() < 0.12) varEvents.push({ type: "var_check", mine: e.mine });
+  });
   const chunkEvents = [
-    ...attributeGoals(hs.starters, ghChunk).map((e) => ({ ...e, mine: lm.isHome })),
-    ...attributeGoals(as.starters, gaChunk).map((e) => ({ ...e, mine: !lm.isHome })),
+    ...goalsHome, ...goalsAway,
+    ...varEvents,
     ...chancesHome.map((e) => ({ ...e, mine: lm.isHome })),
     ...chancesAway.map((e) => ({ ...e, mine: !lm.isHome })),
+    ...penMissHome.map((e) => ({ ...e, mine: lm.isHome })),
+    ...penMissAway.map((e) => ({ ...e, mine: !lm.isHome })),
     ...wearHome.events.map((e) => ({ ...e, mine: lm.isHome })),
     ...wearAway.events.map((e) => ({ ...e, mine: !lm.isHome })),
   ].map((e) => ({ ...e, minute }));
@@ -3761,6 +3844,12 @@ function updateLiveStats(lm, hs, as, chunkShare, chancesHome, chancesAway, ghChu
   const s = lm.stats;
   const homeRatio = hs.atk / (hs.atk + as.atk || 1);
   s.possWeightHome += homeRatio * chunkShare;
+  // AJUSTE (Play-by-Play v2, catálogo POSSESSION_SHIFT — "alimenta um
+  // indicador de domínio de jogo... sem precisar virar um evento
+  // narrado no feed") — soma da fração já processada, pra normalizar
+  // a posse EM TEMPO REAL (ver renderLiveMatch/.mt-live-poss) antes do
+  // fim da partida, quando chunkShare ainda não somou 1.
+  s.chunkShareSum = (s.chunkShareSum || 0) + chunkShare;
   s.shots.home += chancesHome.length + ghChunk;
   s.shots.away += chancesAway.length + gaChunk;
   s.shotsOnTarget.home += chancesHome.filter((e) => e.type === "defesa").length + ghChunk;
@@ -3929,7 +4018,10 @@ function liveEventLabel(e, ctx) {
   }
   const teamLabel = e.mine === false ? ctx.oppTeamName : "seu time";
   if (e.type === "gol") {
-    const bankKey = e.assistPlayer ? "gol_assistido" : "gol_solo";
+    // AJUSTE (Play-by-Play v2) — pênalti convertido ganha banco
+    // próprio (sem assistência, ver attributeGoals) — prevalece sobre
+    // com/sem assistência.
+    const bankKey = e.penalty ? "gol_penalti" : e.assistPlayer ? "gol_assistido" : "gol_solo";
     return pickCommentary(bankKey, { player: e.player, assistPlayer: e.assistPlayer, team: teamLabel }, ctx.tracker);
   }
   if (e.type === "chance_perdida") return pickCommentary("chance_perdida", { player: e.player }, ctx.tracker);
@@ -3937,13 +4029,20 @@ function liveEventLabel(e, ctx) {
   if (e.type === "amarelo") return pickCommentary("amarelo", { player: e.player }, ctx.tracker);
   if (e.type === "vermelho") return pickCommentary("vermelho", { player: e.player }, ctx.tracker);
   if (e.type === "substituicao") return pickCommentary("substituicao", { entra: e.entra, saiu: e.saiu, team: teamLabel }, ctx.tracker);
+  // AJUSTE (Play-by-Play v2, catálogo INJURY/PENALTY_AWARDED/
+  // PENALTY_MISSED/VAR_CHECK).
+  if (e.type === "lesao") return pickCommentary("lesao", { player: e.player }, ctx.tracker);
+  if (e.type === "penalty_awarded") return pickCommentary("penalty_awarded", { team: teamLabel }, ctx.tracker);
+  if (e.type === "penalty_missed") return pickCommentary("penalty_missed", { player: e.player }, ctx.tracker);
+  if (e.type === "var_check") return pickCommentary("var_check", {}, ctx.tracker);
   return "";
 }
 // Marcador (cor + ícone SVG) da linha do tempo por tipo de evento — ver
 // .mt-live-tl-dot em carreira.html (Tela 13b). "chance_perdida"/
 // "defesa" são novos (Play-by-Play v1) — tom neutro/discreto de
 // propósito, já que não pausam a narrativa (ver catálogo, seção 3 do
-// documento: "Pausa narrativa? Não" pros dois).
+// documento: "Pausa narrativa? Não" pros dois). "lesao"/
+// "penalty_awarded"/"penalty_missed"/"var_check" são v2.
 function liveEventDot(type) {
   const DOTS = {
     gol: { cls: "gol", svg: `<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="9"/></svg>` },
@@ -3952,6 +4051,10 @@ function liveEventDot(type) {
     substituicao: { cls: "sub", svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>` },
     chance_perdida: { cls: "chance", svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none"/></svg>` },
     defesa: { cls: "defesa", svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="7" y1="7" x2="17" y2="17"/></svg>` },
+    lesao: { cls: "lesao", svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>` },
+    penalty_awarded: { cls: "penalty", svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none"/></svg>` },
+    penalty_missed: { cls: "penalty", svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><line x1="7" y1="7" x2="17" y2="17"/><line x1="17" y1="7" x2="7" y2="17"/></svg>` },
+    var_check: { cls: "var", svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="1.5"/><line x1="8" y1="20" x2="16" y2="20"/><line x1="12" y1="16" x2="12" y2="20"/></svg>` },
   };
   return DOTS[type] || DOTS.substituicao;
 }
@@ -3962,6 +4065,18 @@ function renderLiveMatch() {
     <div class="side">${crestImg(lm.home)}<span class="n">${escapeHtml(lm.home.name)}</span></div>
     <span class="vs">${lm.gh} × ${lm.ga}</span>
     <div class="side">${crestImg(lm.away)}<span class="n">${escapeHtml(lm.away.name)}</span></div>`;
+  // AJUSTE (Play-by-Play v2, catálogo POSSESSION_SHIFT — "indicador de
+  // domínio de jogo") — barra de posse AO VIVO (não só no resumo de
+  // fim de jogo, ver matchStatsBarsHTML), atualizada a cada tempo
+  // resolvido; 50/50 antes do 1º tempo (chunkShareSum ainda zero).
+  // Dourado sempre é o SEU time (mesma convenção da tela "Seu jogo").
+  const possHomeRatio = lm.stats.chunkShareSum > 0 ? lm.stats.possWeightHome / lm.stats.chunkShareSum : 0.5;
+  const possHome = Math.round(possHomeRatio * 100);
+  const possMine = lm.isHome ? possHome : 100 - possHome;
+  const possOpp = 100 - possMine;
+  document.getElementById("livePossBar").innerHTML = `<span class="mine" style="width:${possMine}%;"></span><span class="opp" style="width:${possOpp}%;"></span>`;
+  document.getElementById("livePossMineLabel").textContent = `${possMine}%`;
+  document.getElementById("livePossOppLabel").textContent = `${possOpp}%`;
   const minute = lm.chunkIndex === 0 ? 0 : LIVE_MATCH_CHUNK_MINUTES[Math.min(lm.chunkIndex, LIVE_MATCH_CHUNK_MINUTES.length) - 1];
   document.getElementById("liveMatchMinute").textContent = lm.finished ? "Fim de jogo — carregando..." : lm.halftime ? "Intervalo" : `${minute}'`;
   document.getElementById("liveMatchFeed").innerHTML = lm.events.length
@@ -4198,6 +4313,10 @@ function matchEventsSummaryHTML(events) {
   if (!events || !events.length) return "";
   const rows = events.map((e) => {
     const meta = MATCH_EVENT_META[e.type] || { label: e.type };
+    // AJUSTE (Play-by-Play v2) — gol de pênalti ganha a marcação "(de
+    // pênalti)" ao lado de "Gol", só um toque de fidelidade — nada
+    // muda no placar/lógica, só na descrição.
+    const typeLabel = e.type === "gol" && e.penalty ? `${meta.label} (de pênalti)` : meta.label;
     // Gol do adversário (ver simulateRound: time rival não tem elenco
     // individual, só teve "e.player" quando é ALGUÉM do seu time) —
     // credita ao time em vez de um nome de jogador que não existe.
@@ -4215,7 +4334,7 @@ function matchEventsSummaryHTML(events) {
     return `<div class="ct-event-row">
       <span class="ct-event-icon ${dot.cls}">${dot.svg}</span>
       <span class="ct-event-namewrap"><span class="nm">${nm}</span>${assistLine}</span>
-      <span class="tp">${e.player ? meta.label : ""}</span>
+      <span class="tp">${e.player ? typeLabel : ""}</span>
     </div>`;
   }).join("");
   return `<div class="ct-event-list">${rows}</div>`;
