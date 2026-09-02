@@ -144,8 +144,28 @@ async function resolveSeasonId(leagueId, season) {
   return s.id;
 }
 
+// AJUSTE 8 (02/09/2026, pedido do usuário: "Antes de listar os times
+// está trazendo esses 8 exemplos de marcação" -- print mostrando "1st
+// ranked" ... "8th ranked" antes dos clubes de verdade, na Escolha do
+// Clube da Série C) — /teams/seasons/{id} (getTeams abaixo) não
+// devolve só os clubes que jogam o returno todos-contra-todos: pra
+// competição com fase final por chaveamento/vaga por posição na
+// tabela (a Série C tem uma fase de acesso além do returno principal
+// — mesmo motivo, documentado em competitions.js, que já tinha
+// excluído a Série D e sinalizado risco parecido pra Copa do Brasil),
+// a Sportmonks também inclui "times" placeholder representando uma
+// VAGA por posição final ainda não decidida ("1st Ranked", "2nd
+// Ranked" etc. — sem escudo, sem sigla de verdade, sem estádio), que
+// só vira um clube de verdade depois que essa fase realmente
+// acontece. Nosso motor (engine.js) só sabe jogar returno todos-
+// contra-todos, então esses placeholders nunca deviam ter entrado na
+// lista pra começo de carreira. Filtrados aqui pelo próprio nome
+// (nenhum clube de futebol de verdade se chama "1st Ranked") — se
+// aparecer uma variação de texto diferente no futuro (e.g. "Winner
+// Group A", "TBD"), é o mesmo problema; some o padrão novo na regex.
+const PLACEHOLDER_TEAM_NAME = /^\d+(st|nd|rd|th)\s+ranked$/i;
 function mapTeam(t) {
-  if (!t) return null;
+  if (!t || !t.name || PLACEHOLDER_TEAM_NAME.test(t.name.trim())) return null;
   return {
     id: t.id,
     name: t.name,
