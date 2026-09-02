@@ -378,11 +378,24 @@ function teamById(id) {
 // crestImg() — Central, Tabela, Ao Vivo, Resultados, Escolha do
 // Clube etc. — muda a aparência do escudo de uma vez só, no lugar
 // certo, conforme cada uma dessas telas for reconstruída.
+// AJUSTE (pedido do usuário: "o diamante abaixo da logo está tirando o
+// peso que os times representam... me apresenta uma proposta que
+// valorize mais a marca dos clubes") — sem escudo real (Modo Exemplo,
+// ou qualquer time que a API não tenha imagem), o hexágono ficava só
+// com a cor do clube, sem NENHUMA marca — lia como um diamante
+// decorativo genérico, não como "o escudo de tal time". Mockup de
+// comparação publicado (confronto-escudo-opcoes.html, Opção B
+// escolhida) — a sigla do clube (t.short, já existe no cadastro) vira
+// um monograma dentro do próprio hexágono como fallback. Hierarquia
+// agora é: escudo real (t.logo) > sigla (monograma) > nunca mais o
+// hexágono liso de cor só.
 function crestImg(t, size = 40) {
   const c1 = t?.c1 || "#8892A0", c2 = t?.c2 || "#333";
   const inner = t && t.logo
     ? `<img src="${t.logo}" alt="" style="height:${Math.round(size * 0.62)}px;width:${Math.round(size * 0.62)}px;object-fit:contain;">`
-    : "";
+    : t?.short
+      ? `<span class="ct-crest-mono" style="font-size:${Math.round(size * 0.34)}px;">${escapeHtml(t.short)}</span>`
+      : "";
   return `<span class="ct-crest" style="height:${size}px;width:${size}px;background:linear-gradient(160deg, ${c1}, ${c2});">${inner}</span>`;
 }
 // teamGradientStops() removida (redesign, Tela 6) — só era usada pelo
@@ -3823,10 +3836,19 @@ function renderCentral() {
     const fx = (CAREER.schedule[round] || []).find((m) => String(m.home) === String(CAREER.clubId) || String(m.away) === String(CAREER.clubId));
     if (fx) {
       const home = teamById(fx.home), away = teamById(fx.away);
+      // AJUSTE (Opção B do mockup confronto-escudo-opcoes.html) —
+      // escudo maior (72px) com halo atrás na cor do clube (c1), só
+      // neste card (ver .mt-nextmatch em carreira.html).
       box.innerHTML = `
-        <div class="side">${crestImg(home)}<span class="n">${escapeHtml(home.name)}</span></div>
+        <div class="side">
+          <span class="mt-nextmatch-spot"><span class="mt-nextmatch-glow" style="background:radial-gradient(circle, ${home?.c1 || "#8892A0"} 0%, transparent 70%);"></span>${crestImg(home, 72)}</span>
+          <span class="n">${escapeHtml(home.name)}</span>
+        </div>
         <span class="vs">×</span>
-        <div class="side">${crestImg(away)}<span class="n">${escapeHtml(away.name)}</span></div>`;
+        <div class="side">
+          <span class="mt-nextmatch-spot"><span class="mt-nextmatch-glow" style="background:radial-gradient(circle, ${away?.c1 || "#8892A0"} 0%, transparent 70%);"></span>${crestImg(away, 72)}</span>
+          <span class="n">${escapeHtml(away.name)}</span>
+        </div>`;
     } else {
       box.innerHTML = `<p class="ct-empty">Sem jogo do seu time nessa rodada (folga).</p>`;
     }

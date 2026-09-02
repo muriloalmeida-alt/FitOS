@@ -116,6 +116,15 @@
     clip-path:polygon(50% 0%, 100% 18%, 100% 62%, 50% 100%, 0% 62%, 0% 18%);
     box-shadow:inset 0 0 0 1px rgba(255,255,255,.14);
   }
+  /* AJUSTE (pedido do usuário, ver crestImg() em carreira.js) — sigla
+     do clube como monograma dentro do hexágono, fallback pra time sem
+     escudo real. Contorno escuro (multi text-shadow, não outline puro
+     porque clip-path corta outline) garante leitura em cima de
+     QUALQUER gradiente de cor (mesmo os times com c2 quase branco). */
+  .ct-crest-mono{
+    font-family:'Bebas Neue', var(--font); color:#fff; letter-spacing:.5px; line-height:1;
+    text-shadow:-1px 0 rgba(0,0,0,.55), 1px 0 rgba(0,0,0,.55), 0 -1px rgba(0,0,0,.55), 0 1px rgba(0,0,0,.55);
+  }
   /* AJUSTE (pedido do usuário: "a [toast] que traz as mensagens no
      rodapé pode ocupar a tela toda e ter fundo branco") — o toast
      (#toast/.ct-toast, mais abaixo) não tinha limite de largura: uma
@@ -364,6 +373,26 @@
      nunca é o item espremido — os escudos (.side, largura fixa) cedem
      antes. */
   .ct-next-match .vs{ font-family:'Bebas Neue', var(--font); color:var(--mt-ink-faint); font-size:16px; white-space:nowrap; flex-shrink:0; }
+  /* AJUSTE (pedido do usuário: "o diamante abaixo da logo está tirando
+     o peso que os times representam... valorize mais a marca dos
+     clubes", card "Próximo jogo" da Central) — mockup de comparação
+     publicado (confronto-escudo-opcoes.html), Opção B escolhida:
+     escudo cresce (40px -> 72px, só NESTE card — .ct-next-match
+     genérico usado por Confirmar escalação/Ao Vivo/Resultado do jogo
+     não muda) com um halo suave atrás na cor do próprio clube (c1),
+     ecoando o "estádio à noite" que já é a assinatura visual do resto
+     do app; o "×" ganha um brilho dourado sutil no lugar do cinza
+     neutro de sempre. */
+  .mt-nextmatch{ gap:26px; padding:10px 0 6px; }
+  .mt-nextmatch .vs{ color:var(--mt-gold-300); font-size:19px; text-shadow:0 0 14px rgba(232,184,75,.35); }
+  .mt-nextmatch-spot{ position:relative; display:flex; align-items:center; justify-content:center; width:72px; height:72px; }
+  /* BUG CORRIGIDO (achado na verificação): filter:blur() num círculo
+     sólido vaza visualmente MUITO além do próprio elemento (o halo
+     tingia o título do card e o nome do time, bem longe do escudo) —
+     trocado por radial-gradient, que já se dissipa sozinho dentro dos
+     próprios limites, sem precisar de blur nem risco de vazar. */
+  .mt-nextmatch-glow{ position:absolute; inset:-14px; border-radius:50%; opacity:.55; z-index:0; pointer-events:none; }
+  .mt-nextmatch-spot .ct-crest{ position:relative; z-index:1; }
   .ct-kpis{ display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:10px; }
   /* --navy-card2 explícito (mesmo motivo do .ct-card acima) — dentro
      de um .ct-card (--navy-card), a caixinha de KPI precisa de mais um
@@ -1587,7 +1616,7 @@
             <div class="mt-card-title">Próximo jogo</div>
             <div class="ct-round-inline" id="roundPill">1 / 38</div>
           </div>
-          <div class="ct-next-match" id="nextMatchBox"></div>
+          <div class="ct-next-match mt-nextmatch" id="nextMatchBox"></div>
           <!-- :empty (ver CSS) esconde o badge quando a escalação está
                completa — lineupWarning só recebe texto quando falta
                titular (ver renderCentral em carreira.js). -->
