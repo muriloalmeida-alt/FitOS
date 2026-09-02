@@ -645,6 +645,24 @@
   .ct-event-icon.vermelho{ background:linear-gradient(180deg, var(--mt-crimson-400), var(--mt-crimson-500)); color:#fff; border-radius:5px; }
   .ct-event-row .nm{ font-weight:600; color:var(--mt-ivory-50); font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .ct-event-row .tp{ color:var(--mt-ink-faint); font-size:11.5px; margin-left:auto; flex-shrink:0; padding-left:8px; }
+  /* AJUSTE (Play-by-Play v1) — assistência virou o campo assistPlayer
+     do evento "gol" (não mais uma linha própria na lista) — aparece
+     como uma linha discreta abaixo do nome do artilheiro. */
+  .ct-event-namewrap{ display:flex; flex-direction:column; min-width:0; }
+  .ct-event-assist{ font-size:10.5px; color:var(--mt-ink-faint); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+  /* AJUSTE (Play-by-Play v1, Tela hifi-03 do documento) — 4 barras
+     espelhadas douradas (SEU time) vs. cinza (adversário). */
+  .mt-stat-bar-row{ display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+  .mt-stat-bar-row:last-child{ margin-bottom:0; }
+  .mt-stat-bar-val{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:15px; width:36px; flex-shrink:0; text-align:center; }
+  .mt-stat-bar-val.mine{ color:var(--mt-gold-300); }
+  .mt-stat-bar-val.opp{ color:var(--mt-ink-muted); }
+  .mt-stat-bar-track{ flex:1; min-width:0; }
+  .mt-stat-bar-label{ font-size:10.5px; color:var(--mt-ink-faint); text-align:center; margin-bottom:4px; text-transform:uppercase; letter-spacing:.5px; }
+  .mt-stat-bar-fill{ display:flex; height:6px; border-radius:100px; overflow:hidden; background:var(--mt-navy-600); }
+  .mt-stat-bar-fill .mine{ background:linear-gradient(90deg, var(--mt-gold-600), var(--mt-gold-300)); }
+  .mt-stat-bar-fill .opp{ background:rgba(143,163,191,.4); }
 
   /* Resultados da rodada — 1 linha por jogo, com escudo dos 2 times;
      zebra + destaque no jogo do próprio clube (fundo + negrito, ver
@@ -1211,6 +1229,13 @@
   .mt-live-scoreboard .ct-next-match .vs{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:40px; letter-spacing:1.5px; color:var(--mt-ivory-50); text-shadow:0 0 20px rgba(232,184,75,.4); }
   .mt-live-scoreboard .ct-next-match .side .n{ font-family:'Bebas Neue', var(--font); font-size:14px; letter-spacing:.5px; color:var(--mt-gold-300); }
 
+  /* AJUSTE (Play-by-Play v1) — segmented control 1×/2×, ativo em
+     preenchimento dourado (documento, especificação de tela 7.1). */
+  .mt-live-speed-row{ display:flex; justify-content:flex-end; margin-top:10px; flex-shrink:0; }
+  .mt-live-speed{ display:flex; background:var(--mt-navy-800); border:1px solid var(--mt-navy-600); border-radius:999px; padding:3px; gap:2px; }
+  .mt-live-speed-btn{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:12.5px; padding:5px 16px; border-radius:999px; border:none; background:transparent; color:var(--mt-ink-muted); cursor:pointer; }
+  .mt-live-speed-btn.active{ background:linear-gradient(180deg, var(--mt-gold-300), var(--mt-gold-600)); color:#3A2A03; }
+
   .mt-live-halftime{ background:linear-gradient(160deg, var(--mt-navy-700), var(--mt-navy-800) 65%); border:1px solid var(--mt-gold-600); border-radius:var(--radius-md); padding:16px; margin-top:14px; text-align:center; flex-shrink:0; }
   .mt-live-halftime p{ margin:0 0 12px; font-size:13px; font-weight:700; color:var(--mt-gold-300); font-family:'Rajdhani', var(--font); }
 
@@ -1226,6 +1251,10 @@
   .mt-live-tl-dot.amarelo{ background:linear-gradient(180deg, #F5D66A, #D6A017); color:#2A1D02; }
   .mt-live-tl-dot.vermelho{ background:linear-gradient(180deg, var(--mt-crimson-400), var(--mt-crimson-500)); color:#fff; }
   .mt-live-tl-dot.sub{ background:var(--mt-navy-700); border:2px solid var(--mt-navy-600); color:var(--mt-ink-muted); }
+  /* AJUSTE (Play-by-Play v1) — chance perdida/defesa, tom discreto de
+     propósito (não pausam a narrativa, ver catálogo do documento). */
+  .mt-live-tl-dot.chance{ background:var(--mt-navy-700); border:2px solid var(--mt-gold-600); color:var(--mt-gold-400); }
+  .mt-live-tl-dot.defesa{ background:var(--mt-navy-700); border:2px solid var(--mt-sky-400); color:var(--mt-sky-400); }
   .mt-live-tl-min{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:12px; color:var(--mt-gold-400); margin-bottom:2px; }
   .mt-live-tl-desc{ font-size:14px; color:var(--mt-ivory-100); }
   .mt-live-tl-desc b{ color:var(--mt-ivory-50); }
@@ -1239,6 +1268,28 @@
   }
   .mt-btn-secondary svg{ width:16px; height:16px; color:var(--mt-gold-400); flex-shrink:0; }
   .mt-btn-secondary:disabled{ opacity:.4; cursor:not-allowed; }
+
+  /* AJUSTE (Play-by-Play v1, Tela hifi-02 do documento — "Destaque de
+     gol") — fundo radial navy com holofotes sutis (mesma linguagem
+     "estádio à noite" do resto do app), tag "GOL" com linhas
+     decorativas douradas, escudo do artilheiro em destaque (hexágono
+     de sempre, maior + brilho), placar atualizado. */
+  .mt-goal-highlight{
+    position:fixed; inset:0; z-index:400; display:none; flex-direction:column; align-items:center; justify-content:center; gap:14px;
+    background:radial-gradient(circle at 50% 32%, rgba(232,184,75,.16), transparent 55%), radial-gradient(circle at 50% 105%, rgba(232,184,75,.08), transparent 60%), linear-gradient(180deg, var(--mt-navy-950) 0%, #030811 100%);
+    cursor:pointer; padding:24px; text-align:center;
+  }
+  .mt-goal-highlight.open{ display:flex; }
+  .mt-goal-tag-row{ display:flex; align-items:center; gap:14px; }
+  .mt-goal-rule{ width:44px; height:2px; background:linear-gradient(90deg, transparent, var(--mt-gold-400)); }
+  .mt-goal-rule.right{ background:linear-gradient(90deg, var(--mt-gold-400), transparent); }
+  .mt-goal-tag{ font-family:'Bebas Neue', var(--font); font-size:26px; letter-spacing:8px; color:var(--mt-gold-300); }
+  .mt-goal-crest{ margin-top:8px; }
+  .mt-goal-crest .ct-crest{ box-shadow:inset 0 0 0 3px var(--mt-gold-400), 0 0 44px rgba(232,184,75,.5); }
+  .mt-goal-scorer{ font-family:'Bebas Neue', var(--font); font-size:40px; color:#fff; letter-spacing:.5px; text-wrap:balance; }
+  .mt-goal-assist{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:12px; letter-spacing:.5px; color:var(--mt-gold-300); text-transform:uppercase; }
+  .mt-goal-score{ margin-top:10px; padding-top:14px; border-top:1px solid rgba(232,184,75,.25); }
+  .mt-goal-score .vs{ font-family:'Bebas Neue', var(--font); font-size:30px; color:var(--mt-ivory-50); }
 
   /* ================= Tela 6 — Escalação =================
      AJUSTE (refatoração completa, ver 06-escalacao-restyled.html do
@@ -2195,6 +2246,17 @@
     </div>
     <div class="ct-modal-body" style="display:flex; flex-direction:column;">
       <div class="mt-card mt-live-scoreboard ct-next-match" id="liveMatchScore"></div>
+      <!-- AJUSTE (Play-by-Play v1, documento seção 6/7.1 — "3 botões:
+           1×/2×/Pular. Estado ativo em preenchimento dourado") — 1×/2×
+           controlam só a velocidade de REVELAÇÃO dos tempos (ver
+           scheduleNextChunk em carreira.js); "Pular pro fim" já existia
+           como 3º controle, mais abaixo. -->
+      <div class="mt-live-speed-row">
+        <div class="mt-live-speed" id="liveSpeedToggle">
+          <button class="mt-live-speed-btn active" data-speed="1">1×</button>
+          <button class="mt-live-speed-btn" data-speed="2">2×</button>
+        </div>
+      </div>
       <!-- AJUSTE (pedido do usuário: "o jogo deve pausar no intervalo
            (45) e aguardar que o técnico clique em prosseguir") — só
            esse botão libera o 2º tempo (ver continueFromHalftime em
@@ -2222,6 +2284,27 @@
       </button>
     </div>
   </div>
+</div>
+
+<!-- AJUSTE (Play-by-Play v1, documento Tela hifi-02 "Destaque de
+     gol") — overlay em tela cheia POR CIMA do Ao Vivo, pausa o feed
+     por ~2.6s a cada gol (ver queueGoalHighlights/showNextGoalHighlight
+     em carreira.js). Dispensa por toque em qualquer área (ver listener
+     no próprio overlay) ou timeout automático.
+     Nota de fidelidade: o documento pede escudo em CÍRCULO — mantido o
+     MESMO hexágono (crestImg) do resto do app, só maior/com brilho
+     dourado, pra não quebrar a identidade reforçada em toda a
+     aplicação (ver ajuste do "diamante"/monograma dos escudos). -->
+<div class="mt-goal-highlight" id="goalHighlightOverlay">
+  <div class="mt-goal-tag-row">
+    <div class="mt-goal-rule left"></div>
+    <div class="mt-goal-tag">GOL</div>
+    <div class="mt-goal-rule right"></div>
+  </div>
+  <div class="mt-goal-crest" id="goalHighlightCrest"></div>
+  <div class="mt-goal-scorer" id="goalHighlightScorer"></div>
+  <div class="mt-goal-assist hidden" id="goalHighlightAssist"></div>
+  <div class="ct-next-match mt-goal-score" id="goalHighlightScore"></div>
 </div>
 
 <!-- Sub-modal de substituição, aberto POR CIMA do Ao Vivo (mesmo
@@ -2379,13 +2462,43 @@
         <div class="ct-next-match" id="matchDetailScore"></div>
         <p class="ct-sub" id="matchDetailTickets" style="text-align:center;"></p>
       </div>
+      <!-- AJUSTE (Play-by-Play v1, documento Tela hifi-03 — "4
+           métricas com barras espelhadas douradas vs. cinza") —
+           posse/finalizações/no alvo/faltas, dourado = SEU time
+           (não "mandante" — faz mais sentido no modo carreira, onde
+           sempre existe um "seu time" claro). Só aparece quando há
+           stats (partidas antigas de saves anteriores a este ajuste
+           não têm, ver matchStatsBarsHTML). -->
+      <div class="mt-card" id="matchDetailStatsCard">
+        <div class="mt-card-title">Estatísticas</div>
+        <div id="matchDetailStats"></div>
+      </div>
       <div class="mt-card">
         <div id="matchDetailEvents"></div>
       </div>
     </div>
     <div class="ct-modal-footer">
       <button class="mt-btn-primary-gold" id="btnMatchDetailContinue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>Continuar</button>
+      <button class="mt-btn-ghost" id="btnMatchDetailReplay"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5,3 19,12 5,21"/></svg>Rever lances</button>
       <button class="mt-btn-ghost" id="btnMatchDetailCloseFooter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- AJUSTE (Play-by-Play v1) — "Rever lances" (Tela hifi-03) reabre o
+     feed COMPLETO da partida (gol/cartão/chance perdida/defesa/
+     substituição, nessa ordem cronológica — não só gol/cartão, que já
+     aparecem na lista acima) — não existe motor de replay de verdade,
+     então é uma lista somente-leitura (ver openMatchReplay). -->
+<div class="ct-modal-overlay" id="matchReplayOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header">
+      <span class="ct-modal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5,3 19,12 5,21"/></svg></span>
+      <div class="ct-modal-header-text"><h3>Rever lances</h3></div>
+      <button class="ct-modal-close" id="matchReplayClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <div id="matchReplayFeed" class="mt-live-timeline"></div>
     </div>
   </div>
 </div>

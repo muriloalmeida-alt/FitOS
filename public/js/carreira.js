@@ -2684,7 +2684,13 @@ function attributeGoals(starters, goals) {
     // Copa nunca chama isso pro lado deles (ver comentário em
     // simulateCupTie).
     scorer.goalsSeason = (scorer.goalsSeason || 0) + 1;
-    events.push({ type: "gol", player: scorer.name });
+    // AJUSTE (Play-by-Play v1, pedido do usuário — documento "BR Data
+    // Play-by-Play", seção 2) — gol e assistência viram UM evento
+    // atômico só (assistPlayer, não mais um 2º evento "assistencia"
+    // separado) — bate com a estrutura de evento do documento e deixa
+    // o banco de comentários tecer os dois na mesma frase ("Fulano
+    // lança, Ciclano não perdoa"), em vez de 2 linhas soltas no feed.
+    let assistName = null;
     // ~72% dos gols saem com assistência de um companheiro (nunca o
     // próprio artilheiro) — meio-campista pesa mais no sorteio, mas
     // qualquer titular pode ter dado o passe.
@@ -2694,8 +2700,9 @@ function attributeGoals(starters, goals) {
       const assister = weightedPick(assistPool, assistWeights);
       assister.assistsCareer = (assister.assistsCareer || 0) + 1;
       assister.assistsSeason = (assister.assistsSeason || 0) + 1;
-      events.push({ type: "assistencia", player: assister.name });
+      assistName = assister.name;
     }
+    events.push({ type: "gol", player: scorer.name, assistPlayer: assistName });
   }
   return events;
 }
@@ -2736,6 +2743,33 @@ function applyMatchWearChunk(starters, round, chunkShare, appearedSet) {
   });
   return { events, redCardIds };
 }
+// AJUSTE (Play-by-Play v1, pedido do usuário — documento "BR Data
+// Play-by-Play", seções 3 e 9) — chance perdida e defesa do goleiro,
+// só existiam gol/cartão/substituição no feed ao vivo até aqui,
+// deixando a partida "seca" fora dos gols. Camada 100% decorativa: a
+// frequência é derivada da força de ataque/defesa relativa de cada
+// janela (mesmo espírito do lambda de gol), mas NUNCA toca em
+// lambdaHome/lambdaAway nem no placar (ver resolveLiveChunk) — exigência
+// explícita do documento ("isso é 100% camada de apresentação e não
+// deve afetar o resultado da partida"). Chamada só pro jogo AO VIVO do
+// seu clube (CPU x CPU continua sem essa camada — ninguém vê o feed
+// dessas partidas mesmo).
+function attributeChances(starters, atkStrength, defStrength, chunkShare) {
+  const events = [];
+  if (!starters || !starters.length) return events;
+  const lambda = clamp((atkStrength / defStrength) * 7, 1, 14) * chunkShare;
+  const count = poissonSample(lambda, Math.random);
+  const weights = starters.map((p) => ({ F: 4, M: 2, D: 0.7, G: 0.05 }[p.group] || 1));
+  for (let i = 0; i < count; i++) {
+    const player = weightedPick(starters, weights);
+    // ~38% das chances vira defesa do goleiro adversário (chute no
+    // alvo, mas sem gol) — o resto é chance perdida (fora/travessão),
+    // mesma proporção aproximada do catálogo do documento (seção 3:
+    // CHANCE_MISSED 8-15/jogo, SHOT_ON_TARGET_SAVED 4-8/jogo).
+    events.push({ type: Math.random() < 0.38 ? "defesa" : "chance_perdida", player: player.name });
+  }
+  return events;
+}
 function simulatePlayerEvents(starters, goals, round) {
   if (!starters || !starters.length) return [];
   const appeared = new Set(); // local — replica o "apps += 1 uma vez" de sempre numa chamada só
@@ -2749,7 +2783,10 @@ function tallyTeamStats(events) {
   if (!events || !events.length) return;
   if (!CAREER.teamStats) CAREER.teamStats = { assists: 0, yellow: 0, red: 0 };
   events.forEach((e) => {
-    if (e.type === "assistencia") CAREER.teamStats.assists++;
+    // AJUSTE (Play-by-Play v1) — assistência não é mais um evento
+    // separado ("assistencia"), virou o campo assistPlayer do próprio
+    // evento "gol" (ver attributeGoals) — conta daqui agora.
+    if (e.type === "gol" && e.assistPlayer) CAREER.teamStats.assists++;
     else if (e.type === "amarelo") CAREER.teamStats.yellow++;
     else if (e.type === "vermelho") CAREER.teamStats.red++;
   });
@@ -3204,8 +3241,11 @@ function determineMatchPressTrigger(ctx) {
   // Jovem da base estreando bem: marcou ou deu assistência NESSE jogo,
   // é da base e é literalmente o primeiro jogo dele (apps já
   // incrementado pra 1 pelo wear chunk desse mesmo jogo).
-  const debutStar = (events || []).some((e) => (e.type === "gol" || e.type === "assistencia") && e.mine === true
-    && CAREER.squad.some((p) => p.name === e.player && p.origin === "base" && p.apps === 1));
+  // AJUSTE (Play-by-Play v1) — assistência agora é o campo
+  // assistPlayer do evento "gol" (ver attributeGoals), não mais um
+  // evento "assistencia" separado — checa os dois nomes no mesmo evento.
+  const debutStar = (events || []).some((e) => e.type === "gol" && e.mine === true
+    && CAREER.squad.some((p) => (p.name === e.player || p.name === e.assistPlayer) && p.origin === "base" && p.apps === 1));
   if (debutStar) candidates.push("17");
   if (myPosAfter != null && myPosAfter > total - 4) candidates.push("08");
   if (lost && myOvr != null && oppOvr != null && myOvr >= oppOvr + ZEBRA_OVR_GAP) candidates.push("10");
@@ -3481,6 +3521,83 @@ function simulateRound() {
      não está mais em campo); o "desgaste de fim de partida" (jogos
      computados) considera só quem esteve em campo em ALGUM tempo (ver
      appeared). */
+/* ---------- Play-by-Play v1 (pedido do usuário — documento "BR Data
+   Play-by-Play") — banco de comentários ----------
+   Seção 4 do documento: em vez de UMA frase fixa por tipo de evento
+   (era assim até aqui, ver liveEventLabel), várias variações sorteadas
+   — evita a repetição perceptível. Gol ganha 2 bancos (com/sem
+   assistência, já que a frase muda de estrutura pros dois casos, ver
+   attributeGoals/assistPlayer). {minute} foi deixado de fora dos
+   textos de propósito — o feed já mostra o minuto numa coluna própria
+   (.mt-live-tl-min), repetir dentro da frase seria redundante. */
+const COMMENTARY_BANK = {
+  gol_assistido: [
+    "{assistPlayer} lança, {player} não perdoa. GOOOL do {team}!",
+    "Bola alçada na área, {player} testa e balança as redes! Assistência de {assistPlayer}.",
+    "{assistPlayer} rasga a defesa com o passe, {player} só empurra pra dentro. GOL do {team}!",
+    "Jogada bonita: {assistPlayer} arma, {player} bate cruzado. Sem chances pro goleiro!",
+    "{player} aproveita o passe de {assistPlayer} e manda pro fundo da rede!",
+    "Contra-ataque fulminante! {assistPlayer} lança, {player} não perdoa. GOOOL do {team}!",
+    "{assistPlayer} cruza na medida, {player} cabeceia sem chances de defesa!",
+  ],
+  gol_solo: [
+    "{player} recebe em velocidade e bate cruzado. Sem chances pro goleiro!",
+    "{player} arrisca de fora da área e acerta um golaço!",
+    "{player} aproveita o rebote e empurra pra dentro. GOL do {team}!",
+    "Que categoria! {player} deixa o marcador no chão e finaliza com categoria.",
+    "{player} cabeceia sozinho na área e não desperdiça!",
+    "{player} bate forte, sem chances de defesa. GOOOL do {team}!",
+  ],
+  chance_perdida: [
+    "{player} sobe mais que a marcação, mas a cabeçada vai por cima do travessão.",
+    "Cruzamento na área, {player} testa, só afastou o perigo.",
+    "{player} arrisca de longe, a bola passa perto da trave.",
+    "Quase! {player} teve a chance e mandou pra fora.",
+    "{player} ficou cara a cara com o goleiro, mas chutou em cima da defesa.",
+    "{player} desperdiça uma chance clara — a torcida lamenta.",
+  ],
+  defesa: [
+    "{player} finaliza forte, mas o goleiro faz uma bela defesa!",
+    "Grande defesa! {player} arriscou e o goleiro não deixou.",
+    "{player} bateu colocado, só na segurança das mãos do goleiro.",
+    "{player} testou o goleiro de novo, defesa segura.",
+  ],
+  amarelo: [
+    "Cartão amarelo pra {player} — falta dura no meio-campo.",
+    "{player} recebe amarelo por reclamação.",
+    "Cartão amarelo mostrado a {player}.",
+  ],
+  vermelho: [
+    "Expulso! {player} é o primeiro a sair de campo antes da hora.",
+    "Cartão vermelho direto pra {player} — o time fica com um a menos!",
+  ],
+  substituicao: [
+    "Mudança no {team}: {entra} entra no lugar de {saiu}.",
+    "{team} mexe na equipe — {entra} substitui {saiu}.",
+  ],
+};
+// Sorteia uma variação do banco `bankKey`, substitui as {variáveis} e
+// evita repetir a MESMA variação 2x seguidas do mesmo tipo — `tracker`
+// guarda o último índice sorteado por bankKey (é o próprio LIVE_MATCH
+// durante a partida ao vivo, ou um objeto descartável no "Rever
+// lances" pós-jogo, ver liveEventLabel). Nomes de jogador/entrada/saída
+// entram em negrito; minuto e nome de time ficam em texto normal.
+const COMMENTARY_BOLD_KEYS = new Set(["player", "assistPlayer", "entra", "saiu"]);
+function pickCommentary(bankKey, vars, tracker) {
+  const bank = COMMENTARY_BANK[bankKey];
+  if (!bank || !bank.length) return "";
+  tracker.lastCommentaryIdx = tracker.lastCommentaryIdx || {};
+  let idx = Math.floor(Math.random() * bank.length);
+  if (bank.length > 1 && idx === tracker.lastCommentaryIdx[bankKey]) idx = (idx + 1) % bank.length;
+  tracker.lastCommentaryIdx[bankKey] = idx;
+  let text = bank[idx];
+  Object.keys(vars).forEach((k) => {
+    if (vars[k] == null) return;
+    const safe = escapeHtml(String(vars[k]));
+    text = text.split(`{${k}}`).join(COMMENTARY_BOLD_KEYS.has(k) ? `<b>${safe}</b>` : safe);
+  });
+  return text;
+}
 const LIVE_MATCH_CHUNK_MINUTES = [15, 30, 45, 60, 75, 90];
 const MAX_SUBS_PER_MATCH = 5;
 const LIVE_TACTICS_FAMILIARITY_PENALTY_CHUNKS = 2;
@@ -3501,6 +3618,15 @@ function startLiveMatch(round, fixtures, humanFx, standingsBefore) {
     subsUsed: 0, subsBonus: 0, formationPenaltyChunksLeft: 0,
     lastHsStarters: [], lastAsStarters: [],
     timerId: null, paused: false, finished: false,
+    // AJUSTE (Play-by-Play v1) — velocidade de reprodução (1x/2x, ver
+    // .mt-live-speed em carreira.html/scheduleNextChunk) e
+    // estatísticas agregadas decorativas (posse/finalizações/faltas,
+    // ver updateLiveStats/resolveLiveChunk — documento seção 5/9,
+    // "stats" da Match Timeline). Fila de destaques de gol em tela
+    // cheia (ver queueGoalHighlights) fica vazia até o 1º gol.
+    speed: 1,
+    stats: { possWeightHome: 0, shots: { home: 0, away: 0 }, shotsOnTarget: { home: 0, away: 0 }, fouls: { home: 0, away: 0 } },
+    goalHighlightQueue: [], goalHighlightOnDone: null, goalHighlightTimer: null,
     // FASE 4 (item 2) — coletiva de imprensa: quem já estava contundido
     // ANTES dessa partida, pra distinguir de quem se machucou NELA (ver
     // gatilho "18" em determineMatchPressTrigger, chamada de dentro de
@@ -3514,7 +3640,12 @@ function startLiveMatch(round, fixtures, humanFx, standingsBefore) {
 function scheduleNextChunk() {
   const lm = LIVE_MATCH;
   if (!lm || lm.finished || lm.paused) return;
-  lm.timerId = setTimeout(resolveLiveChunk, 900);
+  // AJUSTE (Play-by-Play v1) — "1x/2x" controla a velocidade de
+  // REVELAÇÃO dos tempos (ver .mt-live-speed), não o motor por trás —
+  // o cálculo de cada tempo continua sendo o mesmo de sempre, só o
+  // atraso real entre um tempo e o próximo muda.
+  const delay = lm.speed === 2 ? 450 : 900;
+  lm.timerId = setTimeout(resolveLiveChunk, delay);
 }
 function pauseLiveMatch() {
   if (!LIVE_MATCH) return;
@@ -3570,9 +3701,18 @@ function resolveLiveChunk() {
   const myRedIds = lm.isHome ? wearHome.redCardIds : wearAway.redCardIds;
   if (myRedIds.length) lm.subsBonus += myRedIds.length;
   lm.gh += ghChunk; lm.ga += gaChunk;
+  // AJUSTE (Play-by-Play v1) — chance perdida/defesa (camada
+  // decorativa, ver attributeChances) + estatísticas agregadas
+  // (ver updateLiveStats) NÃO tocam lambdaHome/lambdaAway nem
+  // ghChunk/gaChunk — só enriquecem o feed e o resumo de fim de jogo.
+  const chancesHome = attributeChances(hs.starters, hs.atk, as.def, chunkShare);
+  const chancesAway = attributeChances(as.starters, as.atk, hs.def, chunkShare);
+  updateLiveStats(lm, hs, as, chunkShare, chancesHome, chancesAway, ghChunk, gaChunk);
   const chunkEvents = [
     ...attributeGoals(hs.starters, ghChunk).map((e) => ({ ...e, mine: lm.isHome })),
     ...attributeGoals(as.starters, gaChunk).map((e) => ({ ...e, mine: !lm.isHome })),
+    ...chancesHome.map((e) => ({ ...e, mine: lm.isHome })),
+    ...chancesAway.map((e) => ({ ...e, mine: !lm.isHome })),
     ...wearHome.events.map((e) => ({ ...e, mine: lm.isHome })),
     ...wearAway.events.map((e) => ({ ...e, mine: !lm.isHome })),
   ].map((e) => ({ ...e, minute }));
@@ -3580,26 +3720,107 @@ function resolveLiveChunk() {
   lm.lastHsStarters = hs.starters; lm.lastAsStarters = as.starters;
   lm.chunkIndex++;
   renderLiveMatch();
-  if (lm.chunkIndex >= LIVE_MATCH_CHUNK_MINUTES.length) {
-    // "⏩ Pular pro fim" (ver skipLiveMatch) não espera o delay de
-    // sempre — quem não quer acompanhar minuto a minuto não devia ficar
-    // preso a ele.
-    if (lm.skipping) finishLiveMatch(); else setTimeout(finishLiveMatch, 500);
-  } else if (minute === 45 && !lm.skipping) {
-    // AJUSTE (pedido do usuário: "o jogo deve pausar no intervalo e
-    // aguardar que o técnico clique em prosseguir") — pausa automática
-    // igual uma pausa manual (ver pauseLiveMatch), só que sem
-    // depender do usuário ter aberto substituição/tática — os dois
-    // continuam disponíveis normalmente durante o intervalo (é
-    // exatamente quando um técnico de verdade mexeria no time), quem
-    // libera o 2º tempo é o botão "Prosseguir" (ver
-    // continueFromHalftime/renderLiveMatch).
-    lm.paused = true;
-    lm.halftime = true;
-    renderLiveMatch();
-  } else if (!lm.skipping) {
-    scheduleNextChunk();
+  const advanceAfterChunk = () => {
+    if (lm.chunkIndex >= LIVE_MATCH_CHUNK_MINUTES.length) {
+      // "⏩ Pular pro fim" (ver skipLiveMatch) não espera o delay de
+      // sempre — quem não quer acompanhar minuto a minuto não devia ficar
+      // preso a ele.
+      if (lm.skipping) finishLiveMatch(); else setTimeout(finishLiveMatch, 500);
+    } else if (minute === 45 && !lm.skipping) {
+      // AJUSTE (pedido do usuário: "o jogo deve pausar no intervalo e
+      // aguardar que o técnico clique em prosseguir") — pausa automática
+      // igual uma pausa manual (ver pauseLiveMatch), só que sem
+      // depender do usuário ter aberto substituição/tática — os dois
+      // continuam disponíveis normalmente durante o intervalo (é
+      // exatamente quando um técnico de verdade mexeria no time), quem
+      // libera o 2º tempo é o botão "Prosseguir" (ver
+      // continueFromHalftime/renderLiveMatch).
+      lm.paused = true;
+      lm.halftime = true;
+      renderLiveMatch();
+    } else if (!lm.skipping) {
+      scheduleNextChunk();
+    }
+  };
+  // AJUSTE (Play-by-Play v1, documento seção 6 e Tela hifi-02) — gol
+  // pausa a narrativa por um destaque em tela cheia antes de seguir
+  // pro próximo tempo (nunca durante "Pular pro fim" — ninguém quer
+  // ver o overlay de gol travando um avanço que o próprio técnico
+  // pediu pra pular).
+  const goalsThisChunk = chunkEvents.filter((e) => e.type === "gol");
+  if (goalsThisChunk.length && !lm.skipping) queueGoalHighlights(goalsThisChunk, advanceAfterChunk);
+  else advanceAfterChunk();
+}
+// AJUSTE (Play-by-Play v1, documento seção 5/9 — "stats" da Match
+// Timeline) — posse/finalizações/faltas não existiam em NENHUM lugar
+// do motor (só gol via Poisson); aproximação derivada da força
+// relativa de cada janela, decorativa (não influencia o resultado).
+// Posse acumula uma MÉDIA PONDERADA pela fração de jogo de cada tempo
+// (chunkShare soma 1 no fim da partida); finalizações/faltas somam.
+function updateLiveStats(lm, hs, as, chunkShare, chancesHome, chancesAway, ghChunk, gaChunk) {
+  const s = lm.stats;
+  const homeRatio = hs.atk / (hs.atk + as.atk || 1);
+  s.possWeightHome += homeRatio * chunkShare;
+  s.shots.home += chancesHome.length + ghChunk;
+  s.shots.away += chancesAway.length + gaChunk;
+  s.shotsOnTarget.home += chancesHome.filter((e) => e.type === "defesa").length + ghChunk;
+  s.shotsOnTarget.away += chancesAway.filter((e) => e.type === "defesa").length + gaChunk;
+  s.fouls.home += poissonSample(11 * chunkShare, Math.random);
+  s.fouls.away += poissonSample(11 * chunkShare, Math.random);
+}
+// ---- Destaque de gol em tela cheia (Tela hifi-02) ----
+// Fila (raro, mas possível 2 gols no mesmo tempo de 15min) — mostra um
+// de cada vez, avança sozinho depois de ~2.6s ou no toque, só chama
+// `onDone` (segue o jogo) depois que a fila esvazia.
+function queueGoalHighlights(goals, onDone) {
+  const lm = LIVE_MATCH;
+  lm.goalHighlightQueue = goals.slice();
+  lm.goalHighlightOnDone = onDone;
+  showNextGoalHighlight();
+}
+function showNextGoalHighlight() {
+  const lm = LIVE_MATCH;
+  if (!lm) return;
+  if (!lm.goalHighlightQueue.length) {
+    const onDone = lm.goalHighlightOnDone;
+    lm.goalHighlightOnDone = null;
+    if (onDone) onDone();
+    return;
   }
+  const e = lm.goalHighlightQueue.shift();
+  renderGoalHighlight(e);
+  document.getElementById("goalHighlightOverlay").classList.add("open");
+  clearTimeout(lm.goalHighlightTimer);
+  lm.goalHighlightTimer = setTimeout(dismissGoalHighlight, 2600);
+}
+function dismissGoalHighlight() {
+  const lm = LIVE_MATCH;
+  if (lm) clearTimeout(lm.goalHighlightTimer);
+  document.getElementById("goalHighlightOverlay").classList.remove("open");
+  if (!lm) return;
+  showNextGoalHighlight();
+}
+// Nota de fidelidade ao documento: a Tela hifi-02 pede escudo em
+// CÍRCULO — trocado pelo MESMO hexágono do resto do app (crestImg),
+// só maior e com brilho/borda dourada — usar um formato diferente só
+// nesta tela quebraria a identidade reforçada em toda a aplicação
+// (ver ajuste "diamante"/monograma dos escudos, sessão anterior).
+function renderGoalHighlight(e) {
+  const lm = LIVE_MATCH;
+  const scoringTeam = e.mine ? (lm.isHome ? lm.home : lm.away) : (lm.isHome ? lm.away : lm.home);
+  document.getElementById("goalHighlightCrest").innerHTML = crestImg(scoringTeam, 88);
+  document.getElementById("goalHighlightScorer").textContent = abbreviateName(e.player);
+  const assistEl = document.getElementById("goalHighlightAssist");
+  if (e.assistPlayer) { assistEl.textContent = `Assistência: ${abbreviateName(e.assistPlayer)}`; assistEl.classList.remove("hidden"); }
+  else assistEl.classList.add("hidden");
+  // Simplificação assumida: se o mesmo tempo teve 2 gols, os 2
+  // destaques mostram o placar FINAL do tempo (não o placar
+  // intermediário logo após cada gol individual) — evita precisar
+  // rastrear o placar gol a gol dentro do mesmo chunk, caso raríssimo.
+  document.getElementById("goalHighlightScore").innerHTML = `
+    <div class="side">${crestImg(lm.home, 28)}<span class="n">${escapeHtml(lm.home.name)}</span></div>
+    <span class="vs">${lm.gh} × ${lm.ga}</span>
+    <div class="side">${crestImg(lm.away, 28)}<span class="n">${escapeHtml(lm.away.name)}</span></div>`;
 }
 // Pedido nosso, não da especificação: sem isso, CADA rodada simulada
 // custaria ~6s de espera real (6 tempos x 900ms) mesmo pra quem só
@@ -3612,17 +3833,27 @@ function skipLiveMatch() {
   clearTimeout(lm.timerId);
   lm.paused = false;
   lm.skipping = true;
+  // AJUSTE (Play-by-Play v1) — se um destaque de gol estiver na tela
+  // no instante em que o técnico clica "Pular pro fim" (ou no X),
+  // descarta a fila e o "onDone" pendente na hora — o while abaixo já
+  // resolve o resto da partida de uma vez, sem precisar esperar o
+  // destaque ser dispensado primeiro.
+  clearTimeout(lm.goalHighlightTimer);
+  lm.goalHighlightQueue = [];
+  lm.goalHighlightOnDone = null;
+  document.getElementById("goalHighlightOverlay").classList.remove("open");
   while (lm.chunkIndex < LIVE_MATCH_CHUNK_MINUTES.length && !lm.finished) resolveLiveChunk();
 }
 async function finishLiveMatch() {
   const lm = LIVE_MATCH;
   lm.finished = true;
   const result = { home: lm.humanFx.home, away: lm.humanFx.away, gh: lm.gh, ga: lm.ga };
-  // "substituicao" só existe pro feed AO VIVO (ver liveEventLabel) —
-  // igual lesão (ver comentário no topo de applyMatchWearChunk), o
-  // modal de detalhe do jogo de sempre (matchEventsSummaryHTML) só
-  // lista gol/cartão/assistência.
-  const summaryEvents = lm.events.filter((e) => e.type !== "substituicao");
+  // "substituicao"/"chance_perdida"/"defesa" só existem pro feed AO
+  // VIVO (ver liveEventLabel) — igual lesão (ver comentário no topo de
+  // applyMatchWearChunk), o modal de detalhe do jogo de sempre
+  // (matchEventsSummaryHTML) só lista gol/cartão (Tela hifi-03 do
+  // documento: "Artilheiros e cartões", não chance perdida/defesa).
+  const summaryEvents = lm.events.filter((e) => e.type === "gol" || e.type === "amarelo" || e.type === "vermelho");
   if (summaryEvents.length) result.events = summaryEvents;
   applyResultToStandings(result);
   (CAREER.resultsByRound[lm.round] = CAREER.resultsByRound[lm.round] || []).push(result);
@@ -3640,7 +3871,17 @@ async function finishLiveMatch() {
     ticketRevenue = computeTicketRevenue(lm.home);
     CAREER.finances.cash += ticketRevenue.revenue;
   }
-  const humanMatch = { ...result, isHome: lm.isHome, ticketRevenue };
+  // AJUSTE (Play-by-Play v1) — stats agregadas (ver updateLiveStats,
+  // consumidas pela Tela hifi-03/matchStatsBarsHTML) e a lista COMPLETA
+  // de eventos, sem filtro (ver openMatchReplay/"Rever lances" — a
+  // única tela que precisa ver chance perdida/defesa/substituição
+  // também, não só gol/cartão).
+  const stats = {
+    possession: { home: Math.round(clamp(lm.stats.possWeightHome, 0, 1) * 100) },
+    shots: lm.stats.shots, shotsOnTarget: lm.stats.shotsOnTarget, fouls: lm.stats.fouls,
+  };
+  stats.possession.away = 100 - stats.possession.home;
+  const humanMatch = { ...result, isHome: lm.isHome, ticketRevenue, stats, allEvents: lm.events };
   const myGoals = lm.isHome ? lm.gh : lm.ga, oppGoals = lm.isHome ? lm.ga : lm.gh;
   pushRecentForm(myGoals > oppGoals ? 3 : myGoals === oppGoals ? 1 : 0);
   applyMoraleAfterMatch(myGoals, oppGoals);
@@ -3673,27 +3914,44 @@ async function finishLiveMatch() {
   renderAll();
   showMatchDetailModal(summary);
 }
-// AJUSTE (refatoração completa, Tela 13b) — descrição sem emoji (o
-// marcador colorido da linha do tempo já indica o tipo, ver
-// liveEventDot logo abaixo) e nome do jogador em <b> (mesmo padrão do
-// mockup, ver .tl-desc b em 13b-partida-ao-vivo-restyled.html).
-function liveEventLabel(e) {
-  if (e.type === "gol") return `Gol${e.mine === false ? " do adversário" : ""} — <b>${escapeHtml(e.player)}</b>`;
-  if (e.type === "assistencia") return `Assistência de <b>${escapeHtml(e.player)}</b>`;
-  if (e.type === "amarelo") return `Cartão amarelo — <b>${escapeHtml(e.player)}</b>`;
-  if (e.type === "vermelho") return `Expulsão — <b>${escapeHtml(e.player)}</b>`;
-  if (e.type === "substituicao") return `<b>${escapeHtml(e.entra)}</b> entra no lugar de <b>${escapeHtml(e.saiu)}</b>`;
+// AJUSTE (Play-by-Play v1, pedido do usuário) — descrição agora sorteia
+// uma variação do banco de comentários (ver COMMENTARY_BANK/
+// pickCommentary logo acima) em vez de UMA frase fixa por tipo. Aceita
+// um `ctx` opcional ({oppTeamName, tracker}) pra funcionar também fora
+// da partida ao vivo (ver openMatchReplay, "Rever lances" — sem
+// LIVE_MATCH nenhum nesse ponto); default deriva do LIVE_MATCH global,
+// comportamento de sempre durante a partida.
+function liveEventLabel(e, ctx) {
+  if (!ctx) {
+    const lm = LIVE_MATCH;
+    const oppTeam = lm ? (lm.isHome ? lm.away : lm.home) : null;
+    ctx = { oppTeamName: oppTeam ? oppTeam.name : "adversário", tracker: lm || {} };
+  }
+  const teamLabel = e.mine === false ? ctx.oppTeamName : "seu time";
+  if (e.type === "gol") {
+    const bankKey = e.assistPlayer ? "gol_assistido" : "gol_solo";
+    return pickCommentary(bankKey, { player: e.player, assistPlayer: e.assistPlayer, team: teamLabel }, ctx.tracker);
+  }
+  if (e.type === "chance_perdida") return pickCommentary("chance_perdida", { player: e.player }, ctx.tracker);
+  if (e.type === "defesa") return pickCommentary("defesa", { player: e.player }, ctx.tracker);
+  if (e.type === "amarelo") return pickCommentary("amarelo", { player: e.player }, ctx.tracker);
+  if (e.type === "vermelho") return pickCommentary("vermelho", { player: e.player }, ctx.tracker);
+  if (e.type === "substituicao") return pickCommentary("substituicao", { entra: e.entra, saiu: e.saiu, team: teamLabel }, ctx.tracker);
   return "";
 }
 // Marcador (cor + ícone SVG) da linha do tempo por tipo de evento — ver
-// .mt-live-tl-dot em carreira.html (Tela 13b).
+// .mt-live-tl-dot em carreira.html (Tela 13b). "chance_perdida"/
+// "defesa" são novos (Play-by-Play v1) — tom neutro/discreto de
+// propósito, já que não pausam a narrativa (ver catálogo, seção 3 do
+// documento: "Pausa narrativa? Não" pros dois).
 function liveEventDot(type) {
   const DOTS = {
     gol: { cls: "gol", svg: `<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="12" r="9"/></svg>` },
-    assistencia: { cls: "assist", svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="19" x2="19" y2="5"/><polyline points="9 5 19 5 19 15"/></svg>` },
     amarelo: { cls: "amarelo", svg: `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="3" width="12" height="18" rx="1.5"/></svg>` },
     vermelho: { cls: "vermelho", svg: `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="3" width="12" height="18" rx="1.5"/></svg>` },
     substituicao: { cls: "sub", svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>` },
+    chance_perdida: { cls: "chance", svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="2.4" fill="currentColor" stroke="none"/></svg>` },
+    defesa: { cls: "defesa", svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><line x1="7" y1="7" x2="17" y2="17"/></svg>` },
   };
   return DOTS[type] || DOTS.substituicao;
 }
@@ -3933,7 +4191,6 @@ function renderCentral() {
 // o texto que aparece à direita do nome do jogador.
 const MATCH_EVENT_META = {
   gol: { label: "Gol" },
-  assistencia: { label: "Assistência" },
   amarelo: { label: "Cartão amarelo" },
   vermelho: { label: "Cartão vermelho" },
 };
@@ -3949,9 +4206,15 @@ function matchEventsSummaryHTML(events) {
     // reaproveitando liveEventDot() (mesma função da linha do tempo Ao
     // Vivo, Tela 13b), no lugar do emoji + fundo chapado de antes.
     const dot = liveEventDot(e.type);
+    // AJUSTE (Play-by-Play v1) — assistência não é mais um evento
+    // separado, virou o campo assistPlayer do próprio "gol" (ver
+    // attributeGoals) — some como uma linha discreta abaixo do nome
+    // do artilheiro, em vez de uma linha própria na lista.
+    const assistLine = e.type === "gol" && e.assistPlayer
+      ? `<span class="ct-event-assist">Assistência: ${escapeHtml(abbreviateName(e.assistPlayer))}</span>` : "";
     return `<div class="ct-event-row">
       <span class="ct-event-icon ${dot.cls}">${dot.svg}</span>
-      <span class="nm">${nm}</span>
+      <span class="ct-event-namewrap"><span class="nm">${nm}</span>${assistLine}</span>
       <span class="tp">${e.player ? meta.label : ""}</span>
     </div>`;
   }).join("");
@@ -5187,7 +5450,7 @@ function switchToPanel(name) {
 // pula direto pro modal de resultados, não tem jogo pra detalhar).
 function showMatchDetailModal(summary) {
   if (!summary.humanMatch) { showRoundResultsModal(summary); return; }
-  const { home, away, gh, ga, events, ticketRevenue } = summary.humanMatch;
+  const { home, away, gh, ga, events, ticketRevenue, stats, isHome } = summary.humanMatch;
   const homeTeam = teamById(home), awayTeam = teamById(away);
   document.getElementById("matchDetailRound").textContent = summary.round;
   document.getElementById("matchDetailScore").innerHTML = `
@@ -5196,6 +5459,13 @@ function showMatchDetailModal(summary) {
     <div class="side">${crestImg(awayTeam)}<span class="n">${escapeHtml(awayTeam.name)}</span></div>`;
   document.getElementById("matchDetailEvents").innerHTML = matchEventsSummaryHTML(events)
     || `<p class="ct-empty">Nenhum gol, cartão ou assistência nesse jogo.</p>`;
+  // AJUSTE (Play-by-Play v1, Tela hifi-03) — barras de posse/
+  // finalizações/no alvo/faltas, dourado = SEU time. `stats` só existe
+  // em partidas resolvidas DEPOIS deste ajuste (ver finishLiveMatch) —
+  // esconde o cartão inteiro pra saves antigos/rodadas sem esse dado.
+  const statsCard = document.getElementById("matchDetailStatsCard");
+  statsCard.classList.toggle("hidden", !stats);
+  if (stats) document.getElementById("matchDetailStats").innerHTML = matchStatsBarsHTML(stats, isHome);
   // FASE 3 (b) — pedido do usuário: renda de ingressos em jogo em casa
   // (público que compareceu vs. capacidade do estádio, refletindo a
   // fase recente do time — ver currentAttendancePct).
@@ -5205,6 +5475,33 @@ function showMatchDetailModal(summary) {
   PENDING_ROUND_SUMMARY = summary;
   document.getElementById("matchDetailOverlay").classList.add("open");
 }
+// AJUSTE (Play-by-Play v1, Tela hifi-03 — "4 métricas com barras
+// espelhadas douradas vs. cinza") — dourado é sempre o SEU time
+// (mine), não "mandante", já que essa tela é sempre sob a perspectiva
+// do técnico. `stats` vem de lm.stats (ver updateLiveStats/
+// finishLiveMatch) — possession já normalizado em % pra home/away.
+function matchStatsBarsHTML(stats, isHome) {
+  const side = (obj) => (isHome ? obj.home : obj.away);
+  const oppSide = (obj) => (isHome ? obj.away : obj.home);
+  const rows = [
+    { label: "Posse de bola", mine: side(stats.possession), opp: oppSide(stats.possession), suffix: "%" },
+    { label: "Finalizações", mine: side(stats.shots), opp: oppSide(stats.shots) },
+    { label: "Finalizações no alvo", mine: side(stats.shotsOnTarget), opp: oppSide(stats.shotsOnTarget) },
+    { label: "Faltas", mine: side(stats.fouls), opp: oppSide(stats.fouls) },
+  ];
+  return rows.map((r) => {
+    const total = r.mine + r.opp || 1;
+    const minePct = Math.round((r.mine / total) * 100);
+    return `<div class="mt-stat-bar-row">
+      <span class="mt-stat-bar-val mine">${r.mine}${r.suffix || ""}</span>
+      <div class="mt-stat-bar-track">
+        <div class="mt-stat-bar-label">${escapeHtml(r.label)}</div>
+        <div class="mt-stat-bar-fill"><span class="mine" style="width:${minePct}%;"></span><span class="opp" style="width:${100 - minePct}%;"></span></div>
+      </div>
+      <span class="mt-stat-bar-val opp">${r.opp}${r.suffix || ""}</span>
+    </div>`;
+  }).join("");
+}
 // AJUSTE (pedido do usuário, revisão das modais de pós-jogo) — usada
 // tanto pelo X do cabeçalho quanto pelo "Fechar" no rodapé (ver
 // #matchDetailClose/#btnMatchDetailCloseFooter) — só fecha, sem seguir
@@ -5212,6 +5509,33 @@ function showMatchDetailModal(summary) {
 // "Continuar" mesmo).
 function closeMatchDetailModal() {
   document.getElementById("matchDetailOverlay").classList.remove("open");
+}
+// AJUSTE (Play-by-Play v1, Tela hifi-03 — botão "Rever lances") —
+// reabre o feed COMPLETO da partida (gol/cartão/chance perdida/
+// defesa/substituição, cronológico), lido de
+// PENDING_ROUND_SUMMARY.humanMatch.allEvents (ver finishLiveMatch) —
+// LIVE_MATCH já é null nesse ponto, por isso liveEventLabel recebe um
+// `ctx` próprio aqui em vez de depender do estado global da partida.
+function openMatchReplay() {
+  const hm = PENDING_ROUND_SUMMARY && PENDING_ROUND_SUMMARY.humanMatch;
+  if (!hm || !hm.allEvents || !hm.allEvents.length) { toast("Sem lances registrados nesse jogo.", { type: "info" }); return; }
+  const home = teamById(hm.home), away = teamById(hm.away);
+  const oppTeam = hm.isHome ? away : home;
+  const ctx = { oppTeamName: oppTeam.name, tracker: {} };
+  document.getElementById("matchReplayFeed").innerHTML = hm.allEvents.map((e) => {
+    const label = liveEventLabel(e, ctx);
+    if (!label) return "";
+    const dot = liveEventDot(e.type);
+    return `<div class="mt-live-tl-event">
+      <div class="mt-live-tl-dot ${dot.cls}">${dot.svg}</div>
+      <div class="mt-live-tl-min">${e.minute}'</div>
+      <div class="mt-live-tl-desc">${label}</div>
+    </div>`;
+  }).join("");
+  document.getElementById("matchReplayOverlay").classList.add("open");
+}
+function closeMatchReplay() {
+  document.getElementById("matchReplayOverlay").classList.remove("open");
 }
 // 2º modal: placar dos 20 times nessa rodada + trocas forçadas de
 // escalação (jogador que ficou indisponível — ver autoFixLineup),
@@ -5440,6 +5764,19 @@ function wireStaticListeners() {
   // aplicar nada — ver closeLiveSubModal/closeLiveTacticsModal, que só
   // retomam a progressão da partida).
   document.getElementById("btnLiveSkip").addEventListener("click", skipLiveMatch);
+  // AJUSTE (Play-by-Play v1) — segmented control 1×/2× (ver
+  // scheduleNextChunk, que lê LIVE_MATCH.speed a cada tempo agendado —
+  // clicar não precisa reagendar nada na hora, só vale do PRÓXIMO tempo
+  // em diante).
+  document.getElementById("liveSpeedToggle").addEventListener("click", (e) => {
+    const btn = e.target.closest(".mt-live-speed-btn");
+    if (!btn || !LIVE_MATCH) return;
+    LIVE_MATCH.speed = Number(btn.dataset.speed);
+    document.querySelectorAll("#liveSpeedToggle .mt-live-speed-btn").forEach((b) => b.classList.toggle("active", b === btn));
+  });
+  // Destaque de gol em tela cheia (Tela hifi-02) — dispensa por toque
+  // em qualquer área (ver queueGoalHighlights/showNextGoalHighlight).
+  document.getElementById("goalHighlightOverlay").addEventListener("click", dismissGoalHighlight);
   // AJUSTE (pedido do usuário: "o jogo deve pausar no intervalo e
   // aguardar que o técnico clique em prosseguir") — único jeito de sair
   // do intervalo (ver continueFromHalftime/resolveLiveChunk).
@@ -5684,6 +6021,12 @@ function wireStaticListeners() {
   document.getElementById("matchDetailClose").addEventListener("click", closeMatchDetailModal);
   document.getElementById("btnMatchDetailCloseFooter").addEventListener("click", closeMatchDetailModal);
   document.getElementById("matchDetailOverlay").addEventListener("click", (e) => { if (e.target.id === "matchDetailOverlay") e.currentTarget.classList.remove("open"); });
+  // Play-by-Play v1 — "Rever lances" (Tela hifi-03) abre POR CIMA do
+  // "Seu jogo" (que continua aberto por baixo), mesmo padrão de
+  // sub-modal já usado no resto do app.
+  document.getElementById("btnMatchDetailReplay").addEventListener("click", openMatchReplay);
+  document.getElementById("matchReplayClose").addEventListener("click", closeMatchReplay);
+  document.getElementById("matchReplayOverlay").addEventListener("click", (e) => { if (e.target.id === "matchReplayOverlay") closeMatchReplay(); });
   document.getElementById("roundResultsClose").addEventListener("click", closeRoundResultsModal);
   document.getElementById("btnRoundResultsCloseFooter").addEventListener("click", closeRoundResultsModal);
   document.getElementById("roundResultsOverlay").addEventListener("click", (e) => { if (e.target.id === "roundResultsOverlay") e.currentTarget.classList.remove("open"); });
