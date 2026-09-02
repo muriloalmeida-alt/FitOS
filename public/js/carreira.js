@@ -364,8 +364,31 @@ function realTeamColor(name) {
 // principal (decisão do usuário: as 2 travas ficam independentes).
 // Fallback de exemplo agora escolhe o catálogo certo por competição
 // (DEMO_DATA_BY_COMPETITION, de js/data.js) em vez de sempre DEMO_TEAMS.
-async function loadLeague(competitionId = "brasileirao") {
+//
+// BUG CORRIGIDO (pedido do usuário: "Cadastrei as variáveis de
+// ambiente mas agora o nome dos times aparece 'Time #ope'") —
+// CAREER.schedule (calendário de confrontos, ver startCareer) grava
+// os ids de LEAGUE_TEAMS NO MOMENTO em que a carreira é criada, pra
+// sempre. Se essa carreira nasceu em Modo Exemplo (ids fixos tipo
+// "ope") e DEPOIS o usuário liga o fornecedor real pra essa
+// competição (ENABLED_COMPETITIONS/SPORTMONKS_LEAGUE_ID_*), o próximo
+// carregamento troca LEAGUE_TEAMS pros ids do fornecedor — diferentes
+// dos ids fictícios já gravados no calendário/elenco — e teamById()
+// (mais abaixo) passa a cair no placeholder "Time #<id>" pra QUALQUER
+// referência a um time que já não existe mais na lista carregada.
+// `opts.forceDemo` (ver enterAfterAuth) evita isso: uma carreira já
+// existente sempre recarrega com a MESMA fonte de dado (Modo Exemplo
+// ou dado real) com que foi criada — só uma carreira NOVA, criada
+// depois de o dado real ser ligado, passa a usá-lo. Nenhum dado é
+// migrado/renomeado; a carreira antiga simplesmente continua 100% no
+// Modo Exemplo que sempre foi dela.
+async function loadLeague(competitionId = "brasileirao", opts = {}) {
   CURRENT_COMPETITION_ID = competitionId;
+  if (opts.forceDemo) {
+    LEAGUE_TEAMS = (DEMO_DATA_BY_COMPETITION[competitionId] || { teams: DEMO_TEAMS }).teams;
+    LIVE_MODE = false;
+    return;
+  }
   try {
     const health = await fetchJSON("/api/health");
     if (!health.hasKey) throw new Error("sem chave configurada");
@@ -6398,7 +6421,12 @@ async function enterAfterAuth() {
   document.getElementById("screenLoading").innerHTML = `<div class="ct-spinner"></div><p>Carregando o Modo Técnico...</p>`;
   const saved = await fetchJSON("/api/career").catch(() => ({ career: null }));
   if (saved && saved.career) {
-    await loadLeague(saved.career.competitionId || "brasileirao");
+    // forceDemo só quando a carreira JÁ GRAVOU explicitamente que nasceu
+    // em Modo Exemplo (liveMode === false) -- carreira bem antiga, de
+    // antes desse campo existir (liveMode undefined), mantém o
+    // comportamento de sempre (tenta dado real, cai pro exemplo se
+    // faltar chave), sem mudança de risco pra quem nunca teve esse bug.
+    await loadLeague(saved.career.competitionId || "brasileirao", { forceDemo: saved.career.liveMode === false });
     CAREER = saved.career;
     migrateCareerDefaults();
     persistCareer(); // grava os campos novos pra não migrar de novo (e de novo) a cada load
