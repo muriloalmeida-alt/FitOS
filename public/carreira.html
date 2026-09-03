@@ -1683,6 +1683,83 @@
   .mt-btn-loan{ color:var(--mt-ink-muted); }
   .mt-btn-sell{ color:var(--mt-crimson-400); }
   .mt-btn-buy:disabled, .mt-btn-loan:disabled, .mt-btn-sell:disabled{ opacity:.4; cursor:not-allowed; }
+
+  /* ================= Loja (BR_Data_Treinador_Monetizacao.xlsx +
+     BR_Data_Treinador_Loja_Mockup.html) =================
+     Tons de tier (bronze/prata/ouro/platina/diamante) usam os tokens
+     --mt-* já existentes em vez do hex fixo próprio do mockup — ouro
+     reaproveita literalmente a mesma dupla clara/escura do
+     .mt-ovr-badge.t-elite (Elenco); platina/diamante usam --mt-sky-400/
+     --mt-violet-400 (já existentes, nunca usados em card nenhum até
+     agora) como as 2 cores "raras" que faltavam nessa escala. */
+  .mt-wallets{ display:flex; gap:10px; margin:2px 0 14px; }
+  .mt-wallet-chip{ flex:1; display:flex; align-items:center; gap:9px; background:var(--mt-navy-900); border:1px solid var(--mt-navy-600); border-radius:12px; padding:9px 12px; }
+  .mt-coin-icon{ width:28px; height:28px; border-radius:50%; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-family:'Rajdhani', var(--font); font-weight:700; font-size:14px; }
+  .mt-coin-icon.soft{ background:radial-gradient(circle at 35% 30%, var(--mt-pitch-300), var(--mt-pitch-700) 75%); color:#0A2415; }
+  .mt-coin-icon.hard{ background:radial-gradient(circle at 35% 30%, var(--mt-gold-300), var(--mt-gold-600) 75%); color:#3A2A03; }
+  .mt-wallet-text{ display:flex; flex-direction:column; min-width:0; }
+  .mt-wallet-text b{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:15px; color:var(--mt-ivory-50); line-height:1.2; }
+  .mt-wallet-text small{ font-size:10px; color:var(--mt-ink-faint); letter-spacing:.3px; }
+
+  .mt-divider-label{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:11px; letter-spacing:1px; color:var(--mt-ink-faint); margin:16px 0 8px; }
+  .mt-divider-label:first-child{ margin-top:0; }
+
+  .mt-pkg-card{ position:relative; display:flex; align-items:center; gap:12px; background:var(--mt-navy-900); border:1px solid var(--mt-navy-600); border-radius:12px; padding:13px 14px; margin-bottom:10px; }
+  .mt-pkg-card.featured{ border-color:var(--mt-gold-400); background:linear-gradient(160deg, rgba(232,184,75,.1), var(--mt-navy-900) 65%); }
+  .mt-pkg-best{ position:absolute; top:-8px; right:12px; background:var(--mt-gold-400); color:#3A2A03; font-family:'Rajdhani', var(--font); font-weight:700; font-size:9px; letter-spacing:.5px; padding:3px 8px; border-radius:999px; }
+  .mt-pkg-icon{ width:48px; height:48px; border-radius:12px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1.1; }
+  .mt-pkg-icon .n{ font-family:'Bebas Neue', var(--font); font-size:17px; }
+  .mt-pkg-icon .u{ font-size:7px; font-weight:700; letter-spacing:.4px; opacity:.85; }
+  .mt-pkg-icon.tier-bronze{ background:radial-gradient(circle at 35% 30%, #D2A870, #8B6B3D 75%); color:#2E2007; }
+  .mt-pkg-icon.tier-prata{ background:radial-gradient(circle at 35% 30%, #EAEDF2, #9AA3B2 75%); color:#1C2430; }
+  .mt-pkg-icon.tier-ouro{ background:radial-gradient(circle at 35% 30%, var(--mt-gold-300), var(--mt-gold-600) 75%); color:#3A2A03; }
+  .mt-pkg-icon.tier-platina{ background:radial-gradient(circle at 35% 30%, #DCEEF9, var(--mt-sky-400) 75%); color:#0F2A40; }
+  .mt-pkg-icon.tier-diamante{ background:radial-gradient(circle at 35% 30%, #EDE4FA, var(--mt-violet-400) 75%); color:#2C1F44; }
+  .mt-pkg-mid{ flex:1; min-width:0; }
+  .mt-pkg-name{ display:flex; align-items:center; gap:7px; font-weight:600; font-size:14.5px; color:var(--mt-ivory-50); }
+  .mt-pkg-bonus{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:10.5px; color:var(--mt-pitch-300); background:rgba(61,184,106,.14); border-radius:999px; padding:2px 7px; }
+  .mt-pkg-coins{ font-size:12px; color:var(--mt-ink-muted); margin-top:3px; }
+  .mt-pkg-coins b{ color:var(--mt-gold-300); font-weight:700; }
+  .mt-pkg-buy{
+    flex-shrink:0; font-family:'Rajdhani', var(--font); font-weight:700; font-size:13.5px;
+    padding:10px 15px; border-radius:999px; border:none; cursor:pointer;
+    background:linear-gradient(180deg, var(--mt-gold-300), var(--mt-gold-600)); color:#3A2A03;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.4), 0 3px 10px rgba(184,134,11,.3);
+  }
+
+  .mt-boost-card{ display:flex; align-items:center; gap:12px; background:var(--mt-navy-900); border:1px solid var(--mt-navy-600); border-radius:12px; padding:13px 14px; margin-bottom:10px; }
+  .mt-boost-icon{ width:40px; height:40px; border-radius:10px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:17px; }
+  .mt-boost-icon.conveniencia{ background:rgba(91,155,217,.16); color:var(--mt-sky-400); }
+  .mt-boost-icon.patrocinio{ background:rgba(232,184,75,.16); color:var(--mt-gold-400); }
+  .mt-boost-icon.cosmetico{ background:rgba(167,139,218,.16); color:var(--mt-violet-400); }
+  .mt-boost-mid{ flex:1; min-width:0; }
+  .mt-boost-name{ font-weight:600; font-size:14px; color:var(--mt-ivory-50); }
+  .mt-boost-desc{ font-size:11.5px; color:var(--mt-ink-muted); margin-top:2px; line-height:1.35; }
+  .mt-boost-duration{ display:inline-block; font-family:'Rajdhani', var(--font); font-weight:700; font-size:9px; letter-spacing:.5px; color:var(--mt-ink-faint); margin-top:5px; }
+  .mt-boost-buy{
+    flex-shrink:0; display:flex; align-items:center; gap:5px; font-family:'Rajdhani', var(--font); font-weight:700; font-size:13px;
+    padding:9px 13px; border-radius:999px; border:1.5px solid var(--mt-gold-400); cursor:pointer;
+    background:transparent; color:var(--mt-gold-300);
+  }
+  .mini-coin{ width:12px; height:12px; border-radius:50%; background:radial-gradient(circle at 35% 30%, var(--mt-gold-300), var(--mt-gold-600) 75%); flex-shrink:0; }
+
+  /* ---- Confirmação de compra (mt-sheet-overlay, ver
+     BR_Data_Treinador_Confirmacao_Compra_Mockup.html) ---- */
+  .mt-purchase-summary{ display:flex; align-items:center; gap:12px; background:var(--mt-navy-800); border:1px solid var(--mt-navy-600); border-radius:12px; padding:12px 13px; margin-bottom:12px; }
+  .mt-purchase-summary-mid{ flex:1; min-width:0; }
+  .mt-purchase-summary-name{ font-weight:600; font-size:14.5px; color:var(--mt-ivory-50); }
+  .mt-purchase-summary-detail{ font-size:11.5px; color:var(--mt-ink-muted); margin-top:2px; }
+  .mt-purchase-summary-detail b{ color:var(--mt-gold-300); font-weight:600; }
+  .mt-purchase-summary-price{ flex-shrink:0; font-family:'Rajdhani', var(--font); font-weight:700; font-size:17px; color:var(--mt-ivory-50); }
+  .mt-purchase-payment{ display:flex; align-items:center; gap:11px; background:var(--mt-navy-800); border:1px solid var(--mt-navy-600); border-radius:12px; padding:11px 13px; margin-bottom:12px; }
+  .mt-purchase-payment-icon{ font-size:16px; flex-shrink:0; }
+  .mt-purchase-payment-mid{ flex:1; min-width:0; }
+  .mt-purchase-payment-label{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:13px; color:var(--mt-ivory-50); }
+  .mt-purchase-payment-sub{ font-size:10.5px; color:var(--mt-ink-faint); margin-top:1px; }
+  .mt-purchase-disclosure{ display:flex; gap:9px; align-items:flex-start; background:rgba(214,69,69,.1); border:1px solid rgba(214,69,69,.35); border-radius:10px; padding:10px 12px; margin-bottom:4px; }
+  .mt-purchase-disclosure-icon{ color:var(--mt-crimson-400); font-size:14px; flex-shrink:0; }
+  .mt-purchase-disclosure-text{ font-size:11px; line-height:1.5; color:var(--mt-ivory-100); margin:0; }
+  .mt-purchase-disclosure-text b{ color:var(--mt-ivory-50); }
 </style>
 </head>
 <body>
@@ -1853,6 +1930,12 @@
       <button class="mt-topbar-menu-item" id="btnOpenObjetivos">🎯 Objetivos</button>
       <button class="mt-topbar-menu-item" id="btnOpenConquistas">🥇 Conquistas</button>
       <button class="mt-topbar-menu-item" id="btnOpenRanking">📈 Ranking</button>
+      <!-- Loja (BR_Data_Treinador_Monetizacao.xlsx +
+           BR_Data_Treinador_Loja_Mockup.html) — mesmo padrão de item
+           sem aba própria no rodapé. Ver AVISO grande em renderLoja()
+           (carreira.js): esta entrega é só o catálogo/tela, nenhum
+           pagamento de verdade acontece ainda. -->
+      <button class="mt-topbar-menu-item" id="btnOpenLoja">🛒 Loja</button>
       <!-- AJUSTE (pedido do usuário: "esperava uma tela exclusiva
            pra notícias nos padrões de um portal de esportes") — ver
            openNewsScreen em carreira.js. -->
@@ -2384,6 +2467,40 @@
         <p class="mt-rank-updated" id="rankingUpdatedLabel"></p>
       </section>
 
+      <!-- ---------- Loja (BR_Data_Treinador_Monetizacao.xlsx +
+           BR_Data_Treinador_Loja_Mockup.html) ---------- NOVO — mesmo
+           padrão de Mercado/Objetivos/Conquistas/Ranking acima: sem
+           aba própria no rodapé, acessada pelo Menu (#btnOpenLoja).
+           Ver AVISO grande em renderLoja()/confirmPurchaseNow()
+           (carreira.js): esta entrega é só o catálogo/tela fiéis à
+           planilha/mockup, nenhum pagamento de verdade acontece
+           ainda. -->
+      <section class="ct-panel" id="panel-loja">
+        <div class="mt-card">
+          <div class="mt-card-head">
+            <div class="mt-card-title">Loja</div>
+            <button class="ct-help-btn" data-help="helpLoja" aria-label="Ajuda">?</button>
+          </div>
+          <p class="mt-card-sub ct-help-text" id="helpLoja" hidden>Créditos BR são moeda comprada com dinheiro real, usada só em conveniências, boosts temporários e cosméticos — nenhum pacote aumenta atributo permanente de jogador. Cifrões continuam sendo a moeda fictícia do clube (Mercado/Financeiro) e não compram nada aqui.</p>
+          <div class="mt-wallets">
+            <div class="mt-wallet-chip">
+              <span class="mt-coin-icon soft">$</span>
+              <span class="mt-wallet-text"><b id="walletCash"></b><small>Cifrões</small></span>
+            </div>
+            <div class="mt-wallet-chip">
+              <span class="mt-coin-icon hard">₡</span>
+              <span class="mt-wallet-text"><b id="walletCredits"></b><small>Créditos BR</small></span>
+            </div>
+          </div>
+          <div class="mt-obj-tabs" id="lojaTabs">
+            <button type="button" class="mt-obj-tab" data-tab="creditos">Créditos</button>
+            <button type="button" class="mt-obj-tab" data-tab="boosts">Boosts &amp; Patrocínios</button>
+          </div>
+          <p class="mt-card-sub" id="lojaSectionNote" style="margin-bottom:12px;"></p>
+          <div id="lojaItemsList"></div>
+        </div>
+      </section>
+
     </div>
   </div>
 </div>
@@ -2630,6 +2747,58 @@
       <button class="ct-modal-close" id="sponsorProposalsClose">✕</button>
     </div>
     <div class="ct-modal-body" id="sponsorProposalsList"></div>
+  </div>
+</div>
+
+<!-- Loja — confirmação de compra (BR_Data_Treinador_Confirmacao_
+     Compra_Mockup.html) — mesmo bottom sheet .mt-sheet-overlay de
+     sempre, corpo customizado (cartão-resumo + aviso de pagamento) no
+     lugar da lista de .mt-sheet-option genérica. AVISO IMPORTANTE (ver
+     também comentário grande em renderLoja()/confirmPurchaseNow(),
+     carreira.js): o mockup original mostrava "Google Play" como forma
+     de pagamento e um aviso de cobrança real — este app roda como
+     PWA/site, sem billing de loja de app nenhum pra reaproveitar, e
+     esta entrega é só a TELA (decisão do usuário: "Só a UI por
+     enquanto"). Por isso a linha de pagamento e o aviso abaixo foram
+     reescritos pra deixar claro que é uma prévia — nada é cobrado,
+     nenhum Crédito BR é creditado — em vez de reproduzir literalmente
+     um texto de cobrança real que não corresponde ao que o botão
+     realmente faz hoje. -->
+<div class="ct-modal-overlay mt-sheet-overlay" id="purchaseConfirmOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header">
+      <span class="ct-modal-icon">🛒</span>
+      <div class="ct-modal-header-text">
+        <h3>Confirmar compra</h3>
+        <div class="ct-modal-sub" id="purchaseConfirmTitle"></div>
+      </div>
+      <button class="ct-modal-close" id="purchaseConfirmClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <div class="mt-purchase-summary">
+        <span class="mt-pkg-icon" id="purchaseConfirmIcon"></span>
+        <div class="mt-purchase-summary-mid">
+          <div class="mt-purchase-summary-name" id="purchaseConfirmName"></div>
+          <div class="mt-purchase-summary-detail" id="purchaseConfirmDetail"></div>
+        </div>
+        <div class="mt-purchase-summary-price" id="purchaseConfirmPrice"></div>
+      </div>
+      <div class="mt-purchase-payment">
+        <span class="mt-purchase-payment-icon">🔒</span>
+        <div class="mt-purchase-payment-mid">
+          <div class="mt-purchase-payment-label">Pagamento chega em breve</div>
+          <div class="mt-purchase-payment-sub">Ainda não é possível comprar de verdade</div>
+        </div>
+      </div>
+      <div class="mt-purchase-disclosure">
+        <span class="mt-purchase-disclosure-icon">ℹ</span>
+        <p class="mt-purchase-disclosure-text">Esta é uma <b>prévia da Loja</b>. Nenhum valor será cobrado e nenhum Crédito BR é creditado agora — o pagamento de verdade chega numa atualização futura.</p>
+      </div>
+    </div>
+    <div class="ct-modal-footer">
+      <button class="mt-btn-primary-gold" id="btnConfirmPurchase"></button>
+      <button class="mt-btn-ghost" id="btnCancelPurchase">Cancelar</button>
+    </div>
   </div>
 </div>
 

@@ -3716,6 +3716,128 @@ async function claimDailyLoginNow() {
   }
 }
 
+/* ---------- Loja (BR_Data_Treinador_Monetizacao.xlsx +
+   BR_Data_Treinador_Loja_Mockup.html) ----------
+   AVISO IMPORTANTE (decidido com o usuário antes de implementar): esta
+   entrega é só o CATÁLOGO e a TELA, fiéis à planilha/mockup — nenhum
+   pagamento de verdade acontece ainda. O mockup mostra "Google Play"
+   como forma de pagamento, mas o app hoje é um PWA/site, não um
+   aplicativo nativo publicado numa loja — não existe billing de app
+   store nenhum pra reaproveitar aqui. O rail de pagamento real (quando
+   existir) deve ser o MESMO Mercado Pago já usado nas assinaturas (ver
+   server/src/mercadoPago.js) — o botão "Confirmar compra" abaixo só
+   mostra um aviso "em breve", sem debitar nem creditar nada de
+   verdade. CAREER.finances.cash (Cifrões, moeda fictícia do clube) NÃO
+   compra nada aqui — só Créditos BR (dinheiro real) compraria, quando
+   o pagamento existir.
+
+   Créditos BR (ME.creditsBR) é o PRIMEIRO valor do jogo que representa
+   dinheiro de verdade gasto — por isso mora na CONTA (server/src/
+   users.js), não no save da carreira, e só o SERVIDOR pode alterá-lo
+   (nenhum endpoint faz isso ainda, ver comentário grande em
+   createUser). Todo o resto do Modo Técnico confia no cliente (ver
+   aviso em careerStore.js) — aqui, de propósito, não. */
+const CREDIT_PACKAGES = [
+  { id: "bronze", name: "Pacote Bronze", tier: "bronze", priceBRL: 4.90, baseCoins: 490, bonusPct: 0, totalCoins: 490 },
+  { id: "prata", name: "Pacote Prata", tier: "prata", priceBRL: 14.90, baseCoins: 1600, bonusPct: 5, totalCoins: 1680 },
+  { id: "ouro", name: "Pacote Ouro", tier: "ouro", priceBRL: 34.90, baseCoins: 4000, bonusPct: 12, totalCoins: 4480, featured: true },
+  { id: "platina", name: "Pacote Platina", tier: "platina", priceBRL: 69.90, baseCoins: 8500, bonusPct: 20, totalCoins: 10200 },
+  { id: "diamante", name: "Pacote Diamante", tier: "diamante", priceBRL: 149.90, baseCoins: 19500, bonusPct: 30, totalCoins: 25350 },
+];
+// Preço em Créditos BR — os 5 primeiros vêm direto do mockup da Loja
+// (só ele mostra o preço em créditos; a planilha só lista preço em
+// R$, que é o insumo do MODELO DE NEGÓCIO, não da UI). "Uniforme
+// Alternativo" está na planilha mas não no mockup — preço nosso,
+// seguindo a mesma proporção aproximada dos outros 5 (R$ × ~30,
+// arredondado à dezena).
+const BOOST_ITEMS = [
+  { id: "recuperacao_instantanea", name: "Recuperação Instantânea", desc: "Zera o tempo de recuperação de condição física de 1 jogador", duration: "IMEDIATO", priceCredits: 90, category: "conveniencia", icon: "⚡" },
+  { id: "reset_moral", name: "Reset de Moral", desc: "Leva a moral do elenco para “Feliz” instantaneamente", duration: "IMEDIATO", priceCredits: 120, category: "conveniencia", icon: "☺" },
+  { id: "treino_extra", name: "Treino Extra", desc: "1 sessão extra fora do ciclo semanal, sem consumir folga protegida", duration: "DURA 1 SEMANA", priceCredits: 150, category: "conveniencia", icon: "＋" },
+  { id: "injecao_moral", name: "Injeção de Moral", desc: "+Moral em todo o elenco, cortesia do patrocinador", duration: "DURA 3 PARTIDAS", priceCredits: 210, category: "patrocinio", icon: "↑" },
+  { id: "desconto_contratacao", name: "Desconto de Contratação", desc: "-15% no custo da próxima contratação", duration: "1 JANELA DE TRANSFERÊNCIA", priceCredits: 300, category: "patrocinio", icon: "%" },
+  { id: "uniforme_alternativo", name: "Uniforme Alternativo", desc: "Novo uniforme visual, sem efeito de jogo", duration: "PERMANENTE (VISUAL)", priceCredits: 180, category: "cosmetico", icon: "👕" },
+];
+const BOOST_CATEGORY_LABEL = { conveniencia: "CONVENIÊNCIA", patrocinio: "PATROCÍNIOS", cosmetico: "COSMÉTICOS" };
+const TIER_ABBR = { bronze: "B", prata: "P", ouro: "O", platina: "Pt", diamante: "D" };
+// Preço com centavos — fmtBRL (usada no resto do jogo pra salário/
+// valor de mercado, sempre em reais inteiros) arredonda pra 0 casas
+// decimais, o que faria R$ 4,90 virar "R$ 5" — errado pra vitrine de
+// preço de verdade.
+function fmtBRLPrice(v) {
+  return (v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+let LOJA_ACTIVE_TAB = "creditos"; // só estado de UI, não é salvo
+function packageCardHTML(pkg) {
+  const bonusPill = pkg.bonusPct ? `<span class="mt-pkg-bonus">+${pkg.bonusPct}%</span>` : "";
+  return `<div class="mt-pkg-card${pkg.featured ? " featured" : ""}">
+    ${pkg.featured ? `<div class="mt-pkg-best">MELHOR VALOR</div>` : ""}
+    <div class="mt-pkg-icon tier-${pkg.tier}"><span class="n">${TIER_ABBR[pkg.tier]}</span><span class="u">${pkg.tier.toUpperCase()}</span></div>
+    <div class="mt-pkg-mid">
+      <div class="mt-pkg-name">${escapeHtml(pkg.name)}${bonusPill}</div>
+      <div class="mt-pkg-coins"><b>${pkg.totalCoins.toLocaleString("pt-BR")}</b> Créditos BR</div>
+    </div>
+    <button type="button" class="mt-pkg-buy" data-buy-package="${pkg.id}">${fmtBRLPrice(pkg.priceBRL)}</button>
+  </div>`;
+}
+function boostCardHTML(item) {
+  return `<div class="mt-boost-card">
+    <div class="mt-boost-icon ${item.category}">${item.icon}</div>
+    <div class="mt-boost-mid">
+      <div class="mt-boost-name">${escapeHtml(item.name)}</div>
+      <div class="mt-boost-desc">${escapeHtml(item.desc)}</div>
+      <span class="mt-boost-duration">${item.duration}</span>
+    </div>
+    <button type="button" class="mt-boost-buy" data-buy-boost="${item.id}"><span class="mini-coin"></span>${item.priceCredits}</button>
+  </div>`;
+}
+function renderLoja() {
+  document.getElementById("walletCash").textContent = fmtBRL(CAREER.finances.cash);
+  document.getElementById("walletCredits").textContent = (ME.creditsBR || 0).toLocaleString("pt-BR");
+  document.querySelectorAll("#lojaTabs .mt-obj-tab").forEach((btn) => btn.classList.toggle("active", btn.dataset.tab === LOJA_ACTIVE_TAB));
+  const note = document.getElementById("lojaSectionNote");
+  const list = document.getElementById("lojaItemsList");
+  if (LOJA_ACTIVE_TAB === "creditos") {
+    note.textContent = "Créditos BR compram conveniência e cosméticos. Nenhum pacote aumenta atributos permanentes de jogador.";
+    list.innerHTML = CREDIT_PACKAGES.map(packageCardHTML).join("");
+    list.querySelectorAll("[data-buy-package]").forEach((btn) => btn.addEventListener("click", () => openPurchaseConfirm("package", btn.dataset.buyPackage)));
+  } else {
+    note.textContent = "Itens temporários. Aceleram algo que você também alcança jogando — nunca substituem.";
+    const groups = ["conveniencia", "patrocinio", "cosmetico"];
+    list.innerHTML = groups.map((cat) => {
+      const items = BOOST_ITEMS.filter((i) => i.category === cat);
+      if (!items.length) return "";
+      return `<div class="mt-divider-label">${BOOST_CATEGORY_LABEL[cat]}</div>${items.map(boostCardHTML).join("")}`;
+    }).join("");
+    list.querySelectorAll("[data-buy-boost]").forEach((btn) => btn.addEventListener("click", () => openPurchaseConfirm("boost", btn.dataset.buyBoost)));
+  }
+}
+function openPurchaseConfirm(kind, id) {
+  const item = kind === "package" ? CREDIT_PACKAGES.find((p) => p.id === id) : BOOST_ITEMS.find((b) => b.id === id);
+  if (!item) return;
+  const isPackage = kind === "package";
+  document.getElementById("purchaseConfirmTitle").textContent = item.name;
+  document.getElementById("purchaseConfirmIcon").className = `mt-pkg-icon tier-${isPackage ? item.tier : "ouro"}`;
+  document.getElementById("purchaseConfirmIcon").innerHTML = isPackage ? `<span class="n">${TIER_ABBR[item.tier]}</span><span class="u">${item.tier.toUpperCase()}</span>` : `<span class="n" style="font-size:20px;">${item.icon}</span>`;
+  document.getElementById("purchaseConfirmName").textContent = isPackage ? `${item.totalCoins.toLocaleString("pt-BR")} Créditos BR` : item.name;
+  document.getElementById("purchaseConfirmDetail").innerHTML = isPackage
+    ? `${item.baseCoins.toLocaleString("pt-BR")} base${item.bonusPct ? ` <b>+${item.bonusPct}% bônus</b>` : ""}`
+    : escapeHtml(item.desc);
+  document.getElementById("purchaseConfirmPrice").textContent = isPackage ? fmtBRLPrice(item.priceBRL) : `${item.priceCredits} Créditos BR`;
+  const btn = document.getElementById("btnConfirmPurchase");
+  btn.textContent = `🔒 Confirmar por ${isPackage ? fmtBRLPrice(item.priceBRL) : `${item.priceCredits} Créditos BR`}`;
+  document.getElementById("purchaseConfirmOverlay").classList.add("open");
+}
+// Sem pagamento real ainda (ver aviso grande no topo desta seção) —
+// só avisa e fecha, sem debitar/creditar nada. Quando o Mercado Pago
+// entrar aqui, este é o handler que vira a criação da preferência de
+// pagamento (mesmo padrão de createPreference já usado nas
+// assinaturas, ver server/server.js).
+function confirmPurchaseNow() {
+  document.getElementById("purchaseConfirmOverlay").classList.remove("open");
+  toast({ title: "Loja em prévia", detail: "Pagamentos chegam em breve — nada foi cobrado." }, { type: "info" });
+}
+
 /* ---------- FASE 1 (item 4 da especificação "BR Data Treinador") —
    lesões reais ----------
    Pedido do usuário: card "Situação do elenco" mostrava "0
@@ -6818,6 +6940,10 @@ function switchToPanel(name) {
   // pontos (fácil esquecer um).
   if (name === "objetivos") renderObjetivos();
   if (name === "conquistas") renderConquistas();
+  // Loja — mesmo raciocínio: lê CAREER.finances.cash/ME.creditsBR ao
+  // vivo, que podem ter mudado em qualquer outra tela desde a última
+  // vez que a Loja foi aberta.
+  if (name === "loja") renderLoja();
 }
 
 /* ---------- Modais do fluxo "Simular rodada" (pedido do usuário) ---------- */
@@ -7360,6 +7486,18 @@ function wireStaticListeners() {
   });
   document.getElementById("btnAddFriend").addEventListener("click", submitAddFriend);
   document.getElementById("btnClaimDailyLogin").addEventListener("click", claimDailyLoginNow);
+  // Loja — mesmo padrão de Objetivos/Conquistas acima (switchToPanel já
+  // chama renderLoja() ao entrar, ver switchToPanel).
+  document.getElementById("btnOpenLoja").addEventListener("click", () => {
+    document.getElementById("topbarMenu").classList.remove("open");
+    switchToPanel("loja");
+  });
+  document.querySelectorAll("#lojaTabs .mt-obj-tab").forEach((btn) => {
+    btn.addEventListener("click", () => { LOJA_ACTIVE_TAB = btn.dataset.tab; renderLoja(); });
+  });
+  document.getElementById("purchaseConfirmClose").addEventListener("click", () => document.getElementById("purchaseConfirmOverlay").classList.remove("open"));
+  document.getElementById("btnCancelPurchase").addEventListener("click", () => document.getElementById("purchaseConfirmOverlay").classList.remove("open"));
+  document.getElementById("btnConfirmPurchase").addEventListener("click", confirmPurchaseNow);
   document.getElementById("btnLogout").addEventListener("click", async () => {
     document.getElementById("topbarMenu").classList.remove("open");
     try { await fetchJSON("/api/auth/logout", { method: "POST" }); } catch { /* segue mesmo se falhar */ }
