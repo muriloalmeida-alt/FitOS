@@ -1132,6 +1132,102 @@
   .mt-individual-picker-btn .placeholder{ color:var(--mt-ink-faint); }
   .mt-individual-picker-btn svg{ flex-shrink:0; opacity:.6; }
 
+  /* ---- Retenção/Engajamento (BRDataRetencaoEspecificacao) — Objetivos
+       (mockup02objetivos.html) ---- */
+  .mt-obj-tabs{ display:flex; gap:6px; border-bottom:1px solid var(--mt-navy-600); margin-bottom:10px; }
+  .mt-obj-tab{
+    font-family:'Rajdhani', var(--font); font-weight:700; font-size:12.5px; letter-spacing:.4px;
+    color:var(--mt-ink-faint); background:transparent; border:none; padding:9px 12px 10px; border-bottom:2px solid transparent; cursor:pointer;
+  }
+  .mt-obj-tab.active{ color:var(--mt-gold-300); border-bottom-color:var(--mt-gold-400); }
+  .mt-obj-reset-label{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:10.5px; letter-spacing:1px; color:var(--mt-ink-faint); margin:0 0 10px; }
+  .mt-obj-card{ background:var(--mt-navy-900); border:1px solid var(--mt-navy-600); border-radius:10px; padding:13px 14px; margin-bottom:10px; }
+  .mt-obj-card.completed{ background:rgba(232,184,75,.1); border-color:var(--mt-gold-400); }
+  .mt-obj-card.claimed{ opacity:.55; }
+  .mt-obj-top-row{ display:flex; align-items:flex-start; gap:10px; margin-bottom:9px; }
+  .mt-obj-icon{ width:32px; height:32px; border-radius:8px; background:var(--mt-navy-800); display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0; }
+  .mt-obj-text-block{ flex:1; min-width:0; }
+  .mt-obj-title{ font-size:13px; font-weight:600; color:var(--mt-ivory-50); margin-bottom:2px; }
+  .mt-obj-sub{ font-family:'Rajdhani', var(--font); font-size:11px; font-weight:600; color:var(--mt-ink-faint); }
+  .mt-obj-reward{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:12px; color:var(--mt-gold-300); white-space:nowrap; }
+  .mt-progress-track{ height:6px; background:var(--mt-navy-800); border-radius:3px; overflow:hidden; margin-bottom:2px; }
+  .mt-progress-fill{ height:100%; background:var(--mt-gold-400); border-radius:3px; }
+  .mt-claim-tag{
+    width:100%; margin-top:8px; background:var(--mt-gold-400); color:var(--mt-navy-950); border:none; border-radius:8px;
+    font-family:'Rajdhani', var(--font); font-weight:700; font-size:12px; letter-spacing:.5px; padding:9px; cursor:pointer;
+  }
+
+  /* ---- Conquistas (mockup03conquistas.html) ---- */
+  .mt-chip-row{ display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; margin-bottom:12px; }
+  .mt-chip{
+    font-family:'Rajdhani', var(--font); font-weight:700; font-size:11px; letter-spacing:.4px; white-space:nowrap;
+    color:var(--mt-ink-faint); background:transparent; border:1px solid var(--mt-navy-600); padding:6px 12px; border-radius:14px; cursor:pointer;
+  }
+  .mt-chip.active{ background:var(--mt-gold-400); color:var(--mt-navy-950); border-color:var(--mt-gold-400); }
+  .mt-badge-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; }
+  .mt-badge{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px; background:var(--mt-navy-900); border:1px solid var(--mt-navy-600); border-radius:12px; padding:12px 6px; aspect-ratio:.9; cursor:pointer; }
+  .mt-badge-icon{ width:42px; height:42px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:18px; }
+  .mt-badge.gold .mt-badge-icon{ background:radial-gradient(circle, rgba(232,184,75,.3), transparent 70%); border:2px solid var(--mt-gold-400); }
+  .mt-badge.silver .mt-badge-icon{ background:radial-gradient(circle, rgba(197,202,214,.25), transparent 70%); border:2px solid #C5CAD6; }
+  .mt-badge.bronze .mt-badge-icon{ background:radial-gradient(circle, rgba(176,141,87,.25), transparent 70%); border:2px solid #B08D57; }
+  .mt-badge.locked .mt-badge-icon{ background:var(--mt-navy-800); border:2px solid var(--mt-navy-600); filter:grayscale(1); opacity:.5; }
+  .mt-tier-label{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:8.5px; letter-spacing:.5px; color:var(--mt-gold-300); }
+  .mt-badge.silver .mt-tier-label{ color:#C5CAD6; }
+  .mt-badge.bronze .mt-tier-label{ color:#B08D57; }
+  .mt-badge-name{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:10px; color:var(--mt-ivory-50); text-align:center; line-height:1.25; }
+  .mt-badge.locked .mt-badge-name{ color:var(--mt-ink-faint); }
+  .mt-achievements-next{ text-align:center; font-family:'Rajdhani', var(--font); font-weight:700; font-size:12px; color:var(--mt-gold-300); margin:2px 0 0; }
+
+  /* ---- Ranking (mockup04ranking.html) ---- */
+  .mt-scope-toggle{ display:flex; background:var(--mt-navy-900); border-radius:10px; padding:4px; margin-top:4px; }
+  .mt-scope-btn{
+    flex:1; text-align:center; padding:8px; font-family:'Rajdhani', var(--font); font-weight:700; font-size:12px; letter-spacing:.4px;
+    color:var(--mt-ink-faint); background:transparent; border:none; border-radius:8px; cursor:pointer;
+  }
+  .mt-scope-btn.active{ background:var(--mt-gold-400); color:var(--mt-navy-950); }
+  .mt-rank-mycard{
+    margin:0 0 14px; background:linear-gradient(90deg, rgba(232,184,75,.18), rgba(232,184,75,.05));
+    border:1px solid var(--mt-gold-400); border-radius:12px; padding:4px 10px;
+  }
+  .mt-rank-row{ display:flex; align-items:center; gap:12px; padding:11px 4px; border-bottom:1px solid var(--mt-navy-700); }
+  .mt-rank-row:last-child{ border-bottom:none; }
+  .mt-rank-row.me{ color:var(--mt-gold-300); }
+  .mt-rank-num{ font-family:'Bebas Neue', var(--font); font-size:19px; color:var(--mt-ink-faint); width:28px; flex-shrink:0; }
+  .mt-rank-num.top3{ color:var(--mt-gold-400); }
+  .mt-rank-info{ flex:1; min-width:0; }
+  .mt-rank-name{ font-size:13px; font-weight:600; color:var(--mt-ivory-50); }
+  .mt-rank-you{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:9px; letter-spacing:.5px; color:var(--mt-gold-300); }
+  .mt-rank-club{ font-family:'Rajdhani', var(--font); font-size:11px; color:var(--mt-ink-faint); }
+  .mt-rank-score{ font-family:'Bebas Neue', var(--font); font-size:17px; color:var(--mt-ivory-50); flex-shrink:0; }
+  .mt-rank-updated{ text-align:center; font-family:'Rajdhani', var(--font); font-weight:600; font-size:11px; color:var(--mt-ink-faint); margin:10px 0 0; }
+  /* Campo de texto simples (não é <select>, não usa .mt-select-box de
+     propósito -- aquela classe embute a setinha de dropdown via
+     background-image, que ficava sobrando aqui num <input> comum). */
+  .mt-friend-input{
+    width:100%; background:var(--mt-navy-900); border:1px solid var(--mt-navy-600); color:var(--mt-ivory-50);
+    font-family:var(--font); font-weight:500; font-size:14.5px; padding:12px 14px; border-radius:6px;
+    text-transform:uppercase; letter-spacing:.5px;
+  }
+  .mt-friend-input::placeholder{ color:var(--mt-ink-faint); text-transform:none; letter-spacing:normal; }
+
+  /* ---- Login diário (mockup01logindiario.html) ---- */
+  .mt-login-track{ display:flex; gap:5px; margin-bottom:18px; }
+  .mt-day-cell-login{
+    flex:1; aspect-ratio:1; border-radius:9px; background:var(--mt-navy-900); border:1px solid var(--mt-navy-600);
+    display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+  }
+  .mt-day-cell-login .dicon{ font-size:13px; }
+  .mt-day-cell-login .dnum{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:9px; color:var(--mt-ink-faint); }
+  .mt-day-cell-login.done{ background:rgba(232,184,75,.14); border-color:var(--mt-gold-400); }
+  .mt-day-cell-login.done .dnum{ color:var(--mt-gold-300); }
+  .mt-day-cell-login.today{ background:var(--mt-gold-400); border-color:var(--mt-gold-400); transform:scale(1.08); }
+  .mt-day-cell-login.today .dnum{ color:var(--mt-navy-950); }
+  .mt-reward-showcase{ text-align:center; padding:18px 0 20px; border-top:1px solid var(--mt-navy-600); border-bottom:1px solid var(--mt-navy-600); margin-bottom:18px; }
+  .mt-reward-icon{ width:58px; height:58px; border-radius:50%; background:radial-gradient(circle, rgba(232,184,75,.25), transparent 70%); border:2px solid var(--mt-gold-400); margin:0 auto 10px; display:flex; align-items:center; justify-content:center; font-size:24px; }
+  .mt-reward-value{ font-family:'Bebas Neue', var(--font); font-size:22px; color:var(--mt-ivory-50); }
+  .mt-reward-label{ font-family:'Rajdhani', var(--font); font-size:11px; font-weight:700; letter-spacing:.5px; color:var(--mt-ink-faint); margin-top:2px; }
+  .mt-streak-warning{ text-align:center; font-size:11px; color:var(--mt-ink-faint); line-height:1.4; margin:12px 0 0; }
+
   /* ---- categoria de base (potencial + confiança do olheiro) ---- */
   .mt-base-row{ display:flex; align-items:center; gap:12px; padding:11px 4px; border-bottom:1px solid var(--mt-navy-700); cursor:pointer; }
   .mt-base-row:last-child{ border-bottom:none; }
@@ -1751,6 +1847,12 @@
     <div class="mt-topbar-menu" id="topbarMenu">
       <button class="mt-topbar-menu-item" id="btnOpenMercado">💰 Mercado</button>
       <button class="mt-topbar-menu-item" id="btnOpenEstatisticas">📊 Estatísticas</button>
+      <!-- Retenção/Engajamento (BRDataRetencaoEspecificacao) — 3 telas
+           novas, mesmo padrão de Mercado/Estatísticas acima (sem aba
+           própria no rodapé, só pelo Menu). -->
+      <button class="mt-topbar-menu-item" id="btnOpenObjetivos">🎯 Objetivos</button>
+      <button class="mt-topbar-menu-item" id="btnOpenConquistas">🥇 Conquistas</button>
+      <button class="mt-topbar-menu-item" id="btnOpenRanking">📈 Ranking</button>
       <!-- AJUSTE (pedido do usuário: "esperava uma tela exclusiva
            pra notícias nos padrões de um portal de esportes") — ver
            openNewsScreen em carreira.js. -->
@@ -2214,6 +2316,117 @@
         </div>
       </section>
 
+      <!-- ---------- Retenção/Engajamento (BRDataRetencaoEspecificacao)
+           ---------- NOVO — 3 telas novas (Objetivos/Conquistas/
+           Ranking), reaproveitando o mesmo padrão de Mercado/
+           Estatísticas: sem aba própria no rodapé (nav já está cheia),
+           acessadas pelo Menu (ver #btnOpenObjetivos/Conquistas/Ranking
+           em carreira.js). -->
+      <section class="ct-panel" id="panel-objetivos">
+        <div class="mt-card">
+          <div class="mt-card-head">
+            <div class="mt-card-title">Objetivos</div>
+            <button class="ct-help-btn" data-help="helpObjetivos" aria-label="Ajuda">?</button>
+          </div>
+          <p class="mt-card-sub ct-help-text" id="helpObjetivos" hidden>Diários e semanais resetam sozinhos (relógio de verdade do seu aparelho); os de temporada valem até você avançar de temporada. Toque em "Coletar" pra receber a recompensa de um objetivo concluído.</p>
+          <div class="mt-obj-tabs" id="objectivesTabs">
+            <button type="button" class="mt-obj-tab" data-tab="daily">Diário</button>
+            <button type="button" class="mt-obj-tab" data-tab="weekly">Semanal</button>
+            <button type="button" class="mt-obj-tab" data-tab="season">Temporada</button>
+          </div>
+          <p class="mt-obj-reset-label" id="objectivesResetLabel"></p>
+          <div id="objectivesList"></div>
+        </div>
+      </section>
+
+      <section class="ct-panel" id="panel-conquistas">
+        <div class="mt-card">
+          <div class="mt-card-title">Conquistas</div>
+          <p class="mt-card-sub" id="achievementsSubtitle" style="margin-bottom:12px;"></p>
+          <div class="mt-chip-row" id="achievementsFilters">
+            <button type="button" class="mt-chip" data-filter="todas">Todas</button>
+            <button type="button" class="mt-chip" data-filter="carreira">Carreira</button>
+            <button type="button" class="mt-chip" data-filter="titulos">Títulos</button>
+            <button type="button" class="mt-chip" data-filter="ofensivo">Ofensivo</button>
+            <button type="button" class="mt-chip" data-filter="disciplina">Disciplina</button>
+            <button type="button" class="mt-chip" data-filter="formacao">Formação</button>
+            <button type="button" class="mt-chip" data-filter="fidelidade">Fidelidade</button>
+          </div>
+          <div class="mt-badge-grid" id="achievementsGrid"></div>
+        </div>
+        <p class="mt-achievements-next" id="achievementsNext"></p>
+      </section>
+
+      <section class="ct-panel" id="panel-ranking">
+        <div class="mt-card">
+          <div class="mt-card-head">
+            <div class="mt-card-title">Ranking</div>
+            <button class="ct-help-btn" data-help="helpRanking" aria-label="Ajuda">?</button>
+          </div>
+          <p class="mt-card-sub ct-help-text" id="helpRanking" hidden>Placar calculado a partir da sua carreira (pontos no campeonato, conquistas desbloqueadas e saldo de gols). Compare com todo mundo ou só com seus amigos.</p>
+          <div class="mt-scope-toggle" id="rankingScopeToggle">
+            <button type="button" class="mt-scope-btn" data-scope="friends">Amigos</button>
+            <button type="button" class="mt-scope-btn" data-scope="global">Global</button>
+          </div>
+        </div>
+        <div class="mt-rank-mycard" id="rankingMyCard" hidden></div>
+        <div class="mt-card">
+          <div class="mt-card-head">
+            <div class="mt-card-title" style="font-size:15px;">Adicionar amigo</div>
+          </div>
+          <p class="mt-card-sub" style="margin-bottom:10px;">Seu código: <b id="rankingFriendCode" style="color:var(--mt-gold-300); letter-spacing:1px;"></b></p>
+          <div class="mt-formation-row">
+            <input id="addFriendInput" class="mt-friend-input" placeholder="Código do amigo (ex.: A8K3F2)" style="flex:1;">
+            <button class="mt-btn-swap" id="btnAddFriend" title="Adicionar amigo" aria-label="Adicionar amigo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+          </div>
+        </div>
+        <div id="rankingList"></div>
+        <p class="mt-rank-updated" id="rankingUpdatedLabel"></p>
+      </section>
+
+    </div>
+  </div>
+</div>
+
+<!-- ================= Modal: login diário com streak (Retenção/
+     Engajamento) ================= Reaproveita .mt-confirm-overlay
+     (Tela 10b) verbatim — mesmo espírito de diálogo centralizado
+     curto, só com corpo customizado (trilha de 7 dias + vitrine da
+     recompensa do dia) no lugar do texto de confirmação genérico. -->
+<div class="ct-modal-overlay mt-confirm-overlay" id="dailyLoginOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header">
+      <span class="ct-modal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></span>
+      <div class="ct-modal-header-text">
+        <h3>Recompensa diária</h3>
+        <div class="ct-modal-sub" id="dailyLoginSubtitle"></div>
+      </div>
+    </div>
+    <div class="ct-modal-body">
+      <div class="mt-login-track" id="dailyLoginTrack"></div>
+      <div class="mt-reward-showcase">
+        <div class="mt-reward-icon" id="dailyLoginRewardIcon"></div>
+        <div class="mt-reward-value" id="dailyLoginRewardValue"></div>
+        <div class="mt-reward-label" id="dailyLoginRewardLabel"></div>
+      </div>
+      <button class="mt-btn-primary-gold" id="btnClaimDailyLogin" style="width:100%;">Coletar</button>
+      <p class="mt-streak-warning">Volte amanhã para não perder sua sequência.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ================= Modal: detalhe de conquista ================= -->
+<div class="ct-modal-overlay mt-confirm-overlay" id="achievementDetailOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header">
+      <span class="ct-modal-icon" id="achievementDetailIcon" style="font-size:19px;"></span>
+      <div class="ct-modal-header-text"><h3 id="achievementDetailTitle"></h3></div>
+      <button class="ct-modal-close" id="achievementDetailClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <p class="ct-sub" id="achievementDetailDesc"></p>
+      <p class="ct-sub" id="achievementDetailProgress" style="color:var(--mt-gold-300); font-weight:700;"></p>
+      <button class="mt-btn-ghost" id="btnShareAchievement" style="width:100%; margin-top:10px;" hidden>Compartilhar</button>
     </div>
   </div>
 </div>
