@@ -12,8 +12,19 @@
    apagar a credencial — depois disso não tem mais como capturar nada.
 
    Como rodar (na raiz do projeto, no host que já tem DATA_PROVIDER +
-   a credencial certa configurados, ex.: SSH/console do Railway):
+   a credencial certa configurados):
      node server/scripts/capture-real-snapshot.js
+
+   ALTERNATIVA (recomendada em produção/Railway): o shell web do
+   Railway não tem como "baixar" um arquivo de volta pro seu
+   computador, e derruba a conexão (WebSocket) no meio de comandos mais
+   longos — em vez de rodar este script pelo shell, use o endpoint
+   HTTP admin (não depende de shell nenhum, funciona de qualquer
+   navegador/curl):
+     curl -X POST "https://SEU-DOMINIO/api/admin/snapshot-capture?secret=SEU_ADMIN_SECRET"
+     curl "https://SEU-DOMINIO/api/admin/snapshot?secret=SEU_ADMIN_SECRET&file=brasileirao" -o snapshot-brasileirao.json
+     (troque "brasileirao" por "serie_b"/"serie_c" pros outros 2 arquivos)
+   Exige ADMIN_SECRET configurado no host (ver server/.env.example).
 
    Gera um arquivo por competição em server/data/snapshot-<id>.json
    com times + tabela (pra calibrar força) + elenco de cada time (dado
@@ -22,75 +33,22 @@
    (ou cole o conteúdo aqui) — eu transformo isso no catálogo local
    definitivo do Modo Técnico. NENHUM outro arquivo é alterado por
    este script — só lê da API e escreve em server/data/, não mexe em
-   nada do jogo. */
+   nada do jogo.
 
-const fs = require("fs");
-const path = require("path");
-const dataProvider = require("../src/providers");
-const competitions = require("../src/competitions");
+   A lógica de captura em si mora em server/src/captureSnapshot.js,
+   compartilhada com o endpoint HTTP acima — este arquivo é só a casca
+   de linha de comando por cima dela. */
 
-const COMPETITION_IDS = ["brasileirao", "serie_b", "serie_c"];
-const OUT_DIR = path.join(__dirname, "..", "data");
-const DELAY_MS = 400; // educado com o limite de requisição do fornecedor -- não tem pressa nenhuma aqui
-
-function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
-
-async function captureCompetition(compId) {
-  const comp = competitions.getCompetition(compId);
-  if (!comp) { console.log(`[pular] competição desconhecida: ${compId}`); return null; }
-  const leagueId = competitions.providerLeagueId(comp, dataProvider.ACTIVE_PROVIDER_NAME);
-  if (!leagueId) {
-    console.log(`[pular] ${comp.name}: sem id mapeado pro fornecedor ativo (${dataProvider.ACTIVE_PROVIDER_NAME}) -- confira SPORTMONKS_LEAGUE_ID_* no .env.`);
-    return null;
-  }
-  const season = process.env.LIVE_SEASON || competitions.DEFAULT_SEASON;
-  console.log(`\n=== ${comp.name} (leagueId=${leagueId}, temporada=${season}) ===`);
-
-  const teams = await dataProvider.getTeams({ leagueId, season });
-  console.log(`  ${teams.length} times encontrados.`);
-  const standings = await dataProvider.getStandings({ leagueId, season }).catch((err) => {
-    console.log(`  [aviso] tabela falhou (${err.message}) -- segue sem ela, cada time fica sem força calibrada.`);
-    return [];
-  });
-
-  const playersByTeamId = {};
-  for (let i = 0; i < teams.length; i++) {
-    const t = teams[i];
-    process.stdout.write(`  [${i + 1}/${teams.length}] elenco de ${t.name}... `);
-    try {
-      const players = await dataProvider.getTeamPlayers({ teamId: t.id, season, leagueId });
-      playersByTeamId[t.id] = players;
-      console.log(`${players.length} jogadores.`);
-    } catch (err) {
-      console.log(`FALHOU (${err.message}) -- time fica sem elenco capturado, será preenchido com jogador gerado na hora de usar.`);
-      playersByTeamId[t.id] = [];
-    }
-    await sleep(DELAY_MS);
-  }
-
-  return { competitionId: compId, name: comp.name, leagueId, season, capturedAt: new Date().toISOString(), teams, standings, playersByTeamId };
-}
+const { captureAllCompetitions } = require("../src/captureSnapshot");
 
 (async () => {
-  console.log(`Fornecedor ativo: ${dataProvider.ACTIVE_PROVIDER_NAME} | tem credencial: ${dataProvider.hasCredential()}`);
-  if (!dataProvider.hasCredential()) {
-    console.error("\nERRO: fornecedor ativo não tem credencial configurada neste host (ver server/.env). Preencha e rode de novo.");
+  try {
+    const summary = await captureAllCompetitions((msg) => console.log(msg));
+    console.log("\n=== RESUMO ===");
+    summary.forEach((s) => console.log(`${s.competitionId}: ${s.teams} times, ${s.teamsWithPlayers} com elenco capturado -> server/data/${s.file}`));
+    console.log("\nPronto. Baixe os arquivos server/data/snapshot-*.json e me mande de volta (ou cole o conteúdo) pra eu congelar isso como o catálogo local do Modo Técnico.");
+  } catch (err) {
+    console.error("\nERRO:", err.message);
     process.exit(1);
   }
-  fs.mkdirSync(OUT_DIR, { recursive: true });
-
-  const summary = [];
-  for (const compId of COMPETITION_IDS) {
-    const result = await captureCompetition(compId);
-    if (!result) continue;
-    const outFile = path.join(OUT_DIR, `snapshot-${compId}.json`);
-    fs.writeFileSync(outFile, JSON.stringify(result, null, 2));
-    const teamsWithPlayers = Object.values(result.playersByTeamId).filter((p) => p.length > 0).length;
-    summary.push({ competitionId: compId, file: outFile, teams: result.teams.length, teamsWithPlayers });
-    console.log(`  Salvo em ${outFile}`);
-  }
-
-  console.log("\n=== RESUMO ===");
-  summary.forEach((s) => console.log(`${s.competitionId}: ${s.teams} times, ${s.teamsWithPlayers} com elenco capturado -> ${s.file}`));
-  console.log("\nPronto. Baixe os arquivos server/data/snapshot-*.json e me mande de volta (ou cole o conteúdo) pra eu congelar isso como o catálogo local do Modo Técnico.");
-})().catch((err) => { console.error("FATAL:", err); process.exit(1); });
+})();

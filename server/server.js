@@ -57,6 +57,7 @@ const competitions = require("./src/competitions");
 const paymentsLedger = require("./src/paymentsLedger");
 const contentStore = require("./src/contentStore");
 const careerStore = require("./src/careerStore");
+const captureSnapshot = require("./src/captureSnapshot");
 const publicRateLimit = require("./src/publicRateLimit");
 const { slugify, matchSlug } = require("./src/slug");
 
@@ -1682,6 +1683,7 @@ const server = http.createServer(async (req, res) => {
       "/api/support/plans", "/api/support/webhook", "/api/support/status",
       "/api/admin/users", // autenticação própria (ADMIN_SECRET), não usa cookie de sessão
       "/api/adminpanel/promote", // idem — bootstrap de admin, ver rota abaixo
+      "/api/admin/snapshot-capture", "/api/admin/snapshot", // idem — captura/download de retrato real de elenco (ver captureSnapshot.js)
     ]);
     if (pathname.startsWith("/api/") && !AUTH_EXEMPT_PATHS.has(pathname)) {
       const cookies = parseCookies(req);
@@ -2300,6 +2302,49 @@ const server = http.createServer(async (req, res) => {
         activeSessions: sessions.countActive(),
         users: users.listUsers(),
       });
+    }
+
+    // Captura o retrato real de elenco das 3 competições do Modo
+    // Técnico (Série A/B/C — ver server/src/captureSnapshot.js) direto
+    // por HTTPS, sem precisar de shell nenhum no host. Descoberto na
+    // prática que o shell web do Railway não tem como devolver um
+    // arquivo pro usuário, e ainda cai (WebSocket) no meio de comandos
+    // mais longos — via HTTP comum isso não acontece: mesmo que o
+    // cliente desista de esperar a resposta (a captura de 60 times
+    // pode levar 1-2 minutos), a captura continua rodando no processo
+    // e os arquivos ficam salvos; é só chamar GET /api/admin/snapshot
+    // (rota abaixo) de novo depois pra pegar o resultado.
+    if (pathname === "/api/admin/snapshot-capture" && req.method === "POST") {
+      if (!isValidAdminSecret(req, searchParams)) return sendJSON(res, 404, { error: "endpoint não encontrado" });
+      try {
+        const summary = await captureSnapshot.captureAllCompetitions();
+        return sendJSON(res, 200, { ok: true, summary });
+      } catch (err) {
+        return sendJSON(res, 500, { ok: false, error: err.message });
+      }
+    }
+
+    // Baixa um dos 3 arquivos gerados pela captura acima
+    // (?file=brasileirao|serie_b|serie_c) — Content-Disposition faz o
+    // navegador baixar o arquivo direto, sem precisar copiar/colar
+    // texto nenhum de dentro de um terminal.
+    if (pathname === "/api/admin/snapshot") {
+      if (!isValidAdminSecret(req, searchParams)) return sendJSON(res, 404, { error: "endpoint não encontrado" });
+      const id = searchParams.get("file");
+      if (!captureSnapshot.COMPETITION_IDS.includes(id)) {
+        return sendJSON(res, 400, { error: `file precisa ser um de: ${captureSnapshot.COMPETITION_IDS.join(", ")}` });
+      }
+      const fileName = `snapshot-${id}.json`;
+      const filePath = path.join(captureSnapshot.OUT_DIR, fileName);
+      if (!fs.existsSync(filePath)) {
+        return sendJSON(res, 404, { error: "ainda não capturado nesse host -- chame POST /api/admin/snapshot-capture primeiro" });
+      }
+      res.writeHead(200, {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Disposition": `attachment; filename="${fileName}"`,
+        "Cache-Control": "no-store",
+      });
+      return res.end(fs.readFileSync(filePath));
     }
 
     // ================= Área administrativa (/admin) — rotas =================
