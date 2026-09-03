@@ -118,6 +118,21 @@ async function createUser({ name, email, phone, password, plan, planStatus }) {
     friendCode: generateFriendCode(),
     friends: [], // ids de outras contas (relação sempre bidirecional, ver addFriendByCode)
     dailyLogin: { currentStreakDay: 0, lastClaimDate: null }, // ver claimDailyLogin
+    // ---- Loja (BR_Data_Treinador_Monetizacao.xlsx) — saldo de
+    // "Créditos BR" (moeda dura, comprada com dinheiro real). Ao
+    // contrário de TUDO no resto do Modo Técnico (onde o cliente é
+    // "dono da verdade" do save, ver aviso em careerStore.js), este
+    // valor representa dinheiro de verdade gasto — por isso mora aqui
+    // na CONTA (mesmo lugar que já guarda plano/pagamento), não no
+    // save opaco da carreira, e só pode ser alterado no servidor.
+    // NENHUM endpoint credita este campo ainda — decisão do usuário,
+    // ver comentário grande em renderLoja() (carreira.js): esta
+    // primeira entrega é só a tela/catálogo, pagamento de verdade
+    // (Mercado Pago, mesmo rail já usado nas assinaturas) fica pra uma
+    // etapa futura. Quando existir, a rota de compra confirmada é o
+    // ÚNICO lugar que deve incrementar isso, no mesmo espírito do
+    // webhook do Mercado Pago que já ativa plano/pagamento hoje.
+    creditsBR: 0,
     createdAt: Date.now(), updatedAt: Date.now(),
   };
   store.set(rec.id, rec);
@@ -266,6 +281,7 @@ function publicUser(u) {
     friendCode: u.friendCode,
     friends: listFriends(u.id),
     dailyLogin: u.dailyLogin || { currentStreakDay: 0, lastClaimDate: null },
+    creditsBR: u.creditsBR || 0, // Loja — ver comentário grande em createUser
   };
 }
 
