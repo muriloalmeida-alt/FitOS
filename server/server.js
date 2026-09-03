@@ -2313,8 +2313,15 @@ const server = http.createServer(async (req, res) => {
     // cliente desista de esperar a resposta (a captura de 60 times
     // pode levar 1-2 minutos), a captura continua rodando no processo
     // e os arquivos ficam salvos; é só chamar GET /api/admin/snapshot
-    // (rota abaixo) de novo depois pra pegar o resultado.
-    if (pathname === "/api/admin/snapshot-capture" && req.method === "POST") {
+    // (rota abaixo) de novo depois pra pegar o resultado. Aceita GET
+    // além de POST (tecnicamente essa chamada tem efeito colateral —
+    // escreve arquivo — então POST seria o correto por convenção REST,
+    // mas dado o pedido explícito do usuário de rodar isso só colando a
+    // URL no navegador, sem curl/DevTools, aceitar GET também elimina
+    // esse atrito; sem risco real, é uma ação admin-only, idempotente
+    // na prática (só sobrescreve os mesmos 3 arquivos) e sem nenhum
+    // efeito no resto do app.
+    if (pathname === "/api/admin/snapshot-capture" && (req.method === "GET" || req.method === "POST")) {
       if (!isValidAdminSecret(req, searchParams)) return sendJSON(res, 404, { error: "endpoint não encontrado" });
       try {
         const summary = await captureSnapshot.captureAllCompetitions();
@@ -2337,7 +2344,7 @@ const server = http.createServer(async (req, res) => {
       const fileName = `snapshot-${id}.json`;
       const filePath = path.join(captureSnapshot.OUT_DIR, fileName);
       if (!fs.existsSync(filePath)) {
-        return sendJSON(res, 404, { error: "ainda não capturado nesse host -- chame POST /api/admin/snapshot-capture primeiro" });
+        return sendJSON(res, 404, { error: "ainda não capturado nesse host -- chame /api/admin/snapshot-capture primeiro" });
       }
       res.writeHead(200, {
         "Content-Type": "application/json; charset=utf-8",
