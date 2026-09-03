@@ -2335,16 +2335,34 @@ const server = http.createServer(async (req, res) => {
     // (?file=brasileirao|serie_b|serie_c) — Content-Disposition faz o
     // navegador baixar o arquivo direto, sem precisar copiar/colar
     // texto nenhum de dentro de um terminal.
+    //
+    // AJUSTE (pedido do usuário: "está dando timeout, melhor fazer 3
+    // chamadas (1 por divisão) que já rode o comando e o arquivo a ser
+    // salvo") — capturar as 3 competições numa chamada só
+    // (/snapshot-capture acima) demora o bastante pra estourar timeout
+    // em alguns hosts/navegadores. Com ?capture=1, esta MESMA rota
+    // primeiro captura só ESSA competição (~20 times, bem mais rápido)
+    // e já devolve o arquivo baixado em seguida — 3 URLs, uma por
+    // divisão, cada uma fazendo captura+download juntos numa chamada
+    // só. Sem o parâmetro, continua só servindo o que já estiver salvo
+    // (útil pra baixar de novo sem gastar cota da API à toa).
     if (pathname === "/api/admin/snapshot") {
       if (!isValidAdminSecret(req, searchParams)) return sendJSON(res, 404, { error: "endpoint não encontrado" });
       const id = searchParams.get("file");
       if (!captureSnapshot.COMPETITION_IDS.includes(id)) {
         return sendJSON(res, 400, { error: `file precisa ser um de: ${captureSnapshot.COMPETITION_IDS.join(", ")}` });
       }
+      if (searchParams.get("capture")) {
+        try {
+          await captureSnapshot.captureOneCompetition(id);
+        } catch (err) {
+          return sendJSON(res, 500, { ok: false, error: err.message });
+        }
+      }
       const fileName = `snapshot-${id}.json`;
       const filePath = path.join(captureSnapshot.OUT_DIR, fileName);
       if (!fs.existsSync(filePath)) {
-        return sendJSON(res, 404, { error: "ainda não capturado nesse host -- chame /api/admin/snapshot-capture primeiro" });
+        return sendJSON(res, 404, { error: "ainda não capturado nesse host -- acrescente &capture=1 na URL, ou chame /api/admin/snapshot-capture primeiro" });
       }
       res.writeHead(200, {
         "Content-Type": "application/json; charset=utf-8",

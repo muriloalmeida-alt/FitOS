@@ -19,12 +19,14 @@
    Railway não tem como "baixar" um arquivo de volta pro seu
    computador, e derruba a conexão (WebSocket) no meio de comandos mais
    longos — em vez de rodar este script pelo shell, use o endpoint
-   HTTP admin (não depende de shell nenhum). Aceita GET, então dá pra
-   só colar as URLs abaixo direto na barra de endereço do navegador:
-     https://SEU-DOMINIO/api/admin/snapshot-capture?secret=SEU_ADMIN_SECRET
-     https://SEU-DOMINIO/api/admin/snapshot?secret=SEU_ADMIN_SECRET&file=brasileirao
-     (troque "brasileirao" por "serie_b"/"serie_c" pros outros 2 arquivos —
-     essas 2 últimas já baixam o arquivo direto no navegador)
+   HTTP admin (não depende de shell nenhum, aceita GET, dá pra colar
+   direto na barra de endereço do navegador). Capturar as 3 competições
+   de uma vez pode demorar demais e dar timeout — o jeito recomendado é
+   1 URL por divisão, que já captura E baixa o arquivo na mesma chamada
+   (bem mais rápido, ~20 times cada em vez de 60):
+     https://SEU-DOMINIO/api/admin/snapshot?secret=SEU_ADMIN_SECRET&file=brasileirao&capture=1
+     https://SEU-DOMINIO/api/admin/snapshot?secret=SEU_ADMIN_SECRET&file=serie_b&capture=1
+     https://SEU-DOMINIO/api/admin/snapshot?secret=SEU_ADMIN_SECRET&file=serie_c&capture=1
    Exige ADMIN_SECRET configurado no host (ver server/.env.example).
 
    Gera um arquivo por competição em server/data/snapshot-<id>.json
