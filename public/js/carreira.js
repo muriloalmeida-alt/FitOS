@@ -97,11 +97,15 @@ const TACTIC_MOD = {
   marking: { zona: { atk: 1, def: 1 }, individual: { atk: 0.98, def: 1.05 } },
   tempo: { paciente: { atk: 0.96, def: 1.04 }, normal: { atk: 1, def: 1 }, direto: { atk: 1.05, def: 0.97 } },
 };
-const TRAINING_OPTIONS = [["equilibrado", "Equilibrado"], ["ataque", "Foco em ataque"], ["defesa", "Foco em defesa"], ["fisico", "Foco físico"]];
-const TRAINING_MOD = {
-  equilibrado: { atk: 1, def: 1 }, ataque: { atk: 1.03, def: 0.99 },
-  defesa: { atk: 0.99, def: 1.03 }, fisico: { atk: 1, def: 1 },
-};
+// AJUSTE (pedido do usuário: "vamos evoluir o método de treinos",
+// BRDataTreinadorBriefingTreinos_2.docx) — TRAINING_OPTIONS/TRAINING_MOD
+// (o antigo seletor "Foco de treino" da Escalação, com um multiplicador
+// de ataque/defesa fixo por partida) foram RETIRADOS por completo,
+// substituídos pelo módulo de treinos novo (ver TRAINING_SCHEMES mais
+// abaixo). O efeito de "time cansado rende menos" que o multiplicador
+// tentava aproximar já é coberto por avgCond logo abaixo (condição
+// física média do time titular) — agora com peso real, já que treinar
+// de verdade custa condição (ver applyWeeklyTraining).
 // Posição pra ORDENAR/rotular o elenco — limitada ao que os
 // fornecedores de dado esportivo REALMENTE informam (Goleiro/Defensor/
 // Meio-campo/Atacante, ver mapPositionGroup logo abaixo; nem
@@ -147,8 +151,9 @@ const ALL_COMPETITIONS_ORDER = ["brasileirao", "serie_b", "serie_c"];
 let LIVE_MODE_BY_COMPETITION = {};
 let ALL_TEAMS_FLAT = [];
 let CAREER = null;     // save inteiro da carreira atual (null = sem carreira ainda)
-let PICKER_CTX = null; // contexto do modal de escolha de jogador ({type:"slot",index} ou {type:"bench",currentId})
+let PICKER_CTX = null; // contexto do modal de escolha de jogador ({type:"slot",index}, {type:"bench",currentId} ou {type:"training",day})
 let PENDING_ROUND_SUMMARY = null; // resumo da rodada entre o modal de detalhe do jogo e o de resultados (ver simulateRound)
+let TRAINING_SELECTED_DAY = 0; // dia da semana selecionado na tela de Treinos (0=segunda), só estado de UI — não é salvo
 
 /* ---------- Helpers genéricos ---------- */
 function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
@@ -2686,7 +2691,13 @@ async function startCareer(clubId) {
       // lido de novo em enterAfterAuth pra decidir forceDemo por
       // competição ao retomar essa carreira.
       marketScope: "multi", liveModeByCompetition,
-      squad, lineup, trainingFocus: "equilibrado", leagueSquads,
+      squad, lineup, leagueSquads,
+      // AJUSTE (pedido do usuário: "vamos evoluir o método de
+      // treinos") — nasce no esquema padrão "Equilíbrio Semanal" (ver
+      // TRAINING_SCHEMES/defaultTrainingPlan) — nunca aplicado ainda
+      // (trainingAppliedForRound null), então a 1ª "Ir para o jogo"
+      // já aplica a semana padrão sozinha (ver goToMatch).
+      trainingSchemeId: "equilibrio", trainingPlan: defaultTrainingPlan("equilibrio"), trainingAppliedForRound: null,
       schedule, currentRound: 1, standings, resultsByRound: {},
       // Agregado da temporada pra aba Estatísticas (gols já vêm de
       // standings[clubId].gp, não precisa duplicar aqui).
@@ -2810,9 +2821,8 @@ function computeHumanStrength(club) {
   const mMod = TACTIC_MOD.mentality[CAREER.lineup.tactics.mentality] || { atk: 1, def: 1 };
   const tMod = TACTIC_MOD.tempo[CAREER.lineup.tactics.tempo] || { atk: 1, def: 1 };
   const kMod = TACTIC_MOD.marking[CAREER.lineup.tactics.marking] || { atk: 1, def: 1 };
-  const trMod = TRAINING_MOD[CAREER.trainingFocus] || { atk: 1, def: 1 };
-  atkMult *= fMod.atk * mMod.atk * tMod.atk * kMod.atk * trMod.atk;
-  defMult *= fMod.def * mMod.def * tMod.def * kMod.def * trMod.def;
+  atkMult *= fMod.atk * mMod.atk * tMod.atk * kMod.atk;
+  defMult *= fMod.def * mMod.def * tMod.def * kMod.def;
   const avgCond = avg(usable.map((p) => p.condition)) ?? 100;
   atkMult *= 0.85 + 0.15 * (avgCond / 100);
   defMult *= 0.90 + 0.10 * (avgCond / 100);
@@ -2824,31 +2834,29 @@ function computeHumanStrength(club) {
 }
 
 /* ---------- FASE 3 (item 4 da especificação "BR Data Treinador") —
-   evolução de atributos por treino ----------
-   Investigando a especificação, o "foco de treino" JÁ EXISTIA no jogo
-   (CAREER.trainingFocus/TRAINING_OPTIONS/TRAINING_MOD acima, escolhido
-   na aba Escalação) — só que só valia como bônus de CURTO prazo (multi-
-   plicador de ataque/defesa durante a própria partida, ver
-   computeHumanStrength). O que faltava de verdade era o efeito de
-   LONGO prazo pedido aqui: atributo (Geral/Ataque/Defesa/Físico)
-   subindo ou caindo aos poucos, rodada a rodada, com jovem evoluindo
-   mais fácil e veterano regredindo — sem precisar de aba nova, o
-   mesmo seletor de sempre passou a valer pros dois efeitos (ver aviso
-   em carreira.html).
-
-   Decisões nossas pros pontos deixados em aberto na especificação:
-   - Efeito PROBABILÍSTICO (chance de ±1 no atributo por rodada), não
-     fração de ponto acumulada — mais simples de mostrar (atributo
-     sempre inteiro) e já dá o efeito "pequeno, só percebido depois de
-     várias rodadas" pedido.
+   evolução NATURAL de atributos (idade) ----------
+   Efeito PROBABILÍSTICO (chance de ±1 no atributo por rodada) de
+   evolução por IDADE, independente de qualquer treino — jovem evolui
+   mais fácil, veterano regride aos poucos. Decisões nossas pros pontos
+   deixados em aberto na especificação original:
+   - Efeito probabilístico (não fração de ponto acumulada) — mais
+     simples de mostrar (atributo sempre inteiro) e já dá o efeito
+     "pequeno, só percebido depois de várias rodadas" pedido.
    - Declínio por idade começa aos 30 pra linha/aos 32 pro goleiro
      (goleiro segura o auge mais tarde, igual no futebol de verdade).
-   - Cada um dos 4 atributos (overall/atk/def/phys) rola INDEPENDENTE
-     — o foco escolhido dobra a chance de crescimento só do atributo
-     compatível (ver TRAINING_FOCUS_ATTR), os outros 3 seguem no ritmo
-     normal. Evita reescrever atk/def como derivados do overall (eles
-     nascem com pesos por posição diferentes, ver buildRealPlayer) só
-     pra fazer a evolução funcionar.
+   - Cada um dos 4 atributos (overall/atk/def/phys) rola INDEPENDENTE.
+
+   AJUSTE (pedido do usuário: "vamos evoluir o método de treinos",
+   BRDataTreinadorBriefingTreinos_2.docx) — esta função ORIGINALMENTE
+   também dobrava a chance de crescimento do atributo ligado ao
+   CAREER.trainingFocus escolhido (um seletor só, sem custo de
+   fadiga). Esse seletor foi RETIRADO por completo — o módulo de
+   treinos novo (ver applyWeeklyTraining/TRAINING_SCHEMES mais abaixo)
+   já dá ganho de atributo determinístico (não mais probabilístico)
+   como efeito DIRETO de treinar a semana, com fórmula própria e custo
+   de fadiga real. As duas camadas continuam coexistindo de propósito:
+   esta aqui é o "amadurecimento natural" do atleta (roda toda rodada,
+   nunca dobra por causa de treino); a nova é o ganho de treino em si.
 
    Só evolui CAREER.squad (seu elenco) — time CPU não precisa, o
    elenco deles já se renova por sorteio inteiro na virada de temporada
@@ -2856,10 +2864,8 @@ function computeHumanStrength(club) {
    seu clube jogou (ver simulateRound), passando quem foi titular
    NESSA rodada (banco/lesionado tem mais chance de estagnar/regredir
    que evoluir). */
-const TRAINING_FOCUS_ATTR = { ataque: "atk", defesa: "def", fisico: "phys", equilibrado: "overall" };
-function applyTrainingEvolution(playedThisRound) {
+function applyNaturalAgingEvolution(playedThisRound) {
   const playedIds = new Set((playedThisRound || []).map((p) => p.id));
-  const focusAttr = TRAINING_FOCUS_ATTR[CAREER.trainingFocus] || null;
   CAREER.squad.forEach((p) => {
     const played = playedIds.has(p.id);
     const declineAge = p.group === "G" ? 32 : 30;
@@ -2869,16 +2875,345 @@ function applyTrainingEvolution(playedThisRound) {
     else { growChance = played ? 0.02 : 0; declineChance = (played ? 0.05 : 0.08) + (p.age - declineAge) * 0.01; }
     const trend = p.attrTrend || { overall: 0, atk: 0, def: 0, phys: 0 };
     ["overall", "atk", "def", "phys"].forEach((attr) => {
-      const attrGrowChance = growChance * (attr === focusAttr ? 2 : 1);
       const roll = Math.random();
-      if (roll < attrGrowChance) { p[attr] = clamp(p[attr] + 1, 20, 99); trend[attr] += 1; }
+      if (roll < growChance) { p[attr] = clamp(p[attr] + 1, 20, 99); trend[attr] += 1; }
       else if (roll > 1 - declineChance) { p[attr] = clamp(p[attr] - 1, 20, 99); trend[attr] -= 1; }
     });
     // Acumula até o jogador ser aberto no detalhe de novo (ver
     // openDetail, que lê isso pro indicador ↑/↓ e zera em seguida —
-    // "desde a última checagem", pedido da especificação).
+    // "desde a última checagem", pedido da especificação). O ganho
+    // determinístico de applyWeeklyTraining soma NO MESMO campo, pra
+    // não duplicar a seta de tendência com 2 fontes diferentes.
     p.attrTrend = trend;
   });
+}
+
+/* ---------- Módulo de Treinos (pedido do usuário: "vamos evoluir o
+   método de treinos", BRDataTreinadorBriefingTreinos_2.docx +
+   protótipo treinos.html) ----------
+   Substitui por completo o antigo seletor "Foco de treino" (retirado
+   da Escalação — ver TRAINING_MOD/applyTrainingEvolution acima, e o
+   HTML de #trainingFocus). O documento assume dias REAIS da semana
+   (segunda a domingo, jogo fixo no sábado) — este jogo não tem "dia",
+   só RODADA (não existe passagem de tempo dia a dia em lugar nenhum
+   do motor). Tradução adotada: 1 RODADA = 1 SEMANA VIRTUAL de 7
+   posições (index 0 = segunda), com o jogo sempre fixo na posição 5
+   (sábado) — mesma simplificação que o próprio protótipo já assume,
+   e que o documento (seção 2.6) reconhece como aceitável ("em
+   produção, calculado a partir do calendário real" — mas este motor
+   não tem data real por rodada pra calcular a partir de nada, então a
+   simplificação do protótipo é definitiva aqui, não temporária).
+
+   O treinador monta a semana inteira com antecedência (ou aplica um
+   esquema pronto); ao avançar pro próximo jogo ("Ir para o jogo", ver
+   goToMatch), a semana INTEIRA é resolvida de uma vez só
+   (applyWeeklyTraining) — sequencialmente dia a dia, mas sem pausa
+   real entre eles (não dá pra "simular dia por dia" porque esse
+   conceito não existe no motor). trainingAppliedForRound evita
+   aplicar a mesma semana 2x (idempotente por rodada) e permite que o
+   treinador clique "Aplicar" na própria tela de Treinos pra ver o
+   efeito ANTES de ir pro jogo (mesmo fluxo do protótipo) — se ele não
+   clicar, goToMatch aplica sozinho como rede de segurança (mesmo
+   espírito de commitLineupTactics ali do lado).
+
+   Mapeamento de atributo (decisão nossa — o documento fala em
+   "atributoTecnico"/"atributoFisico" genéricos, mas este jogo já usa
+   overall/atk/def/phys, sem um atributo "técnico" à parte): treino
+   FÍSICO evolui phys (mapeamento direto); treino TÉCNICO evolui
+   overall (mesmo destino que o extinto foco "equilibrado" já usava) —
+   não escreve em atk/def diretamente (ficam como nasceram + o que a
+   evolução natural por idade já mexe, ver applyNaturalAgingEvolution
+   acima) — mantém os 2 focos simétricos (1 atributo cada), fiel ao
+   modelo de 2 dimensões do documento ("não há treino tático nesta
+   1ª versão").
+
+   Moral: o documento pede um enum de 3 estados (feliz/neutro/
+   cansado), mas este jogo já tem moral NUMÉRICA 0-100 com motivo/
+   tendência (ver applyMoraleAfterMatch, renovação de contrato) — as
+   3 regras do documento (2.5) viram empurrões nessa escala numérica
+   já existente, reaproveitando moraleReason, em vez de um estado
+   paralelo que duplicaria/conflitaria com o sistema de moral já
+   maduro do jogo. */
+const TRAINING_DAY_NAMES = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"];
+const TRAINING_GAME_DAY = 5;      // sábado — fixo (ver aviso acima)
+const TRAINING_PRE_GAME_DAY = 4;  // sexta — folga protegida pré-jogo
+const TRAINING_POST_GAME_DAY = 6; // domingo — folga protegida pós-jogo
+function isProtectedTrainingDay(i) { return i === TRAINING_PRE_GAME_DAY || i === TRAINING_POST_GAME_DAY; }
+// Fórmulas exatas do documento (seção 2.2).
+const TRAINING_INTENSITY_MULT = { leve: 0.5, moderada: 1, intensa: 1.8 };
+const TRAINING_INTENSITY_LABEL = { leve: "Leve", moderada: "Moderada", intensa: "Intensa" };
+const TRAINING_GROUP_LABEL = { principal: "Elenco", misto: "Misto c/ Sub-20", individual: "Individual" };
+// 5 esquemas prontos (seção 3 do documento, portados 1:1 — sexta e
+// domingo nunca precisam ser escritos como "descanso" explicitamente
+// aqui: são sempre protegidos por posição, ver isProtectedTrainingDay,
+// então o dia 5 (jogo) também nem entra no array de foco/intensidade/
+// grupo por esquema — só os dias 0-3 variam de verdade entre eles).
+const TRAINING_SCHEMES = [
+  {
+    id: "equilibrio", name: "Equilíbrio Semanal",
+    desc: "Alterna técnico e físico moderado, com folgas protegidas de sexta e domingo.",
+    days: [
+      { foco: "tecnico", intensidade: "moderada", grupo: "principal" },
+      { foco: "fisico", intensidade: "moderada", grupo: "principal" },
+      { foco: "tecnico", intensidade: "moderada", grupo: "misto" },
+      { foco: "fisico", intensidade: "leve", grupo: "principal" },
+    ],
+  },
+  {
+    id: "pre_jogo", name: "Ativação Pré-Jogo",
+    desc: "Cargas leves na semana toda. Uso quando o calendário está apertado (jogos a cada 3-4 dias).",
+    days: [
+      { foco: "tecnico", intensidade: "leve", grupo: "principal" },
+      { foco: "tecnico", intensidade: "leve", grupo: "principal" },
+      { foco: "fisico", intensidade: "leve", grupo: "principal" },
+      { foco: "tecnico", intensidade: "leve", grupo: "principal" },
+    ],
+  },
+  {
+    id: "pretemporada", name: "Pré-Temporada Física",
+    desc: "Cargas físicas intensas para elevar a base de condicionamento. Uso fora de sequência apertada de jogos.",
+    days: [
+      { foco: "fisico", intensidade: "intensa", grupo: "principal" },
+      { foco: "fisico", intensidade: "intensa", grupo: "principal" },
+      { foco: "tecnico", intensidade: "moderada", grupo: "principal" },
+      { foco: "fisico", intensidade: "intensa", grupo: "principal" },
+    ],
+  },
+  {
+    id: "recuperacao", name: "Recuperação",
+    desc: "Reduz carga total. Uso após jogos física ou taticamente desgastantes, ou elenco com muitos atletas fadigados.",
+    days: [
+      { foco: "descanso" },
+      { foco: "tecnico", intensidade: "leve", grupo: "principal" },
+      { foco: "descanso" },
+      { foco: "tecnico", intensidade: "leve", grupo: "principal" },
+    ],
+  },
+  {
+    id: "base_sub20", name: "Integração Sub-20",
+    desc: "Foco técnico com o time misto para acelerar evolução da base e elevar moral dos jovens.",
+    days: [
+      { foco: "tecnico", intensidade: "moderada", grupo: "misto" },
+      { foco: "tecnico", intensidade: "moderada", grupo: "misto" },
+      { foco: "fisico", intensidade: "leve", grupo: "misto" },
+      { foco: "tecnico", intensidade: "moderada", grupo: "misto" },
+    ],
+  },
+];
+// Monta o plano de 7 dias inteiro a partir de um esquema (os 4 dias
+// dele + jogo/2 folgas protegidas fixas, sempre nas mesmas posições).
+function defaultTrainingPlan(schemeId) {
+  const scheme = TRAINING_SCHEMES.find((s) => s.id === schemeId) || TRAINING_SCHEMES[0];
+  const plan = new Array(7);
+  let di = 0;
+  for (let i = 0; i < 7; i++) {
+    if (i === TRAINING_GAME_DAY) plan[i] = { foco: "jogo" };
+    else if (isProtectedTrainingDay(i)) plan[i] = { foco: "descanso" };
+    else plan[i] = { ...scheme.days[di++] };
+  }
+  return plan;
+}
+// Quem é afetado por um dia de treino — "individual" só o jogador
+// escolhido (ver PICKER_CTX.type==="training" em renderPickerList/
+// pickerChoose); "misto" o elenco inteiro (principal + base, junto —
+// é o ponto do esquema "Integração Sub-20"); "principal" só quem
+// realmente veste a camisa 10 (loan conta junto, mesmo critério de
+// sempre — ver computeHumanStrength/wageBillOf).
+function trainingTargets(entry) {
+  if (entry.grupo === "individual") {
+    const p = entry.individualPlayerId && CAREER.squad.find((x) => x.id === entry.individualPlayerId);
+    return p ? [p] : [];
+  }
+  if (entry.grupo === "misto") return CAREER.squad.slice();
+  return CAREER.squad.filter((p) => p.origin === "principal" || p.origin === "loan");
+}
+// Resolve a semana INTEIRA de uma vez (ver aviso grande no topo desta
+// seção sobre por que não dá pra simular dia a dia). Idempotente por
+// rodada — chamar de novo na mesma rodada não faz nada (trainingAppliedForRound
+// já bate com CAREER.currentRound). Devolve um Map<playerId, ganho> só
+// pra feedback visual imediato na tela de Treinos (ver renderTreinos).
+function applyWeeklyTraining() {
+  if (CAREER.trainingAppliedForRound === CAREER.currentRound) return null;
+  const gains = new Map();
+  CAREER.trainingPlan.forEach((entry, i) => {
+    if (i === TRAINING_GAME_DAY || !entry || !entry.foco) return;
+    if (entry.foco === "descanso") {
+      // Descanso não tem "grupo" (o protótipo também desabilita esse
+      // campo pra descanso) — recupera o elenco inteiro por igual.
+      CAREER.squad.forEach((p) => { p.condition = clamp((p.condition == null ? 100 : p.condition) + 12, 0, 100); });
+      return;
+    }
+    const mult = TRAINING_INTENSITY_MULT[entry.intensidade] || 1;
+    const gain = Math.round(2 * mult);   // fórmula exata do documento (2.2)
+    const fatigueCost = Math.round(6 * mult);
+    const attr = entry.foco === "tecnico" ? "overall" : "phys"; // ver aviso de mapeamento no topo
+    trainingTargets(entry).forEach((p) => {
+      p.condition = clamp((p.condition == null ? 100 : p.condition) - fatigueCost, 0, 100);
+      p[attr] = clamp(p[attr] + gain, 20, 99);
+      const trend = p.attrTrend || { overall: 0, atk: 0, def: 0, phys: 0 };
+      trend[attr] += gain;
+      p.attrTrend = trend;
+      gains.set(p.id, (gains.get(p.id) || 0) + gain);
+      // Regra do documento (2.5): Sub-20 treinando no grupo Misto com
+      // o elenco principal ganha moral "feliz" — na escala numérica
+      // já existente, isso é um empurrão positivo + motivo explícito
+      // (ver moraleReason, já usado em toda parte do jogo que mexe em
+      // moral).
+      if (p.origin === "base" && entry.grupo === "misto") {
+        p.morale = clamp((p.morale == null ? 70 : p.morale) + 5, 0, 100);
+        p.moraleReason = "Feliz treinando com o elenco principal";
+      }
+    });
+  });
+  // Regras do documento (2.5) ligadas ao ESTADO FINAL de condição
+  // (depois da semana inteira resolvida) — "cansado" abaixo de 40,
+  // volta a "neutro" só quando a condição já recuperou pra 55+ E o
+  // motivo registrado ainda for o do cansaço do treino (evita
+  // sobrescrever um moraleReason de outro sistema, ex.: banco/conversa
+  // recente, sem relação com fadiga de treino).
+  CAREER.squad.forEach((p) => {
+    const cond = p.condition == null ? 100 : p.condition;
+    if (cond < 40 && p.moraleReason !== "Cansado pelo desgaste dos treinos") {
+      p.morale = clamp((p.morale == null ? 70 : p.morale) - 4, 0, 100);
+      p.moraleReason = "Cansado pelo desgaste dos treinos";
+    } else if (cond >= 55 && p.moraleReason === "Cansado pelo desgaste dos treinos") {
+      p.morale = clamp((p.morale == null ? 70 : p.morale) + 4, 0, 100);
+      p.moraleReason = "Neutro no clube";
+    }
+  });
+  CAREER.trainingAppliedForRound = CAREER.currentRound;
+  return gains;
+}
+
+/* ---------- Renderização: Treinos ----------
+   UI da tela nova (ver panel-treinos em carreira.html) — reaproveita
+   mtConditionBarHTML/playerRow/groupedListHTML/ovrTierClass (Tela 4,
+   Elenco) pro cartão do elenco, e o modal genérico de escolher jogador
+   (PICKER_CTX, ver openPicker/renderPickerList/pickerChoose) pro
+   treino "Individual", sem duplicar nenhum desses componentes. */
+const TRAINING_SEG_OPTIONS = {
+  foco: [["tecnico", "Técnico"], ["fisico", "Físico"], ["descanso", "Descanso"]],
+  intensidade: [["leve", "Leve"], ["moderada", "Moderada"], ["intensa", "Intensa"]],
+  grupo: [["principal", "Elenco"], ["misto", "Misto"], ["individual", "Individual"]],
+};
+function segGroupHTML(seg, current, disabled) {
+  const opts = TRAINING_SEG_OPTIONS[seg];
+  return `<div class="mt-seg-group${disabled ? " disabled" : ""}">${opts.map(([v, l]) =>
+    `<button type="button" class="mt-seg-btn${current === v ? " active" : ""}" data-seg="${seg}" data-value="${v}">${l}</button>`
+  ).join("")}</div>`;
+}
+// Prévia de 7 pontos coloridos do esquema (seção 5.3 do briefing) —
+// monta o plano por completo (defaultTrainingPlan) só pra ler a cor de
+// cada dia, sem tocar em CAREER.trainingPlan de verdade.
+function trainingSchemeCardHTML(scheme) {
+  const plan = defaultTrainingPlan(scheme.id);
+  const dots = plan.map((entry, i) => {
+    const cls = entry.foco === "jogo" ? "jogo" : entry.foco === "tecnico" ? "tecnico" : entry.foco === "fisico" ? "fisico" : "";
+    const prot = isProtectedTrainingDay(i) ? " protected" : "";
+    return `<span class="dot ${cls}${prot}"></span>`;
+  }).join("");
+  const active = CAREER.trainingSchemeId === scheme.id;
+  return `<div class="mt-scheme-card${active ? " active" : ""}" data-scheme="${scheme.id}">
+    <div class="name">${scheme.name}</div>
+    <div class="desc">${scheme.desc}</div>
+    <div class="mt-scheme-preview">${dots}</div>
+  </div>`;
+}
+// Painel do dia selecionado: segmented controls de Foco/Intensidade/
+// Grupo (Intensidade e Grupo desabilitados visualmente em Descanso,
+// seção 5.3 do briefing), aviso quando uma folga protegida é
+// sobrescrita (seção 2.6 — "nunca deve acontecer silenciosamente") e o
+// gatilho do picker de jogador só quando Grupo = Individual.
+function renderTrainingDayPanel() {
+  const day = TRAINING_SELECTED_DAY;
+  const entry = CAREER.trainingPlan[day];
+  const panel = document.getElementById("trainingDayPanel");
+  if (day === TRAINING_GAME_DAY) {
+    panel.innerHTML = `<p class="mt-card-sub" style="margin:0;">Dia de jogo — sem treino configurável aqui.</p>`;
+    return;
+  }
+  const isRest = !entry.foco || entry.foco === "descanso";
+  const violated = isProtectedTrainingDay(day) && !isRest;
+  let html = "";
+  if (violated) {
+    const when = day === TRAINING_PRE_GAME_DAY ? "véspera do" : "dia seguinte ao";
+    html += `<div class="mt-training-warning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg><span>Você está sobrescrevendo uma folga protegida (${when} jogo) — risco maior de fadiga e lesão.</span></div>`;
+  }
+  html += `<span class="mt-field-label">Foco</span>${segGroupHTML("foco", entry.foco || "descanso", false)}`;
+  html += `<span class="mt-field-label">Intensidade</span>${segGroupHTML("intensidade", entry.intensidade || "moderada", isRest)}`;
+  html += `<span class="mt-field-label">Grupo</span>${segGroupHTML("grupo", entry.grupo || "principal", isRest)}`;
+  if (!isRest && entry.grupo === "individual") {
+    const p = entry.individualPlayerId && CAREER.squad.find((x) => x.id === entry.individualPlayerId);
+    html += `<button type="button" class="mt-individual-picker-btn" id="btnPickTrainingPlayer">${p ? escapeHtml(abbreviateName(p.name)) : `<span class="placeholder">Escolher jogador...</span>`}<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg></button>`;
+  }
+  panel.innerHTML = html;
+  panel.querySelectorAll(".mt-seg-btn").forEach((btn) => btn.addEventListener("click", () => {
+    const seg = btn.dataset.seg, value = btn.dataset.value;
+    if (seg === "foco") {
+      // Trocar de foco reinicia intensidade/grupo pro default (exceto
+      // saindo de descanso->descanso, que não existe aqui) — vindo de
+      // um foco já ativo, preserva a intensidade/grupo escolhidos.
+      CAREER.trainingPlan[day] = value === "descanso" ? { foco: "descanso" }
+        : { foco: value, intensidade: (!isRest && entry.intensidade) || "moderada", grupo: (!isRest && entry.grupo) || "principal" };
+    } else {
+      CAREER.trainingPlan[day][seg] = value;
+    }
+    // Editar manualmente desvincula do esquema de origem (seção 3 do
+    // briefing: "o plano passa a ser rotulado Personalizado... pra não
+    // passar a falsa impressão de que o plano ainda segue o preset").
+    CAREER.trainingSchemeId = null;
+    persistCareer();
+    renderTreinos();
+  }));
+  const pickBtn = document.getElementById("btnPickTrainingPlayer");
+  if (pickBtn) pickBtn.addEventListener("click", () => openPicker({ type: "training", day }, "Treino individual — escolher jogador"));
+}
+function renderTreinos() {
+  const strip = document.getElementById("trainingSchemeStrip");
+  strip.innerHTML = TRAINING_SCHEMES.map(trainingSchemeCardHTML).join("");
+  strip.querySelectorAll("[data-scheme]").forEach((card) => card.addEventListener("click", () => {
+    const id = card.dataset.scheme;
+    CAREER.trainingSchemeId = id;
+    CAREER.trainingPlan = defaultTrainingPlan(id);
+    persistCareer();
+    renderTreinos();
+  }));
+
+  const activeScheme = TRAINING_SCHEMES.find((s) => s.id === CAREER.trainingSchemeId);
+  document.getElementById("trainingWeekLabel").innerHTML = activeScheme
+    ? `Semana — <span style="color:var(--mt-gold-300);">${activeScheme.name}</span>`
+    : `Semana — <span class="mt-week-label-custom">Personalizado</span>`;
+
+  const weekStrip = document.getElementById("trainingWeekStrip");
+  weekStrip.innerHTML = CAREER.trainingPlan.map((entry, i) => {
+    const focoCls = entry.foco || "descanso";
+    const isRest = focoCls === "descanso";
+    const violated = isProtectedTrainingDay(i) && !isRest && focoCls !== "jogo";
+    return `<div class="mt-day-cell foco-${focoCls}${i === TRAINING_SELECTED_DAY ? " selected" : ""}${violated ? " dviolated" : ""}" data-day="${i}">
+      <span class="dname">${TRAINING_DAY_NAMES[i].slice(0, 3).toUpperCase()}</span>
+      <span class="dind"></span>
+      ${isProtectedTrainingDay(i) ? `<span class="dshield">${violated ? "⚠️" : "🛡️"}</span>` : ""}
+    </div>`;
+  }).join("");
+  weekStrip.querySelectorAll("[data-day]").forEach((cell) => cell.addEventListener("click", () => {
+    TRAINING_SELECTED_DAY = Number(cell.dataset.day);
+    renderTreinos();
+  }));
+
+  renderTrainingDayPanel();
+
+  // Elenco inteiro (principal+base+emprestado), mesma ordenação de
+  // sempre (squadSortKey) — reaproveita playerRow/groupedListHTML da
+  // Tela 4 (Elenco) sem duplicar marcação nenhuma; clicar num jogador
+  // abre o mesmo detalhe de sempre (openDetail).
+  const roster = CAREER.squad.slice().sort((a, b) => squadSortKey(a) - squadSortKey(b));
+  const rosterList = document.getElementById("trainingRosterList");
+  rosterList.innerHTML = groupedListHTML(roster, playerRow, "Sem jogadores.");
+  rosterList.querySelectorAll("[data-id]").forEach((row) => row.addEventListener("click", () => openDetail(row.dataset.id)));
+
+  const already = CAREER.trainingAppliedForRound === CAREER.currentRound;
+  document.getElementById("btnApplyTraining").disabled = already;
+  document.getElementById("btnApplyTrainingLabel").textContent = already ? "Treino já aplicado nesta rodada" : "Aplicar treino da semana";
 }
 
 /* ---------- FASE 1 (item 4 da especificação "BR Data Treinador") —
@@ -3131,11 +3466,17 @@ function tallyTeamStats(events) {
     else if (e.type === "vermelho") CAREER.teamStats.red++;
   });
 }
+// AJUSTE (pedido do usuário: "vamos evoluir o método de treinos") — o
+// bônus de +3 daqui (antes ligado ao extinto CAREER.trainingFocus ===
+// "fisico") saiu; o efeito que ele tentava dar (recuperação extra por
+// treino físico) agora é coberto de verdade pelo módulo de treinos
+// novo (ver applyWeeklyTraining) — esta função continua só cobrindo a
+// recuperação de base de quem NÃO jogou a partida (desgaste de jogo,
+// não de treino — as 2 coisas continuam somando, não se substituem).
 function applyConditionRecovery(starterIds) {
   const set = new Set(starterIds);
-  const bonus = CAREER.trainingFocus === "fisico" ? 3 : 0;
   CAREER.squad.forEach((p) => {
-    if (!set.has(p.id)) p.condition = clamp((p.condition == null ? 100 : p.condition) + (10 + Math.random() * 12) + bonus, 0, 100);
+    if (!set.has(p.id)) p.condition = clamp((p.condition == null ? 100 : p.condition) + (10 + Math.random() * 12), 0, 100);
   });
 }
 // Classificação ordenada (mesmo critério de desempate de sempre:
@@ -4282,9 +4623,10 @@ async function finishLiveMatch() {
   const myGoals = lm.isHome ? lm.gh : lm.ga, oppGoals = lm.isHome ? lm.ga : lm.gh;
   pushRecentForm(myGoals > oppGoals ? 3 : myGoals === oppGoals ? 1 : 0);
   applyMoraleAfterMatch(myGoals, oppGoals);
-  // FASE 3 (item 4) — evolução por treino considera quem terminou a
-  // partida em campo do seu lado (após eventuais substituições).
-  applyTrainingEvolution(lm.isHome ? lm.lastHsStarters : lm.lastAsStarters);
+  // FASE 3 (item 4) — evolução natural por idade considera quem
+  // terminou a partida em campo do seu lado (após eventuais
+  // substituições).
+  applyNaturalAgingEvolution(lm.isHome ? lm.lastHsStarters : lm.lastAsStarters);
   // FASE 4 (item 2) — jejum ANTES de finishRoundTail rodar (ver
   // updateWinlessStreaks, chamada de dentro de generateRoundNews logo
   // abaixo, que ZERA o jejum de quem venceu) — sem capturar aqui, não
@@ -5055,7 +5397,6 @@ function renderEscalacao() {
   document.getElementById("tacticMentality").value = CAREER.lineup.tactics.mentality;
   document.getElementById("tacticMarking").value = CAREER.lineup.tactics.marking;
   document.getElementById("tacticTempo").value = CAREER.lineup.tactics.tempo;
-  document.getElementById("trainingFocus").value = CAREER.trainingFocus;
   renderPitch();
   renderBench();
 }
@@ -5080,15 +5421,16 @@ function autoFillLineup() {
 // "Salvar escalação e táticas" (única cópia antes) pra também ser
 // chamada por "Ir para o jogo" (ver goToMatch) — sem isso, mudar as
 // táticas na modal (ou até na própria aba) e ir direto pro jogo sem
-// clicar em "Salvar" perderia a escolha em silêncio, já que esses 4
+// clicar em "Salvar" perderia a escolha em silêncio, já que esses
 // selects só valiam de verdade quando lidos aqui. Esquema/titulares/
 // banco não precisam disso — já são aplicados na hora (ver
-// formationSelect/autoFillLineup/openPicker).
+// formationSelect/autoFillLineup/openPicker). Foco de treino saiu
+// daqui — retirado por completo (ver módulo de treinos novo,
+// applyWeeklyTraining).
 function commitLineupTactics() {
   CAREER.lineup.tactics.mentality = document.getElementById("tacticMentality").value;
   CAREER.lineup.tactics.marking = document.getElementById("tacticMarking").value;
   CAREER.lineup.tactics.tempo = document.getElementById("tacticTempo").value;
-  CAREER.trainingFocus = document.getElementById("trainingFocus").value;
 }
 // AJUSTE (refatoração completa, Tela 6 — ver 06-escalacao-restyled.html
 // do designer) — campinho próprio (.mt-pitch*, NÃO reaproveita
@@ -5271,6 +5613,14 @@ async function goToMatch() {
   closePreMatchConfirm();
   closeAdjustLineupModal();
   commitLineupTactics();
+  // AJUSTE (pedido do usuário: "vamos evoluir o método de treinos") —
+  // rede de segurança: se o treinador nunca abriu a tela de Treinos
+  // (ou abriu mas não clicou "Aplicar") pra essa rodada, a semana
+  // configurada é aplicada aqui sozinha — idempotente (applyWeeklyTraining
+  // não faz nada se já tiver sido aplicada), mesmo espírito de
+  // commitLineupTactics logo acima (tática mudada sem salvar não pode
+  // se perder em silêncio).
+  applyWeeklyTraining();
   const btn = document.getElementById("btnSimulate");
   btn.disabled = true;
   const summary = simulateRound();
@@ -5328,14 +5678,18 @@ function placeAt(loc, playerId) {
   else CAREER.lineup.bench.splice(loc.idx, 1);
 }
 function renderPickerList(filter) {
-  const currentId = PICKER_CTX.type === "slot" ? CAREER.lineup.starters[PICKER_CTX.index] : (PICKER_CTX.currentId || null);
-  // Sem o filtro de "já escalado" de antes — só continua de fora quem
-  // está fisicamente indisponível (lesionado/suspenso).
-  let pool = CAREER.squad.filter((p) => p.status === "ok");
+  const currentId = PICKER_CTX.type === "slot" ? CAREER.lineup.starters[PICKER_CTX.index]
+    : PICKER_CTX.type === "training" ? (CAREER.trainingPlan[PICKER_CTX.day].individualPlayerId || null)
+    : (PICKER_CTX.currentId || null);
+  // Treino individual (ver trainingTargets/seção 2.3 do briefing) é a
+  // ÚNICA exceção ao filtro de "só quem pode jogar" do resto do picker
+  // — o treinador pode de propósito escolher um jogador lesionado ou
+  // suspenso pra focar a recuperação/reintegração dele.
+  let pool = PICKER_CTX.type === "training" ? CAREER.squad.slice() : CAREER.squad.filter((p) => p.status === "ok");
   const f = filter.trim().toLowerCase();
   if (f) pool = pool.filter((p) => p.name.toLowerCase().includes(f));
   pool.sort((a, b) => squadSortKey(a) - squadSortKey(b));
-  const showClear = PICKER_CTX.type === "slot" || (PICKER_CTX.type === "bench" && PICKER_CTX.currentId);
+  const showClear = PICKER_CTX.type === "slot" || (PICKER_CTX.type === "bench" && PICKER_CTX.currentId) || (PICKER_CTX.type === "training" && currentId);
   // AJUSTE (refatoração completa, Tela 7 — ver 07-trocar-jogador-
   // restyled.html do designer) — .mt-sel-row no lugar de .ct-pick-row:
   // chip de posição colorido (mesmo mapeamento do banco, Tela 6), OVR
@@ -5345,10 +5699,13 @@ function renderPickerList(filter) {
   const clearRow = showClear ? `<div class="mt-empty-option" data-clear="1">— deixar vazio —</div>` : "";
   const list = document.getElementById("pickerList");
   list.innerHTML = clearRow + (pool.length ? pool.map((p) => {
-    const loc = p.id === currentId ? null : locateInLineup(p.id);
+    const loc = PICKER_CTX.type === "training" || p.id === currentId ? null : locateInLineup(p.id);
     // Tag do lugar onde já está — escolher alguém marcado "titular" ou
     // "banco" faz a troca (ver pickerChoose), não só remove ele de lá.
-    const tag = p.id === currentId ? " (atual)" : loc && loc.kind === "starter" ? " (titular)" : loc && loc.kind === "bench" ? " (banco)" : "";
+    // No treino individual, a tag vira o status físico (lesão/suspensão)
+    // já que esse jogador foi incluído de propósito, não escondido.
+    const tag = p.id === currentId ? " (atual)" : loc && loc.kind === "starter" ? " (titular)" : loc && loc.kind === "bench" ? " (banco)"
+      : PICKER_CTX.type === "training" && p.status === "contundido" ? " (lesionado)" : PICKER_CTX.type === "training" && p.status === "suspenso" ? " (suspenso)" : "";
     const subpos = subPositionOf(p);
     const srcClass = p.origin === "base" ? "base" : p.origin === "loan" ? "loan" : "principal";
     const srcLabel = p.origin === "base" ? "base" : p.origin === "loan" ? "emprestado" : "principal";
@@ -5362,6 +5719,15 @@ function renderPickerList(filter) {
   list.querySelectorAll("[data-id]").forEach((el) => el.addEventListener("click", () => pickerChoose(el.dataset.id)));
 }
 function pickerChoose(playerId) {
+  // Treino individual não mexe em escalação nenhuma — só grava quem é
+  // o alvo daquele dia do plano semanal (ver trainingTargets).
+  if (PICKER_CTX.type === "training") {
+    CAREER.trainingPlan[PICKER_CTX.day].individualPlayerId = playerId || null;
+    document.getElementById("pickerOverlay").classList.remove("open");
+    persistCareer();
+    renderTreinos();
+    return;
+  }
   // "target" é a vaga que abriu o modal (o slot clicado no campinho,
   // ou a linha do banco clicada — null só no caso de "+ adicionar
   // reserva", que não tem vaga nenhuma pra abrir mão de alguém).
@@ -5891,7 +6257,8 @@ function declineOfferFromModal() {
 function renderAll() {
   [
     ["Central", renderCentral], ["Elenco", renderElenco], ["Escalação", renderEscalacao],
-    ["Tabela", renderTabela], ["Copa do Brasil", renderCopa], ["Estatísticas", renderEstatisticas], ["Mercado", renderMercado],
+    ["Tabela", renderTabela], ["Copa do Brasil", renderCopa], ["Treinos", renderTreinos],
+    ["Estatísticas", renderEstatisticas], ["Mercado", renderMercado],
   ].forEach(([name, fn]) => {
     try { fn(); } catch (err) {
       console.error(`[carreira] falha ao renderizar ${name}:`, err);
@@ -6162,7 +6529,6 @@ function wireStaticListeners() {
   populateSelect("tacticMentality", TACTIC_OPTIONS.mentality);
   populateSelect("tacticMarking", TACTIC_OPTIONS.marking);
   populateSelect("tacticTempo", TACTIC_OPTIONS.tempo);
-  populateSelect("trainingFocus", TRAINING_OPTIONS);
   // FASE 3 (item 2) — mesmas opções do sub-modal de tática ao vivo,
   // reaproveitadas das constantes de sempre (ver openLiveTacticsModal).
   populateSelect("liveTacticsFormation", Object.keys(FORMATIONS).map((k) => [k, k]));
@@ -6170,7 +6536,14 @@ function wireStaticListeners() {
   populateSelect("liveTacticsMarking", TACTIC_OPTIONS.marking);
   populateSelect("liveTacticsTempo", TACTIC_OPTIONS.tempo);
 
-  document.querySelectorAll(".mt-nav-item").forEach((btn) => {
+  // AJUSTE (pedido do usuário: "o hambúrguer não ficaria melhor no
+  // rodapé junto com os demais?") — seletor agora exige [data-panel]
+  // de propósito: o botão "Menu" também é um .mt-nav-item (mesmo
+  // visual), mas não representa uma aba — sem essa restrição, esse
+  // clique cairia aqui TAMBÉM (além do listener dedicado dele, ver
+  // mais abaixo) e chamaria switchToPanel(undefined), escondendo o
+  // painel atual sem mostrar nada no lugar.
+  document.querySelectorAll(".mt-nav-item[data-panel]").forEach((btn) => {
     btn.addEventListener("click", () => switchToPanel(btn.dataset.panel));
   });
   // Pedido do usuário: textos explicativos (ex.: "Clique num jogador
@@ -6194,6 +6567,21 @@ function wireStaticListeners() {
     persistCareer();
     toast("Escalação e táticas salvas.", { type: "pos" });
     renderCentral();
+  });
+
+  // Botão "Aplicar treino da semana" (ver applyWeeklyTraining) — a
+  // idempotência por rodada (trainingAppliedForRound) já protege
+  // contra dobrar o efeito; o disabled aqui (ver renderTreinos) é só
+  // pra deixar isso visível, não a única trava.
+  document.getElementById("btnApplyTraining").addEventListener("click", () => {
+    const gains = applyWeeklyTraining();
+    persistCareer();
+    renderTreinos();
+    if (!gains) return;
+    toast(gains.size
+      ? { title: "Treino da semana aplicado", detail: `${gains.size} jogador${gains.size > 1 ? "es" : ""} evoluíram atributos.` }
+      : { title: "Treino da semana aplicado", detail: "Semana de descanso — sem ganho de atributo, condição recuperada." },
+      { type: "pos" });
   });
 
   // Fluxo de "Simular rodada" (pedido do usuário): confirmar escalação
@@ -6362,23 +6750,39 @@ function wireStaticListeners() {
     show("screenCompetitionPicker");
   });
 
-  // Menu hambúrguer (pedido do usuário: header enxuto, ações que
-  // ficavam soltas no header — Reiniciar — mais Sair (novo) dentro de
-  // um menu). Fecha ao clicar em qualquer item, ao clicar fora, ou de
-  // novo no próprio botão.
-  document.getElementById("btnTopbarMenu").addEventListener("click", (e) => {
+  // Menu (pedido do usuário: "o hambúrguer não ficaria melhor no
+  // rodapé junto com os demais?") — antes um ícone solto no topbar
+  // (#btnTopbarMenu), agora o botão "Menu" do rodapé (#btnBottomMenu,
+  // ver .mt-bottom-nav) — mesmo popover #topbarMenu de sempre, só
+  // reancorado (ver CSS) pra abrir a partir de baixo. Fecha ao clicar
+  // em qualquer item, ao clicar fora, ou de novo no próprio botão.
+  document.getElementById("btnBottomMenu").addEventListener("click", (e) => {
     e.stopPropagation();
     const menu = document.getElementById("topbarMenu");
     const willOpen = !menu.classList.contains("open");
     menu.classList.toggle("open", willOpen);
-    document.getElementById("btnTopbarMenu").setAttribute("aria-expanded", String(willOpen));
+    document.getElementById("btnBottomMenu").setAttribute("aria-expanded", String(willOpen));
   });
   document.addEventListener("click", (e) => {
     const menu = document.getElementById("topbarMenu");
-    if (menu.classList.contains("open") && !menu.contains(e.target) && e.target.id !== "btnTopbarMenu") {
+    if (menu.classList.contains("open") && !menu.contains(e.target) && e.target.id !== "btnBottomMenu") {
       menu.classList.remove("open");
-      document.getElementById("btnTopbarMenu").setAttribute("aria-expanded", "false");
+      document.getElementById("btnBottomMenu").setAttribute("aria-expanded", "false");
     }
+  });
+  // AJUSTE (pedido do usuário: "tira um item menos relevante e coloca
+  // pra dentro do hambúrguer") — Mercado e Estatísticas saíram do
+  // rodapé fixo e entraram no Menu; abrem o mesmo painel de sempre
+  // (switchToPanel já lida com qualquer nome, mesmo sem um
+  // .mt-nav-item correspondente — só não marca nada como "ativo" no
+  // rodapé, o que é o esperado aqui) e fecham o popover em seguida.
+  document.getElementById("btnOpenMercado").addEventListener("click", () => {
+    document.getElementById("topbarMenu").classList.remove("open");
+    switchToPanel("mercado");
+  });
+  document.getElementById("btnOpenEstatisticas").addEventListener("click", () => {
+    document.getElementById("topbarMenu").classList.remove("open");
+    switchToPanel("estatisticas");
   });
   document.getElementById("btnLogout").addEventListener("click", async () => {
     document.getElementById("topbarMenu").classList.remove("open");
@@ -6579,6 +6983,17 @@ function migrateCareerDefaults() {
   // automática pra carreira já existente, só carreira nova nasce
   // "multi" (ver startCareer).
   if (!CAREER.marketScope) CAREER.marketScope = "single";
+  // AJUSTE (pedido do usuário: "vamos evoluir o método de treinos") —
+  // carreira criada ANTES desta mudança nunca teve plano de treino
+  // (só o extinto CAREER.trainingFocus, um seletor só) — nasce migrada
+  // pro esquema padrão "Equilíbrio Semanal", igual uma carreira nova.
+  // trainingFocus em si fica órfão no save antigo (não é mais lido em
+  // lugar nenhum) — inofensivo, sem precisar apagar explicitamente.
+  if (!CAREER.trainingPlan) {
+    CAREER.trainingSchemeId = "equilibrio";
+    CAREER.trainingPlan = defaultTrainingPlan("equilibrio");
+    CAREER.trainingAppliedForRound = null;
+  }
   // Jogador criado antes da Fase 2b não tem wage/value/contractUntil
   // nenhum (esses campos só existem desde que buildRealPlayer/
   // buildBasePlayer/buildGeneratedProPlayer passaram a chamar

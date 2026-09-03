@@ -166,8 +166,13 @@
      Elenco, Escalação...), essa mudança vale pro app inteiro a partir
      daqui — cada painel ainda não reconstruído continua com seu miolo
      antigo por enquanto, só ganha o chrome novo ao redor. */
+  /* AJUSTE (pedido do usuário: "o hambúrguer não ficaria melhor no
+     rodapé junto com os demais?") — era ancorado no topbar (top:100%,
+     descendo). Agora abre a partir do botão "Menu" do rodapé fixo —
+     position:fixed (não mais relative ao .mt-topbar-row) subindo a
+     partir de acima da nav (bottom, não top/margin-top). */
   .mt-topbar-menu{
-    position:absolute; top:100%; right:18px; margin-top:8px; z-index:60;
+    position:fixed; bottom:calc(var(--mt-navh) + 10px); right:14px; z-index:130;
     background:linear-gradient(160deg, var(--mt-navy-700), var(--mt-navy-800) 65%);
     border:1px solid var(--mt-navy-600); border-top:1px solid rgba(232,184,75,.3);
     border-radius:10px; box-shadow:0 14px 32px rgba(0,0,0,.4); min-width:190px; padding:6px; display:none;
@@ -1063,6 +1068,70 @@
   .mt-condition-bar.mid .seg.on{ background:var(--mt-gold-400); box-shadow:0 0 4px rgba(232,184,75,.5); }
   .mt-condition-bar.low .seg.on{ background:var(--mt-crimson-400); box-shadow:0 0 4px rgba(214,69,69,.5); }
 
+  /* ---- Treinos: esquemas prontos (cartão rolável horizontal, ver
+       seção 5.3 do briefing — "168px de largura, prévia de 7 pontos
+       coloridos representando a semana"). ---- */
+  .mt-scheme-strip{ display:flex; gap:10px; overflow-x:auto; padding:2px 2px 6px; margin:0 -2px; -webkit-overflow-scrolling:touch; }
+  .mt-scheme-card{
+    flex-shrink:0; width:168px; background:var(--mt-navy-900); border:1px solid var(--mt-navy-600);
+    border-radius:10px; padding:12px; cursor:pointer; transition:border-color .15s, background .15s;
+  }
+  .mt-scheme-card.active{ border-color:var(--mt-gold-400); background:rgba(232,184,75,.1); }
+  .mt-scheme-card .name{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:14px; color:var(--mt-ivory-50); margin-bottom:3px; }
+  .mt-scheme-card.active .name{ color:var(--mt-gold-300); }
+  .mt-scheme-card .desc{ font-size:11px; color:var(--mt-ink-faint); line-height:1.35; margin-bottom:10px; min-height:44px; }
+  .mt-scheme-preview{ display:flex; gap:3px; }
+  .mt-scheme-preview .dot{ flex:1; height:6px; border-radius:2px; background:var(--mt-ink-faint); }
+  .mt-scheme-preview .dot.protected{ box-shadow:inset 0 0 0 1px var(--mt-pitch-400); }
+  .mt-scheme-preview .dot.tecnico{ background:var(--mt-sky-400); }
+  .mt-scheme-preview .dot.fisico{ background:var(--mt-crimson-400); }
+  .mt-scheme-preview .dot.jogo{ background:var(--mt-gold-400); }
+  .mt-week-label-custom{ color:var(--mt-ink-muted); }
+
+  /* ---- Treinos: calendário semanal (7 células, ver seção 5.3 do
+       briefing — nome abreviado + indicador de cor + escudo protegido). ---- */
+  .mt-week-strip{ display:grid; grid-template-columns:repeat(7, 1fr); gap:5px; margin-bottom:16px; }
+  .mt-day-cell{
+    display:flex; flex-direction:column; align-items:center; gap:5px; padding:9px 2px;
+    background:var(--mt-navy-900); border:1.5px solid var(--mt-navy-600); border-radius:8px; cursor:pointer;
+  }
+  .mt-day-cell.selected{ border-color:var(--mt-gold-400); background:rgba(232,184,75,.08); }
+  .mt-day-cell.dviolated{ border-color:var(--mt-crimson-400); }
+  .mt-day-cell .dname{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:10px; letter-spacing:.4px; color:var(--mt-ink-faint); text-transform:uppercase; }
+  .mt-day-cell .dind{ width:9px; height:9px; border-radius:50%; background:var(--mt-ink-faint); }
+  .mt-day-cell.foco-tecnico .dind{ background:var(--mt-sky-400); box-shadow:0 0 5px rgba(91,155,217,.5); }
+  .mt-day-cell.foco-fisico .dind{ background:var(--mt-crimson-400); box-shadow:0 0 5px rgba(214,69,69,.5); }
+  .mt-day-cell.foco-jogo .dind{ background:var(--mt-gold-400); box-shadow:0 0 5px rgba(232,184,75,.5); }
+  .mt-day-cell .dshield{ font-size:10px; line-height:1; }
+
+  /* ---- Treinos: segmented control (Foco/Intensidade/Grupo, 3 opções
+       lado a lado — ver seção 5.3 do briefing). ---- */
+  .mt-seg-group{ display:flex; background:var(--mt-navy-900); border:1px solid var(--mt-navy-600); border-radius:8px; overflow:hidden; margin-bottom:14px; }
+  .mt-seg-btn{
+    flex:1; padding:10px 4px; text-align:center; background:transparent; border:none; border-right:1px solid var(--mt-navy-600); cursor:pointer;
+    font-family:'Rajdhani', var(--font); font-weight:700; font-size:12.5px; color:var(--mt-ink-muted);
+  }
+  .mt-seg-btn:last-child{ border-right:none; }
+  .mt-seg-btn.active{ background:var(--mt-navy-700); color:var(--mt-ivory-50); }
+  .mt-seg-btn[data-seg="foco"].active[data-value="tecnico"]{ color:var(--mt-sky-400); }
+  .mt-seg-btn[data-seg="foco"].active[data-value="fisico"]{ color:var(--mt-crimson-400); }
+  .mt-seg-group.disabled{ opacity:.4; pointer-events:none; }
+
+  .mt-training-warning{
+    display:flex; gap:8px; align-items:flex-start; background:rgba(214,69,69,.12); border:1px solid rgba(214,69,69,.4);
+    border-radius:8px; padding:10px 12px; font-size:12px; color:var(--mt-crimson-400); line-height:1.4; margin-bottom:14px;
+  }
+  .mt-training-warning svg{ width:16px; height:16px; flex-shrink:0; margin-top:1px; }
+
+  .mt-individual-picker-btn{
+    display:flex; align-items:center; justify-content:space-between; width:100%;
+    background:var(--mt-navy-900); border:1px solid var(--mt-navy-600); border-radius:8px;
+    padding:11px 13px; color:var(--mt-ivory-50); font-family:'Rajdhani', var(--font); font-weight:600; font-size:13.5px;
+    cursor:pointer; margin-bottom:2px;
+  }
+  .mt-individual-picker-btn .placeholder{ color:var(--mt-ink-faint); }
+  .mt-individual-picker-btn svg{ flex-shrink:0; opacity:.6; }
+
   /* ---- categoria de base (potencial + confiança do olheiro) ---- */
   .mt-base-row{ display:flex; align-items:center; gap:12px; padding:11px 4px; border-bottom:1px solid var(--mt-navy-700); cursor:pointer; }
   .mt-base-row:last-child{ border-bottom:none; }
@@ -1665,31 +1734,42 @@
           <div class="mt-crest-mini"><img src="img/brand-icon.png" alt=""></div>
           <div class="t">MODO <span>CARREIRA</span></div>
         </div>
-        <button class="mt-icon-btn" id="btnTopbarMenu" aria-label="Menu" aria-expanded="false" aria-controls="topbarMenu">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
-        </button>
-        <div class="mt-topbar-menu" id="topbarMenu">
-          <!-- AJUSTE (pedido do usuário: "esperava uma tela exclusiva
-               pra notícias nos padrões de um portal de esportes") — ver
-               openNewsScreen em carreira.js. -->
-          <button class="mt-topbar-menu-item" id="btnOpenNews">📰 Notícias</button>
-          <!-- FASE 4 (item 6) — tela própria de histórico de premiações
-               (ver openAwardsScreen em carreira.js), pedido do usuário:
-               "uma tela que armazena os resultados de cada ano". -->
-          <button class="mt-topbar-menu-item" id="btnOpenAwards">🏆 Premiações</button>
-          <!-- FASE 4 (item 4) — currículo do técnico (reputação +
-               histórico de clubes), ver openCoachProfileScreen. -->
-          <button class="mt-topbar-menu-item" id="btnOpenCoachProfile">👔 Perfil do Técnico</button>
-          <!-- AJUSTE (pedido do usuário: "página estática que controle
-               o histórico de mudanças do jogo") — página própria,
-               fora do SPA (ver historico.html), por isso é um <a>
-               normal (navega de verdade) e não um botão com listener
-               JS como os outros itens deste menu. -->
-          <a class="mt-topbar-menu-item" href="historico.html">🗒️ Histórico de Atualizações</a>
-          <button class="mt-topbar-menu-item" id="btnRestart">↺ Reiniciar</button>
-          <button class="mt-topbar-menu-item danger" id="btnLogout">⎋ Sair</button>
-        </div>
       </div>
+    </div>
+
+    <!-- AJUSTE (pedido do usuário: "o hambúrguer não ficaria melhor no
+         rodapé junto com os demais?") — o topo fica só com a marca; o
+         menu (antes um ícone no topbar, ver btnTopbarMenu) agora é um
+         item de verdade do rodapé (#btnBottomMenu, ver .mt-bottom-nav
+         abaixo) — abre o MESMO popover de sempre, só reancorado pra
+         subir a partir do rodapé em vez de descer do topo (ver
+         .mt-topbar-menu no <style>). Mercado e Estatísticas saíram do
+         rodapé (pedido do usuário: "tira um item menos relevante" —
+         Mercado só fica realmente ativo nas 2 janelas de
+         transferência da temporada, o resto do ano tem uso reduzido)
+         e entraram aqui como os 2 primeiros itens. -->
+    <div class="mt-topbar-menu" id="topbarMenu">
+      <button class="mt-topbar-menu-item" id="btnOpenMercado">💰 Mercado</button>
+      <button class="mt-topbar-menu-item" id="btnOpenEstatisticas">📊 Estatísticas</button>
+      <!-- AJUSTE (pedido do usuário: "esperava uma tela exclusiva
+           pra notícias nos padrões de um portal de esportes") — ver
+           openNewsScreen em carreira.js. -->
+      <button class="mt-topbar-menu-item" id="btnOpenNews">📰 Notícias</button>
+      <!-- FASE 4 (item 6) — tela própria de histórico de premiações
+           (ver openAwardsScreen em carreira.js), pedido do usuário:
+           "uma tela que armazena os resultados de cada ano". -->
+      <button class="mt-topbar-menu-item" id="btnOpenAwards">🏆 Premiações</button>
+      <!-- FASE 4 (item 4) — currículo do técnico (reputação +
+           histórico de clubes), ver openCoachProfileScreen. -->
+      <button class="mt-topbar-menu-item" id="btnOpenCoachProfile">👔 Perfil do Técnico</button>
+      <!-- AJUSTE (pedido do usuário: "página estática que controle
+           o histórico de mudanças do jogo") — página própria,
+           fora do SPA (ver historico.html), por isso é um <a>
+           normal (navega de verdade) e não um botão com listener
+           JS como os outros itens deste menu. -->
+      <a class="mt-topbar-menu-item" href="historico.html">🗒️ Histórico de Atualizações</a>
+      <button class="mt-topbar-menu-item" id="btnRestart">↺ Reiniciar</button>
+      <button class="mt-topbar-menu-item danger" id="btnLogout">⎋ Sair</button>
     </div>
 
     <!-- AJUSTE (redesign, Tela 3) — nav inferior fixa, ícone+label,
@@ -1714,13 +1794,22 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1.5"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="10" x2="9" y2="20"/></svg>
         Tabela
       </button>
-      <button class="mt-nav-item" data-panel="estatisticas">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="20" x2="5" y2="12"/><line x1="12" y1="20" x2="12" y2="6"/><line x1="19" y1="20" x2="19" y2="15"/></svg>
-        Stats
+      <!-- AJUSTE (pedido do usuário: "vamos evoluir o método de
+           treinos") — nova aba, no lugar que era da Estatísticas
+           (movida pro Menu, ver acima). -->
+      <button class="mt-nav-item" data-panel="treinos">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5a4 4 0 1 1 5.5 5.5"/><circle cx="6.5" cy="6.5" r="2.4"/><path d="M9 9l-6 6M12 12v9M8 21h8"/></svg>
+        Treinos
       </button>
-      <button class="mt-nav-item" data-panel="mercado">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 11V7a4 4 0 0 0-8 0v4M5 9h14l1 11H4z"/></svg>
-        Mercado
+      <!-- AJUSTE (pedido do usuário: "o hambúrguer não ficaria melhor
+           no rodapé junto com os demais?") — sem data-panel de
+           propósito: não é uma troca de aba, abre o popover
+           #topbarMenu (ver wireStaticListeners) — excluído do loop
+           genérico de switchToPanel (que agora seleciona só
+           ".mt-nav-item[data-panel]") por não ter esse atributo. -->
+      <button class="mt-nav-item" id="btnBottomMenu" aria-label="Menu" aria-expanded="false" aria-controls="topbarMenu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+        Menu
       </button>
     </nav>
 
@@ -1916,19 +2005,15 @@
         <div class="mt-card">
           <div class="mt-card-head">
             <div class="mt-card-title">Instruções táticas</div>
-            <button class="ct-help-btn" data-help="helpInstrucoesTaticas" aria-label="Ajuda">?</button>
           </div>
+          <!-- AJUSTE (pedido do usuário: "vamos evoluir o método de
+               treinos") — "Foco de treino" saiu daqui por completo,
+               virou a aba própria "Treinos" (ver panel-treinos); o "?"
+               de ajuda também saiu — sem o foco de treino, sobraram só
+               3 seletores autoexplicativos, sem nada mais a esclarecer. -->
           <div class="mt-field-block"><span class="mt-field-label">Mentalidade</span><select id="tacticMentality" class="mt-select-box"></select></div>
           <div class="mt-field-block"><span class="mt-field-label">Marcação</span><select id="tacticMarking" class="mt-select-box"></select></div>
-          <div class="mt-field-block"><span class="mt-field-label">Ritmo de jogo</span><select id="tacticTempo" class="mt-select-box"></select></div>
-          <div class="mt-field-block" style="margin-bottom:0;"><span class="mt-field-label">Foco de treino</span><select id="trainingFocus" class="mt-select-box"></select></div>
-          <!-- FASE 3 (item 4) — o foco de treino já existia como bônus
-               de curto prazo em partida (ver TRAINING_MOD); agora
-               também guia a evolução PERMANENTE de atributos rodada a
-               rodada (ver applyTrainingEvolution) — aviso curto pra
-               deixar isso claro sem precisar de uma aba nova só pra
-               isso. -->
-          <p class="mt-card-sub ct-help-text" id="helpInstrucoesTaticas" style="margin-top:10px; margin-bottom:0;" hidden>O foco também guia a evolução de longo prazo do elenco — o atributo escolhido cresce com mais chance a cada rodada jogada.</p>
+          <div class="mt-field-block" style="margin-bottom:0;"><span class="mt-field-label">Ritmo de jogo</span><select id="tacticTempo" class="mt-select-box"></select></div>
         </div>
         <div class="mt-action-bar">
           <!-- AJUSTE (pedido do usuário: "Botão 'Avançar a próxima
@@ -1974,6 +2059,49 @@
           <div class="mt-card-title">Copa do Brasil</div>
           <p class="mt-card-sub" id="cupStatusText" style="margin-bottom:0;"></p>
           <div id="cupHistory"></div>
+        </div>
+      </section>
+
+      <!-- ---------- Treinos ---------- NOVO (pedido do usuário: "vamos
+           evoluir o método de treinos", ver BRDataTreinadorBriefingTreinos_2.docx
+           + treinos.html) — este motor só tem RODADA, não dia de
+           calendário real, então a decisão de arquitetura é: 1 rodada =
+           1 semana virtual de 7 dias (índice 0=segunda...6=domingo),
+           com o jogo sempre fixo no sábado (índice 5,
+           TRAINING_GAME_DAY) e sexta/domingo como folga protegida por
+           padrão (ver isProtectedTrainingDay em carreira.js — mesma
+           simplificação que o próprio protótipo usa, o documento
+           reconhece isso como aceitável). A semana inteira é montada de
+           uma vez (esquema pronto ou dia a dia) e só é de fato aplicada
+           ao elenco (applyWeeklyTraining) no botão "Aplicar" abaixo —
+           goToMatch() também chama de novo como rede de segurança, sem
+           dobrar o efeito (ver trainingAppliedForRound). -->
+      <section class="ct-panel" id="panel-treinos">
+        <div class="mt-card">
+          <div class="mt-card-head">
+            <div class="mt-card-title">Esquema da semana</div>
+            <button class="ct-help-btn" data-help="helpTreinosEsquema" aria-label="Ajuda">?</button>
+          </div>
+          <p class="mt-card-sub ct-help-text" id="helpTreinosEsquema" hidden>Escolha um esquema pronto pra preencher a semana toda de uma vez, ou toque num dia abaixo pra editar manualmente (o esquema vira "Personalizado" ao editar). Sexta e domingo ficam protegidos como folga por padrão — véspera e dia seguinte ao jogo de sábado.</p>
+          <div class="mt-scheme-strip" id="trainingSchemeStrip"></div>
+        </div>
+
+        <div class="mt-card">
+          <div class="mt-card-title" id="trainingWeekLabel">Semana</div>
+          <div class="mt-week-strip" id="trainingWeekStrip"></div>
+          <div id="trainingDayPanel"></div>
+        </div>
+
+        <div class="mt-card">
+          <div class="mt-card-title">Elenco — condição física</div>
+          <div id="trainingRosterList"></div>
+        </div>
+
+        <div class="mt-action-bar">
+          <button class="mt-btn-primary-gold" id="btnApplyTraining">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            <span id="btnApplyTrainingLabel">Aplicar treino da semana</span>
+          </button>
         </div>
       </section>
 
