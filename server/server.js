@@ -58,6 +58,7 @@ const paymentsLedger = require("./src/paymentsLedger");
 const contentStore = require("./src/contentStore");
 const careerStore = require("./src/careerStore");
 const captureSnapshot = require("./src/captureSnapshot");
+const leaderboard = require("./src/leaderboard");
 const publicRateLimit = require("./src/publicRateLimit");
 const { slugify, matchSlug } = require("./src/slug");
 
@@ -1746,7 +1747,14 @@ const server = http.createServer(async (req, res) => {
       && pathname !== "/api/competitions" && pathname !== "/api/account/favorite-club"
       && !pathname.startsWith("/api/support/") && !pathname.startsWith("/api/auth/")
       && !pathname.startsWith("/api/admin/") && !pathname.startsWith("/api/adminpanel/")
-      && !pathname.startsWith("/api/career");
+      && !pathname.startsWith("/api/career")
+      // Retenção/Engajamento (BRDataRetencaoEspecificacao) — mesmo
+      // motivo do /api/career acima: não dependem da API-Sports/
+      // Sportmonks nenhuma, precisam funcionar mesmo sem fornecedor
+      // configurado (login diário/objetivos/conquistas/ranking
+      // continuam fazendo sentido inteiramente em Modo Exemplo).
+      && !pathname.startsWith("/api/daily-login") && !pathname.startsWith("/api/friends")
+      && !pathname.startsWith("/api/leaderboard");
     if (LIVE_ONLY && !liveModeEnabled()) {
       const err = new Error(
         APP_MODE === "demo"
@@ -2177,6 +2185,62 @@ const server = http.createServer(async (req, res) => {
     if (pathname === "/api/career" && req.method === "DELETE") {
       careerStore.deleteCareer(req.authUser.id);
       return sendJSON(res, 200, { ok: true });
+    }
+
+    // ================= Retenção/Engajamento (BRDataRetencaoEspecificacao) =================
+    // Login diário com streak — ligado à CONTA (users.js), não à
+    // carreira (ver comentário lá). `localDate` ("YYYY-MM-DD") vem do
+    // relógio local do dispositivo (ver claimDailyLogin) — o reward
+    // devolvido aqui é só o formato GENÉRICO do documento; o CLIENTE
+    // decide o que cada tipo vira de verdade no jogo (moedas/moral/
+    // olheiro/pacote — ver applyDailyLoginReward em carreira.js).
+    if (pathname === "/api/daily-login" && req.method === "GET") {
+      const u = req.authUser;
+      return sendJSON(res, 200, { currentStreakDay: u.dailyLogin?.currentStreakDay || 0, lastClaimDate: u.dailyLogin?.lastClaimDate || null });
+    }
+    if (pathname === "/api/daily-login/claim" && req.method === "POST") {
+      const body = await readBody(req);
+      const localDate = String(body.localDate || "");
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(localDate)) return sendJSON(res, 400, { error: "localDate precisa ser YYYY-MM-DD." });
+      const result = users.claimDailyLogin(req.authUser.id, localDate);
+      return sendJSON(res, 200, result);
+    }
+
+    // Amigos — pré-requisito do Ranking assíncrono (escopo "friends").
+    // Código curto (friendCode) gerado na criação da conta (ver
+    // users.js); adicionar é sempre bidirecional, sem convite pendente.
+    if (pathname === "/api/friends" && req.method === "GET") {
+      return sendJSON(res, 200, { friendCode: req.authUser.friendCode, friends: users.listFriends(req.authUser.id) });
+    }
+    if (pathname === "/api/friends/add" && req.method === "POST") {
+      const body = await readBody(req);
+      const friends = users.addFriendByCode(req.authUser.id, body.code);
+      return sendJSON(res, 200, { friends });
+    }
+
+    // Ranking assíncrono — placar calculado e publicado pelo CLIENTE
+    // (ver aviso de confiança no topo de leaderboard.js), managerName
+    // SEMPRE do nome real da conta (nunca aceito do body — impediria
+    // alguém publicar um nome falso pra aparecer no ranking de outra
+    // pessoa). scope=friends devolve só quem já publicou score entre
+    // você + sua lista de amigos; scope=global (padrão) devolve o topo
+    // 50 + garante a SUA entrada mesmo fora dele (mesmo padrão do
+    // mockup — "card fixo destacando a própria posição").
+    if (pathname === "/api/leaderboard/publish" && req.method === "POST") {
+      const body = await readBody(req);
+      const entry = leaderboard.publishScore(req.authUser.id, req.authUser.name, body);
+      return sendJSON(res, 200, { entry });
+    }
+    if (pathname === "/api/leaderboard" && req.method === "GET") {
+      const scope = searchParams.get("scope") === "friends" ? "friends" : "global";
+      if (scope === "friends") {
+        const ids = [req.authUser.id, ...users.listFriends(req.authUser.id).map((f) => f.id)];
+        return sendJSON(res, 200, { scope, entries: leaderboard.listForUsers(ids) });
+      }
+      const entries = leaderboard.listGlobal(50);
+      const ownIncluded = entries.some((e) => e.userId === req.authUser.id);
+      const own = ownIncluded ? null : leaderboard.getEntry(req.authUser.id);
+      return sendJSON(res, 200, { scope, entries, own: own ? { userId: req.authUser.id, ...own } : null });
     }
 
     // Cria um novo checkout pra quem já está logado — cobre 2 casos:

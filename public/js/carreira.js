@@ -154,6 +154,7 @@ let CAREER = null;     // save inteiro da carreira atual (null = sem carreira ai
 let PICKER_CTX = null; // contexto do modal de escolha de jogador ({type:"slot",index}, {type:"bench",currentId} ou {type:"training",day})
 let PENDING_ROUND_SUMMARY = null; // resumo da rodada entre o modal de detalhe do jogo e o de resultados (ver simulateRound)
 let TRAINING_SELECTED_DAY = 0; // dia da semana selecionado na tela de Treinos (0=segunda), só estado de UI — não é salvo
+let ME = null; // resposta de /api/auth/me (ver boot) -- id/nome/friendCode/friends/dailyLogin/createdAt da CONTA logada, não da carreira
 
 /* ---------- Helpers genéricos ---------- */
 function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
@@ -918,6 +919,13 @@ function buildBasePlayer(club, idx, rng) {
    jovem, mais incerta a projeção (folga maior). */
 function scoutedPotentialRange(p) {
   if (p.potential == null) return null;
+  // Retenção/Engajamento — recompensa "scout_token" do login diário
+  // (ver applyDailyLoginReward) marca p.scoutRevealed em vez de tocar
+  // em p.potential: o potencial REAL continua intacto (ele já é usado
+  // como teto de crescimento em outro lugar do motor) — só a
+  // INCERTEZA da faixa exibida aqui desaparece, faixa vira um único
+  // número exato.
+  if (p.scoutRevealed) return { lo: p.potential, hi: p.potential };
   const rng = seededRngFromKey(`scout:${p.id}`);
   const ageUncertainty = p.age <= 17 ? 5 : p.age <= 19 ? 3 : 1;
   const fuzz = 2 + ageUncertainty + Math.floor(rng() * 3);
@@ -1577,6 +1585,15 @@ function resolveCupPhase(round, { silent = false } = {}) {
     cup.champion = ties[0].winner;
     cup.championIsHuman = String(cup.champion) === String(CAREER.clubId);
     cup.phase = "done";
+    // Retenção/Engajamento — "Campeão da Copa" (conquista permanente,
+    // nunca reseta). Contador cumulativo, não boolean direto, pro
+    // mesmo motivo do "Ídolo"/"Joia da Base": um save de migração
+    // "silent" não deveria contar título nenhum retroativo que a
+    // simulação normal (com prêmio/notícia de verdade) nunca gerou.
+    if (!silent && cup.championIsHuman) {
+      CAREER.titlesWonCopa = (CAREER.titlesWonCopa || 0) + 1;
+      evaluateAlwaysCheckableAchievements();
+    }
   } else {
     const winners = ties.map((t) => t.winner);
     const nextPhase = CUP_PHASES[CUP_PHASES.indexOf(phase) + 1];
@@ -1871,6 +1888,23 @@ function advanceSeason() {
   // clube" — ver endCurrentClubStint).
   applySeasonReputationDelta(goalWasMet, CAREER.seasonAwards[0]);
 
+  // Retenção/Engajamento — igual premiações/reputação acima, o que
+  // ACONTECEU nesta temporada vale independente do que vem depois
+  // (mesmo numa temporada de demissão): objetivo de "termine entre os
+  // 4 primeiros" e as 2 conquistas que só fazem sentido conferir no
+  // FIM de uma temporada (gols/faltas acumulados o ano inteiro, ver
+  // evaluateSeasonEndAchievements).
+  ensureObjectivesFresh();
+  const top4Obj = CAREER.objectives.season.find((o) => o.objectiveId === "obj_top4");
+  if (top4Obj && top4Obj.status === "in_progress" && finishedPos <= 4) {
+    top4Obj.currentProgress = top4Obj.target;
+    top4Obj.status = "completed";
+    toast({ title: "Objetivo concluído!", detail: top4Obj.title }, { type: "pos" });
+  }
+  if (finishedPos === 1) CAREER.titlesWonNacional = (CAREER.titlesWonNacional || 0) + 1;
+  evaluateSeasonEndAchievements(CAREER.seasonTeamGoals || 0, CAREER.seasonTeamFouls || 0);
+  evaluateAlwaysCheckableAchievements();
+
   CAREER.negativeSeasonsStreak = goalWasMet ? 0 : (CAREER.negativeSeasonsStreak || 0) + 1;
   // FASE 1 (item 3) — demissão: a diretoria não segue com o treinador
   // depois de DISMISSAL_STREAK temporadas seguidas sem bater a meta.
@@ -1921,6 +1955,13 @@ function advanceSeason() {
   // temporada", mesmo critério de CAREER.teamStats logo abaixo).
   CAREER.teamWinlessStreak = {};
   CAREER.teamStats = { assists: 0, yellow: 0, red: 0 }; // estatísticas da Estatísticas são "da temporada", zeram junto com a tabela
+  // Retenção/Engajamento — contadores "desta temporada" (ver
+  // evaluateSeasonEndAchievements acima) e objetivos de temporada,
+  // mesmo espírito de reset dos outros campos "por temporada" logo
+  // acima.
+  CAREER.seasonTeamGoals = 0;
+  CAREER.seasonTeamFouls = 0;
+  CAREER.objectives.season = freshObjectiveList("season");
   pushTransferLog(`Início da Temporada ${CAREER.seasonYear}.`, 1);
 
   // FASE 1 (item 3) — meta da temporada nova, já em cima do elenco
@@ -2397,6 +2438,7 @@ async function finalizeLoanOut(id, { returnRound, buyOption, buyer: passedBuyer 
   const clauseLabel = buyOption ? (buyOption.mandatory ? ` (compra obrigatória de ${fmtBRL(buyOption.value)} ao fim)` : ` (opção de compra de ${fmtBRL(buyOption.value)} ao fim)`) : "";
   pushTransferLog(`Você emprestou ${p.name} pro ${buyer.name} ${durationLabel} por ${fmtBRL(fee)}${clauseLabel}.`, CAREER.currentRound);
   toast(`${abbreviateName(p.name)} emprestado por ${fmtBRL(fee)}.`, { type: "pos" });
+  ensureObjectivesFresh(); bumpObjective("daily", "obj_market_1_move", 1);
   return true;
 }
 async function finalizeLoanIn(clubId, playerId, { returnRound, buyOption, wagePct }) {
@@ -2426,6 +2468,7 @@ async function finalizeLoanIn(clubId, playerId, { returnRound, buyOption, wagePc
   const clauseLabel = buyOption ? (buyOption.mandatory ? `, com compra obrigatória de ${fmtBRL(buyOption.value)} ao fim` : `, com opção de compra de ${fmtBRL(buyOption.value)} ao fim`) : "";
   pushTransferLog(`Você pegou ${p.name} emprestado do ${teamById(clubId).name} ${durationLabel} (${wagePct}% do salário)${clauseLabel}.`, CAREER.currentRound);
   toast(`${abbreviateName(p.name)} chegou emprestado!`, { type: "pos" });
+  ensureObjectivesFresh(); bumpObjective("daily", "obj_market_1_move", 1);
   return true;
 }
 // 0 a 2 transferências entre times CPU por rodada (chance decrescente
@@ -2738,6 +2781,13 @@ async function startCareer(clubId) {
       // applyPressAnswer) — "tecnico.historico_coletivas" do documento.
       pressLog: [],
       metaRiskWarnedSeason: null,
+      // Retenção/Engajamento (BRDataRetencaoEspecificacao) — objetivos
+      // e conquistas nascem do zero numa carreira nova (ver
+      // freshObjectivesState/freshAchievementsState); contadores
+      // lifetime/temporada começam em 0.
+      objectives: freshObjectivesState(), achievements: freshAchievementsState(),
+      baseRevealedCount: 0, titlesWonNacional: 0, titlesWonCopa: 0,
+      seasonTeamGoals: 0, seasonTeamFouls: 0,
     };
     TECHNICIAN_CARRY = null;
     // FASE 1 (item 3) — meta da diretoria da 1ª temporada, calculada
@@ -3082,6 +3132,10 @@ function applyWeeklyTraining() {
     }
   });
   CAREER.trainingAppliedForRound = CAREER.currentRound;
+  // Retenção/Engajamento — "Treine 1 jogador" (objetivo diário) conta
+  // a SEMANA aplicada como 1 evento (não 1 por jogador afetado, senão
+  // uma semana de "misto" já bateria a meta sozinha de propósito).
+  if (gains.size) { ensureObjectivesFresh(); bumpObjective("daily", "obj_train_1_player", 1); }
   return gains;
 }
 
@@ -3214,6 +3268,452 @@ function renderTreinos() {
   const already = CAREER.trainingAppliedForRound === CAREER.currentRound;
   document.getElementById("btnApplyTraining").disabled = already;
   document.getElementById("btnApplyTrainingLabel").textContent = already ? "Treino já aplicado nesta rodada" : "Aplicar treino da semana";
+}
+
+/* ---------- Retenção/Engajamento (BRDataRetencaoEspecificacao) —
+   Objetivos em camadas (item 3 do documento) ----------
+   Diferente do Módulo de Treinos (1 rodada = 1 semana virtual), aqui
+   "diário"/"semanal" são o RELÓGIO DE VERDADE do dispositivo (o
+   próprio objetivo do sistema é fazer o técnico voltar a abrir o app
+   todo dia) — "temporada" continua ligado ao ciclo de rodadas de
+   sempre (reseta em advanceSeason). Catálogo fixo, direto da tabela do
+   documento (seção 3) — não é um pool grande sorteado, são exatamente
+   os objetivos que o documento especifica pra cada categoria. */
+function localDateStr(d) { d = d || new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
+// Segunda-feira da semana de `d`, no fuso local — mesma data usada
+// como "início da semana" pro reset semanal (weekday: dom=0...sáb=6).
+function localWeekStartStr(d) {
+  d = d || new Date();
+  const diffToMonday = (d.getDay() + 6) % 7; // dom(0)->6, seg(1)->0, ter(2)->1...
+  const monday = new Date(d.getFullYear(), d.getMonth(), d.getDate() - diffToMonday);
+  return localDateStr(monday);
+}
+const OBJECTIVE_TEMPLATES = {
+  daily: [
+    { objectiveId: "obj_win_1_match", title: "Vença uma partida", icon: "🏆", progressType: "counter", target: 1, reward: { type: "coins", amount: 300 } },
+    { objectiveId: "obj_train_1_player", title: "Treine 1 jogador", icon: "🏋️", progressType: "counter", target: 1, reward: { type: "coins", amount: 150 } },
+    { objectiveId: "obj_market_1_move", title: "Faça 1 movimentação no mercado", icon: "💼", progressType: "counter", target: 1, reward: { type: "coins", amount: 150 } },
+  ],
+  weekly: [
+    { objectiveId: "obj_win_3_streak", title: "Vença 3 jogos seguidos", icon: "🔥", progressType: "counter", target: 3, reward: { type: "coins_boost", amount: 800 } },
+    { objectiveId: "obj_invicto_round", title: "Termine uma rodada invicto", icon: "🛡️", progressType: "boolean", target: 1, reward: { type: "coins_boost", amount: 600 } },
+  ],
+  season: [
+    { objectiveId: "obj_top4", title: "Termine entre os 4 primeiros", icon: "📈", progressType: "threshold", target: 1, reward: { type: "premium", amount: 2500 } },
+    { objectiveId: "obj_reveal_base", title: "Revele 1 jogador da base", icon: "💎", progressType: "counter", target: 1, reward: { type: "premium", amount: 1500 } },
+  ],
+};
+function freshObjectiveList(category) {
+  return OBJECTIVE_TEMPLATES[category].map((t) => ({ ...t, currentProgress: 0, status: "in_progress" }));
+}
+function freshObjectivesState() {
+  return {
+    daily: freshObjectiveList("daily"), weekly: freshObjectiveList("weekly"), season: freshObjectiveList("season"),
+    dailyResetDate: localDateStr(), weeklyResetWeekStart: localWeekStartStr(),
+  };
+}
+// Checa os 2 relógios de parede (dia/semana) e regenera quem estiver
+// vencido — chamado sempre que a aba Objetivos abre e também de
+// renderAll (pra completar sozinho mesmo sem o usuário abrir a aba, o
+// selo de "objetivo concluído" já aparece pronto quando ele entrar).
+function ensureObjectivesFresh() {
+  if (!CAREER.objectives) CAREER.objectives = freshObjectivesState();
+  const today = localDateStr(), weekStart = localWeekStartStr();
+  if (CAREER.objectives.dailyResetDate !== today) {
+    CAREER.objectives.daily = freshObjectiveList("daily");
+    CAREER.objectives.dailyResetDate = today;
+  }
+  if (CAREER.objectives.weeklyResetWeekStart !== weekStart) {
+    CAREER.objectives.weekly = freshObjectiveList("weekly");
+    CAREER.objectives.weeklyResetWeekStart = weekStart;
+  }
+}
+// Conta vitórias seguidas no FIM de CAREER.recentForm (3=vitória, ver
+// pushRecentForm) — usado pro objetivo "vença 3 seguidos" reagir tanto
+// a evoluir quanto a "quebrar" a sequência (um empate/derrota no meio
+// zera sozinho, sem precisar de um contador à parte pra decrementar).
+function trailingWinStreak() {
+  const form = CAREER.recentForm || [];
+  let n = 0;
+  for (let i = form.length - 1; i >= 0 && form[i] === 3; i--) n++;
+  return n;
+}
+// Incrementa um objetivo (categoria+id) até o teto, marcando
+// "completed" (pronto pra coletar) ao bater a meta — chamado nos
+// pontos de evento reais (ver finishLiveMatch/applyWeeklyTraining/
+// buyPlayer/sellPlayer/handlePlayerAction "promote" mais abaixo).
+// Silencioso se o objetivo já não existir (categoria expirou) ou já
+// tiver sido completado/coletado.
+function bumpObjective(category, objectiveId, amount) {
+  const list = CAREER.objectives && CAREER.objectives[category];
+  const obj = list && list.find((o) => o.objectiveId === objectiveId);
+  if (!obj || obj.status !== "in_progress") return;
+  obj.currentProgress = Math.min(obj.target, obj.currentProgress + (amount || 1));
+  if (obj.currentProgress >= obj.target) {
+    obj.status = "completed";
+    toast({ title: "Objetivo concluído!", detail: obj.title }, { type: "pos" });
+  }
+}
+// Traduz o reward genérico do documento pra mecânica real do jogo —
+// mesma decisão já tomada pro login diário (ver applyDailyLoginReward
+// mais abaixo): "coins" garante moedas na hora; "_boost" (semanal)
+// soma um pequeno reforço de moral no elenco JUNTO das moedas;
+// "premium" (temporada) empilha moedas + moral + recuperação de
+// condição — sem inventar item cosmético nenhum que o jogo não tem.
+function applyObjectiveReward(reward) {
+  CAREER.finances.cash += reward.amount;
+  let detail = `+${fmtBRL(reward.amount)}`;
+  if (reward.type === "coins_boost" || reward.type === "premium") {
+    CAREER.squad.forEach((p) => { p.morale = clamp((p.morale == null ? 70 : p.morale) + 6, 0, 100); });
+    detail += " · moral do elenco em alta";
+  }
+  if (reward.type === "premium") {
+    CAREER.squad.forEach((p) => { p.condition = clamp((p.condition == null ? 100 : p.condition) + 15, 0, 100); });
+    detail += " · condição física recuperada";
+  }
+  return detail;
+}
+function claimObjective(category, objectiveId) {
+  const list = CAREER.objectives[category];
+  const obj = list.find((o) => o.objectiveId === objectiveId);
+  if (!obj || obj.status !== "completed") return;
+  const detail = applyObjectiveReward(obj.reward);
+  obj.status = "claimed";
+  persistCareer();
+  renderObjetivos();
+  renderCentral(); // caixa/moral mudaram, refletir na Central também
+  toast({ title: "Recompensa coletada", detail }, { type: "pos" });
+}
+
+/* ---------- Retenção/Engajamento — Conquistas permanentes (item 4 do
+   documento) ----------
+   Diferente dos objetivos, NUNCA resetam — ficam pra sempre na
+   carreira (ver seção 4 do documento: "vitrine de progresso"). 2 das 6
+   sugeridas na tabela do documento não existem neste jogo (mata-mata
+   estadual, "temporada" solta sem contexto) — adaptadas pra critérios
+   que o motor já resolve de verdade: "Campeão Paranaense" virou
+   "Campeão da Copa do Brasil" (a Copa já é uma mecânica completa, ver
+   resolveCupPhase) + um "Campeão Brasileiro" extra (o título mais
+   central do próprio jogo, ausente da tabela original mas óbvio de
+   incluir já que existe). tier (bronze/prata/ouro) só varia o visual
+   do badge, mesmo espírito do documento. */
+const ACHIEVEMENT_CATALOG = [
+  { achievementId: "ach_idolo", title: "Ídolo", description: "Complete 10 temporadas no mesmo clube.", category: "carreira", tier: "gold", target: 10, icon: "👑" },
+  { achievementId: "ach_campeao_nacional", title: "Campeão Brasileiro", description: "Vença o Brasileirão.", category: "titulos", tier: "gold", target: 1, icon: "🏆" },
+  { achievementId: "ach_campeao_copa", title: "Campeão da Copa", description: "Vença a Copa do Brasil.", category: "titulos", tier: "silver", target: 1, icon: "🏆" },
+  { achievementId: "ach_artilheiro_area", title: "Artilheiro de Área", description: "100 gols do time em uma temporada.", category: "ofensivo", tier: "gold", target: 100, icon: "⚽" },
+  { achievementId: "ach_fairplay", title: "Fair Play", description: "Termine uma temporada com menos de 30 faltas cometidas.", category: "disciplina", tier: "bronze", target: 1, icon: "🤝" },
+  { achievementId: "ach_joia_base", title: "Joia da Base", description: "Revele 5 jogadores da categoria de base.", category: "formacao", tier: "silver", target: 5, icon: "💎" },
+  { achievementId: "ach_veterano", title: "Veterano", description: "1 ano completo de conta ativa.", category: "fidelidade", tier: "bronze", target: 1, icon: "📅" },
+];
+const ACHIEVEMENT_CATEGORY_LABEL = { carreira: "Carreira", titulos: "Títulos", ofensivo: "Ofensivo", disciplina: "Disciplina", formacao: "Formação", fidelidade: "Fidelidade" };
+function freshAchievementsState() {
+  return ACHIEVEMENT_CATALOG.map((a) => ({ achievementId: a.achievementId, currentProgress: 0, unlockedAt: null }));
+}
+function achievementProgressFor(id) {
+  const entry = (CAREER.achievements || []).find((a) => a.achievementId === id);
+  return entry || { achievementId: id, currentProgress: 0, unlockedAt: null };
+}
+function setAchievementProgress(id, progress) {
+  if (!CAREER.achievements) CAREER.achievements = freshAchievementsState();
+  const entry = CAREER.achievements.find((a) => a.achievementId === id);
+  if (!entry) return;
+  const tpl = ACHIEVEMENT_CATALOG.find((a) => a.achievementId === id);
+  entry.currentProgress = Math.min(tpl.target, progress);
+  if (!entry.unlockedAt && entry.currentProgress >= tpl.target) {
+    entry.unlockedAt = Date.now();
+    toast({ title: "Conquista desbloqueada!", detail: `${tpl.icon} ${tpl.title}` }, { type: "pos" });
+  }
+}
+// Achievements CONTÍNUOS (sempre seguros de reavaliar a qualquer
+// momento, sem depender de "fim de temporada" — ver os 2 marcados
+// SÓ NO FIM abaixo, que são a exceção). Chamado depois de eventos
+// relevantes (promoção da base, virada de temporada) e sempre que a
+// tela de Conquistas abre, pra nunca ficar desatualizado.
+function evaluateAlwaysCheckableAchievements() {
+  if (!CAREER.achievements) CAREER.achievements = freshAchievementsState();
+  // Reaproveita CAREER.seasonHistory (já existente, ver advanceSeason)
+  // em vez de um contador novo — ele já é zerado sozinho a cada clube
+  // novo (ver startCareer) e MAX_SEASON_HISTORY (15) é folgado o
+  // bastante acima da meta desta conquista (10).
+  setAchievementProgress("ach_idolo", (CAREER.seasonHistory || []).length);
+  setAchievementProgress("ach_joia_base", CAREER.baseRevealedCount || 0);
+  setAchievementProgress("ach_campeao_nacional", CAREER.titlesWonNacional > 0 ? 1 : 0);
+  setAchievementProgress("ach_campeao_copa", CAREER.titlesWonCopa > 0 ? 1 : 0);
+  if (ME && ME.createdAt) {
+    const oneYearMs = 365 * 24 * 60 * 60 * 1000;
+    setAchievementProgress("ach_veterano", (Date.now() - ME.createdAt) >= oneYearMs ? 1 : 0);
+  }
+}
+// Achievements que só fazem sentido conferir no FIM de uma temporada
+// (o total de gols/faltas sobe ao longo do ano — checar no meio
+// desclassificaria cedo demais quem ainda vai passar de 30 faltas, ou
+// daria falso positivo de "não bateu" em quem ainda vai chegar a 100
+// gols). Chamado de dentro de advanceSeason, com os totais da
+// temporada que ACABOU de terminar, antes de zerá-los pra próxima.
+function evaluateSeasonEndAchievements(finishedTeamGoals, finishedTeamFouls) {
+  if (!CAREER.achievements) CAREER.achievements = freshAchievementsState();
+  setAchievementProgress("ach_artilheiro_area", Math.max(achievementProgressFor("ach_artilheiro_area").currentProgress, finishedTeamGoals));
+  if (finishedTeamFouls < 30) setAchievementProgress("ach_fairplay", 1);
+}
+
+/* ---------- Retenção/Engajamento — Renderização (Objetivos/
+   Conquistas) ---------- */
+let OBJECTIVES_ACTIVE_TAB = "daily"; // só estado de UI, não é salvo
+const OBJECTIVE_TAB_LABEL = { daily: "Diário", weekly: "Semanal", season: "Temporada" };
+function timeUntilNextMidnight() {
+  const now = new Date();
+  const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const ms = next - now;
+  const h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000);
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+function objectiveResetLabel(category) {
+  if (category === "daily") return `HOJE · RESETA EM ${timeUntilNextMidnight()}`;
+  if (category === "weekly") return "ESTA SEMANA · RESETA NA SEGUNDA";
+  return "TEMPORADA ATUAL";
+}
+function objectiveCardHTML(o) {
+  const done = o.status !== "in_progress";
+  const pct = Math.round((o.currentProgress / o.target) * 100);
+  const subLabel = o.status === "claimed" ? "Coletado" : o.status === "completed" ? "Concluído" : (o.progressType === "boolean" || o.progressType === "threshold") ? "Em andamento" : `${o.currentProgress} / ${o.target}`;
+  return `<div class="mt-obj-card${done ? " completed" : ""}${o.status === "claimed" ? " claimed" : ""}">
+    <div class="mt-obj-top-row">
+      <div class="mt-obj-icon">${o.icon}</div>
+      <div class="mt-obj-text-block"><div class="mt-obj-title">${escapeHtml(o.title)}</div><div class="mt-obj-sub">${subLabel}</div></div>
+      <div class="mt-obj-reward">+${fmtBRL(o.reward.amount)}</div>
+    </div>
+    ${o.status === "in_progress" ? `<div class="mt-progress-track"><div class="mt-progress-fill" style="width:${pct}%"></div></div>` : ""}
+    ${o.status === "completed" ? `<button type="button" class="mt-claim-tag" data-claim-objective="${o.objectiveId}">COLETAR</button>` : ""}
+  </div>`;
+}
+function renderObjetivos() {
+  ensureObjectivesFresh();
+  document.querySelectorAll("#objectivesTabs .mt-obj-tab").forEach((btn) => btn.classList.toggle("active", btn.dataset.tab === OBJECTIVES_ACTIVE_TAB));
+  const list = CAREER.objectives[OBJECTIVES_ACTIVE_TAB];
+  document.getElementById("objectivesResetLabel").textContent = objectiveResetLabel(OBJECTIVES_ACTIVE_TAB);
+  const allClaimed = list.every((o) => o.status === "claimed");
+  const box = document.getElementById("objectivesList");
+  box.innerHTML = allClaimed
+    ? `<p class="ct-empty">Todos os objetivos ${OBJECTIVE_TAB_LABEL[OBJECTIVES_ACTIVE_TAB].toLowerCase()}s concluídos! Volte depois do próximo reset.</p>`
+    : list.map(objectiveCardHTML).join("");
+  box.querySelectorAll("[data-claim-objective]").forEach((btn) => btn.addEventListener("click", () => claimObjective(OBJECTIVES_ACTIVE_TAB, btn.dataset.claimObjective)));
+}
+
+let ACHIEVEMENTS_ACTIVE_FILTER = "todas";
+const TIER_LABEL = { gold: "OURO", silver: "PRATA", bronze: "BRONZE" };
+function achievementBadgeHTML(tpl) {
+  const entry = achievementProgressFor(tpl.achievementId);
+  const unlocked = !!entry.unlockedAt;
+  return `<div class="mt-badge ${unlocked ? tpl.tier : "locked"}" data-achievement="${tpl.achievementId}">
+    <div class="mt-badge-icon">${tpl.icon}</div>
+    ${unlocked ? `<div class="mt-tier-label">${TIER_LABEL[tpl.tier]}</div>` : ""}
+    <div class="mt-badge-name">${escapeHtml(tpl.title)}</div>
+  </div>`;
+}
+function renderConquistas() {
+  if (!CAREER.achievements) CAREER.achievements = freshAchievementsState();
+  evaluateAlwaysCheckableAchievements();
+  const unlockedCount = CAREER.achievements.filter((a) => a.unlockedAt).length;
+  document.getElementById("achievementsSubtitle").textContent = `${unlockedCount} DE ${ACHIEVEMENT_CATALOG.length} DESBLOQUEADAS`;
+  document.querySelectorAll("#achievementsFilters .mt-chip").forEach((chip) => chip.classList.toggle("active", chip.dataset.filter === ACHIEVEMENTS_ACTIVE_FILTER));
+  const list = ACHIEVEMENT_CATALOG.filter((t) => ACHIEVEMENTS_ACTIVE_FILTER === "todas" || t.category === ACHIEVEMENTS_ACTIVE_FILTER);
+  const grid = document.getElementById("achievementsGrid");
+  grid.innerHTML = list.length ? list.map(achievementBadgeHTML).join("") : `<p class="ct-empty">Nenhuma conquista nessa categoria.</p>`;
+  grid.querySelectorAll("[data-achievement]").forEach((el) => el.addEventListener("click", () => openAchievementDetail(el.dataset.achievement)));
+  const nextLocked = ACHIEVEMENT_CATALOG.find((t) => !achievementProgressFor(t.achievementId).unlockedAt);
+  document.getElementById("achievementsNext").textContent = nextLocked
+    ? `★ PRÓXIMA: ${nextLocked.title}${nextLocked.target > 1 ? ` — faltam ${nextLocked.target - achievementProgressFor(nextLocked.achievementId).currentProgress}` : ""}`
+    : "★ Todas as conquistas desbloqueadas!";
+}
+function openAchievementDetail(id) {
+  const tpl = ACHIEVEMENT_CATALOG.find((a) => a.achievementId === id);
+  const entry = achievementProgressFor(id);
+  const unlocked = !!entry.unlockedAt;
+  document.getElementById("achievementDetailIcon").textContent = tpl.icon;
+  document.getElementById("achievementDetailTitle").textContent = tpl.title;
+  document.getElementById("achievementDetailDesc").textContent = tpl.description;
+  document.getElementById("achievementDetailProgress").textContent = unlocked
+    ? `Desbloqueada em ${new Date(entry.unlockedAt).toLocaleDateString("pt-BR")}`
+    : `Progresso: ${entry.currentProgress} / ${tpl.target}`;
+  const shareBtn = document.getElementById("btnShareAchievement");
+  shareBtn.hidden = !unlocked;
+  shareBtn.onclick = () => {
+    const text = `Desbloqueei a conquista "${tpl.title}" no BR Data Treinador! 🏆`;
+    if (navigator.share) navigator.share({ text }).catch(() => {});
+    else if (navigator.clipboard) { navigator.clipboard.writeText(text).catch(() => {}); toast("Texto copiado — cole onde quiser compartilhar.", { type: "pos" }); }
+  };
+  document.getElementById("achievementDetailOverlay").classList.add("open");
+}
+
+/* ---------- Retenção/Engajamento — Ranking assíncrono (item 5 do
+   documento) ----------
+   Placar calculado AQUI, no cliente (mesmo espírito de confiança do
+   resto do save — ver aviso em server/src/leaderboard.js), com a
+   fórmula sugerida no documento: pontos de campeonato (peso maior) +
+   conquistas desbloqueadas + saldo de gols (peso menor). Publicado
+   toda vez que a tela abre (ver renderRanking) — não tem cron/job
+   nenhum rodando "a cada 6h" de verdade, é sob demanda, o que já
+   cumpre a meta do documento ("não precisa ser em tempo real"). */
+let RANKING_ACTIVE_SCOPE = "friends"; // só estado de UI, não é salvo -- mesmo default do mockup (aba "Amigos" ativa)
+function computeLeaderboardScore() {
+  const row = CAREER.standings[CAREER.clubId] || { pts: 0, sg: 0 };
+  const achievementsUnlocked = (CAREER.achievements || []).filter((a) => a.unlockedAt).length;
+  return { score: row.pts * 10 + achievementsUnlocked * 50 + row.sg * 2, breakdown: { pts: row.pts, achievements: achievementsUnlocked, sg: row.sg } };
+}
+function hoursAgoLabel(ts) {
+  const h = Math.floor((Date.now() - ts) / 3600000);
+  if (h < 1) return "agora mesmo";
+  return `atualizado há ${h}h`;
+}
+function rankingRowHTML(entry, rank, isMe) {
+  return `<div class="mt-rank-row${isMe ? " me" : ""}">
+    <div class="mt-rank-num${rank <= 3 ? " top3" : ""}">${rank}º</div>
+    <div class="mt-rank-info"><div class="mt-rank-name">${escapeHtml(entry.managerName)}${isMe ? ` <span class="mt-rank-you">VOCÊ</span>` : ""}</div><div class="mt-rank-club">${escapeHtml(entry.clubName || "")}</div></div>
+    <div class="mt-rank-score">${entry.score.toLocaleString("pt-BR")}</div>
+  </div>`;
+}
+async function refreshRankingList() {
+  document.querySelectorAll("#rankingScopeToggle .mt-scope-btn").forEach((btn) => btn.classList.toggle("active", btn.dataset.scope === RANKING_ACTIVE_SCOPE));
+  const box = document.getElementById("rankingList");
+  const data = await fetchJSON(`/api/leaderboard?scope=${RANKING_ACTIVE_SCOPE}`).catch(() => null);
+  if (!data) { box.innerHTML = `<p class="ct-empty">Não deu pra carregar o ranking agora.</p>`; return; }
+  const entries = data.entries.slice();
+  let myIndex = entries.findIndex((e) => e.userId === ME.id);
+  if (myIndex < 0 && data.own) { entries.push(data.own); myIndex = entries.length - 1; }
+  const myCard = document.getElementById("rankingMyCard");
+  if (myIndex >= 0) {
+    myCard.hidden = false;
+    myCard.innerHTML = rankingRowHTML(entries[myIndex], myIndex + 1, true);
+  } else {
+    myCard.hidden = true;
+  }
+  box.innerHTML = entries.length
+    ? entries.map((e, i) => rankingRowHTML(e, i + 1, e.userId === ME.id)).join("")
+    : `<p class="ct-empty">${RANKING_ACTIVE_SCOPE === "friends" ? "Adicione amigos pra comparar o ranking com eles." : "Ninguém publicou placar ainda."}</p>`;
+  const updatedAt = entries[myIndex >= 0 ? myIndex : 0]?.updatedAt;
+  document.getElementById("rankingUpdatedLabel").textContent = updatedAt ? hoursAgoLabel(updatedAt) : "";
+}
+async function renderRanking() {
+  const { score, breakdown } = computeLeaderboardScore();
+  await fetchJSON("/api/leaderboard/publish", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ clubName: CAREER.clubName, score, breakdown }) }).catch(() => {});
+  document.getElementById("rankingFriendCode").textContent = ME.friendCode || "";
+  await refreshRankingList();
+}
+async function submitAddFriend() {
+  const input = document.getElementById("addFriendInput");
+  const code = input.value.trim();
+  if (!code) return;
+  try {
+    const data = await fetchJSON("/api/friends/add", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }) });
+    ME.friends = data.friends;
+    input.value = "";
+    toast("Amigo adicionado!", { type: "pos" });
+    if (RANKING_ACTIVE_SCOPE === "friends") await refreshRankingList();
+  } catch (err) {
+    toast(err.message || "Não deu pra adicionar esse código.", { type: "warn" });
+  }
+}
+
+/* ---------- Retenção/Engajamento — Login diário com streak (item 2 do
+   documento) ----------
+   Streak fica na CONTA (ver ME/users.js), não na carreira — sobrevive
+   a "Reiniciar"/"Escolher outro clube". A recompensa em si (ver
+   applyDailyLoginReward) é aplicada na carreira ATIVA no momento do
+   claim, já que "moedas do clube"/moral/olheiro só fazem sentido
+   dentro de uma carreira em andamento. */
+const DAILY_LOGIN_CYCLE = [
+  { day: 1, reward: { type: "coins", amount: 500 } },
+  { day: 2, reward: { type: "coins", amount: 800 } },
+  { day: 3, reward: { type: "boost", amount: 0 } },
+  { day: 4, reward: { type: "coins", amount: 1200 } },
+  { day: 5, reward: { type: "scout_token", amount: 0 } },
+  { day: 6, reward: { type: "coins", amount: 1800 } },
+  { day: 7, reward: { type: "premium_pack", amount: 3000 } },
+];
+const DAILY_LOGIN_REWARD_ICON = { coins: "🪙", boost: "💪", scout_token: "🔎", premium_pack: "🎁" };
+const DAILY_LOGIN_REWARD_LABEL = { coins: "moedas do clube", boost: "moral do elenco", scout_token: "olheiro", premium_pack: "pacote de elite" };
+// Traduz o reward genérico devolvido pelo servidor (ver DAILY_LOGIN_CYCLE
+// em users.js -- os 2 catálogos precisam ficar em sincronia manual, o
+// servidor só entende o formato genérico, quem decide o efeito de
+// verdade no jogo é sempre o cliente) pra mecânica real, mesmo
+// raciocínio já usado em applyObjectiveReward: "coins" cai direto no
+// caixa; "boost" (dia 3) dá um respiro de moral pro elenco todo;
+// "scout_token" (dia 5) revela o potencial exato de um jogador da base
+// sorteado (reaproveita scoutedPotentialRange, sem inventar item
+// novo); "premium_pack" (dia 7) empilha moedas + moral + recuperação
+// de condição, igual o reward "premium" dos objetivos de temporada.
+function applyDailyLoginReward(reward) {
+  if (reward.type === "coins") {
+    CAREER.finances.cash += reward.amount;
+    return { icon: DAILY_LOGIN_REWARD_ICON.coins, detail: `+${fmtBRL(reward.amount)}` };
+  }
+  if (reward.type === "boost") {
+    CAREER.squad.forEach((p) => { p.morale = clamp((p.morale == null ? 70 : p.morale) + 8, 0, 100); });
+    return { icon: DAILY_LOGIN_REWARD_ICON.boost, detail: "Moral do elenco em alta" };
+  }
+  if (reward.type === "scout_token") {
+    // Só quem ainda tem potencial NÃO revelado (senão o prêmio seria
+    // desperdiçado revelando de novo alguém já revelado).
+    const base = CAREER.squad.filter((p) => p.origin === "base" && p.potential != null && !p.scoutRevealed);
+    if (base.length) {
+      const p = base[Math.floor(Math.random() * base.length)];
+      p.scoutRevealed = true;
+      return { icon: DAILY_LOGIN_REWARD_ICON.scout_token, detail: `Potencial de ${abbreviateName(p.name)} revelado` };
+    }
+    CAREER.finances.cash += 500; // sem ninguém da base pra revelar, cai pra um pequeno bônus em dinheiro
+    return { icon: DAILY_LOGIN_REWARD_ICON.scout_token, detail: "+R$ 500 (sem jogador da base pra revelar)" };
+  }
+  // premium_pack
+  CAREER.finances.cash += reward.amount;
+  CAREER.squad.forEach((p) => {
+    p.morale = clamp((p.morale == null ? 70 : p.morale) + 8, 0, 100);
+    p.condition = clamp((p.condition == null ? 100 : p.condition) + 15, 0, 100);
+  });
+  return { icon: DAILY_LOGIN_REWARD_ICON.premium_pack, detail: `+${fmtBRL(reward.amount)} · moral e condição recuperadas` };
+}
+function dailyLoginDayCellHTML(dayInfo, currentDay) {
+  const done = dayInfo.day < currentDay || (dayInfo.day === 7 && currentDay === 7 && dayInfo._justClaimed);
+  const isToday = dayInfo.day === currentDay;
+  return `<div class="mt-day-cell-login${done ? " done" : ""}${isToday ? " today" : ""}">
+    <span class="dicon">${done ? "✓" : DAILY_LOGIN_REWARD_ICON[dayInfo.reward.type]}</span>
+    <span class="dnum">${dayInfo.day}</span>
+  </div>`;
+}
+function renderDailyLoginModal(currentStreakDay) {
+  const cycleHTML = DAILY_LOGIN_CYCLE.map((d) => dailyLoginDayCellHTML(d, currentStreakDay)).join("");
+  document.getElementById("dailyLoginTrack").innerHTML = cycleHTML;
+  document.getElementById("dailyLoginSubtitle").textContent = `SEQUÊNCIA — DIA ${currentStreakDay} DE 7`;
+  const todayReward = DAILY_LOGIN_CYCLE.find((d) => d.day === currentStreakDay).reward;
+  document.getElementById("dailyLoginRewardIcon").textContent = DAILY_LOGIN_REWARD_ICON[todayReward.type];
+  document.getElementById("dailyLoginRewardValue").textContent = todayReward.type === "coins" || todayReward.type === "premium_pack" ? `+${fmtBRL(todayReward.amount)}` : "";
+  document.getElementById("dailyLoginRewardLabel").textContent = DAILY_LOGIN_REWARD_LABEL[todayReward.type].toUpperCase();
+  document.getElementById("dailyLoginOverlay").classList.add("open");
+}
+// Chamado 1x no boot (ver enterAfterAuth) — só mostra a modal se ainda
+// não coletou hoje (localDate, ver claimDailyLogin em users.js: o
+// servidor decide streak continua/quebra a partir dessa mesma data).
+async function checkDailyLoginOnBoot() {
+  const today = localDateStr();
+  if (ME.dailyLogin && ME.dailyLogin.lastClaimDate === today) return;
+  renderDailyLoginModal((ME.dailyLogin && ((ME.dailyLogin.currentStreakDay % 7) + 1)) || 1);
+}
+async function claimDailyLoginNow() {
+  const btn = document.getElementById("btnClaimDailyLogin");
+  btn.disabled = true;
+  try {
+    const result = await fetchJSON("/api/daily-login/claim", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ localDate: localDateStr() }) });
+    ME.dailyLogin = { currentStreakDay: result.currentStreakDay, lastClaimDate: localDateStr() };
+    const { icon, detail } = applyDailyLoginReward(result.reward);
+    await persistCareer();
+    renderAll();
+    document.getElementById("dailyLoginOverlay").classList.remove("open");
+    toast({ title: `${icon} Recompensa diária coletada`, detail }, { type: "pos" });
+  } catch (err) {
+    toast(err.message || "Não deu pra coletar agora.", { type: "warn" });
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 /* ---------- FASE 1 (item 4 da especificação "BR Data Treinador") —
@@ -4623,6 +5123,24 @@ async function finishLiveMatch() {
   const myGoals = lm.isHome ? lm.gh : lm.ga, oppGoals = lm.isHome ? lm.ga : lm.gh;
   pushRecentForm(myGoals > oppGoals ? 3 : myGoals === oppGoals ? 1 : 0);
   applyMoraleAfterMatch(myGoals, oppGoals);
+  // Retenção/Engajamento — objetivos ligados ao resultado da SUA
+  // partida (ver ensureObjectivesFresh/bumpObjective) + contadores de
+  // temporada usados só no fim dela (ver evaluateSeasonEndAchievements
+  // em advanceSeason) — gols/faltas do SEU lado apenas, mesmo recorte
+  // de "Minha equipe" já usado em tallyTeamStats acima.
+  ensureObjectivesFresh();
+  if (myGoals > oppGoals) bumpObjective("daily", "obj_win_1_match", 1);
+  if (myGoals >= oppGoals) bumpObjective("weekly", "obj_invicto_round", 1);
+  const weeklyStreakObj = (CAREER.objectives.weekly || []).find((o) => o.objectiveId === "obj_win_3_streak");
+  if (weeklyStreakObj && weeklyStreakObj.status === "in_progress") {
+    weeklyStreakObj.currentProgress = Math.min(weeklyStreakObj.target, trailingWinStreak());
+    if (weeklyStreakObj.currentProgress >= weeklyStreakObj.target) {
+      weeklyStreakObj.status = "completed";
+      toast({ title: "Objetivo concluído!", detail: weeklyStreakObj.title }, { type: "pos" });
+    }
+  }
+  CAREER.seasonTeamGoals = (CAREER.seasonTeamGoals || 0) + myGoals;
+  CAREER.seasonTeamFouls = (CAREER.seasonTeamFouls || 0) + (lm.isHome ? lm.stats.fouls.home : lm.stats.fouls.away);
   // FASE 3 (item 4) — evolução natural por idade considera quem
   // terminou a partida em campo do seu lado (após eventuais
   // substituições).
@@ -5372,6 +5890,14 @@ async function handlePlayerAction(id, act) {
       return;
     }
     p.origin = "principal";
+    // Retenção/Engajamento — "revelar" um jogador da base (objetivo de
+    // temporada + conquista permanente "Joia da Base", que NUNCA
+    // reseta — 2 contadores separados de propósito, ver
+    // freshAchievementsState/OBJECTIVE_TEMPLATES.season).
+    ensureObjectivesFresh();
+    bumpObjective("season", "obj_reveal_base", 1);
+    CAREER.baseRevealedCount = (CAREER.baseRevealedCount || 0) + 1;
+    evaluateAlwaysCheckableAchievements();
   } else if (act === "demote") {
     p.origin = "base";
     CAREER.lineup.starters = CAREER.lineup.starters.map((x) => (x === id ? null : x));
@@ -6131,6 +6657,7 @@ async function buyPlayer(clubId, playerId) {
   CAREER.squad.push(p);
   pushTransferLog(`Você contratou ${p.name} do ${teamById(clubId).name} por ${fmtBRL(p.value)}.`, CAREER.currentRound);
   toast(`${abbreviateName(p.name)} contratado!`, { type: "pos" });
+  ensureObjectivesFresh(); bumpObjective("daily", "obj_market_1_move", 1);
   // FASE 4 (item 2) — "contratação polêmica anunciada" (PRESS_LIBRARY
   // id 15): proxy pra polêmica é o próprio overall — contratação de
   // craque sempre puxa opinião dividida de torcida na vida real,
@@ -6176,6 +6703,7 @@ async function sellPlayer(id) {
   (CAREER.leagueSquads[String(buyer.id)] = CAREER.leagueSquads[String(buyer.id)] || []).push(p);
   pushTransferLog(`Você vendeu ${p.name} pro ${buyer.name} por ${fmtBRL(p.value)}.`, CAREER.currentRound);
   toast(`${abbreviateName(p.name)} vendido por ${fmtBRL(p.value)}.`, { type: "pos" });
+  ensureObjectivesFresh(); bumpObjective("daily", "obj_market_1_move", 1);
   // FASE 4 (item 2) — "venda de jogador querido pela torcida"
   // (PRESS_LIBRARY id 16): mesmo proxy de overall alto (craque/titular
   // de peso) usado na contratação polêmica acima — quem rende bastante
@@ -6205,6 +6733,7 @@ function acceptOffer() {
   (CAREER.leagueSquads[offer.clubId] = CAREER.leagueSquads[offer.clubId] || []).push(p);
   pushTransferLog(`Você vendeu ${p.name} pro ${offer.clubName} por ${fmtBRL(offer.fee)}.`, CAREER.currentRound);
   toast(`Proposta aceita — ${fmtBRL(offer.fee)} no caixa.`, { type: "pos" });
+  ensureObjectivesFresh(); bumpObjective("daily", "obj_market_1_move", 1);
   CAREER.pendingOffer = null;
   persistCareer();
   renderMercado(); renderElenco(); renderEscalacao(); renderCentral();
@@ -6259,6 +6788,7 @@ function renderAll() {
     ["Central", renderCentral], ["Elenco", renderElenco], ["Escalação", renderEscalacao],
     ["Tabela", renderTabela], ["Copa do Brasil", renderCopa], ["Treinos", renderTreinos],
     ["Estatísticas", renderEstatisticas], ["Mercado", renderMercado],
+    ["Objetivos", renderObjetivos], ["Conquistas", renderConquistas],
   ].forEach(([name, fn]) => {
     try { fn(); } catch (err) {
       console.error(`[carreira] falha ao renderizar ${name}:`, err);
@@ -6269,10 +6799,25 @@ function renderAll() {
 function showGameScreen() {
   show("screenGame");
   renderAll();
+  // Retenção/Engajamento — login diário só faz sentido com uma
+  // carreira em andamento pra aplicar a recompensa (ver
+  // applyDailyLoginReward); picker de competição/clube (sem carreira
+  // ainda) fica de fora de propósito.
+  checkDailyLoginOnBoot();
 }
 function switchToPanel(name) {
   document.querySelectorAll(".mt-nav-item").forEach((b) => b.classList.toggle("active", b.dataset.panel === name));
   document.querySelectorAll(".ct-panel").forEach((p) => p.classList.toggle("active", p.id === "panel-" + name));
+  // Retenção/Engajamento — objetivos/conquistas são atualizados por
+  // vários pontos de evento espalhados pelo código (comprar/vender/
+  // emprestar jogador, treinar, promover da base...), cada um chamando
+  // só o render das TELAS que já mexiam antes desta mudança existir
+  // (Mercado/Elenco/Central etc.) — reforçar aqui garante que a tela
+  // sempre mostra o estado atual ao entrar, sem precisar caçar e
+  // acrescentar renderObjetivos()/renderConquistas() em cada um desses
+  // pontos (fácil esquecer um).
+  if (name === "objetivos") renderObjetivos();
+  if (name === "conquistas") renderConquistas();
 }
 
 /* ---------- Modais do fluxo "Simular rodada" (pedido do usuário) ---------- */
@@ -6784,6 +7329,37 @@ function wireStaticListeners() {
     document.getElementById("topbarMenu").classList.remove("open");
     switchToPanel("estatisticas");
   });
+  // Retenção/Engajamento — mesmo padrão de Mercado/Estatísticas acima.
+  // Objetivos/Conquistas já são recalculados a cada renderAll (ver
+  // renderObjetivos/renderConquistas), então abrir o painel já mostra
+  // tudo em dia; Ranking é diferente (async, publica o placar sempre
+  // que abre, ver renderRanking) — chamado manualmente aqui em vez de
+  // entrar em renderAll, pra não publicar score a cada re-render bobo.
+  document.getElementById("btnOpenObjetivos").addEventListener("click", () => {
+    document.getElementById("topbarMenu").classList.remove("open");
+    switchToPanel("objetivos");
+  });
+  document.getElementById("btnOpenConquistas").addEventListener("click", () => {
+    document.getElementById("topbarMenu").classList.remove("open");
+    switchToPanel("conquistas");
+  });
+  document.getElementById("btnOpenRanking").addEventListener("click", () => {
+    document.getElementById("topbarMenu").classList.remove("open");
+    switchToPanel("ranking");
+    renderRanking();
+  });
+  document.querySelectorAll("#objectivesTabs .mt-obj-tab").forEach((btn) => {
+    btn.addEventListener("click", () => { OBJECTIVES_ACTIVE_TAB = btn.dataset.tab; renderObjetivos(); });
+  });
+  document.querySelectorAll("#achievementsFilters .mt-chip").forEach((chip) => {
+    chip.addEventListener("click", () => { ACHIEVEMENTS_ACTIVE_FILTER = chip.dataset.filter; renderConquistas(); });
+  });
+  document.getElementById("achievementDetailClose").addEventListener("click", () => document.getElementById("achievementDetailOverlay").classList.remove("open"));
+  document.querySelectorAll("#rankingScopeToggle .mt-scope-btn").forEach((btn) => {
+    btn.addEventListener("click", () => { RANKING_ACTIVE_SCOPE = btn.dataset.scope; refreshRankingList(); });
+  });
+  document.getElementById("btnAddFriend").addEventListener("click", submitAddFriend);
+  document.getElementById("btnClaimDailyLogin").addEventListener("click", claimDailyLoginNow);
   document.getElementById("btnLogout").addEventListener("click", async () => {
     document.getElementById("topbarMenu").classList.remove("open");
     try { await fetchJSON("/api/auth/logout", { method: "POST" }); } catch { /* segue mesmo se falhar */ }
@@ -7068,6 +7644,20 @@ function migrateCareerDefaults() {
   // coletivas de jogos já passados retroativamente).
   if (!CAREER.pressLog) CAREER.pressLog = [];
   if (CAREER.metaRiskWarnedSeason === undefined) CAREER.metaRiskWarnedSeason = null;
+  // Retenção/Engajamento — carreira criada antes deste bloco existir
+  // nasce com objetivos/conquistas do zero (ensureObjectivesFresh já
+  // cuida de gerar os 3 grupos na hora certa); contadores lifetime/
+  // temporada começam em 0, sem reconstrução retroativa (mesmo padrão
+  // de sempre nesta função pra dado que não dá pra recuperar do
+  // histórico já resumido).
+  ensureObjectivesFresh();
+  if (!CAREER.achievements) CAREER.achievements = freshAchievementsState();
+  if (CAREER.baseRevealedCount == null) CAREER.baseRevealedCount = 0;
+  if (CAREER.titlesWonNacional == null) CAREER.titlesWonNacional = 0;
+  if (CAREER.titlesWonCopa == null) CAREER.titlesWonCopa = 0;
+  if (CAREER.seasonTeamGoals == null) CAREER.seasonTeamGoals = 0;
+  if (CAREER.seasonTeamFouls == null) CAREER.seasonTeamFouls = 0;
+  evaluateAlwaysCheckableAchievements();
 }
 // AJUSTE (pedido do usuário: "acrescentar a Série B, C [ao Modo
 // Carreira] com dados reais") — loadLeague() não pode mais rodar
@@ -7118,6 +7708,7 @@ async function boot() {
   try {
     const me = await fetchJSON("/api/auth/me").catch(() => ({ authenticated: false }));
     if (!me.authenticated) { show("screenLoginRequired"); return; }
+    ME = me.user; // ver ME lá em cima -- friendCode/friends/dailyLogin/createdAt da conta, usados pelo bloco de Retenção/Engajamento
     await enterAfterAuth();
   } catch (err) {
     console.error("[carreira] falha no boot:", err);
