@@ -19,11 +19,12 @@
    Railway não tem como "baixar" um arquivo de volta pro seu
    computador, e derruba a conexão (WebSocket) no meio de comandos mais
    longos — em vez de rodar este script pelo shell, use o endpoint
-   HTTP admin (não depende de shell nenhum, funciona de qualquer
-   navegador/curl):
-     curl -X POST "https://SEU-DOMINIO/api/admin/snapshot-capture?secret=SEU_ADMIN_SECRET"
-     curl "https://SEU-DOMINIO/api/admin/snapshot?secret=SEU_ADMIN_SECRET&file=brasileirao" -o snapshot-brasileirao.json
-     (troque "brasileirao" por "serie_b"/"serie_c" pros outros 2 arquivos)
+   HTTP admin (não depende de shell nenhum). Aceita GET, então dá pra
+   só colar as URLs abaixo direto na barra de endereço do navegador:
+     https://SEU-DOMINIO/api/admin/snapshot-capture?secret=SEU_ADMIN_SECRET
+     https://SEU-DOMINIO/api/admin/snapshot?secret=SEU_ADMIN_SECRET&file=brasileirao
+     (troque "brasileirao" por "serie_b"/"serie_c" pros outros 2 arquivos —
+     essas 2 últimas já baixam o arquivo direto no navegador)
    Exige ADMIN_SECRET configurado no host (ver server/.env.example).
 
    Gera um arquivo por competição em server/data/snapshot-<id>.json
