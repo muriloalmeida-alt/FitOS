@@ -60,14 +60,39 @@ async function captureCompetition(compId, log) {
   return { competitionId: compId, name: comp.name, leagueId, season, capturedAt: new Date().toISOString(), teams, standings, playersByTeamId };
 }
 
+function assertCredential() {
+  if (!dataProvider.hasCredential()) {
+    throw new Error("Fornecedor ativo não tem credencial configurada neste host (ver DATA_PROVIDER/SPORTMONKS_API_TOKEN).");
+  }
+}
+
+// Captura só UMA competição e já salva o arquivo dela — pedido do
+// usuário: capturar as 3 juntas (captureAllCompetitions) numa chamada
+// HTTP só demorava o suficiente (~1-2min pros 60 times somados) pra
+// dar timeout em alguns hosts/navegadores. 3 chamadas de ~20 times
+// cada (uma por divisão, ver /api/admin/snapshot?capture=1 em
+// server.js) ficam bem abaixo de qualquer timeout razoável.
+async function captureOneCompetition(compId, log = () => {}) {
+  if (!COMPETITION_IDS.includes(compId)) throw new Error(`competição desconhecida: ${compId}`);
+  log(`Fornecedor ativo: ${dataProvider.ACTIVE_PROVIDER_NAME} | tem credencial: ${dataProvider.hasCredential()}`);
+  assertCredential();
+  fs.mkdirSync(OUT_DIR, { recursive: true });
+
+  const result = await captureCompetition(compId, log);
+  if (!result) throw new Error(`${compId}: sem id mapeado pro fornecedor ativo -- confira SPORTMONKS_LEAGUE_ID_* no host.`);
+  const fileName = `snapshot-${compId}.json`;
+  fs.writeFileSync(path.join(OUT_DIR, fileName), JSON.stringify(result, null, 2));
+  const teamsWithPlayers = Object.values(result.playersByTeamId).filter((p) => p.length > 0).length;
+  log(`  Salvo em server/data/${fileName}`);
+  return { competitionId: compId, file: fileName, teams: result.teams.length, teamsWithPlayers };
+}
+
 // log — callback opcional pra acompanhar o progresso (console.log no
 // script CLI; ignorado, silenciosamente, pelo endpoint HTTP, que só
 // devolve o resumo final na resposta).
 async function captureAllCompetitions(log = () => {}) {
   log(`Fornecedor ativo: ${dataProvider.ACTIVE_PROVIDER_NAME} | tem credencial: ${dataProvider.hasCredential()}`);
-  if (!dataProvider.hasCredential()) {
-    throw new Error("Fornecedor ativo não tem credencial configurada neste host (ver DATA_PROVIDER/SPORTMONKS_API_TOKEN).");
-  }
+  assertCredential();
   fs.mkdirSync(OUT_DIR, { recursive: true });
 
   const summary = [];
@@ -83,4 +108,4 @@ async function captureAllCompetitions(log = () => {}) {
   return summary;
 }
 
-module.exports = { captureAllCompetitions, COMPETITION_IDS, OUT_DIR };
+module.exports = { captureAllCompetitions, captureOneCompetition, COMPETITION_IDS, OUT_DIR };
