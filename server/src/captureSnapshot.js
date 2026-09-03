@@ -12,7 +12,18 @@
    comandos mais longos. Via HTTPS comum (curl/navegador) não depende
    de shell nenhum, e mesmo que o cliente desista de esperar a
    resposta, esta função continua rodando dentro do processo do
-   servidor até o fim — os arquivos ficam salvos de qualquer jeito. */
+   servidor até o fim — os arquivos ficam salvos de qualquer jeito.
+
+   ONDE OS ARQUIVOS PARAM: esta função grava em server/data/ (OUT_DIR
+   abaixo) — pasta gitignorada, de dado local/descartável (cadastros,
+   saves de teste). A captura de 03/09/2026 já foi promovida a
+   catálogo DEFINITIVO, commitado, em server/frozen-catalog/ (ver o
+   README lá e server/src/providers/frozen.js) — se rodar esta captura
+   de novo no futuro, o arquivo novo cai aqui em server/data/ primeiro;
+   promovê-lo (substituir o arquivo correspondente em
+   frozen-catalog/ e commitar) é um passo manual, de propósito — nunca
+   automático, pra sempre exigir uma decisão consciente de "sim, quero
+   substituir o retrato congelado por este novo". */
 
 const fs = require("fs");
 const path = require("path");

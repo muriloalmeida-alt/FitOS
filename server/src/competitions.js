@@ -86,12 +86,28 @@ function sportmonksIdFromEnv(envVar) {
   return v || null;
 }
 
+// DESCONECTANDO AS APIS (pedido do usuário, 03/09/2026: "vou cancelar o
+// contrato com a Sportmonks no final de setembro... pode capturar esse
+// retrato final de elenco real e desconectar as APIs") — Brasileirão
+// Série A/B/C têm hoje um 3º fornecedor cadastrado em
+// providerLeagueIds, `"frozen"` (ver server/src/providers/frozen.js):
+// um retrato REAL de times/tabela/elenco capturado uma única vez
+// (03/09/2026, ver server/frozen-catalog/) e commitado no repositório,
+// sem chamada de rede nenhuma. Pra desligar de vez o fornecedor ao vivo
+// (Sportmonks/API-Sports) e passar a usar só esse dado congelado, defina
+//   DATA_PROVIDER=frozen
+// no host — mesmo zero-redeploy de sempre. O Modo Técnico continua com
+// dado real (times/tabela/elenco), só que parado na data da captura; o
+// site principal (calendário/resultado/estatística ao vivo, que o
+// fornecedor congelado não tem) cai sozinho pro Modo Exemplo, sem
+// quebrar nada — ver aviso completo em frozen.js.
 const COMPETITIONS = [
   {
     id: "brasileirao",
     providerLeagueIds: {
       "api-sports": process.env.LEAGUE_ID || "71",
       "sportmonks": "648", // conferido via busca pública — confirme no seu painel Sportmonks antes de ativar
+      "frozen": "brasileirao", // ver server/src/providers/frozen.js — reusa o próprio id, não é id de fornecedor nenhum
     },
     name: "Brasileirão Série A",
     country: "Brasil",
@@ -103,6 +119,7 @@ const COMPETITIONS = [
     id: "serie_b",
     providerLeagueIds: {
       "sportmonks": sportmonksIdFromEnv("SPORTMONKS_LEAGUE_ID_SERIE_B"),
+      "frozen": "serie_b", // ver server/src/providers/frozen.js
     },
     name: "Brasileirão Série B",
     country: "Brasil",
@@ -114,6 +131,7 @@ const COMPETITIONS = [
     id: "serie_c",
     providerLeagueIds: {
       "sportmonks": sportmonksIdFromEnv("SPORTMONKS_LEAGUE_ID_SERIE_C"),
+      "frozen": "serie_c", // ver server/src/providers/frozen.js
     },
     name: "Brasileirão Série C",
     country: "Brasil",

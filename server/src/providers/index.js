@@ -1,12 +1,14 @@
 /* ================= Camada de fornecedor de dados esportivos =================
    Ponto único de troca de fornecedor. Hoje existem "api-sports" (ver
-   ./apiSports.js) e "sportmonks" (ver ./sportmonks.js), mas qualquer
-   fornecedor novo (Football-Data.org etc.) entra AQUI, sem precisar
-   tocar em server.js, adapter.js nem no front-end: basta criar um
-   arquivo novo em providers/<nome>.js implementando a mesma interface
-   — todo método abaixo, já devolvendo dado no formato interno do app,
-   não no formato cru do fornecedor — e registrar esse arquivo no
-   objeto PROVIDERS logo abaixo.
+   ./apiSports.js), "sportmonks" (ver ./sportmonks.js) e "frozen" (ver
+   ./frozen.js — catálogo real congelado, local, sem rede nenhuma,
+   pensado pra depois de cancelar o contrato com um fornecedor ao vivo),
+   mas qualquer fornecedor novo (Football-Data.org etc.) entra AQUI, sem
+   precisar tocar em server.js, adapter.js nem no front-end: basta criar
+   um arquivo novo em providers/<nome>.js implementando a mesma
+   interface — todo método abaixo, já devolvendo dado no formato interno
+   do app, não no formato cru do fornecedor — e registrar esse arquivo
+   no objeto PROVIDERS logo abaixo.
 
    CONTRATO que cada provider precisa implementar (todo método é
    async; erro é lançado — quem chama já sabe tratar, ver
@@ -90,6 +92,11 @@
 const PROVIDERS = {
   "api-sports": require("./apiSports"),
   "sportmonks": require("./sportmonks"),
+  // Ver ./frozen.js -- catálogo real congelado, sem chamada de rede
+  // nenhuma. Ativar com DATA_PROVIDER=frozen (ver instruções no topo
+  // desse arquivo) depois de cancelar o contrato com o fornecedor ao
+  // vivo.
+  "frozen": require("./frozen"),
 };
 
 const ACTIVE_PROVIDER_NAME = (process.env.DATA_PROVIDER || "api-sports").trim().toLowerCase();
