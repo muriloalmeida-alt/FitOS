@@ -2245,6 +2245,15 @@
          Estatísticas que já morava aqui. -->
     <div class="mt-topbar-menu" id="topbarMenu">
       <button class="mt-topbar-menu-item" id="btnOpenTabela">📅 Tabela</button>
+      <!-- Nova feature — Resumo da rodada (brtreinadorbloco1pendentes.html):
+           todos os confrontos da rodada, inclusive os ainda não jogados
+           (ver renderRodada/openRodadaScreen em carreira.js) — dado
+           honesto: a rodada resolve inteira de uma vez só (motor não
+           simula jogos concorrentes em paralelo), então só existem 2
+           estados de verdade (nenhum jogo resolvido ainda / todos
+           resolvidos), sem fingir um estado "ao vivo" que o motor não
+           produz. -->
+      <button class="mt-topbar-menu-item" id="btnOpenRodada">📆 Rodada</button>
       <button class="mt-topbar-menu-item" id="btnOpenTreinos">🏋️ Treinos</button>
       <button class="mt-topbar-menu-item" id="btnOpenEstatisticas">📊 Estatísticas</button>
       <!-- Retenção/Engajamento (BRDataRetencaoEspecificacao) — 3 telas
@@ -3481,6 +3490,44 @@
     <div class="ct-modal-footer">
       <button class="mt-btn-primary-gold" id="btnRoundResultsContinue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>Continuar</button>
       <button class="mt-btn-ghost" id="btnRoundResultsCloseFooter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Nova feature — Resumo da rodada (brtreinadorbloco1pendentes.html):
+     lista TODOS os 10 confrontos da rodada (não só o seu), aberta a
+     qualquer momento pelo Menu (#btnOpenRodada) — diferente de
+     #roundResultsOverlay acima, que só aparece automaticamente no
+     fluxo pós-jogo. 2 estados de verdade só (ver renderRodada em
+     carreira.js): "Atual" (a rodada prestes a ser jogada — todo
+     confronto ainda "— x —", já que o motor resolve a rodada inteira
+     de uma vez, nunca em paralelo) e "Anterior" (a que acabou de
+     rolar, com placar real de CAREER.resultsByRound — só existe essa
+     opção enquanto o dado ainda não foi podado, ver comentário em
+     finishRoundTail). Sem tab "Anterior" na 1ª rodada de uma
+     temporada nova (nenhuma rodada anterior ainda). -->
+<div class="ct-modal-overlay ct-modal-fullscreen" id="rodadaOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header mt-fullheader">
+      <span class="ct-modal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 3v2h6V3M8 9h8M8 13h8M8 17h5"/></svg></span>
+      <div class="ct-modal-header-text">
+        <h3>Resumo da rodada</h3>
+        <div class="ct-modal-sub" id="rodadaRoundLabel"></div>
+      </div>
+      <button class="ct-modal-close" id="rodadaClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <div class="m3-filter-row" id="rodadaTabRow">
+        <button class="m3-filter-chip" id="rodadaTabAtual" data-view="atual">Rodada atual</button>
+        <button class="m3-filter-chip" id="rodadaTabAnterior" data-view="anterior">Rodada anterior</button>
+      </div>
+      <div class="mt-card">
+        <div id="rodadaList"></div>
+        <p class="ct-sub hidden" id="rodadaEmpty">Fim de temporada — avance pra próxima pra ver o novo calendário.</p>
+      </div>
+    </div>
+    <div class="ct-modal-footer">
+      <button class="mt-btn-ghost" id="btnRodadaCloseFooter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Fechar</button>
     </div>
   </div>
 </div>
