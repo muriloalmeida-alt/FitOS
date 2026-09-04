@@ -7487,7 +7487,14 @@ function suggestMarket() {
   return {
     text: `${best.p.name} (${best.club.name}, overall ${best.p.overall}) por ${fmtBRL(best.p.value)} reforçaria ${SUBPOS_LABEL[subpos]} — seu titular mais fraco lá é ${weakest.name} (${weakest.overall}).`,
     canApply: true,
-    apply: async () => { await buyPlayer(best.club.id, best.p.id); },
+    // AJUSTE (pedido do usuário: "no Mercado deu certo mas precisa
+    // funcionar também na Comissão Técnica") — Mercado não compra mais
+    // na hora em lugar NENHUM do jogo (ver Bloco 3, openOfferModal/
+    // confirmOfferFromModal): "aceitar" esta sugestão abre a MESMA
+    // tela de proposta real, já com o jogador/clube certos, em vez de
+    // fechar negócio direto (o antigo atalho instantâneo, buyPlayer,
+    // foi removido — sem outro chamador depois desta mudança).
+    apply: async () => { openOfferModal(best.club.id, best.p.id); },
   };
 }
 const COMMISSION_AREAS = [
@@ -7539,7 +7546,17 @@ function renderCommissionSummaryCard() {
       const acceptedText = s.text;
       await s.apply();
       renderAll(); // já re-renderiza este card também (ver renderCentral)
-      toast({ title: `Sugestão de ${area.label} aceita`, detail: acceptedText }, { type: "pos" });
+      // AJUSTE (pedido do usuário: "no Mercado deu certo mas precisa
+      // funcionar também na Comissão Técnica") — Mercado não aplica
+      // nada na hora: s.apply() só ABRE a proposta real (ver
+      // suggestMarket/openOfferModal), que já mostra o próprio toast
+      // quando o técnico confirma o valor em confirmOfferFromModal.
+      // Um toast de "aceita" aqui, antes de qualquer valor ser
+      // confirmado, seria enganoso — só as outras 3 áreas realmente
+      // aplicam de imediato e merecem esse aviso.
+      if (area.id !== "market") {
+        toast({ title: `Sugestão de ${area.label} aceita`, detail: acceptedText }, { type: "pos" });
+      }
     });
   });
 }
@@ -7568,7 +7585,12 @@ function renderCommissionScreen() {
       if (s.apply) await s.apply();
       renderCommissionScreen();
       renderAll();
-      toast(`Sugestão de ${area.label} aplicada.`, { type: "pos" });
+      // AJUSTE (pedido do usuário: "no Mercado deu certo mas precisa
+      // funcionar também na Comissão Técnica") — mesmo motivo do card
+      // resumido do Início (ver renderCommissionSummaryCard): Mercado
+      // só ABRE a proposta real (openOfferModal), que mostra seu
+      // próprio toast quando confirmada — nada foi "aplicado" ainda.
+      if (area.id !== "market") toast(`Sugestão de ${area.label} aplicada.`, { type: "pos" });
     });
   });
 }
@@ -8210,11 +8232,13 @@ const MARKET_ICON = {
    usuário, mockups brtreinadorbloco3mercado.html/
    brtreinadorbloco3pendentes.html) ----------
    Antes, "Comprar" pagava o valor de mercado à vista e fechava na hora
-   (ver buyPlayer, mantida intacta — ainda usada pelo "Aplicar" da
-   sugestão de Mercado da Comissão Técnica, ver suggestMarket: a
-   assistente já fez a barganha nos bastidores, então aceitar a
-   sugestão dela continua sendo instantâneo de propósito). O botão
-   "Comprar" do Mercado agora abre uma PROPOSTA (CAREER.pendingOffersOut):
+   (ver buyPlayer — inicialmente mantida intacta só pra sugestão de
+   Mercado da Comissão Técnica continuar instantânea, mas depois
+   removida: pedido do usuário, "no Mercado deu certo mas precisa
+   funcionar também na Comissão Técnica" — aceitar a sugestão agora
+   abre a MESMA proposta real, ver suggestMarket/openOfferModal, sem
+   atalho de compra instantânea em lugar nenhum do jogo). O botão
+   "Comprar" do Mercado abre uma PROPOSTA (CAREER.pendingOffersOut):
    valor editável (pode ser menor que o de mercado) + parcelamento da
    taxa, e o clube vendedor demora OFFER_WAIT_ROUNDS rodadas pra
    responder (ver resolvePendingOffersOutRound, chamada em
@@ -8703,47 +8727,13 @@ function renderMercado() {
     ? feed.map((e) => `<div class="ct-transfer-feed-item"><b>Rodada ${e.round}:</b> ${escapeHtml(e.text)}</div>`).join("")
     : `<p class="ct-empty">Nenhuma transferência ainda.</p>`;
 }
-// Contratar um jogador de outro time: paga o valor de mercado (à
-// vista, sem parcelamento — mais simples) e soma o salário na sua
-// folha, com o MESMO teto salarial da promoção (ver wageBillOf/
-// CAREER.finances.wageCap em Fase 2b).
-async function buyPlayer(clubId, playerId) {
-  // FASE 1 (item 2) — trava de novo aqui (o botão já vem desabilitado
-  // fora da janela, ver renderMercado) só por segurança contra estado
-  // desatualizado na tela.
-  if (!transferWindowStatus(CAREER.currentRound).open) {
-    toast("Janela de contratações encerrada — não dá pra contratar agora.", { type: "warn" });
-    return;
-  }
-  const squad = leagueSquadFor(clubId);
-  const idx = squad.findIndex((x) => x.id === playerId);
-  if (idx < 0) return;
-  const p = squad[idx];
-  if (CAREER.finances.cash < p.value) {
-    toast(`Caixa insuficiente — você tem ${fmtBRL(CAREER.finances.cash)}, o jogador custa ${fmtBRL(p.value)}.`, { type: "warn" });
-    return;
-  }
-  if (wageBillOf(CAREER.squad) + p.wage > CAREER.finances.wageCap) {
-    toast(`Contratar esse jogador estouraria o teto salarial (${fmtBRL(CAREER.finances.wageCap)}).`, { type: "warn" });
-    return;
-  }
-  if (CAREER.squad.length >= MAX_PRINCIPAL + 20) { toast("Elenco já está muito grande — dispense ou venda alguém antes.", { type: "warn" }); return; }
-  if (!(await confirmModal(`Contratar ${p.name} por ${fmtBRL(p.value)}?`, "Contratar"))) return;
-  squad.splice(idx, 1);
-  CAREER.finances.cash -= p.value;
-  p.origin = "principal";
-  CAREER.squad.push(p);
-  pushTransferLog(`Você contratou ${p.name} do ${teamById(clubId).name} por ${fmtBRL(p.value)}.`, CAREER.currentRound);
-  toast(`${abbreviateName(p.name)} contratado!`, { type: "pos" });
-  ensureObjectivesFresh(); bumpObjective("daily", "obj_market_1_move", 1);
-  // FASE 4 (item 2) — "contratação polêmica anunciada" (PRESS_LIBRARY
-  // id 15): proxy pra polêmica é o próprio overall — contratação de
-  // craque sempre puxa opinião dividida de torcida na vida real,
-  // barato/plausível o bastante sem inventar um "índice de polêmica".
-  if (p.overall >= 82) { firePressConference("15", CAREER.currentRound, false); openPressConferenceModal(); }
-  persistCareer();
-  renderMercado(); renderElenco(); renderCentral();
-}
+// AJUSTE (pedido do usuário: "no Mercado deu certo mas precisa
+// funcionar também na Comissão Técnica") — buyPlayer() (compra à
+// vista, sem negociação nem parcelamento) ficou sem nenhum chamador
+// depois desta mudança: era usada só pelo atalho "Aplicar" da
+// sugestão de Mercado da Comissão Técnica (ver suggestMarket, que
+// agora abre a mesma proposta real de sempre, ver openOfferModal) —
+// removida (histórico completo no git, se precisar consultar de novo).
 // Vende um jogador SEU pelo valor de mercado (mesma trava de mínimo do
 // elenco principal do "release", só que aqui você RECEBE o dinheiro —
 // ver "release" pra dispensa de graça). Usado tanto pelo botão
