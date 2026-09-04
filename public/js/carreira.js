@@ -2260,7 +2260,7 @@ function closeAwardsScreen() {
 // Só pode ser chamada com a temporada realmente encerrada (round > 38,
 // ver renderCentral) — devolve o resumo pro modal de nova temporada
 // (ver showSeasonModal).
-function advanceSeason() {
+async function advanceSeason() {
   if (CAREER.currentRound <= 38) return null;
   const finishedYear = CAREER.seasonYear;
   const finishedPos = myLeaguePosition();
@@ -2339,6 +2339,15 @@ function advanceSeason() {
     CAREER.leagueSquads[clubId] = renewLeagueSquad(teamById(clubId), CAREER.leagueSquads[clubId]);
   });
 
+  // Nova feature (pedido do usuário: "reinicie o tema do
+  // rebaixamento") — acesso/rebaixamento entre A/B/C + repositório da
+  // Série D, ANTES do calendário/tabela da temporada nova serem
+  // gerados mais abaixo (ver applyPromotionRelegation) — se o SEU
+  // clube subiu ou caiu de divisão, LEAGUE_TEAMS já reflete a divisão
+  // nova a partir daqui (sem efeito nenhum em carreira sem o sistema
+  // ativado, ver migrateCareerDefaults).
+  const promotionRelegation = await applyPromotionRelegation();
+
   // "Novo orçamento" (pedido do usuário) — teto recalculado pelo
   // elenco renovado; caixa NÃO reseta, transfere pro ano que vem
   // (também pedido do usuário: "com transferência para o próximo ano").
@@ -2376,7 +2385,7 @@ function advanceSeason() {
   // que abre a notificação depois do resumo da virada de temporada.
   maybeGenerateClubProposals();
 
-  return { dismissed: false, finishedYear, finishedPos, finishedGoal, goalWasMet, newYear: CAREER.seasonYear, humanRenewal, newGoal: CAREER.boardGoal };
+  return { dismissed: false, finishedYear, finishedPos, finishedGoal, goalWasMet, newYear: CAREER.seasonYear, humanRenewal, newGoal: CAREER.boardGoal, promotionRelegation };
 }
 
 /* ---------- FASE 2 (a) — elenco individual pra TODOS os times ----------
@@ -2477,6 +2486,191 @@ function pickCpuXI(squad) {
   return xi;
 }
 
+/* ---------- Acesso e rebaixamento entre Séries A/B/C + repositório
+   Série D (pedido do usuário: "reinicie o tema do rebaixamento")
+   ----------
+   Decisões confirmadas com o usuário antes de implementar:
+   (a) a tabela das 2 divisões que o técnico NÃO joga é um campeonato
+       de pontos corridos DE VERDADE, simulado em segundo plano rodada
+       a rodada (não um proxy de força) — ver resolveOtherDivisionsRound;
+   (b) vale independente da fonte de dado (exemplo/congelado/ao vivo).
+       LEAGUE_TEAMS/ALL_TEAMS_FLAT são recarregados do catálogo (ou da
+       API) a cada boot (ver loadLeague/loadOtherCompetitionsTeams em
+       enterAfterAuth) — pra sobreviver a isso, CAREER.divisionTeams
+       (não esses 2 globais) é a fonte de verdade de "quem está em qual
+       divisão agora" pra toda carreira com este sistema ativado; ver
+       o fim de enterAfterAuth, que sobrescreve os 2 globais com
+       CAREER.divisionTeams sempre que ele existir.
+   (c) Série D é só um REPOSITÓRIO de 20 times (DEMO_TEAMS_SERIE_D, ver
+       data.js) — nunca simulados (mesmo motivo já documentado pra
+       Série D no site principal) — só entram/saem da Série C na
+       virada de temporada, sorteados (não há tabela real de verdade
+       pra ordenar quem "merece" subir de lá).
+   (d) só carreira NOVA nasce com este sistema (CAREER.serieDPool) —
+       sem migração pra quem já tinha carreira salva antes desta
+       mudança (ver migrateCareerDefaults, que nunca cria esse campo
+       pra save antigo — todo o resto desta seção fica inofensivo/
+       desligado quando ele não existe).
+
+   Exceção deliberada: o clube do PRÓPRIO técnico nunca é enviado pra
+   Série D, mesmo terminando a Série C na zona de rebaixamento (D não é
+   jogável) — nesse caso, quem desce no lugar dele é o time melhor
+   colocado que ficaria de fora da zona (a "vítima" muda, o tamanho da
+   zona de 4 times não muda). */
+const RELEGATION_N = 4; // mesmo tamanho da zona de rebaixamento já usada na Tabela (ver .mt-zone-dot)
+function freshDivisionRound(teams) {
+  const ids = teams.map((t) => String(t.id));
+  const standings = {};
+  ids.forEach((id) => { standings[id] = { id, j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 }; });
+  return { schedule: generateAllRounds(ids), standings };
+}
+// Chamado só na criação de carreira NOVA (ver startCareer) — monta o
+// snapshot inicial de CAREER.divisionTeams (3 divisões x 20 times,
+// cada time já com competitionId certo) a partir do que loadLeague/
+// loadOtherCompetitionsTeams acabaram de carregar, e o calendário +
+// tabela zerados das 2 divisões que não são a sua.
+function initDivisionSystem() {
+  CAREER.divisionTeams = {};
+  ALL_COMPETITIONS_ORDER.forEach((compId) => {
+    const source = compId === CURRENT_COMPETITION_ID ? LEAGUE_TEAMS : ALL_TEAMS_FLAT.filter((t) => t.competitionId === compId);
+    CAREER.divisionTeams[compId] = source.map((t) => ({ ...t, competitionId: compId }));
+  });
+  CAREER.serieDPool = DEMO_TEAMS_SERIE_D.map((t) => ({ ...t, competitionId: "serie_d" })); // global de js/data.js
+  CAREER.otherDivisions = {};
+  ALL_COMPETITIONS_ORDER.filter((id) => id !== CURRENT_COMPETITION_ID).forEach((compId) => {
+    CAREER.otherDivisions[compId] = freshDivisionRound(CAREER.divisionTeams[compId]);
+  });
+}
+// Tabela de uma divisão qualquer (a sua ou uma das outras 2) — usada
+// pela Tabela (ver renderTabelaPanel) e pela virada de temporada (ver
+// applyPromotionRelegation).
+function divisionStandingsFor(compId) {
+  if (compId === CURRENT_COMPETITION_ID) return CAREER.standings;
+  return (CAREER.otherDivisions && CAREER.otherDivisions[compId] && CAREER.otherDivisions[compId].standings) || {};
+}
+function sortedDivisionRows(compId) {
+  return Object.values(divisionStandingsFor(compId)).sort((a, b) => (b.pts - a.pts) || (b.v - a.v) || (b.sg - a.sg) || (b.gp - a.gp));
+}
+// Resolve, sem tela nem torcida, a rodada corrente das 2 divisões que
+// o técnico NÃO joga — mesmo cálculo de gols por Poisson do CPU x CPU
+// da própria divisão (ver resolveCpuFixture), só sem eventos de
+// jogador (artilheiro/cartão de time de fora não entra em nenhuma
+// estatística navegável, ver renderEstatisticas — filtrado por
+// CAREER.standings de propósito desde a mudança "mercado de 60
+// times"). Chamado de dentro de finishRoundTail, toda rodada.
+function resolveOtherDivisionsRound(round) {
+  if (!CAREER.otherDivisions) return; // carreira sem o sistema ativado (ver migrateCareerDefaults) — nada a fazer
+  Object.entries(CAREER.otherDivisions).forEach(([compId, division]) => {
+    const fixtures = division.schedule[round] || [];
+    const teamsById = new Map((CAREER.divisionTeams[compId] || []).map((t) => [String(t.id), t]));
+    fixtures.forEach((fx) => {
+      const home = teamsById.get(String(fx.home)), away = teamsById.get(String(fx.away));
+      if (!home || !away) return;
+      const lambdaHome = clamp((home.atk / away.def) * 1.12, 0.05, 6);
+      const lambdaAway = clamp(away.atk / home.def, 0.05, 6);
+      const gh = poissonSample(lambdaHome, Math.random); // global de js/data.js
+      const ga = poissonSample(lambdaAway, Math.random);
+      applyResultToStandings({ home: fx.home, away: fx.away, gh, ga }, division.standings);
+    });
+  });
+}
+// Bottom n (zona de rebaixamento) de uma tabela já ordenada — quando
+// `protectedId` está NA zona, troca ele pelo melhor colocado que
+// ficaria de fora dela (ver exceção da Série D no comentário grande
+// acima), mantendo o tamanho da zona em n.
+function relegationZoneIds(sortedRows, n, protectedId) {
+  const ids = sortedRows.map((r) => String(r.id));
+  let zone = ids.slice(ids.length - n);
+  if (protectedId != null && zone.includes(String(protectedId))) {
+    zone = zone.filter((id) => id !== String(protectedId));
+    zone.push(ids[ids.length - n - 1]);
+  }
+  return zone;
+}
+function accessZoneIds(sortedRows, n) {
+  return sortedRows.slice(0, n).map((r) => String(r.id));
+}
+// Cascata de acesso/rebaixamento entre A/B/C + repositório da Série D
+// na virada de temporada (ver advanceSeason, chamado ANTES de
+// LEAGUE_TEAMS/CAREER.schedule/CAREER.standings serem recalculados pra
+// temporada nova — já precisa estar tudo resolvido nesse ponto). É
+// `async` só por causa do elenco novo dos times promovidos da Série D
+// (ver buildLeagueSquad — nunca tiveram elenco montado antes).
+async function applyPromotionRelegation() {
+  if (!CAREER.serieDPool) return null; // carreira sem o sistema ativado — nada a fazer
+  const rowsA = sortedDivisionRows("brasileirao");
+  const rowsB = sortedDivisionRows("serie_b");
+  const rowsC = sortedDivisionRows("serie_c");
+  const relegatedA = relegationZoneIds(rowsA, RELEGATION_N);
+  const promotedB = accessZoneIds(rowsB, RELEGATION_N);
+  const relegatedB = relegationZoneIds(rowsB, RELEGATION_N);
+  const promotedC = accessZoneIds(rowsC, RELEGATION_N);
+  const relegatedC = relegationZoneIds(rowsC, RELEGATION_N, CURRENT_COMPETITION_ID === "serie_c" ? CAREER.clubId : null);
+
+  const dPool = CAREER.serieDPool.slice();
+  const promotedDIdx = [];
+  while (promotedDIdx.length < Math.min(RELEGATION_N, dPool.length)) {
+    const idx = Math.floor(Math.random() * dPool.length);
+    if (!promotedDIdx.includes(idx)) promotedDIdx.push(idx);
+  }
+  const promotedD = promotedDIdx.map((i) => dPool[i]); // objetos completos — nunca estiveram em divisionTeams antes
+
+  const byId = new Map();
+  ALL_COMPETITIONS_ORDER.forEach((compId) => (CAREER.divisionTeams[compId] || []).forEach((t) => byId.set(String(t.id), t)));
+  const teamsFor = (ids) => ids.map((id) => byId.get(String(id))).filter(Boolean);
+  const idsOf = (rows) => rows.map((r) => String(r.id));
+
+  const newA = [...teamsFor(idsOf(rowsA).filter((id) => !relegatedA.includes(id))), ...teamsFor(promotedB)];
+  const newB = [
+    ...teamsFor(idsOf(rowsB).filter((id) => !promotedB.includes(id) && !relegatedB.includes(id))),
+    ...teamsFor(relegatedA), ...teamsFor(promotedC),
+  ];
+  const newC = [
+    ...teamsFor(idsOf(rowsC).filter((id) => !promotedC.includes(id) && !relegatedC.includes(id))),
+    ...teamsFor(relegatedB), ...promotedD,
+  ];
+  const newDPool = [...dPool.filter((_, i) => !promotedDIdx.includes(i)), ...teamsFor(relegatedC)];
+
+  const humanNewCompId = newA.some((t) => String(t.id) === String(CAREER.clubId)) ? "brasileirao"
+    : newB.some((t) => String(t.id) === String(CAREER.clubId)) ? "serie_b" : "serie_c";
+  const divisionChanged = humanNewCompId !== CURRENT_COMPETITION_ID;
+
+  // Time relegado pra Série D não é mais playável — elenco dele some
+  // do save (ver marketTeamsPool, que já o exclui do universo de
+  // negociação); time promovido de lá ganha elenco novo (mesmo
+  // fallback de sempre pra catálogo fictício, ver buildLeagueSquad —
+  // sem fonte de dado real nenhuma configurada pra "serie_d"). Mantém
+  // o total de elencos em CAREER.leagueSquads sempre em 59 (60 times
+  // ativos - o seu), do mesmo jeito que já era antes desta mudança.
+  teamsFor(relegatedC).forEach((t) => { delete CAREER.leagueSquads[String(t.id)]; });
+  await Promise.all(promotedD.map(async (t) => { CAREER.leagueSquads[String(t.id)] = await buildLeagueSquad(t); }));
+
+  CAREER.divisionTeams = {
+    brasileirao: newA.map((t) => ({ ...t, competitionId: "brasileirao" })),
+    serie_b: newB.map((t) => ({ ...t, competitionId: "serie_b" })),
+    serie_c: newC.map((t) => ({ ...t, competitionId: "serie_c" })),
+  };
+  CAREER.serieDPool = newDPool.map((t) => ({ ...t, competitionId: "serie_d" }));
+
+  if (divisionChanged) {
+    CURRENT_COMPETITION_ID = humanNewCompId;
+    CAREER.competitionId = humanNewCompId;
+  }
+  LEAGUE_TEAMS = CAREER.divisionTeams[CURRENT_COMPETITION_ID];
+  ALL_TEAMS_FLAT = ALL_COMPETITIONS_ORDER.flatMap((id) => CAREER.divisionTeams[id]);
+  CAREER.otherDivisions = {};
+  ALL_COMPETITIONS_ORDER.filter((id) => id !== CURRENT_COMPETITION_ID).forEach((compId) => {
+    CAREER.otherDivisions[compId] = freshDivisionRound(CAREER.divisionTeams[compId]);
+  });
+
+  return {
+    relegatedA: teamsFor(relegatedA), promotedB: teamsFor(promotedB),
+    relegatedB: teamsFor(relegatedB), promotedC: teamsFor(promotedC),
+    relegatedC: teamsFor(relegatedC), promotedD,
+    divisionChanged, newCompetitionId: humanNewCompId,
+  };
+}
+
 /* ---------- FASE 2 (c) — mercado de transferências ----------
    Pedido do usuário: os outros 19 times também negociam entre si (não
    só o seu clube compra/vende). Sem economia própria pros times CPU
@@ -2519,8 +2713,15 @@ function transferWindowStatus(round) {
 // só os 20 da própria divisão; carreira "single" (de antes desta
 // mudança, ver migrateCareerDefaults) continua exatamente como
 // sempre foi, só entre os times de LEAGUE_TEAMS.
+// AJUSTE (pedido do usuário: "reinicie o tema do rebaixamento") — um
+// time que caiu pro repositório da Série D (CAREER.serieDPool, ver
+// applyPromotionRelegation) fica com competitionId "serie_d" em
+// ALL_TEAMS_FLAT — nunca é playável/negociável enquanto estiver lá
+// (só volta a existir pro mercado se for sorteado de volta pra Série C
+// numa virada de temporada futura).
 function marketTeamsPool() {
-  return CAREER.marketScope === "multi" ? ALL_TEAMS_FLAT : LEAGUE_TEAMS;
+  const pool = CAREER.marketScope === "multi" ? ALL_TEAMS_FLAT : LEAGUE_TEAMS;
+  return pool.filter((t) => t.competitionId !== "serie_d");
 }
 function pickRandomOtherClub(excludeId) {
   const pool = marketTeamsPool().filter((t) => String(t.id) !== String(excludeId));
@@ -3257,6 +3458,10 @@ async function startCareer(clubId) {
       seasonTeamGoals: 0, seasonTeamFouls: 0,
     };
     TECHNICIAN_CARRY = null;
+    // Nova feature (pedido do usuário: "reinicie o tema do
+    // rebaixamento") — só carreira NOVA nasce com o sistema de acesso/
+    // rebaixamento ativado (ver initDivisionSystem/migrateCareerDefaults).
+    initDivisionSystem();
     // FASE 1 (item 3) — meta da diretoria da 1ª temporada, calculada
     // já com o elenco recém-montado (ver computeBoardGoal).
     CAREER.boardGoal = computeBoardGoal();
@@ -4608,8 +4813,12 @@ function sortedStandings() {
 function myLeaguePosition() {
   return sortedStandings().findIndex((r) => String(r.id) === String(CAREER.clubId)) + 1;
 }
-function applyResultToStandings(r) {
-  const H = CAREER.standings[r.home], A = CAREER.standings[r.away];
+// AJUSTE (pedido do usuário: "reinicie o tema do rebaixamento") —
+// `standings` agora é parâmetro opcional (era sempre CAREER.standings)
+// pra dar pra atualizar a tabela das OUTRAS 2 divisões também (ver
+// resolveOtherDivisionsRound) sem duplicar essa lógica.
+function applyResultToStandings(r, standings = CAREER.standings) {
+  const H = standings[r.home], A = standings[r.away];
   if (!H || !A) return;
   H.j++; A.j++; H.gp += r.gh; H.gc += r.ga; A.gp += r.ga; A.gc += r.gh;
   if (r.gh > r.ga) { H.v++; H.pts += 3; A.d++; }
@@ -5237,6 +5446,12 @@ function finishRoundTail(round, allResults, humanMatch, standingsBefore) {
   // proposta já foi enviada legitimamente dentro dela, só a resposta
   // do clube que pode cair um pouco depois do fechamento.
   resolvePendingOffersOutRound(round);
+  // Nova feature (pedido do usuário: "reinicie o tema do
+  // rebaixamento") — a tabela das 2 divisões que o técnico não joga
+  // avança 1 rodada em segundo plano, junto com a sua (ver
+  // resolveOtherDivisionsRound — sem efeito nenhum em carreira sem o
+  // sistema ativado).
+  resolveOtherDivisionsRound(round);
   // FASE 2 (a) — Copa do Brasil: só resolve alguma coisa nas 4 rodadas
   // certas (ver CUP_ROUNDS) e só se seu clube ainda estiver na
   // competição (resolveCupPhase devolve null em qualquer outro caso —
@@ -7739,14 +7954,24 @@ function pickerChoose(playerId) {
 // rebaixamento — as faixas "sula"/sem zona também ganham cor (pre/
 // safe), preenchendo visualmente o meio da tabela como no mockup, sem
 // mudar os LIMIARES de zona (mesma lógica de sempre, só a cor mudou).
-function renderTabela(containerId = "standingsTable") {
-  const rows = Object.values(CAREER.standings).sort((a, b) => (b.pts - a.pts) || (b.v - a.v) || (b.sg - a.sg) || (b.gp - a.gp));
+// AJUSTE (pedido do usuário: "reinicie o tema do rebaixamento") —
+// `standings`/`compId` agora são parâmetros opcionais (era sempre
+// CAREER.standings/CURRENT_COMPETITION_ID) pra dar pra ver a tabela das
+// OUTRAS 2 divisões também (ver renderTabelaPanel) sem duplicar essa
+// função. Zona de topo/rebaixamento vira "acesso"/"rebaixamento" (sem
+// G6/G12 Libertadores, que só existe na Série A) quando compId não é
+// a Série A.
+function renderTabela(containerId = "standingsTable", standings = CAREER.standings, compId = CURRENT_COMPETITION_ID) {
+  const rows = Object.values(standings).sort((a, b) => (b.pts - a.pts) || (b.v - a.v) || (b.sg - a.sg) || (b.gp - a.gp));
   const total = rows.length;
+  const isSerieA = compId === "brasileirao";
   const body = rows.map((r, i) => {
     const t = teamById(r.id);
     const pos = i + 1;
-    const zone = pos === 1 ? "campeao" : pos <= 6 ? "libertadores" : pos <= 12 ? "sula" : pos > total - 4 ? "reb" : "";
-    const dotClass = zone === "campeao" || zone === "libertadores" ? "libertadores" : zone === "sula" ? "pre" : zone === "reb" ? "rebaixamento" : "safe";
+    const zone = isSerieA
+      ? (pos === 1 ? "campeao" : pos <= 6 ? "libertadores" : pos <= 12 ? "sula" : pos > total - RELEGATION_N ? "reb" : "")
+      : (pos === 1 ? "campeao" : pos <= RELEGATION_N ? "acesso" : pos > total - RELEGATION_N ? "reb" : "");
+    const dotClass = zone === "campeao" || zone === "libertadores" || zone === "acesso" ? "libertadores" : zone === "sula" ? "pre" : zone === "reb" ? "rebaixamento" : "safe";
     const isMe = String(r.id) === String(CAREER.clubId);
     return `<div class="mt-tr${isMe ? " highlight" : ""}">
       <div class="mt-pos-num"><span class="mt-zone-dot ${dotClass}"></span>${pos}</div>
@@ -7755,6 +7980,36 @@ function renderTabela(containerId = "standingsTable") {
     </div>`;
   }).join("");
   document.getElementById(containerId).innerHTML = body;
+  if (containerId === "standingsTable") {
+    const legendTop = document.getElementById("tabelaLegendTop");
+    const legendMidWrap = document.getElementById("tabelaLegendMidWrap");
+    if (legendTop) legendTop.textContent = isSerieA ? "Libertadores" : "Acesso";
+    if (legendMidWrap) legendMidWrap.hidden = !isSerieA;
+  }
+}
+// Estado só de UI (não é salvo) — qual divisão a aba Tabela está
+// mostrando agora (null = a sua própria).
+let TABELA_VIEW_DIVISION = null;
+// Painel "Tabela" — mostra o seletor de divisão (ver
+// #tabelaDivisionSwitch em carreira.html) só em carreira com o sistema
+// de acesso/rebaixamento ativado (CAREER.otherDivisions, ver
+// initDivisionSystem); sem ele, comportamento idêntico a antes desta
+// mudança (só a própria divisão, sem seletor nenhum).
+function renderTabelaPanel() {
+  wireTabelaDivisionSwitch();
+  const compId = (CAREER.otherDivisions && TABELA_VIEW_DIVISION) || CURRENT_COMPETITION_ID;
+  renderTabela("standingsTable", divisionStandingsFor(compId), compId);
+}
+function wireTabelaDivisionSwitch() {
+  const wrap = document.getElementById("tabelaDivisionSwitch");
+  if (!wrap) return;
+  if (!CAREER.otherDivisions) { wrap.hidden = true; return; }
+  wrap.hidden = false;
+  const current = TABELA_VIEW_DIVISION || CURRENT_COMPETITION_ID;
+  wrap.querySelectorAll("[data-division]").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.division === current);
+    btn.onclick = () => { TABELA_VIEW_DIVISION = btn.dataset.division; renderTabelaPanel(); };
+  });
 }
 
 /* ---------- FASE 2 (a) — Copa do Brasil: card de status/histórico
@@ -8627,7 +8882,7 @@ function renderAll() {
   [
     ["Identidade do clube", renderTopbarIdentity],
     ["Central", renderCentral], ["Elenco", renderElenco], ["Escalação", renderEscalacao],
-    ["Tabela", renderTabela], ["Copa do Brasil", renderCopa], ["Treinos", renderTreinos],
+    ["Tabela", renderTabelaPanel], ["Copa do Brasil", renderCopa], ["Treinos", renderTreinos],
     ["Estatísticas", renderEstatisticas], ["Mercado", renderMercado],
     ["Objetivos", renderObjetivos], ["Conquistas", renderConquistas],
   ].forEach(([name, fn]) => {
@@ -8897,8 +9152,38 @@ function cupRoundResultsHTML(cupResult) {
 // FASE 3 (c) — modal de resumo ao avançar de temporada (ver
 // advanceSeason). Sem botão X de propósito — só "Começar a temporada"
 // mesmo, igual às outras 2 modais do fluxo de "Simular rodada".
+// Nova feature (pedido do usuário: "reinicie o tema do rebaixamento")
+// — resumo de acesso/rebaixamento pro modal de virada de temporada
+// (ver showSeasonModal). O time do PRÓPRIO técnico nunca aparece em
+// relegatedC (ver a exceção documentada em applyPromotionRelegation),
+// então essas 4 checagens cobrem os únicos jeitos dele mudar de
+// divisão.
+function humanDivisionMove(pr) {
+  const mine = (list) => list.some((t) => String(t.id) === String(CAREER.clubId));
+  if (mine(pr.relegatedA)) return { text: "Rebaixado(a): Série A → Série B.", positive: false };
+  if (mine(pr.promotedB)) return { text: "Acesso! Série B → Série A.", positive: true };
+  if (mine(pr.relegatedB)) return { text: "Rebaixado(a): Série B → Série C.", positive: false };
+  if (mine(pr.promotedC)) return { text: "Acesso! Série C → Série B.", positive: true };
+  return null;
+}
+function divisionMoveSummaryHTML(pr) {
+  if (!pr) return ""; // carreira sem o sistema ativado, ou temporada terminou em demissão (ver advanceSeason)
+  const names = (list) => (list.length ? list.map((t) => escapeHtml(t.name)).join(", ") : "—");
+  const mine = humanDivisionMove(pr);
+  let html = `<div class="mt-divider-label">ACESSO E REBAIXAMENTO</div>`;
+  if (mine) {
+    html += `<p class="ct-sub" style="color:${mine.positive ? "var(--mt-pitch-400)" : "var(--mt-crimson-400)"};margin:0 0 6px;"><b>${mine.text}</b></p>`;
+  }
+  html += `<p class="ct-sub" style="margin:0;">Série A → B: ${names(pr.relegatedA)}</p>`;
+  html += `<p class="ct-sub" style="margin:0;">Série B → A: ${names(pr.promotedB)}</p>`;
+  html += `<p class="ct-sub" style="margin:0;">Série B → C: ${names(pr.relegatedB)}</p>`;
+  html += `<p class="ct-sub" style="margin:0;">Série C → B: ${names(pr.promotedC)}</p>`;
+  html += `<p class="ct-sub" style="margin:0;">Série C → D: ${names(pr.relegatedC)}</p>`;
+  html += `<p class="ct-sub" style="margin:0;">Série D → C: ${names(pr.promotedD)}</p>`;
+  return html;
+}
 function showSeasonModal(result) {
-  const { finishedYear, finishedPos, finishedGoal, goalWasMet, newYear, humanRenewal, newGoal } = result;
+  const { finishedYear, finishedPos, finishedGoal, goalWasMet, newYear, humanRenewal, newGoal, promotionRelegation } = result;
   document.getElementById("seasonModalSub").textContent = `Temporada ${newYear}`;
   const leaving = humanRenewal.leavingNames;
   // FASE 1 (item 3) — mostra se bateu a meta da temporada que terminou
@@ -8916,6 +9201,7 @@ function showSeasonModal(result) {
   document.getElementById("seasonDepartures").innerHTML = leaving.length
     ? `<p class="ct-sub"><b>Saíram por fim de contrato:</b> ${leaving.map((n) => escapeHtml(abbreviateName(n))).join(", ")}.</p>`
     : "";
+  document.getElementById("seasonDivisionMove").innerHTML = divisionMoveSummaryHTML(promotionRelegation);
   document.getElementById("seasonOverlay").classList.add("open");
 }
 // FASE 1 (item 3) — demissão: modal separado (sem "Começar a
@@ -9399,7 +9685,7 @@ function wireStaticListeners() {
   // advanceSeason) e mostra o resumo antes de liberar a Rodada 1 nova.
   document.getElementById("btnAdvanceSeason").addEventListener("click", async () => {
     if (!(await confirmModal(`Avançar pra Temporada ${CAREER.seasonYear + 1}? O elenco envelhece, contratos vencidos saem e a base renova.`, "Avançar"))) return;
-    const result = advanceSeason();
+    const result = await advanceSeason();
     if (!result) return;
     persistCareer();
     // FASE 1 (item 3) — demitido: modal diferente (sem "começar a
@@ -9583,6 +9869,14 @@ function migrateCareerDefaults() {
   // dá pra reconstruir partidas já jogadas), só passa a acumular daqui
   // pra frente.
   if (!CAREER.matchLog) CAREER.matchLog = [];
+  // Nova feature (pedido do usuário: "reinicie o tema do
+  // rebaixamento") — decisão do usuário: "só nas carreiras novas, sem
+  // migração" — carreira criada ANTES desta mudança NUNCA ganha
+  // CAREER.serieDPool/divisionTeams/otherDivisions aqui (ver
+  // initDivisionSystem, só chamado por startCareer), então continua
+  // pra sempre sem acesso/rebaixamento — todo o resto do sistema
+  // (resolveOtherDivisionsRound/applyPromotionRelegation) já checa a
+  // ausência desses campos e não faz nada nesse caso.
   // Nova feature — Meus esquemas: carreira criada ANTES desta mudança
   // nunca teve biblioteca de esquemas — sem migração retroativa (não
   // dá pra reconstruir esquemas nunca salvos), só passa a existir vazia
@@ -9781,6 +10075,17 @@ async function enterAfterAuth() {
     }
     CAREER = saved.career;
     migrateCareerDefaults();
+    // Nova feature (pedido do usuário: "reinicie o tema do
+    // rebaixamento") — CAREER.divisionTeams (quando existe) é a fonte
+    // de verdade de "quem está em qual divisão agora" (ver comentário
+    // grande em initDivisionSystem) — sobrescreve o que loadLeague/
+    // loadOtherCompetitionsTeams acabaram de carregar do catálogo/API
+    // (que não sabe nada sobre time que já subiu/desceu nesta
+    // carreira) — sem efeito em carreira sem o sistema ativado.
+    if (CAREER.divisionTeams) {
+      LEAGUE_TEAMS = CAREER.divisionTeams[CURRENT_COMPETITION_ID];
+      ALL_TEAMS_FLAT = ALL_COMPETITIONS_ORDER.flatMap((id) => CAREER.divisionTeams[id]);
+    }
     persistCareer(); // grava os campos novos pra não migrar de novo (e de novo) a cada load
     showGameScreen();
   } else {

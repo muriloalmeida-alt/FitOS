@@ -2777,14 +2777,23 @@
             <button class="ct-help-btn" data-help="helpTabelaCarreira" aria-label="Ajuda">?</button>
           </div>
           <p class="mt-card-sub ct-help-text" id="helpTabelaCarreira" hidden>Classificação própria dessa carreira (não é a tabela real do Brasileirão) — atualizada a cada rodada simulada.</p>
+          <!-- Nova feature (pedido do usuário: "reinicie o tema do
+               rebaixamento") — só aparece em carreira com o sistema de
+               acesso/rebaixamento ativado (ver wireTabelaDivisionSwitch
+               em carreira.js); a Tabela sempre abre na SUA divisão. -->
+          <div class="mt-seg-group" id="tabelaDivisionSwitch" hidden>
+            <button type="button" class="mt-seg-btn" data-division="brasileirao">Série A</button>
+            <button type="button" class="mt-seg-btn" data-division="serie_b">Série B</button>
+            <button type="button" class="mt-seg-btn" data-division="serie_c">Série C</button>
+          </div>
           <div class="mt-table-head-row">
             <div class="mt-pos-num">#</div><div class="mt-team-cell">TIME</div>
             <div class="mt-stat-col head">P</div><div class="mt-stat-col head">J</div><div class="mt-stat-col head">V</div><div class="mt-stat-col head">E</div><div class="mt-stat-col head">D</div><div class="mt-stat-col head">SG</div>
           </div>
           <div id="standingsTable"></div>
           <div class="mt-legend-row">
-            <div class="mt-legend-item"><span class="dot" style="background:var(--mt-gold-400);"></span>Libertadores</div>
-            <div class="mt-legend-item"><span class="dot" style="background:var(--mt-sky-400);"></span>Pré-Libertadores</div>
+            <div class="mt-legend-item"><span class="dot" style="background:var(--mt-gold-400);"></span><span id="tabelaLegendTop">Libertadores</span></div>
+            <div class="mt-legend-item" id="tabelaLegendMidWrap"><span class="dot" style="background:var(--mt-sky-400);"></span>Pré-Libertadores</div>
             <div class="mt-legend-item"><span class="dot" style="background:var(--mt-crimson-400);"></span>Rebaixamento</div>
           </div>
         </div>
@@ -4362,6 +4371,12 @@
     <div class="ct-modal-body">
       <p class="ct-sub" id="seasonSummaryText"></p>
       <div id="seasonDepartures"></div>
+      <!-- Nova feature (pedido do usuário: "reinicie o tema do
+           rebaixamento") — só aparece quando a temporada que terminou
+           teve acesso/rebaixamento pra decidir (ver showSeasonModal em
+           carreira.js — vazio/escondido em carreira sem o sistema
+           ativado). -->
+      <div id="seasonDivisionMove"></div>
       <button class="mt-btn-primary-gold" id="btnSeasonContinue" style="margin-top:14px;">Começar a temporada</button>
     </div>
   </div>
