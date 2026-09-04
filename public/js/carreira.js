@@ -168,6 +168,151 @@ function weightedPick(items, weights) {
   for (let i = 0; i < items.length; i++) { r -= weights[i]; if (r <= 0) return items[i]; }
   return items[items.length - 1];
 }
+
+/* ---------- Redesign M3 (BRTreinadorSistemadeDesignM3v1.docx +
+   brtreinadormockupsm3.zip) — cor dinâmica por clube ----------
+   Documento, seção 2.2: "a cor primária é derivada da cor dominante
+   do escudo... secundária e terciária seguem a relação de matiz do M3
+   (harmônicas ao primary, não escolhidas manualmente por clube)...
+   fallback: se a cor derivada não atingir contraste mínimo AA, o
+   sistema recai automaticamente no Verde de Campo".
+
+   IMPLEMENTAÇÃO (decisão nossa, documentada): em vez de extrair cor de
+   verdade da IMAGEM do escudo (frágil — precisaria de canvas, e o CDN
+   de escudo real, quando existe, pode bloquear leitura de pixel por
+   CORS) e em vez da biblioteca oficial do Google (Material Color
+   Utilities, algoritmo HCT/CAM16 — exigiria um passo de build que este
+   projeto não tem, é tudo <script> direto sem bundler), a "semente" é
+   o MESMO `c1` já curado por clube (realTeamColor()/DEMO_TEAMS, usado
+   há sessões inteiras pro gradiente do escudo) — e a expansão pra
+   paleta tonal usa HSL puro, uma aproximação pragmática do algoritmo
+   tonal do M3, não o CAM16 literal. Secundária reaproveita o MESMO
+   matiz do primary com saturação bem mais baixa (~1/3, seguindo a
+   proporção típica do M3 entre primary/secondary); terciária gira o
+   matiz +60° — a "relação harmônica" pedida no documento, sem copiar
+   o algoritmo exato do Google. */
+function hexToRgb(hex) {
+  const m = /^#?([0-9a-f]{6})$/i.exec(String(hex || "").trim());
+  if (!m) return null;
+  const n = parseInt(m[1], 16);
+  return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+}
+function rgbToHsl(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h = 0, s = 0; const l = (max + min) / 2;
+  const d = max - min;
+  if (d !== 0) {
+    s = d / (1 - Math.abs(2 * l - 1));
+    if (max === r) h = ((g - b) / d) % 6;
+    else if (max === g) h = (b - r) / d + 2;
+    else h = (r - g) / d + 4;
+    h *= 60; if (h < 0) h += 360;
+  }
+  return [h, s, l];
+}
+function hslToRgb(h, s, l) {
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+  let r1 = 0, g1 = 0, b1 = 0;
+  if (h < 60) { r1 = c; g1 = x; } else if (h < 120) { r1 = x; g1 = c; }
+  else if (h < 180) { g1 = c; b1 = x; } else if (h < 240) { g1 = x; b1 = c; }
+  else if (h < 300) { r1 = x; b1 = c; } else { r1 = c; b1 = x; }
+  return { r: Math.round((r1 + m) * 255), g: Math.round((g1 + m) * 255), b: Math.round((b1 + m) * 255) };
+}
+function rgbToHex(r, g, b) {
+  const h = (v) => clamp(Math.round(v), 0, 255).toString(16).padStart(2, "0");
+  return `#${h(r)}${h(g)}${h(b)}`;
+}
+// Luminância relativa + razão de contraste (WCAG 2.x) — mesma fórmula
+// usada em toda checagem de contraste desta sessão (ver avaliação do
+// documento de design).
+function relativeLuminance(hex) {
+  const rgb = hexToRgb(hex);
+  if (!rgb) return 0;
+  const lin = (c) => { const v = c / 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); };
+  return 0.2126 * lin(rgb.r) + 0.7152 * lin(rgb.g) + 0.0722 * lin(rgb.b);
+}
+function contrastRatio(hexA, hexB) {
+  const l1 = relativeLuminance(hexA), l2 = relativeLuminance(hexB);
+  const [hi, lo] = l1 >= l2 ? [l1, l2] : [l2, l1];
+  return (hi + 0.05) / (lo + 0.05);
+}
+// Tema padrão "Verde de Campo" (documento, seção 2) — usado em toda
+// tela sem clube "dono" (login, escolha de clube/campeonato, telas de
+// sistema) e como fallback de acessibilidade quando a cor derivada de
+// um clube não atinge contraste mínimo.
+const M3_DEFAULT_PALETTE = {
+  primary: "#6DDB94", onPrimary: "#00391A", primaryContainer: "#005226", onPrimaryContainer: "#89F8AF",
+  secondary: "#E3C16C", onSecondary: "#3F2E00", secondaryContainer: "#5A4400", onSecondaryContainer: "#FFDF9D",
+  tertiary: "#9ECAFF", onTertiary: "#00325B", tertiaryContainer: "#00497F", onTertiaryContainer: "#D2E4FF",
+};
+function deriveClubPalette(seedHex) {
+  const rgb = hexToRgb(seedHex);
+  if (!rgb) return null;
+  let [h, s] = rgbToHsl(rgb.r, rgb.g, rgb.b);
+  // Preto/branco/cinza puro (ex. Botafogo, Corinthians: matiz indefinido
+  // em HSL, a fórmula sempre devolve h=0/vermelho por artefato matemático,
+  // não por escolha) -- fixa um matiz grafite neutro deliberado em vez de
+  // herdar esse vermelho arbitrário (mesmo espírito do Material You: até
+  // um papel de parede em tons de cinza gera um acento cromático de
+  // propósito, nunca vermelho por acaso).
+  if (s < 0.04) h = 220;
+  const sat = clamp(s, 0.35, 0.85); // clube muito cinza/preto (ex. Corinthians) tem piso de saturação pra não virar cinza puro
+  const tone = (hh, ss, ll) => { const c = hslToRgb(hh, ss, ll); return rgbToHex(c.r, c.g, c.b); };
+  const primary = tone(h, sat, 0.68);
+  const onPrimary = tone(h, sat, 0.14);
+  const primaryContainer = tone(h, sat, 0.24);
+  const onPrimaryContainer = tone(h, sat, 0.9);
+  const secSat = clamp(s * 0.32, 0.12, 0.4);
+  const secondary = tone(h, secSat, 0.66);
+  const onSecondary = tone(h, secSat, 0.18);
+  const secondaryContainer = tone(h, secSat, 0.28);
+  const onSecondaryContainer = tone(h, secSat, 0.9);
+  const th = (h + 60) % 360;
+  const terSat = clamp(s * 0.55, 0.2, 0.6);
+  const tertiary = tone(th, terSat, 0.7);
+  const onTertiary = tone(th, terSat, 0.16);
+  const tertiaryContainer = tone(th, terSat, 0.26);
+  const onTertiaryContainer = tone(th, terSat, 0.9);
+  const palette = {
+    primary, onPrimary, primaryContainer, onPrimaryContainer,
+    secondary, onSecondary, secondaryContainer, onSecondaryContainer,
+    tertiary, onTertiary, tertiaryContainer, onTertiaryContainer,
+  };
+  // Fallback de acessibilidade (documento, seções 2.2/6): primary e
+  // primary-container são os pares mais usados em texto/botão — se
+  // qualquer um não alcançar 4.5:1 (AA texto normal), o clube inteiro
+  // cai pro tema padrão em vez de aplicar uma combinação ilegível.
+  if (contrastRatio(primary, onPrimary) < 4.5 || contrastRatio(primaryContainer, onPrimaryContainer) < 4.5) return null;
+  return palette;
+}
+const M3_PALETTE_VARS = {
+  primary: "--m3-primary", onPrimary: "--m3-on-primary",
+  primaryContainer: "--m3-primary-container", onPrimaryContainer: "--m3-on-primary-container",
+  secondary: "--m3-secondary", onSecondary: "--m3-on-secondary",
+  secondaryContainer: "--m3-secondary-container", onSecondaryContainer: "--m3-on-secondary-container",
+  tertiary: "--m3-tertiary", onTertiary: "--m3-on-tertiary",
+  tertiaryContainer: "--m3-tertiary-container", onTertiaryContainer: "--m3-on-tertiary-container",
+};
+function applyM3Palette(palette) {
+  const root = document.documentElement.style;
+  Object.keys(M3_PALETTE_VARS).forEach((key) => root.setProperty(M3_PALETTE_VARS[key], palette[key]));
+}
+// Chamado ao entrar numa carreira (showGameScreen) -- club é o time do
+// jogador (teamById(CAREER.clubId)). Telas sem carreira ativa (login,
+// escolha de clube/campeonato, telas de sistema) nunca chamam isso —
+// ficam nos valores literais do tema padrão já escritos no <style>.
+function applyClubPalette(club) {
+  const derived = club && club.c1 ? deriveClubPalette(club.c1) : null;
+  applyM3Palette(derived || M3_DEFAULT_PALETTE);
+}
+// Chamado ao sair de uma carreira ativa (Reiniciar, Escolher outro
+// clube, logout) -- devolve as superfícies dinâmicas pro tema padrão
+// antes da próxima tela (que pode não ter clube nenhum ainda).
+function resetToDefaultM3Palette() { applyM3Palette(M3_DEFAULT_PALETTE); }
+
 async function fetchJSON(url, opts) {
   const res = await fetch(url, opts);
   const data = await res.json().catch(() => null);
@@ -210,7 +355,10 @@ function toastBottomOffset() {
     const footer = openModals[openModals.length - 1].querySelector(".ct-modal-footer");
     return isRendered(footer) ? footer.getBoundingClientRect().height + 14 : 18;
   }
-  const nav = document.querySelector(".mt-bottom-nav");
+  // Redesign M3 — rodapé de #screenGame virou .m3-bottom-nav (ver
+  // carreira.html); .mt-bottom-nav não existe mais nesse elemento, só
+  // continua no CSS por enquanto (nenhum outro elemento a usa hoje).
+  const nav = document.querySelector(".m3-bottom-nav") || document.querySelector(".mt-bottom-nav");
   if (!isRendered(nav)) return 18;
   let offset = nav.getBoundingClientRect().height + 14;
   const actionBar = [...document.querySelectorAll(".mt-action-bar")].find(isRendered);
@@ -293,6 +441,14 @@ function show(name) {
   // pro topo — quem entrava assim na tela do jogo ficava com o
   // cabeçalho novo escondido acima da dobra até rolar manualmente.
   window.scrollTo(0, 0);
+  // Redesign M3 — nenhuma destas 4 telas tem clube "dono" (login,
+  // escolha de competição/clube, loading), então a cor dinâmica de
+  // clube nunca deveria vazar pra elas (ex.: usuário saiu de uma
+  // carreira do Flamengo e a tela de login ficaria vermelha até a
+  // próxima carreira aplicar sua própria cor). showGameScreen() chama
+  // applyClubPalette() de volta logo em seguida quando o destino É
+  // "screenGame" com carreira de verdade.
+  if (name !== "screenGame") resetToDefaultM3Palette();
 }
 function applyStoredTheme() {
   try { document.documentElement.setAttribute("data-theme", localStorage.getItem("brdata_theme") || "light"); } catch {}
@@ -5464,6 +5620,23 @@ function confirmLiveTactics() {
   resumeLiveMatch();
 }
 
+/* ---------- Redesign M3 — topbar com identidade do clube ----------
+   Substitui a marca genérica ("MODO CARREIRA") por escudo + nome do
+   clube + posição na tabela (ver m3-proposal.html Screen 1) — chrome
+   global de #screenGame, chamada em toda renderAll() pra ficar sempre
+   em dia (posição muda a cada rodada). */
+function renderTopbarIdentity() {
+  const club = teamById(CAREER.clubId);
+  document.getElementById("topbarClubCrest").innerHTML = club?.logo
+    ? `<img src="${club.logo}" alt="">`
+    : escapeHtml(club?.short || "?");
+  document.getElementById("topbarClubName").textContent = club?.name || "";
+  document.getElementById("topbarClubSub").textContent = `Temporada ${CAREER.seasonYear} · ${COMPETITION_SHORT[CAREER.competitionId] || "Brasileirão"}`;
+  const rows = Object.values(CAREER.standings).sort((a, b) => (b.pts - a.pts) || (b.v - a.v) || (b.sg - a.sg) || (b.gp - a.gp));
+  const pos = rows.findIndex((r) => String(r.id) === String(CAREER.clubId)) + 1;
+  document.getElementById("topbarPositionChip").textContent = pos > 0 ? `${pos}º lugar` : "";
+}
+
 /* ---------- Renderização: Central ---------- */
 function renderCentral() {
   refreshAvailability();
@@ -5533,9 +5706,10 @@ function renderCentral() {
   const avgMorale = principalForMorale.length
     ? Math.round(principalForMorale.reduce((s, p) => s + (p.morale == null ? 70 : p.morale), 0) / principalForMorale.length)
     : 70;
+  // Redesign M3 — bloco "m3" (.m3-stat-card), ver Início/kpiHTML().
   document.getElementById("squadKpis").innerHTML = [
     ["Elenco", squad.length], ["Disponíveis", ok], ["Contundidos", hurt], ["Suspensos", susp],
-  ].map(([l, v]) => kpiHTML(l, v)).join("") + kpiHTML("Moral do elenco", avgMorale, avgMorale >= 80 ? "gold" : avgMorale <= 30 ? "red" : null);
+  ].map(([l, v]) => kpiHTML(l, v, null, "m3")).join("") + kpiHTML("Moral do elenco", avgMorale, avgMorale >= 80 ? "gold" : avgMorale <= 30 ? "red" : null, "m3");
   // FASE 3 (c) — ano da carreira sempre visível (não só no modal de
   // transição), mesmo padrão do "(X / 38)" ao lado de "Próximo jogo".
   document.getElementById("seasonYearLabel").textContent = `Temporada ${CAREER.seasonYear}`;
@@ -6507,6 +6681,14 @@ function kpiHTML(label, value, variant, block) {
   // "block" (opcional): "fin" usa o bloco largo .mt-fin-block, próprio
   // do card "Financeiro" (só 2 valores, lado a lado, mais largos que o
   // grid 2×2 de "Situação do elenco") — default continua .mt-stat-block.
+  // Redesign M3 — "m3" usa .m3-stat-card (ver Início/renderCentral),
+  // reaproveitando a MESMA função em vez de duplicar o layout de KPI
+  // uma 3ª vez; "gold" vira .m3-stat-card.gold, "red" (alerta, já usado
+  // pra moral baixa/folha salarial estourada) vira .m3-stat-card.alert.
+  if (block === "m3") {
+    const mod = variant === "gold" ? " gold" : variant === "red" ? " alert" : "";
+    return `<div class="m3-stat-card${mod}"><div class="m3-stat-num">${value}</div><div class="m3-stat-name">${label}</div></div>`;
+  }
   const cls = block === "fin" ? "mt-fin-block" : "mt-stat-block";
   return `<div class="${cls}"><div class="num${variant ? ` ${variant}` : ""}">${value}</div><div class="lbl">${label}</div></div>`;
 }
@@ -6907,6 +7089,7 @@ function declineOfferFromModal() {
 // tinha quebrado sem acesso ao console do navegador).
 function renderAll() {
   [
+    ["Identidade do clube", renderTopbarIdentity],
     ["Central", renderCentral], ["Elenco", renderElenco], ["Escalação", renderEscalacao],
     ["Tabela", renderTabela], ["Copa do Brasil", renderCopa], ["Treinos", renderTreinos],
     ["Estatísticas", renderEstatisticas], ["Mercado", renderMercado],
@@ -6920,6 +7103,9 @@ function renderAll() {
 }
 function showGameScreen() {
   show("screenGame");
+  // Redesign M3 — aplica a cor dinâmica do clube da carreira ANTES de
+  // renderAll() (que já monta HTML lendo os tokens --m3-* via CSS).
+  applyClubPalette(teamById(CAREER.clubId));
   renderAll();
   // Retenção/Engajamento — login diário só faz sentido com uma
   // carreira em andamento pra aplicar a recompensa (ver
@@ -6928,7 +7114,9 @@ function showGameScreen() {
   checkDailyLoginOnBoot();
 }
 function switchToPanel(name) {
-  document.querySelectorAll(".mt-nav-item").forEach((b) => b.classList.toggle("active", b.dataset.panel === name));
+  // Redesign M3 — nav virou .m3-nav-item (pílula, 5 itens), ver
+  // .m3-bottom-nav em carreira.html.
+  document.querySelectorAll(".m3-nav-item").forEach((b) => b.classList.toggle("active", b.dataset.panel === name));
   document.querySelectorAll(".ct-panel").forEach((p) => p.classList.toggle("active", p.id === "panel-" + name));
   // Retenção/Engajamento — objetivos/conquistas são atualizados por
   // vários pontos de evento espalhados pelo código (comprar/vender/
@@ -7214,7 +7402,7 @@ function wireStaticListeners() {
   // clique cairia aqui TAMBÉM (além do listener dedicado dele, ver
   // mais abaixo) e chamaria switchToPanel(undefined), escondendo o
   // painel atual sem mostrar nada no lugar.
-  document.querySelectorAll(".mt-nav-item[data-panel]").forEach((btn) => {
+  document.querySelectorAll(".m3-nav-item[data-panel]").forEach((btn) => {
     btn.addEventListener("click", () => switchToPanel(btn.dataset.panel));
   });
   // Pedido do usuário: textos explicativos (ex.: "Clique num jogador
@@ -7441,15 +7629,20 @@ function wireStaticListeners() {
       document.getElementById("btnBottomMenu").setAttribute("aria-expanded", "false");
     }
   });
-  // AJUSTE (pedido do usuário: "tira um item menos relevante e coloca
-  // pra dentro do hambúrguer") — Mercado e Estatísticas saíram do
-  // rodapé fixo e entraram no Menu; abrem o mesmo painel de sempre
-  // (switchToPanel já lida com qualquer nome, mesmo sem um
-  // .mt-nav-item correspondente — só não marca nada como "ativo" no
-  // rodapé, o que é o esperado aqui) e fecham o popover em seguida.
-  document.getElementById("btnOpenMercado").addEventListener("click", () => {
+  // AJUSTE (redesign M3 — documento "seguir o sugerido" pro nav de 5
+  // itens: Início/Elenco/Tática/Mercado/Clube) — Mercado VOLTA pro
+  // rodapé fixo (tinha saído antes, ver histórico); Tabela e Treinos
+  // saem do rodapé (que agora só tem 5 destinos + Menu) e entram aqui,
+  // mesmo padrão de sempre (switchToPanel já lida com qualquer nome,
+  // mesmo sem um .m3-nav-item correspondente — só não marca nada como
+  // "ativo" no rodapé, o que é o esperado aqui).
+  document.getElementById("btnOpenTabela").addEventListener("click", () => {
     document.getElementById("topbarMenu").classList.remove("open");
-    switchToPanel("mercado");
+    switchToPanel("tabela");
+  });
+  document.getElementById("btnOpenTreinos").addEventListener("click", () => {
+    document.getElementById("topbarMenu").classList.remove("open");
+    switchToPanel("treinos");
   });
   document.getElementById("btnOpenEstatisticas").addEventListener("click", () => {
     document.getElementById("topbarMenu").classList.remove("open");

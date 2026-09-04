@@ -30,7 +30,12 @@
      corrido, só nessa página (o resto do site continua com --font de
      css/style.css). -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Bebas+Neue&family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800&family=Bebas+Neue&family=Rajdhani:wght@500;600;700&family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- AJUSTE (redesign M3, ver bloco de tokens "--m3-*" acima) — Space
+     Grotesk somado ao link de fontes de sempre (mesmo padrão de toda
+     migração anterior: nunca troca o link, só acrescenta). Bebas
+     Neue/Rajdhani/Barlow Condensed continuam servindo as telas ainda
+     não migradas pro M3. -->
 <!-- AJUSTE (pedido do usuário: "essa reestilização não é ajuste pequeno,
      é refatoração completa — refaça 100% do front pra refletir o material
      enviado / quero o jogo idêntico às 30 telas") — Bebas Neue e Rajdhani
@@ -106,7 +111,49 @@
     --mt-sky-400:#5B9BD9; --mt-violet-400:#A78BDA;
     --mt-ivory-50:#F5F1E6; --mt-ivory-100:#E8E2D0;
     --mt-ink-muted:#8FA3BF; --mt-ink-faint:#5C7192;
-    --mt-navh:74px; /* altura da nav inferior fixa, ver .mt-bottom-nav */
+    /* Redesign M3 — o rodapé de verdade agora é .m3-bottom-nav (mais
+       alto, ver --m3-navh no bloco de tokens M3 mais abaixo); em vez
+       de duas constantes que podem desalinhar, --mt-navh passa a
+       APONTAR pra ela — todo elemento ainda em --mt-* que se ancora
+       "acima do rodapé" (menu popover, barra de ação) continua
+       calculando certo, sem precisar caçar cada um. */
+    --mt-navh:var(--m3-navh);
+  }
+  /* ===== Redesign M3 (BRTreinadorSistemadeDesignM3v1.docx +
+     brtreinadormockupsm3.zip) — NOVO sistema, entrando em paralelo ao
+     "--mt-*" acima, tela por tela (mesmo processo já usado pra migrar
+     do sistema anterior pro --mt-*: cada bloco vira sua própria
+     branch, telas ainda não migradas continuam 100% em --mt-* sem
+     nenhuma mudança). Prefixo "--m3-" pra nunca colidir com --mt-*
+     nem com os tokens ainda mais antigos no topo do arquivo.
+
+     Tema PADRÃO — "Verde de Campo" — é o que estas variáveis guardam
+     sempre; qualquer clube "dono" de uma tela de carreira ativa
+     substitui só os 3 papéis coloridos (primary/secondary/tertiary +
+     containers) via JS em tempo real (ver applyClubPalette() em
+     carreira.js) — as superfícies neutras abaixo NUNCA mudam por
+     clube, exatamente como pedido no documento (2.2: "superfícies
+     neutras... não mudam por clube"). Toda tela SEM clube dono (login,
+     escolha de clube/campeonato, telas de sistema) fica só com os
+     valores literais abaixo, sem nenhum JS de recolorir. */
+  :root{
+    --m3-primary:#6DDB94; --m3-on-primary:#00391A;
+    --m3-primary-container:#005226; --m3-on-primary-container:#89F8AF;
+    --m3-secondary:#E3C16C; --m3-on-secondary:#3F2E00;
+    --m3-secondary-container:#5A4400; --m3-on-secondary-container:#FFDF9D;
+    --m3-tertiary:#9ECAFF; --m3-on-tertiary:#00325B;
+    --m3-tertiary-container:#00497F; --m3-on-tertiary-container:#D2E4FF;
+    --m3-error:#FF5449; --m3-on-error:#690002;
+    --m3-surface-dim:#100F0E; --m3-surface:#161513; --m3-surface-bright:#3A3835;
+    --m3-surface-container-lowest:#0B0A09; --m3-surface-container-low:#1D1B19;
+    --m3-surface-container:#211F1D; --m3-surface-container-high:#2C2A27;
+    --m3-surface-container-highest:#373432;
+    --m3-on-surface:#E7E2DE; --m3-on-surface-variant:#CBC5BE;
+    --m3-outline:#948E88; --m3-outline-variant:#4A4744;
+    --m3-shape-xs:4px; --m3-shape-sm:8px; --m3-shape-md:12px;
+    --m3-shape-lg:16px; --m3-shape-xl:28px; --m3-shape-full:999px;
+    --m3-display:'Space Grotesk', var(--font);
+    --m3-navh:78px; /* altura da nav inferior M3 (pílula com folga), ver .m3-bottom-nav */
   }
   /* Escudo hexagonal (ver crestImg() em carreira.js) — mesmo clip-path
      de .crest-hex no shared.css do designer. Reaproveitado por toda
@@ -1760,6 +1807,153 @@
   .mt-purchase-disclosure-icon{ color:var(--mt-crimson-400); font-size:14px; flex-shrink:0; }
   .mt-purchase-disclosure-text{ font-size:11px; line-height:1.5; color:var(--mt-ivory-100); margin:0; }
   .mt-purchase-disclosure-text b{ color:var(--mt-ivory-50); }
+
+  /* ================= Redesign M3 (BRTreinadorSistemadeDesignM3v1.docx
+     + brtreinadormockupsm3.zip) — Fundação + Bloco 1 =================
+     Componentes novos, prefixo "m3-" (nunca colide com "mt-"/"ct-" das
+     telas ainda não migradas, que continuam 100% intactas). Usa os
+     tokens --m3-* definidos no primeiro bloco de :root deste arquivo
+     (cor dinâmica por clube aplicada em tempo real via
+     applyClubPalette(), ver carreira.js). */
+
+  /* ---- topbar com identidade do clube (chrome global de #screenGame,
+     ver renderTopbarIdentity) ---- */
+  .m3-topbar{
+    position:sticky; top:0; z-index:5;
+    background:var(--m3-surface-container-low);
+    padding:20px 18px 14px;
+    display:flex; align-items:center; justify-content:space-between; gap:12px;
+  }
+  .m3-topbar-id{ display:flex; align-items:center; gap:11px; min-width:0; }
+  .m3-topbar-crest{
+    width:36px; height:36px; border-radius:var(--m3-shape-sm); flex-shrink:0;
+    background:var(--m3-primary); color:var(--m3-on-primary);
+    display:flex; align-items:center; justify-content:center; overflow:hidden;
+    font-family:var(--m3-display); font-weight:700; font-size:13px;
+  }
+  .m3-topbar-crest img{ width:100%; height:100%; object-fit:contain; }
+  .m3-topbar-name{ font-size:13.5px; font-weight:600; color:var(--m3-on-surface); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .m3-topbar-sub{ font-size:10.5px; color:var(--m3-on-surface-variant); margin-top:1px; }
+  .m3-topbar-chip{
+    flex-shrink:0; background:var(--m3-secondary-container); color:var(--m3-on-secondary-container);
+    font-size:10.5px; font-weight:600; padding:5px 12px; border-radius:var(--m3-shape-full);
+  }
+
+  /* ---- bottom nav (pílula, 5 destinos) + FAB ---- */
+  .m3-bottom-nav{
+    position:fixed; left:14px; right:14px; bottom:14px; z-index:20;
+    background:var(--m3-surface-container-high); border-radius:var(--m3-shape-full);
+    display:flex; justify-content:space-around; align-items:center;
+    padding:10px 6px; box-shadow:0 10px 30px rgba(0,0,0,.4);
+  }
+  .m3-nav-item{
+    position:relative; display:flex; flex-direction:column; align-items:center; gap:3px;
+    background:none; border:none; font-family:var(--font); font-size:9.5px; font-weight:600;
+    color:var(--m3-on-surface-variant); cursor:pointer; padding:6px 10px;
+  }
+  .m3-nav-item svg{ width:20px; height:20px; }
+  .m3-nav-item.active{ color:var(--m3-on-primary-container); }
+  .m3-nav-item.active .m3-nav-pill{
+    position:absolute; inset:0; background:var(--m3-primary-container);
+    border-radius:var(--m3-shape-full); z-index:-1;
+  }
+  .m3-fab{
+    position:fixed; right:20px; z-index:19;
+    bottom:calc(var(--m3-navh) + 14px + env(safe-area-inset-bottom, 0px));
+    background:var(--m3-primary); color:var(--m3-on-primary); border:none;
+    border-radius:var(--m3-shape-lg); padding:14px 20px;
+    display:flex; align-items:center; gap:8px;
+    font-family:var(--font); font-size:13px; font-weight:700; cursor:pointer;
+    box-shadow:0 10px 24px rgba(0,0,0,.4);
+  }
+  .m3-fab svg{ width:18px; height:18px; }
+  .m3-fab.hidden{ display:none; }
+
+  /* ---- corpo com espaço reservado pro chrome fixo (nav + fab) ---- */
+  /* Sobrescreve o fundo em degradê navy de .mt-body (que continua na
+     mesma div, ver comentário no HTML) — o corpo do jogo inteiro passa
+     a usar a superfície M3 (mesma por trás de toda tela, migrada ou
+     não; só os CARDS de dentro de cada painel ainda-não-migrado
+     continuam no visual --mt-* de sempre até sua vez). */
+  .m3-body{ padding:6px 16px calc(var(--m3-navh) + 78px); background:var(--m3-surface-dim); }
+
+  /* ---- cartões/heróis genéricos ---- */
+  .m3-card{ background:var(--m3-surface-container); border-radius:var(--m3-shape-lg); padding:16px; margin-bottom:14px; }
+  .m3-card-title{ font-family:var(--m3-display); font-weight:600; font-size:14px; color:var(--m3-on-surface); margin-bottom:10px; }
+  .m3-hero-card{ background:var(--m3-primary-container); color:var(--m3-on-primary-container); border-radius:var(--m3-shape-xl); padding:18px; margin-bottom:14px; }
+  .m3-hero-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
+  .m3-hero-label{ font-size:10.5px; font-weight:700; letter-spacing:.5px; opacity:.85; }
+  /* Reaproveita o MESMO HTML que renderCentral() já monta pro
+     confronto (.side/.n/.vs, ver crestImg()/nextMatchBox em
+     carreira.js — JS intocado) — só reestiliza por cima, escopado a
+     .m3-hero-match (não mexe no .ct-next-match genérico usado por
+     Confirmar escalação/Resultado do jogo/Ao Vivo, cada um com seu
+     próprio escopo, mesmo padrão de sempre). */
+  .m3-hero-match{ display:flex; align-items:center; justify-content:center; gap:16px; padding:6px 0; }
+  .m3-hero-match .side .n{ font-size:11.5px; font-weight:600; text-align:center; color:var(--m3-on-primary-container); }
+  .m3-hero-match .vs{ font-family:var(--m3-display); font-weight:700; font-size:16px; opacity:.7; color:var(--m3-on-primary-container); }
+  .m3-hero-meta{ font-size:11px; opacity:.8; text-align:center; margin-top:8px; }
+
+  /* ---- linha de stat cards ---- */
+  .m3-stat-row{ display:grid; grid-template-columns:repeat(auto-fit, minmax(80px, 1fr)); gap:10px; margin-bottom:14px; }
+  .m3-stat-card{ background:var(--m3-surface-container); border-radius:var(--m3-shape-md); padding:12px 10px; text-align:center; }
+  .m3-stat-card.gold{ background:var(--m3-secondary-container); color:var(--m3-on-secondary-container); }
+  .m3-stat-card.alert{ background:rgba(255,84,73,.16); }
+  .m3-stat-num{ font-family:var(--m3-display); font-weight:700; font-size:18px; color:var(--m3-on-surface); }
+  .m3-stat-card.gold .m3-stat-num{ color:var(--m3-on-secondary-container); }
+  .m3-stat-name{ font-size:9.5px; color:var(--m3-on-surface-variant); margin-top:3px; }
+  .m3-stat-card.gold .m3-stat-name{ color:var(--m3-on-secondary-container); opacity:.85; }
+
+  /* ---- lista com avatar + rating (Elenco) ---- */
+  .m3-filter-row{ display:flex; gap:8px; overflow-x:auto; margin-bottom:14px; padding-bottom:2px; }
+  .m3-filter-chip{
+    flex-shrink:0; font-size:11px; font-weight:600; padding:8px 14px;
+    border-radius:var(--m3-shape-full); border:1px solid var(--m3-outline-variant);
+    color:var(--m3-on-surface-variant); background:none; cursor:pointer; font-family:var(--font);
+  }
+  .m3-filter-chip.on{ background:var(--m3-secondary-container); color:var(--m3-on-secondary-container); border-color:transparent; }
+  .m3-list-item{ display:flex; align-items:center; gap:12px; background:var(--m3-surface-container); border-radius:var(--m3-shape-md); padding:11px 12px; margin-bottom:8px; cursor:pointer; }
+  .m3-li-avatar{ width:38px; height:38px; border-radius:var(--m3-shape-sm); flex-shrink:0; background:var(--m3-surface-container-highest); color:var(--m3-on-surface); display:flex; align-items:center; justify-content:center; font-family:var(--m3-display); font-weight:700; font-size:12px; overflow:hidden; }
+  .m3-li-avatar img{ width:100%; height:100%; object-fit:cover; }
+  .m3-li-body{ flex:1; min-width:0; }
+  .m3-li-name{ font-size:12.5px; font-weight:600; color:var(--m3-on-surface); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .m3-li-meta{ display:flex; gap:6px; margin-top:4px; flex-wrap:wrap; }
+  .m3-mini-chip{ font-size:9px; font-weight:600; padding:2px 8px; border-radius:var(--m3-shape-full); background:var(--m3-surface-container-highest); color:var(--m3-on-surface-variant); }
+  .m3-mini-chip.alert{ background:var(--m3-error); color:var(--m3-on-error); }
+  .m3-li-rating{ width:30px; height:30px; border-radius:50%; background:var(--m3-tertiary-container); color:var(--m3-on-tertiary-container); font-family:var(--m3-display); font-weight:700; font-size:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .m3-empty{ text-align:center; font-size:12px; color:var(--m3-on-surface-variant); padding:24px 12px; }
+
+  /* ---- Ao Vivo: placar + domínio de jogo + lance a lance ---- */
+  .m3-score-card{ background:var(--m3-surface-container-high); border-radius:var(--m3-shape-xl); padding:20px 16px; text-align:center; margin-bottom:14px; }
+  .m3-score-live{ display:inline-flex; align-items:center; gap:6px; background:var(--m3-error); color:var(--m3-on-error); font-size:10px; font-weight:700; padding:4px 11px; border-radius:var(--m3-shape-full); margin-bottom:10px; }
+  .m3-score-live .dot{ width:6px; height:6px; border-radius:50%; background:var(--m3-on-error); }
+  .m3-score-teams{ display:flex; align-items:center; justify-content:center; gap:16px; }
+  .m3-score-team{ font-size:11px; font-weight:600; width:80px; color:var(--m3-on-surface); }
+  .m3-score-num{ font-family:var(--m3-display); font-weight:700; font-size:34px; color:var(--m3-on-surface); }
+  .m3-score-min{ font-size:11px; color:var(--m3-on-surface-variant); margin-top:8px; }
+  .m3-momentum{ display:flex; height:8px; border-radius:var(--m3-shape-full); overflow:hidden; margin-bottom:16px; background:var(--m3-surface-container-highest); }
+  .m3-momentum .mine{ background:var(--m3-primary); }
+  .m3-event{ display:flex; align-items:center; gap:10px; padding:9px 2px; border-bottom:1px solid var(--m3-outline-variant); }
+  .m3-event:last-child{ border-bottom:none; }
+  .m3-event-min{ font-size:10.5px; color:var(--m3-on-surface-variant); width:28px; flex-shrink:0; }
+  .m3-event-icon{ width:26px; height:26px; border-radius:50%; background:var(--m3-surface-container-high); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .m3-event-icon svg{ width:13px; height:13px; }
+  .m3-event-text{ font-size:11.5px; color:var(--m3-on-surface); }
+
+  /* ---- Escolha do clube / onboarding ---- */
+  .m3-club-grid{ display:flex; flex-direction:column; gap:10px; }
+  .m3-club-row{
+    display:flex; align-items:center; gap:12px; background:var(--m3-surface-container);
+    border-radius:var(--m3-shape-lg); padding:12px 14px; border:1px solid transparent; cursor:pointer;
+  }
+  .m3-club-crest{ width:36px; height:36px; border-radius:var(--m3-shape-sm); flex-shrink:0; background:var(--m3-surface-container-highest); display:flex; align-items:center; justify-content:center; overflow:hidden; font-family:var(--m3-display); font-weight:700; font-size:12px; }
+  .m3-club-crest img{ width:100%; height:100%; object-fit:contain; }
+  .m3-club-name{ font-size:12.5px; font-weight:600; color:var(--m3-on-surface); }
+  .m3-club-meta{ font-size:10px; color:var(--m3-on-surface-variant); margin-top:1px; }
+
+  /* ---- botões genéricos M3 (pílula) ---- */
+  .m3-btn-primary{ width:100%; display:flex; align-items:center; justify-content:center; gap:8px; background:var(--m3-primary); color:var(--m3-on-primary); border:none; border-radius:var(--m3-shape-full); padding:13px; font-family:var(--font); font-weight:700; font-size:13px; cursor:pointer; }
+  .m3-btn-ghost{ width:100%; display:flex; align-items:center; justify-content:center; gap:8px; background:var(--m3-surface-container); color:var(--m3-on-surface); border:1px solid var(--m3-outline-variant); border-radius:var(--m3-shape-full); padding:13px; font-family:var(--font); font-weight:700; font-size:13px; cursor:pointer; }
 </style>
 </head>
 <body>
@@ -1901,13 +2095,22 @@
 
   <!-- ================= Jogo ================= -->
   <div class="hidden" id="screenGame" style="display:flex; flex-direction:column; flex:1;">
-    <div class="mt-topbar">
-      <div class="mt-topbar-row">
-        <div class="mt-brand-mini">
-          <div class="mt-crest-mini"><img src="img/brand-icon.png" alt=""></div>
-          <div class="t">MODO <span>CARREIRA</span></div>
+    <!-- Redesign M3 — topbar antes era só a marca genérica ("MODO
+         CARREIRA"); vira identidade do clube (escudo + nome + posição
+         na tabela), igual ao mockup (m3-proposal.html Screen 1) — ver
+         renderTopbarIdentity() em carreira.js, chamada dentro de
+         renderAll() (sempre em dia, qualquer painel ativo). Chrome
+         global de #screenGame — aparece em toda tela do jogo, migrada
+         ou não pro M3. -->
+    <div class="m3-topbar">
+      <div class="m3-topbar-id">
+        <div class="m3-topbar-crest" id="topbarClubCrest"></div>
+        <div style="min-width:0;">
+          <div class="m3-topbar-name" id="topbarClubName"></div>
+          <div class="m3-topbar-sub" id="topbarClubSub"></div>
         </div>
       </div>
+      <div class="m3-topbar-chip" id="topbarPositionChip"></div>
     </div>
 
     <!-- AJUSTE (pedido do usuário: "o hambúrguer não ficaria melhor no
@@ -1916,13 +2119,15 @@
          item de verdade do rodapé (#btnBottomMenu, ver .mt-bottom-nav
          abaixo) — abre o MESMO popover de sempre, só reancorado pra
          subir a partir do rodapé em vez de descer do topo (ver
-         .mt-topbar-menu no <style>). Mercado e Estatísticas saíram do
-         rodapé (pedido do usuário: "tira um item menos relevante" —
-         Mercado só fica realmente ativo nas 2 janelas de
-         transferência da temporada, o resto do ano tem uso reduzido)
-         e entraram aqui como os 2 primeiros itens. -->
+         .mt-topbar-menu no <style>). AJUSTE (redesign M3 — nav de 5
+         itens do documento: Início/Elenco/Tática/Mercado/Clube):
+         Mercado VOLTOU pro rodapé fixo (ver .m3-bottom-nav mais
+         abaixo); Tabela e Treinos saíram de lá (só cabem 5 + Menu
+         agora) e entraram aqui como os 2 primeiros itens, junto de
+         Estatísticas que já morava aqui. -->
     <div class="mt-topbar-menu" id="topbarMenu">
-      <button class="mt-topbar-menu-item" id="btnOpenMercado">💰 Mercado</button>
+      <button class="mt-topbar-menu-item" id="btnOpenTabela">📅 Tabela</button>
+      <button class="mt-topbar-menu-item" id="btnOpenTreinos">🏋️ Treinos</button>
       <button class="mt-topbar-menu-item" id="btnOpenEstatisticas">📊 Estatísticas</button>
       <!-- Retenção/Engajamento (BRDataRetencaoEspecificacao) — 3 telas
            novas, mesmo padrão de Mercado/Estatísticas acima (sem aba
@@ -1957,48 +2162,50 @@
       <button class="mt-topbar-menu-item danger" id="btnLogout">⎋ Sair</button>
     </div>
 
-    <!-- AJUSTE (redesign, Tela 3) — nav inferior fixa, ícone+label,
-         pílula dourada no item ativo (mesmas classes/ids de sempre nos
-         <button>, switchToPanel só lê data-panel/.active — nenhuma
-         lógica mudou). 6º ícone (Mercado) somado ao layout de 5 do
-         mock-up do designer (que não cobria essa aba). -->
-    <nav class="mt-bottom-nav">
-      <button class="mt-nav-item active" data-panel="central">
+    <!-- AJUSTE (redesign M3, documento BRTreinadorSistemadeDesignM3v1.docx
+         seção 5 + "seguir o sugerido" na pergunta de navegação) — nav
+         vira pílula de 5 destinos (Início/Elenco/Tática/Mercado/Clube),
+         igual ao documento — Tabela e Treinos saem daqui (ver Menu
+         acima), Mercado volta (tinha saído numa mudança anterior desta
+         sessão), "Clube" é novo (ver panel-clube — finanças/patrocínio/
+         proposta de outro clube, antes dentro do painel Central). Só
+         chrome + switchToPanel (data-panel) — nenhuma lógica de jogo
+         muda. Botão "Menu" continua sem data-panel de propósito (não é
+         aba, abre o popover #topbarMenu — excluído do loop genérico de
+         switchToPanel, que seleciona só ".m3-nav-item[data-panel]"). -->
+    <nav class="m3-bottom-nav">
+      <button class="m3-nav-item active" data-panel="central">
+        <span class="m3-nav-pill"></span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7"/><path d="M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"/></svg>
-        Central
+        Início
       </button>
-      <button class="mt-nav-item" data-panel="elenco">
+      <button class="m3-nav-item" data-panel="elenco">
+        <span class="m3-nav-pill"></span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20c0-3.6 2.9-6 6.5-6s6.5 2.4 6.5 6"/><circle cx="17" cy="9" r="2.6"/><path d="M15.5 14.3c2.7.3 4.5 2.3 4.5 5.7"/></svg>
         Elenco
       </button>
-      <button class="mt-nav-item" data-panel="escalacao">
+      <button class="m3-nav-item" data-panel="escalacao">
+        <span class="m3-nav-pill"></span>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1.5"/><circle cx="12" cy="8.5" r="1.6"/><circle cx="7" cy="15" r="1.6"/><circle cx="17" cy="15" r="1.6"/></svg>
-        Táticas
+        Tática
       </button>
-      <button class="mt-nav-item" data-panel="tabela">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1.5"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="9" y1="10" x2="9" y2="20"/></svg>
-        Tabela
+      <button class="m3-nav-item" data-panel="mercado">
+        <span class="m3-nav-pill"></span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="7" width="18" height="13" rx="1.5"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><circle cx="16" cy="13.5" r="1.4"/></svg>
+        Mercado
       </button>
-      <!-- AJUSTE (pedido do usuário: "vamos evoluir o método de
-           treinos") — nova aba, no lugar que era da Estatísticas
-           (movida pro Menu, ver acima). -->
-      <button class="mt-nav-item" data-panel="treinos">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6.5 6.5a4 4 0 1 1 5.5 5.5"/><circle cx="6.5" cy="6.5" r="2.4"/><path d="M9 9l-6 6M12 12v9M8 21h8"/></svg>
-        Treinos
+      <button class="m3-nav-item" data-panel="clube">
+        <span class="m3-nav-pill"></span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21V9l8-6 8 6v12"/><path d="M9 21v-6h6v6"/><path d="M9 12h.01M15 12h.01M12 9h.01"/></svg>
+        Clube
       </button>
-      <!-- AJUSTE (pedido do usuário: "o hambúrguer não ficaria melhor
-           no rodapé junto com os demais?") — sem data-panel de
-           propósito: não é uma troca de aba, abre o popover
-           #topbarMenu (ver wireStaticListeners) — excluído do loop
-           genérico de switchToPanel (que agora seleciona só
-           ".mt-nav-item[data-panel]") por não ter esse atributo. -->
-      <button class="mt-nav-item" id="btnBottomMenu" aria-label="Menu" aria-expanded="false" aria-controls="topbarMenu">
+      <button class="m3-nav-item" id="btnBottomMenu" aria-label="Menu" aria-expanded="false" aria-controls="topbarMenu">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
         Menu
       </button>
     </nav>
 
-    <div class="mt-body">
+    <div class="mt-body m3-body">
 
       <!-- ---------- Central — REFATORAÇÃO COMPLETA =================
            AJUSTE (idêntico a 03-central-restyled.html do designer, +
@@ -2009,28 +2216,49 @@
            fluxo normal do card e vira .mt-action-bar, fixa acima da
            nav — sempre alcançável sem rolar a tela. -->
       <section class="ct-panel active" id="panel-central">
-        <div class="mt-card">
-          <div class="mt-card-head">
-            <div class="mt-card-title">Próximo jogo</div>
-            <div class="ct-round-inline" id="roundPill">1 / 38</div>
+        <div class="m3-hero-card">
+          <div class="m3-hero-top">
+            <span class="m3-hero-label">PRÓXIMO JOGO</span>
+            <span class="m3-hero-label" id="roundPill">1 / 38</span>
           </div>
-          <div class="ct-next-match mt-nextmatch" id="nextMatchBox"></div>
+          <div class="ct-next-match m3-hero-match" id="nextMatchBox"></div>
           <!-- :empty (ver CSS) esconde o badge quando a escalação está
                completa — lineupWarning só recebe texto quando falta
                titular (ver renderCentral em carreira.js). -->
           <p class="mt-badge-alert" id="lineupWarning"></p>
         </div>
-        <div class="mt-card">
-          <div class="mt-card-head">
-            <div class="mt-card-title">Situação do elenco</div>
+        <div class="m3-card">
+          <div class="mt-card-head" style="margin-bottom:10px;">
+            <div class="m3-card-title" style="margin:0;">Situação do elenco</div>
             <div class="mt-card-sub" id="seasonYearLabel" style="margin:0;"></div>
           </div>
-          <div class="mt-stat-grid" id="squadKpis"></div>
+          <div class="m3-stat-row" id="squadKpis"></div>
         </div>
-        <!-- FASE 4 (item 4) — banner reaproveitável caso o técnico feche
-             o "X" da notificação de proposta sem decidir na hora (ver
-             btnViewClubProposal/openClubProposalModal em carreira.js) —
-             sem isso a proposta ficava sem jeito nenhum de reabrir. -->
+        <div class="m3-card" id="lastResultCard" style="display:none;">
+          <div class="m3-card-title">Resultado da última rodada</div>
+          <div id="lastResultBox"></div>
+        </div>
+        <!-- Redesign M3 — FAB estendido (documento, seção 5: "uma ação
+             primária por tela") no lugar da barra de ação fixa. Mesmos
+             ids/conteúdo de sempre nos botões (#btnSimulate/
+             #btnAdvanceSeason) — só o container mudou de
+             .mt-action-bar (dentro de #centralActionBar) pra .m3-fab
+             direto no botão (só 1 dos 2 fica visível por vez, igual
+             antes). -->
+        <button class="m3-fab" id="btnSimulate"><svg viewBox="0 0 24 24" fill="currentColor"><polygon points="6,4 20,12 6,20"/></svg>Ir para o jogo</button>
+        <button class="m3-fab hidden" id="btnAdvanceSeason"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4Z"/><path d="M7 5H4a1 1 0 0 0-1 1v1a4 4 0 0 0 4 4"/><path d="M17 5h3a1 1 0 0 1 1 1v1a4 4 0 0 1-4 4"/></svg>Próxima Temporada</button>
+      </section>
+
+      <!-- ---------- Clube (novo, 5º item do rodapé M3) =================
+           Financeiro/Patrocínios/Proposta de outro clube — antes
+           dentro da Central, movidos pra cá quando o rodapé virou 5
+           itens (Início/Elenco/Tática/Mercado/Clube). Marcação e ids
+           IDÊNTICOS a antes, só de endereço novo — renderCentral() (que
+           continua alimentando estes 3 cards) não precisou mudar nada.
+           Visual ainda no sistema --mt-* de sempre (reskin M3 completo
+           do "Clube" fica pro Bloco 4; esta etapa é só Fundação +
+           Bloco 1). -->
+      <section class="ct-panel" id="panel-clube">
         <div class="mt-card" id="clubProposalCard" style="display:none;">
           <div class="mt-proposal-row">
             <div class="mt-icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v16H4z"/><path d="m4 6 8 7 8-7"/></svg></div>
@@ -2041,24 +2269,14 @@
           </div>
           <button class="mt-btn-ghost" id="btnViewClubProposal">Ver proposta</button>
         </div>
-        <!-- FASE 2 (b) — pedido do usuário: contrato/salário/valor com
-             orçamento real (ver CAREER.finances em carreira.js). -->
         <div class="mt-card">
           <div class="mt-card-title" style="margin-bottom:14px;">Financeiro</div>
           <div class="mt-fin-row" id="financeKpis"></div>
           <div class="ct-wagecap-track"><span class="ct-wagecap-fill" id="wageCapFill" style="width:0%"></span></div>
           <p class="mt-card-sub" id="wageCapLabel" style="margin-top:6px;"></p>
-          <!-- FASE 3 (a) — pedido do usuário: diretoria avalia risco de
-               rebaixamento/disputa de título pra decidir se libera mais
-               orçamento (ver askBoard em carreira.js). -->
           <button class="mt-btn-ghost" id="btnAskBoard" style="margin-top:10px;">🏛️ Pedir mais orçamento à diretoria</button>
           <p class="mt-card-sub" id="boardDecisionText" style="margin-top:8px; margin-bottom:0; text-align:center;"></p>
         </div>
-        <!-- FASE 4 (item 5) — patrocínio e material esportivo (ver
-             renderSponsorship/openSponsorProposalsModal em
-             carreira.js). Efeito puramente financeiro, soma no caixa
-             em parcelas ao longo da temporada — sem nada visual de
-             camisa estampada, como a própria especificação já decide. -->
         <div class="mt-card">
           <div class="mt-card-head">
             <div class="mt-card-title">Patrocínios</div>
@@ -2066,41 +2284,6 @@
           </div>
           <p class="mt-card-sub ct-help-text" id="helpPatrocinios" hidden style="margin-top:10px;">Contratos comerciais somam receita fixa por temporada, pagos aos poucos a cada rodada. Ao vencer, aparecem propostas concorrentes pra renovar — o valor melhora conforme o desempenho recente do clube.</p>
           <div id="sponsorshipBox" style="margin-top:2px;"></div>
-        </div>
-        <div class="mt-card" id="lastResultCard" style="display:none;">
-          <div class="mt-card-title" style="margin-bottom:12px;">Resultado da última rodada</div>
-          <div id="lastResultBox"></div>
-        </div>
-        <!-- AJUSTE (redesign, Tela 3) — barra de ação fixa: "Simular
-             rodada"/"Avançar temporada" ficam ancoradas acima da nav
-             inferior, sempre visíveis sem depender de rolar. Fica
-             DENTRO do painel (não como irmão) de propósito — o mesmo
-             display:none que esconde o painel quando outra aba está
-             ativa esconde a barra fixa junto, sem precisar de nenhum
-             JS extra pra saber que aba está aberta. -->
-        <div class="mt-action-bar" id="centralActionBar">
-          <!-- AJUSTE (pedido do usuário: "o botão Simular Rodada pode
-               mudar para Ir para o jogo e manter o mesmo estilo dos
-               demais botões Ir para o Jogo já existentes") — texto e
-               classe (.mt-btn-primary-gold no lugar do verde
-               .mt-btn-primary) batendo com #btnPreMatchGo/
-               #btnAdjustLineupGo, mesmo ícone de "play" que já usava.
-               Continua abrindo a mesma confirmação de escalação de
-               sempre (ver openPreMatchConfirm) — só o botão que dá
-               esse primeiro passo mudou de nome/cor, não o fluxo. -->
-          <button class="mt-btn-primary-gold" id="btnSimulate"><svg viewBox="0 0 24 24" fill="currentColor"><polygon points="6,4 20,12 6,20"/></svg>Ir para o jogo</button>
-          <!-- FASE 3 (c) — pedido do usuário: seguir jogando ano após
-               ano (multitemporadas) — só aparece quando a temporada
-               termina, ver renderCentral/advanceSeason.
-               AJUSTE (pedido do usuário: "Botão 'Avançar a próxima
-               temporada' e 'Salvar escalação e táticas' deve ter o
-               padrão de todos os demais botões") — era o único botão
-               de ação principal que sobrou com o verde
-               .mt-btn-primary (caixa alta, tracking largo, cor de
-               ANTES do ajuste "fonte mais discreta") — trocado pro
-               .mt-btn-primary-gold de sempre; emoji 🏆 também trocado
-               por ícone SVG (nenhum outro botão do app usa emoji). -->
-          <button class="mt-btn-primary-gold hidden" id="btnAdvanceSeason"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4Z"/><path d="M7 5H4a1 1 0 0 0-1 1v1a4 4 0 0 0 4 4"/><path d="M17 5h3a1 1 0 0 1 1 1v1a4 4 0 0 1-4 4"/></svg>Próxima Temporada</button>
         </div>
       </section>
 
