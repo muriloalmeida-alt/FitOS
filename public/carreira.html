@@ -1780,6 +1780,11 @@
   }
   .mt-sel-row{ display:flex; align-items:center; gap:12px; padding:11px 4px; border-bottom:1px solid var(--mt-navy-700); cursor:pointer; }
   .mt-sel-row:last-child{ border-bottom:none; }
+  /* Nova feature (Bloco 2 M3 — Marcação individual) — estado
+     selecionado genérico pra .mt-sel-row fora do contexto de picker de
+     escalação (aqui é uma ESCOLHA, não uma troca de titular). */
+  .mt-sel-row.selected{ background:var(--m3-primary-container); border-radius:var(--m3-shape-md); padding-left:10px; padding-right:10px; border-bottom-color:transparent; }
+  .mt-sel-row.selected .mt-sel-name{ color:var(--m3-on-primary-container); }
   .mt-sel-name{ flex:1; min-width:0; font-weight:600; font-size:14px; color:var(--mt-ivory-50); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .mt-sel-name .status{ font-weight:400; color:var(--mt-ink-faint); font-size:12px; }
   .mt-sel-meta{ display:flex; align-items:center; gap:8px; flex-shrink:0; }
@@ -2315,6 +2320,10 @@
            brtreinadorbloco2pendentes.html): biblioteca de esquemas
            táticos completos (ver openSchemesScreen/carreira.js). -->
       <button class="mt-topbar-menu-item" id="btnOpenSchemes">🗂️ Meus esquemas</button>
+      <!-- Nova feature — Marcação individual (Bloco 2 M3,
+           brtreinadorbloco2pendentes.html): ver openManMarkingScreen/
+           carreira.js. -->
+      <button class="mt-topbar-menu-item" id="btnOpenMarking">🎯 Marcação individual</button>
       <button class="mt-topbar-menu-item" id="btnOpenTreinos">🏋️ Treinos</button>
       <button class="mt-topbar-menu-item" id="btnOpenEstatisticas">📊 Estatísticas</button>
       <!-- Retenção/Engajamento (BRDataRetencaoEspecificacao) — 3 telas
@@ -3638,6 +3647,46 @@
     <div class="ct-modal-body">
       <input id="newSchemeNameInput" class="mt-friend-input" placeholder="Ex.: Retranca fora" maxlength="30" style="width:100%;">
       <button class="mt-btn-primary-gold" id="btnConfirmNewScheme" style="width:100%; margin-top:14px;">Salvar esquema</button>
+    </div>
+  </div>
+</div>
+
+<!-- Nova feature (Bloco 2 M3, brtreinadorbloco2pendentes.html) —
+     Marcação individual: escalar um jogador seu pra marcar um jogador
+     ESPECÍFICO do adversário do próximo jogo (efeito real, ver
+     activeManMarkingSuppression/resolveLiveChunk em carreira.js). Sem
+     pitch esquemático com linha tracejada (mockup) de propósito — não
+     temos posição real de campo pro elenco do RIVAL (times CPU não têm
+     formação tática, só lista de elenco), então uma linha ligando 2
+     pontos fixos seria decoração sem dado nenhum por trás; a escolha
+     dos 2 jogadores (quem marca / quem é marcado) já comunica a
+     designação sem inventar coordenada nenhuma. -->
+<div class="ct-modal-overlay ct-modal-fullscreen" id="markingOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header mt-fullheader">
+      <span class="ct-modal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/></svg></span>
+      <div class="ct-modal-header-text">
+        <h3>Marcação individual</h3>
+        <div class="ct-modal-sub" id="markingOppLabel"></div>
+      </div>
+      <button class="ct-modal-close" id="markingClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <div id="markingEmpty" class="hidden"><p class="ct-empty">Sem jogo marcado agora (folga ou fim de temporada) — volte aqui quando tiver um próximo confronto.</p></div>
+      <div id="markingContent">
+        <div class="mt-card" id="markingActiveCard" style="display:none;">
+          <div class="mt-card-title">Designação ativa</div>
+          <div id="markingActiveRow"></div>
+          <button class="mt-btn-ghost" id="btnRemoveMarking" style="width:100%; margin-top:10px;">Remover marcação</button>
+        </div>
+        <div class="section-title">Quem vai marcar</div>
+        <div id="markingMyPlayers"></div>
+        <div class="section-title" style="margin-top:14px;">Marcar no rival</div>
+        <div id="markingRivalPlayers"></div>
+      </div>
+    </div>
+    <div class="ct-modal-footer">
+      <button class="mt-btn-primary-gold" id="btnApplyMarking" disabled>Aplicar marcação</button>
     </div>
   </div>
 </div>
