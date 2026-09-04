@@ -129,15 +129,69 @@ function combinedTacticMod() {
   });
   const sectorMod = combinedSectorTacticMod();
   atk *= sectorMod.atk; def *= sectorMod.def;
-  return { atk, def };
+  // Segurança: 19 dials ao todo (4 eixos gerais + 15 instruções por
+  // setor) combinados multiplicativamente PODERIAM, no extremo teórico
+  // de maximizar todos na mesma direção, compor um multiplicador bem
+  // maior que qualquer categoria isolada já produzia antes — trava no
+  // mesmo teto que o resto do motor já respeita pra atk/def efetivos
+  // (computeHumanStrength usa 0.7-1.3 pros outros multiplicadores).
+  return { atk: clamp(atk, 0.7, 1.35), def: clamp(def, 0.7, 1.35) };
 }
-// Camada de "Instruções por setor" (Defesa/Meio/Ataque) — feature
-// própria do Bloco 2, ainda não implementada nesta etapa (fica neutra
-// até lá); mantida como função separada desde já pra combinedTacticMod
-// já nascer preparada pra somar essa camada sem precisar mexer aqui de
-// novo depois.
+// AJUSTE (Bloco 2 M3 — Instruções por setor, brtreinadorbloco2pendentes.html)
+// — camada de ajuste fino ADICIONAL sobre os 4 eixos gerais (não os
+// substitui — o doc do mockup fala "em vez de só 4 sliders gerais",
+// mas manter os dois sistemas juntos, o setorial só refinando por cima,
+// evita ter 2 fontes de verdade conflitantes pro mesmo conceito).
+// Magnitude por passo é a METADE da dos eixos gerais de propósito —
+// é uma camada de refinamento, não um sistema paralelo do mesmo peso.
+// Nível 3 = neutro (mesma convenção dos eixos gerais).
+const SECTOR_INSTRUCTIONS = {
+  defesa: [
+    { id: "linhaDefensivaSetor", label: "Linha defensiva", lowLabel: "Recuada", highLabel: "Adiantada", atk: 0.008, def: -0.01 },
+    { id: "pressaoPosPerda", label: "Pressão pós-perda", lowLabel: "Baixa", highLabel: "Alta", atk: 0.006, def: -0.01 },
+    { id: "compactacao", label: "Compactação", lowLabel: "Aberta", highLabel: "Compacta", atk: -0.004, def: 0.01 },
+    { id: "saidaDeBola", label: "Saída de bola", lowLabel: "Direta", highLabel: "Construída", atk: 0.006, def: 0.004 },
+    { id: "bolaParadaDefensiva", label: "Bola parada defensiva", lowLabel: "Zona", highLabel: "Individual", atk: 0, def: 0.008 },
+  ],
+  meio: [
+    { id: "marcacaoIntensidade", label: "Intensidade de marcação", lowLabel: "Leve", highLabel: "Severa", atk: 0.004, def: 0.008 },
+    { id: "amplitude", label: "Amplitude", lowLabel: "Estreito", highLabel: "Largo", atk: 0.008, def: -0.004 },
+    { id: "transicao", label: "Transição defesa-ataque", lowLabel: "Lenta", highLabel: "Rápida", atk: 0.01, def: -0.006 },
+    { id: "rotacaoDeBola", label: "Rotação de bola", lowLabel: "Direta", highLabel: "Construída", atk: 0.006, def: 0.004 },
+    { id: "coberturaEspacos", label: "Cobertura de espaços", lowLabel: "Individual", highLabel: "Coletiva", atk: -0.004, def: 0.01 },
+  ],
+  ataque: [
+    { id: "amplitudeOfensiva", label: "Amplitude ofensiva", lowLabel: "Concentrado", highLabel: "Aberto", atk: 0.008, def: -0.004 },
+    { id: "movimentacao", label: "Movimentação sem bola", lowLabel: "Estática", highLabel: "Dinâmica", atk: 0.01, def: -0.002 },
+    { id: "ultimosPasses", label: "Últimos passes", lowLabel: "Seguros", highLabel: "Arriscados", atk: 0.012, def: -0.008 },
+    { id: "finalizacao", label: "Finalização", lowLabel: "Seletiva", highLabel: "Voluntariosa", atk: 0.01, def: -0.006 },
+    { id: "bolaParadaOfensiva", label: "Bola parada ofensiva", lowLabel: "Direta", highLabel: "Trabalhada", atk: 0.008, def: 0 },
+  ],
+};
+const SECTOR_IDS = Object.keys(SECTOR_INSTRUCTIONS); // ["defesa", "meio", "ataque"]
+const SECTOR_LABEL = { defesa: "Defesa", meio: "Meio", ataque: "Ataque" };
+function defaultSectorTactics() {
+  const out = {};
+  SECTOR_IDS.forEach((sector) => {
+    out[sector] = {};
+    SECTOR_INSTRUCTIONS[sector].forEach((instr) => { out[sector][instr.id] = 3; });
+  });
+  return out;
+}
 function combinedSectorTacticMod() {
-  return { atk: 1, def: 1 };
+  const st = CAREER.lineup && CAREER.lineup.sectorTactics;
+  let atk = 1, def = 1;
+  if (!st) return { atk, def };
+  SECTOR_IDS.forEach((sector) => {
+    const values = st[sector] || {};
+    SECTOR_INSTRUCTIONS[sector].forEach((instr) => {
+      const level = values[instr.id] == null ? 3 : values[instr.id];
+      const steps = level - 3;
+      atk *= 1 + instr.atk * steps;
+      def *= 1 + instr.def * steps;
+    });
+  });
+  return { atk, def };
 }
 // AJUSTE (pedido do usuário: "vamos evoluir o método de treinos",
 // BRDataTreinadorBriefingTreinos_2.docx) — TRAINING_OPTIONS/TRAINING_MOD
@@ -2791,7 +2845,7 @@ function autoLineup(squad, formation, includeBase = true) {
   const bench = BENCH_SHAPE.flatMap(([grp, count]) => Array.from({ length: count }, () => pickForGroup(grp))).filter(Boolean);
   // AJUSTE (Bloco 2 M3) — tactics nasce com os 4 eixos reais, todos
   // neutros (nível 3/5, centro da barra segmentada — ver TACTIC_AXES).
-  return { formation, starters, bench, tactics: { ritmo: 3, pressao: 3, linhaDefensiva: 3, estiloPasse: 3 } };
+  return { formation, starters, bench, tactics: { ritmo: 3, pressao: 3, linhaDefensiva: 3, estiloPasse: 3 }, sectorTactics: defaultSectorTactics() };
 }
 
 /* ---------- Persistência ---------- */
@@ -6912,6 +6966,39 @@ function removeManMarking() {
   persistCareer();
   renderManMarkingScreen();
 }
+
+/* ---------- Instruções por setor (Bloco 2, brtreinadorbloco2pendentes.html) ----------
+   Camada de ajuste fino ADICIONAL sobre os 4 eixos gerais da Tática
+   (ver SECTOR_INSTRUCTIONS/combinedSectorTacticMod, já somados dentro
+   de combinedTacticMod desde a implementação dos eixos gerais). Aplica
+   na hora (sem "Salvar" — mesmo espírito de Meus esquemas/Marcação
+   individual), persistido a cada segmento clicado. */
+let SECTOR_TAB = "defesa";
+function renderSectorScreen(tab) {
+  if (tab) SECTOR_TAB = tab;
+  document.querySelectorAll("#sectorTabs .m3-sector-tab").forEach((el) => el.classList.toggle("on", el.dataset.sector === SECTOR_TAB));
+  const list = SECTOR_INSTRUCTIONS[SECTOR_TAB];
+  const values = CAREER.lineup.sectorTactics[SECTOR_TAB];
+  document.getElementById("sectorInstrRows").innerHTML = list.map((instr) => tacticAxisRowHTML(instr, values[instr.id] || 3)).join("");
+  document.querySelectorAll("#sectorInstrRows .m3-instr-row").forEach((row) => {
+    row.querySelectorAll(".m3-seg").forEach((seg) => {
+      seg.addEventListener("click", () => {
+        const level = Number(seg.dataset.level);
+        row.dataset.level = level;
+        row.querySelectorAll(".m3-seg").forEach((s) => s.classList.toggle("on", Number(s.dataset.level) <= level));
+        CAREER.lineup.sectorTactics[SECTOR_TAB][row.dataset.axis] = level;
+        persistCareer();
+      });
+    });
+  });
+}
+function openSectorScreen() {
+  renderSectorScreen("defesa");
+  document.getElementById("sectorOverlay").classList.add("open");
+}
+function closeSectorScreen() {
+  document.getElementById("sectorOverlay").classList.remove("open");
+}
 // AJUSTE (refatoração completa, Tela 6 — ver 06-escalacao-restyled.html
 // do designer) — campinho próprio (.mt-pitch*, NÃO reaproveita
 // .button-pitch/.button-row/.button-disc de css/style.css, que são
@@ -8386,6 +8473,16 @@ function wireStaticListeners() {
   document.getElementById("markingOverlay").addEventListener("click", (e) => { if (e.target.id === "markingOverlay") closeManMarkingScreen(); });
   document.getElementById("btnApplyMarking").addEventListener("click", applyManMarking);
   document.getElementById("btnRemoveMarking").addEventListener("click", removeManMarking);
+  // Nova feature — Instruções por setor, aberta pelo menu "≡".
+  document.getElementById("btnOpenSector").addEventListener("click", () => {
+    document.getElementById("topbarMenu").classList.remove("open");
+    openSectorScreen();
+  });
+  document.getElementById("sectorClose").addEventListener("click", closeSectorScreen);
+  document.getElementById("sectorOverlay").addEventListener("click", (e) => { if (e.target.id === "sectorOverlay") closeSectorScreen(); });
+  document.querySelectorAll("#sectorTabs .m3-sector-tab").forEach((btn) => {
+    btn.addEventListener("click", () => renderSectorScreen(btn.dataset.sector));
+  });
   document.getElementById("btnOpenTreinos").addEventListener("click", () => {
     document.getElementById("topbarMenu").classList.remove("open");
     switchToPanel("treinos");
@@ -8667,6 +8764,20 @@ function migrateCareerDefaults() {
   // 4 eixos por qualquer motivo, nasce neutra (nível 3) nesse eixo.
   if (CAREER.lineup && !CAREER.lineup.tactics) CAREER.lineup.tactics = {};
   if (CAREER.lineup) TACTIC_AXES.forEach((ax) => { if (CAREER.lineup.tactics[ax.id] == null) CAREER.lineup.tactics[ax.id] = 3; });
+  // Nova feature — Instruções por setor: carreira criada ANTES desta
+  // mudança nunca teve isso — nasce toda neutra (nível 3 em cada uma
+  // das 15), igual carreira nova. Garante também cada instrução
+  // individual (não só o objeto de cada setor) pro caso de um catálogo
+  // futuro ganhar mais instruções sem quebrar save antigo.
+  if (CAREER.lineup) {
+    if (!CAREER.lineup.sectorTactics) CAREER.lineup.sectorTactics = defaultSectorTactics();
+    SECTOR_IDS.forEach((sector) => {
+      if (!CAREER.lineup.sectorTactics[sector]) CAREER.lineup.sectorTactics[sector] = {};
+      SECTOR_INSTRUCTIONS[sector].forEach((instr) => {
+        if (CAREER.lineup.sectorTactics[sector][instr.id] == null) CAREER.lineup.sectorTactics[sector][instr.id] = 3;
+      });
+    });
+  }
   // AJUSTE (pedido do usuário: "o mercado deve trazer jogadores das 3
   // ligas") — carreira criada ANTES desta mudança nunca teve elenco
   // das outras 2 competições montado — marca explicitamente como
