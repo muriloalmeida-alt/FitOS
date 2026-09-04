@@ -3032,6 +3032,11 @@ async function startCareer(clubId) {
       // Treinos), fica null sozinho quando o técnico mexe em algo
       // manualmente depois de carregar um esquema (ver markLineupDirty).
       tacticalSchemes: [], activeSchemeId: null,
+      // Nova feature — Marcação individual (Bloco 2): designação vale
+      // só pro PRÓXIMO jogo (ver applyManMarking/finishRoundTail, que
+      // limpa depois de cada rodada — nunca fica "esquecida" de uma
+      // rodada pra outra).
+      manMarking: null,
       // FASE 4 (item 3) — jejum de vitória por time, pra manchete
       // "encerra jejum de X jogos" (ver updateWinlessStreaks).
       teamWinlessStreak: {},
@@ -4199,12 +4204,20 @@ function injuryChanceFor(p) {
    assinatura/comportamento de antes (chunkShare implícito = 1) — CPU x
    CPU e o fallback de rodada sem jogo seu (resolveCpuFixture) não
    mudam em nada. */
-function attributeGoals(starters, goals) {
+// AJUSTE (Bloco 2 M3 — Marcação individual, brtreinadorbloco2pendentes.html)
+// — `suppress` opcional ({playerId, factor}) reduz o peso de SORTEIO
+// (nunca zera de vez — marcação reduz, não anula) de um jogador
+// ESPECÍFICO do time que está atacando aqui, tanto pra ser artilheiro
+// quanto pra dar assistência. Só usado pro lado RIVAL na partida do
+// próprio técnico (ver resolveLiveChunk/activeManMarkingSuppression) —
+// CPU x CPU (resolveCpuFixture) e Copa do Brasil nunca passam isso.
+function attributeGoals(starters, goals, suppress) {
   const events = [];
   if (!starters || !starters.length || !goals) return events;
+  const weightFor = (p) => (suppress && p.id === suppress.playerId ? suppress.factor : 1);
   // FASE 2 (b) — moral pesa no sorteio (ver moraleFactor); factor 1
   // pra quem nunca teve moral mexida (CPU/moral neutra), não muda nada.
-  const atkWeights = starters.map((p) => ({ F: 4, M: 2, D: 0.6, G: 0.02 }[p.group] || 1) * moraleFactor(p));
+  const atkWeights = starters.map((p) => ({ F: 4, M: 2, D: 0.6, G: 0.02 }[p.group] || 1) * moraleFactor(p) * weightFor(p));
   for (let i = 0; i < goals; i++) {
     const scorer = weightedPick(starters, atkWeights);
     scorer.goalsCareer = (scorer.goalsCareer || 0) + 1;
@@ -4238,7 +4251,7 @@ function attributeGoals(starters, goals) {
     // qualquer titular pode ter dado o passe.
     if (!isPenalty && starters.length > 1 && Math.random() < 0.72) {
       const assistPool = starters.filter((p) => p.id !== scorer.id);
-      const assistWeights = assistPool.map((p) => ({ M: 3, F: 1.5, D: 0.8, G: 0.05 }[p.group] || 1) * moraleFactor(p));
+      const assistWeights = assistPool.map((p) => ({ M: 3, F: 1.5, D: 0.8, G: 0.05 }[p.group] || 1) * moraleFactor(p) * weightFor(p));
       const assister = weightedPick(assistPool, assistWeights);
       assister.assistsCareer = (assister.assistsCareer || 0) + 1;
       assister.assistsSeason = (assister.assistsSeason || 0) + 1;
@@ -4953,6 +4966,12 @@ function finishRoundTail(round, allResults, humanMatch, standingsBefore) {
   Object.keys(CAREER.resultsByRound).forEach((k) => {
     if (Number(k) < round - 1) delete CAREER.resultsByRound[k];
   });
+  // Nova feature — Marcação individual: a designação só vale pro
+  // confronto que acabou de rolar (é sobre um jogador ESPECÍFICO do
+  // adversário DESSA rodada) — sempre limpa depois do jogo, força o
+  // técnico a decidir de novo antes da próxima partida em vez de deixar
+  // um efeito antigo grudado sem ninguém perceber.
+  CAREER.manMarking = null;
   const nextRound = round + 1;
   refreshAvailability(nextRound);
   const lineupChanges = autoFixLineup(nextRound);
@@ -5318,8 +5337,13 @@ function resolveLiveChunk() {
   const penMissHome = attributePenaltyMisses(hs.starters, hs.atk, as.def, chunkShare);
   const penMissAway = attributePenaltyMisses(as.starters, as.atk, hs.def, chunkShare);
   updateLiveStats(lm, hs, as, chunkShare, chancesHome, chancesAway, ghChunk, gaChunk);
-  const goalsHome = attributeGoals(hs.starters, ghChunk).map((e) => ({ ...e, mine: lm.isHome }));
-  const goalsAway = attributeGoals(as.starters, gaChunk).map((e) => ({ ...e, mine: !lm.isHome }));
+  // Nova feature — Marcação individual: suprime (nunca anula) o
+  // jogador do RIVAL escolhido pro técnico marcar, só na partida contra
+  // ESSE adversário específico (ver activeManMarkingSuppression).
+  const opponentId = lm.isHome ? lm.away.id : lm.home.id;
+  const markSuppress = activeManMarkingSuppression(opponentId);
+  const goalsHome = attributeGoals(hs.starters, ghChunk, lm.isHome ? null : markSuppress).map((e) => ({ ...e, mine: lm.isHome }));
+  const goalsAway = attributeGoals(as.starters, gaChunk, lm.isHome ? markSuppress : null).map((e) => ({ ...e, mine: !lm.isHome }));
   // AJUSTE (Play-by-Play v2, catálogo VAR_CHECK) — depois de um gol,
   // ~12% de chance do lance ser checado no VAR — SEMPRE confirma a
   // decisão em campo (nunca anula um gol já contado no placar, decisão
@@ -6773,6 +6797,120 @@ function confirmNewScheme() {
   persistCareer();
   renderSchemesScreen();
   toast(`Esquema "${result.scheme.name}" salvo e aplicado.`, { type: "pos" });
+}
+
+/* ---------- Marcação individual (Bloco 2, brtreinadorbloco2pendentes.html) ----------
+   Escalar um jogador seu pra marcar um jogador ESPECÍFICO do adversário
+   do próximo jogo — efeito real (confirmado com o usuário): reduz o
+   peso de sorteio do jogador marcado no ataque rival (attributeGoals),
+   nunca zera de vez. Só vale pro confronto que está por vir — limpa
+   sozinha depois do jogo (ver finishRoundTail), pra nunca ficar um
+   efeito antigo grudado sem ninguém perceber. */
+const MAN_MARKING_SUPPRESS_FACTOR = 0.4; // 60% de redução no peso de sorteio, nunca 100%
+let MARKING_SELECTED_MINE = null;
+let MARKING_SELECTED_RIVAL = null;
+// Mesmo confronto usado pelo card "Próximo jogo" da Central/H2H — só
+// existe enquanto há um jogo de verdade marcado (round <= 38 e não é
+// rodada de folga).
+function nextOpponentId() {
+  const round = CAREER.currentRound;
+  if (round > 38) return null;
+  const fx = (CAREER.schedule[round] || []).find((m) => String(m.home) === String(CAREER.clubId) || String(m.away) === String(CAREER.clubId));
+  if (!fx) return null;
+  return String(fx.home) === String(CAREER.clubId) ? fx.away : fx.home;
+}
+// Chamada só de dentro da simulação (ver resolveLiveChunk) — devolve
+// null (sem supressão nenhuma) se não há designação ativa OU se ela é
+// pra outro adversário (nunca vaza pra um confronto diferente).
+function activeManMarkingSuppression(opponentId) {
+  const mm = CAREER.manMarking;
+  if (!mm || String(mm.opponentId) !== String(opponentId)) return null;
+  return { playerId: mm.rivalPlayerId, factor: MAN_MARKING_SUPPRESS_FACTOR };
+}
+function markingSelRowHTML(id, name, meta, selected) {
+  return `<div class="mt-sel-row${selected ? " selected" : ""}" data-id="${id}">
+    <div class="mt-sel-name">${escapeHtml(abbreviateName(name))}<span class="status">${meta ? ` — ${escapeHtml(meta)}` : ""}</span></div>
+  </div>`;
+}
+function renderManMarkingScreen() {
+  const opponentId = nextOpponentId();
+  const empty = document.getElementById("markingEmpty");
+  const content = document.getElementById("markingContent");
+  const btnApply = document.getElementById("btnApplyMarking");
+  if (!opponentId) {
+    empty.classList.remove("hidden");
+    content.classList.add("hidden");
+    document.getElementById("markingOppLabel").textContent = "";
+    btnApply.disabled = true;
+    return;
+  }
+  empty.classList.add("hidden");
+  content.classList.remove("hidden");
+  const opp = teamById(opponentId);
+  document.getElementById("markingOppLabel").textContent = `Próximo jogo: ${opp.name}`;
+
+  const mm = CAREER.manMarking;
+  const activeCard = document.getElementById("markingActiveCard");
+  if (mm && String(mm.opponentId) === String(opponentId)) {
+    const mine = CAREER.squad.find((p) => p.id === mm.myPlayerId);
+    const rival = leagueSquadFor(opponentId).find((p) => p.id === mm.rivalPlayerId);
+    activeCard.style.display = "";
+    document.getElementById("markingActiveRow").innerHTML =
+      `<p class="mt-info-line" style="border-bottom:none;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" style="width:14px;height:14px;vertical-align:-2px;"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/></svg> <b>${escapeHtml(mine?.name || "?")}</b> marca individualmente o <b>${escapeHtml(rival?.name || "?")}</b> do adversário.</p>`;
+  } else {
+    activeCard.style.display = "none";
+  }
+
+  // Titulares disponíveis (quem vai realmente jogar) — não faz sentido
+  // narrativo escalar um reserva pra "marcar" alguém que não vai entrar
+  // em campo.
+  // Goleiro fora da lista — não faz sentido de futebol nenhum escalar
+  // o goleiro pra "marcar individualmente" um jogador de linha do
+  // rival (mesmo filtro já aplicado do lado rival, ver rivalPool).
+  const myPool = CAREER.lineup.starters.map((id) => id && CAREER.squad.find((p) => p.id === id)).filter((p) => p && p.status === "ok" && p.group !== "G");
+  document.getElementById("markingMyPlayers").innerHTML = myPool.length
+    ? myPool.map((p) => markingSelRowHTML(p.id, p.name, SUBPOS_LABEL[subPositionOf(p)], p.id === MARKING_SELECTED_MINE)).join("")
+    : `<p class="ct-empty">Defina a escalação titular na aba Tática antes de marcar alguém.</p>`;
+
+  // Top 5 jogadores de linha do rival (goleiro não faz sentido marcar).
+  const rivalPool = leagueSquadFor(opponentId).filter((p) => p.group !== "G").sort((a, b) => b.overall - a.overall).slice(0, 5);
+  document.getElementById("markingRivalPlayers").innerHTML = rivalPool.length
+    ? rivalPool.map((p) => markingSelRowHTML(p.id, p.name, `${SUBPOS_LABEL[subPositionOf(p)]} · overall ${p.overall}`, p.id === MARKING_SELECTED_RIVAL)).join("")
+    : `<p class="ct-empty">Elenco do adversário ainda não disponível.</p>`;
+
+  document.querySelectorAll("#markingMyPlayers [data-id]").forEach((el) => {
+    el.addEventListener("click", () => { MARKING_SELECTED_MINE = el.dataset.id; renderManMarkingScreen(); });
+  });
+  document.querySelectorAll("#markingRivalPlayers [data-id]").forEach((el) => {
+    el.addEventListener("click", () => { MARKING_SELECTED_RIVAL = el.dataset.id; renderManMarkingScreen(); });
+  });
+  btnApply.disabled = !(MARKING_SELECTED_MINE && MARKING_SELECTED_RIVAL);
+}
+function openManMarkingScreen() {
+  const opponentId = nextOpponentId();
+  const mm = CAREER.manMarking;
+  MARKING_SELECTED_MINE = (mm && String(mm.opponentId) === String(opponentId)) ? mm.myPlayerId : null;
+  MARKING_SELECTED_RIVAL = (mm && String(mm.opponentId) === String(opponentId)) ? mm.rivalPlayerId : null;
+  renderManMarkingScreen();
+  document.getElementById("markingOverlay").classList.add("open");
+}
+function closeManMarkingScreen() {
+  document.getElementById("markingOverlay").classList.remove("open");
+}
+function applyManMarking() {
+  const opponentId = nextOpponentId();
+  if (!opponentId || !MARKING_SELECTED_MINE || !MARKING_SELECTED_RIVAL) return;
+  CAREER.manMarking = { opponentId, myPlayerId: MARKING_SELECTED_MINE, rivalPlayerId: MARKING_SELECTED_RIVAL };
+  persistCareer();
+  renderManMarkingScreen();
+  toast("Marcação individual definida pro próximo jogo.", { type: "pos" });
+}
+function removeManMarking() {
+  CAREER.manMarking = null;
+  MARKING_SELECTED_MINE = null;
+  MARKING_SELECTED_RIVAL = null;
+  persistCareer();
+  renderManMarkingScreen();
 }
 // AJUSTE (refatoração completa, Tela 6 — ver 06-escalacao-restyled.html
 // do designer) — campinho próprio (.mt-pitch*, NÃO reaproveita
@@ -8239,6 +8377,15 @@ function wireStaticListeners() {
   document.getElementById("newSchemeSheet").addEventListener("click", (e) => { if (e.target.id === "newSchemeSheet") closeNewSchemeSheet(); });
   document.getElementById("btnConfirmNewScheme").addEventListener("click", confirmNewScheme);
   document.getElementById("newSchemeNameInput").addEventListener("keydown", (e) => { if (e.key === "Enter") confirmNewScheme(); });
+  // Nova feature — Marcação individual, aberta pelo menu "≡".
+  document.getElementById("btnOpenMarking").addEventListener("click", () => {
+    document.getElementById("topbarMenu").classList.remove("open");
+    openManMarkingScreen();
+  });
+  document.getElementById("markingClose").addEventListener("click", closeManMarkingScreen);
+  document.getElementById("markingOverlay").addEventListener("click", (e) => { if (e.target.id === "markingOverlay") closeManMarkingScreen(); });
+  document.getElementById("btnApplyMarking").addEventListener("click", applyManMarking);
+  document.getElementById("btnRemoveMarking").addEventListener("click", removeManMarking);
   document.getElementById("btnOpenTreinos").addEventListener("click", () => {
     document.getElementById("topbarMenu").classList.remove("open");
     switchToPanel("treinos");
@@ -8496,6 +8643,7 @@ function migrateCareerDefaults() {
   // daqui pra frente, igual carreira nova.
   if (!CAREER.tacticalSchemes) CAREER.tacticalSchemes = [];
   if (CAREER.activeSchemeId === undefined) CAREER.activeSchemeId = null;
+  if (CAREER.manMarking === undefined) CAREER.manMarking = null;
   // AJUSTE (Bloco 2 M3, brtreinadorbloco2tatica.html) — tactics tinha 3
   // campos NOMEADOS (mentality/marking/tempo); vira 4 eixos NUMÉRICOS
   // 1-5 (ver TACTIC_AXES). Migra o que dá pra aproximar (tradução nossa
