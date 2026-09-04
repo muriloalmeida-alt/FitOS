@@ -2335,6 +2335,11 @@
            brtreinadorbloco2pendentes.html): ver openSectorScreen/
            carreira.js. -->
       <button class="mt-topbar-menu-item" id="btnOpenSector">🎚️ Instruções por setor</button>
+      <!-- Nova feature — Comissão Técnica (pedido do usuário: "ajudar
+           nos treinos, escalação, táticas e outras opções pra garantir
+           que sempre o melhor time estará em campo") — ver
+           openCommissionScreen/carreira.js. -->
+      <button class="mt-topbar-menu-item" id="btnOpenCommission">🧑‍💼 Comissão Técnica</button>
       <button class="mt-topbar-menu-item" id="btnOpenTreinos">🏋️ Treinos</button>
       <button class="mt-topbar-menu-item" id="btnOpenEstatisticas">📊 Estatísticas</button>
       <!-- Retenção/Engajamento (BRDataRetencaoEspecificacao) — 3 telas
@@ -3728,6 +3733,43 @@
       </div>
       <div class="mt-card">
         <div id="sectorInstrRows"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Nova feature (pedido do usuário: "criar uma comissão técnica que
+     tenha o papel de ajudar nos treinos, escalação, táticas e outras
+     opções pra garantir que sempre o melhor time estará em campo") —
+     assistente que SUGERE, o técnico decide (confirmado antes de
+     implementar via pergunta — nunca aplica nada sozinho). Cobre as
+     4 áreas pedidas (Escalação/Treinos/Tática) + Mercado, com custo
+     de salário mensal quando contratada (ver technicalStaffMonthlyCost/
+     suggestLineup/suggestTraining/suggestTactics/suggestMarket em
+     carreira.js). -->
+<div class="ct-modal-overlay ct-modal-fullscreen" id="commissionOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header mt-fullheader">
+      <span class="ct-modal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+      <div class="ct-modal-header-text">
+        <h3>Comissão Técnica</h3>
+        <div class="ct-modal-sub">Sugestões pra garantir o melhor time em campo</div>
+      </div>
+      <button class="ct-modal-close" id="commissionClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <div id="commissionNotHiredState" class="hidden">
+        <div class="mt-card">
+          <div class="mt-card-title">Contratar comissão técnica</div>
+          <p class="mt-card-sub" style="margin-bottom:10px;">Uma equipe de apoio analisa seu elenco, o calendário e o próximo adversário e sugere a melhor escalação, o esquema de treino da semana, o ajuste tático e reforços de mercado — você sempre decide se aplica ou não.</p>
+          <p class="mt-info-line" style="border-bottom:none;">Custo estimado: <b id="commissionCostEstimate"></b></p>
+          <button class="mt-btn-primary-gold" id="btnHireCommission" style="width:100%; margin-top:10px;">Contratar comissão técnica</button>
+        </div>
+      </div>
+      <div id="commissionHiredState" class="hidden">
+        <p class="mt-card-sub" id="commissionCostLabel" style="margin-bottom:14px;"></p>
+        <div id="commissionCards"></div>
+        <button class="mt-btn-danger-outline" id="btnFireCommission" style="width:100%; margin-top:6px;">Demitir comissão técnica</button>
       </div>
     </div>
   </div>

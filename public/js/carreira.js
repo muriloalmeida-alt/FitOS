@@ -1282,6 +1282,14 @@ function initialFinances(squad) {
   const cash = Math.round(wageCap * 6 / 1000) * 1000;
   return { cash, wageCap };
 }
+// Nova feature — Comissão Técnica: custo mensal escala com a folha do
+// elenco principal (clube maior = comissão maior) — mesma lógica de
+// "proporcional ao tamanho do clube" que wageCap já usa. Arredondado
+// pro milhar mais próximo, mesmo padrão visual de wageCap/cash acima.
+const TECHNICAL_STAFF_WAGE_PCT = 0.05;
+function technicalStaffMonthlyCost() {
+  return Math.round(wageBillOf(CAREER.squad) * TECHNICAL_STAFF_WAGE_PCT / 1000) * 1000;
+}
 
 /* ---------- FASE 4 (item 5 da especificação "BR Data Treinador") —
    patrocínio e material esportivo ----------
@@ -3091,6 +3099,14 @@ async function startCareer(clubId) {
       // limpa depois de cada rodada — nunca fica "esquecida" de uma
       // rodada pra outra).
       manMarking: null,
+      // Nova feature — Comissão Técnica (pedido do usuário: "ajudar nos
+      // treinos, escalação, táticas e outras opções pra garantir que
+      // sempre o melhor time estará em campo"): assistente que SUGERE,
+      // o técnico decide (ver suggestLineup/suggestTraining/
+      // suggestTactics/suggestMarket) — nunca decide sozinho. Custa
+      // salário mensal quando contratada (technicalStaffMonthlyCost),
+      // igual à folha do elenco.
+      technicalStaff: { hired: false },
       // FASE 4 (item 3) — jejum de vitória por time, pra manchete
       // "encerra jejum de X jogos" (ver updateWinlessStreaks).
       teamWinlessStreak: {},
@@ -3551,14 +3567,19 @@ function renderTrainingDayPanel() {
   const pickBtn = document.getElementById("btnPickTrainingPlayer");
   if (pickBtn) pickBtn.addEventListener("click", () => openPicker({ type: "training", day }, "Treino individual — escolher jogador"));
 }
+// Extraída (era só o corpo do clique no card, ver abaixo) pra também
+// ser chamada pela Comissão Técnica (ver suggestTraining) sem duplicar
+// a lógica de aplicar um esquema.
+function applyTrainingScheme(id) {
+  CAREER.trainingSchemeId = id;
+  CAREER.trainingPlan = defaultTrainingPlan(id);
+  persistCareer();
+}
 function renderTreinos() {
   const strip = document.getElementById("trainingSchemeStrip");
   strip.innerHTML = TRAINING_SCHEMES.map(trainingSchemeCardHTML).join("");
   strip.querySelectorAll("[data-scheme]").forEach((card) => card.addEventListener("click", () => {
-    const id = card.dataset.scheme;
-    CAREER.trainingSchemeId = id;
-    CAREER.trainingPlan = defaultTrainingPlan(id);
-    persistCareer();
+    applyTrainingScheme(card.dataset.scheme);
     renderTreinos();
   }));
 
@@ -5043,6 +5064,11 @@ function finishRoundTail(round, allResults, humanMatch, standingsBefore) {
   // mercado de transferências (fase seguinte) pra gastar nele.
   const wagePaid = Math.round(wageBillOf(CAREER.squad) / 4);
   CAREER.finances.cash -= wagePaid;
+  // Nova feature — Comissão Técnica: mesmo ritmo de pagamento do
+  // elenco (1/4 do custo mensal por rodada), só quando contratada.
+  if (CAREER.technicalStaff && CAREER.technicalStaff.hired) {
+    CAREER.finances.cash -= Math.round(technicalStaffMonthlyCost() / 4);
+  }
   // FASE 4 (item 5) — patrocínio paga em parcelas ao longo da
   // temporada (1/38 do valor anual por rodada), mesmo ritmo de
   // "dinheiro chega aos poucos" que já existe pra ingresso (por
@@ -6999,6 +7025,183 @@ function openSectorScreen() {
 function closeSectorScreen() {
   document.getElementById("sectorOverlay").classList.remove("open");
 }
+
+/* ---------- Comissão Técnica (pedido do usuário: "ajudar nos treinos,
+   escalação, táticas e outras opções pra garantir que sempre o melhor
+   time estará em campo") ----------
+   Assistente que SUGERE, o técnico decide (confirmado antes de
+   implementar) — nunca aplica nada sozinho. Cobre as 4 áreas pedidas:
+   Escalação, Treinos, Tática e Mercado. Cada sugestão é derivada de
+   dado REAL do próprio save (condição do elenco, força do adversário,
+   overall dos titulares, jogadores de verdade no mercado) — nunca um
+   texto de enchimento. Custa salário mensal (ver technicalStaffMonthlyCost). */
+function hireTechnicalStaff() {
+  CAREER.technicalStaff.hired = true;
+  persistCareer();
+}
+function fireTechnicalStaff() {
+  CAREER.technicalStaff.hired = false;
+  persistCareer();
+}
+// Escalação — reaproveita autoLineup (mesmo motor do botão "Escalar
+// automaticamente") só pra COMPARAR contra a escalação atual, sem
+// aplicar nada até o técnico confirmar. Respeita o mesmo toggle
+// "incluir base" que a aba Tática já usa (lido do DOM se a tela
+// estiver aberta; sem base por padrão, mesmo default do botão).
+function suggestLineup() {
+  const includeBase = document.getElementById("autoLineupIncludeBase")?.checked || false;
+  const result = autoLineup(CAREER.squad, CAREER.lineup.formation, includeBase);
+  const changedCount = result.starters.filter((id, i) => id !== CAREER.lineup.starters[i]).length;
+  if (!changedCount) {
+    return { text: "Sua escalação atual já é a melhor disponível pra esse esquema — nenhuma troca a sugerir.", canApply: false };
+  }
+  return {
+    text: `${changedCount} posição${changedCount > 1 ? "ões" : ""} tem um titular disponível melhor pro esquema ${CAREER.lineup.formation}.`,
+    canApply: true,
+    apply: () => {
+      CAREER.lineup.starters = result.starters;
+      CAREER.lineup.bench = result.bench;
+      markLineupDirty();
+      persistCareer();
+      renderPitch(); renderBench();
+    },
+  };
+}
+// Treinos — regra simples e honesta a partir de 2 dados reais (rodada
+// atual, condição média do elenco principal): rodada 1 (toda
+// temporada nova) recomenda construir base física; elenco desgastado
+// recomenda recuperar; fora isso, o esquema equilibrado de sempre.
+function suggestTraining() {
+  const round = CAREER.currentRound;
+  const principal = CAREER.squad.filter((p) => p.origin === "principal" || p.origin === "loan");
+  const avgCond = avg(principal.map((p) => p.condition == null ? 100 : p.condition)) ?? 100;
+  let schemeId;
+  if (round === 1) schemeId = "pretemporada";
+  else if (avgCond < 70) schemeId = "recuperacao";
+  else schemeId = "equilibrio";
+  const scheme = TRAINING_SCHEMES.find((s) => s.id === schemeId);
+  if (CAREER.trainingSchemeId === schemeId) {
+    return { text: `Já está no esquema recomendado (${scheme.name}) — condição média do elenco: ${Math.round(avgCond)}%.`, canApply: false };
+  }
+  return {
+    text: `Esquema recomendado: ${scheme.name} — condição média do elenco: ${Math.round(avgCond)}%.`,
+    canApply: true,
+    apply: () => { applyTrainingScheme(schemeId); },
+  };
+}
+// Tática — compara a força bruta do seu clube (atk/def do catálogo,
+// mesma fórmula que o motor usa pra decidir o placar) contra o próximo
+// adversário: favorito de verdade sugere postura mais ofensiva, azarão
+// sugere mais cautela, parelho sugere manter o padrão neutro. Só mexe
+// em ritmo/pressão/linha defensiva (estilo de passe fica de fora — não
+// mapeia claramente pra "mais ofensivo/cauteloso").
+function suggestTactics() {
+  const opponentId = nextOpponentId();
+  if (!opponentId) return { text: "Sem próximo jogo definido agora — volte quando houver um confronto marcado.", canApply: false };
+  const myClub = teamById(CAREER.clubId);
+  const opp = teamById(opponentId);
+  const lambdaMine = myClub.atk / opp.def;
+  const lambdaOpp = opp.atk / myClub.def;
+  const ratio = lambdaMine / lambdaOpp;
+  let targetLevel, label;
+  if (ratio > 1.15) { targetLevel = 4; label = `postura mais OFENSIVA — seu time é favorito contra o ${opp.name}`; }
+  else if (ratio < 0.87) { targetLevel = 2; label = `postura mais CAUTELOSA — o ${opp.name} é favorito nesse confronto`; }
+  else { targetLevel = 3; label = `manter o padrão equilibrado — times parelhos contra o ${opp.name}`; }
+  const axesToSet = ["ritmo", "pressao", "linhaDefensiva"];
+  const t = CAREER.lineup.tactics;
+  const alreadyThere = axesToSet.every((id) => (t[id] || 3) === targetLevel);
+  if (alreadyThere) return { text: `Recomendação: ${label}. Sua tática já está ajustada assim.`, canApply: false };
+  return {
+    text: `Recomendação pro próximo jogo: ${label}.`,
+    canApply: true,
+    apply: () => {
+      axesToSet.forEach((id) => { CAREER.lineup.tactics[id] = targetLevel; });
+      markLineupDirty();
+      persistCareer();
+    },
+  };
+}
+// Mercado — acha o titular mais fraco (menor overall) e procura, no
+// mesmo catálogo que a aba Mercado usa (allMarketPlayers), o reforço
+// MAIS BARATO da mesma posição que seja melhor E caiba no caixa atual.
+// Sem sugestão nenhuma fora da janela de contratações (mesma trava que
+// buyPlayer já respeita) ou sem reforço claro disponível.
+function suggestMarket() {
+  if (!transferWindowStatus(CAREER.currentRound).open) {
+    return { text: "Janela de contratações fechada agora — sem sugestão de reforço.", canApply: false };
+  }
+  const starters = CAREER.lineup.starters.map((id) => id && CAREER.squad.find((p) => p.id === id)).filter(Boolean);
+  if (!starters.length) return { text: "Defina a escalação titular na aba Tática antes.", canApply: false };
+  const weakest = starters.slice().sort((a, b) => a.overall - b.overall)[0];
+  const subpos = subPositionOf(weakest);
+  const candidates = allMarketPlayers()
+    .filter(({ p, mine }) => !mine && subPositionOf(p) === subpos && p.overall > weakest.overall && p.value <= CAREER.finances.cash)
+    .sort((a, b) => a.p.value - b.p.value);
+  if (!candidates.length) {
+    return { text: `Nenhum reforço claramente melhor e dentro do caixa pra ${SUBPOS_LABEL[subpos]} agora (titular mais fraco na posição: ${weakest.name}, overall ${weakest.overall}).`, canApply: false };
+  }
+  const best = candidates[0];
+  return {
+    text: `${best.p.name} (${best.club.name}, overall ${best.p.overall}) por ${fmtBRL(best.p.value)} reforçaria ${SUBPOS_LABEL[subpos]} — seu titular mais fraco lá é ${weakest.name} (${weakest.overall}).`,
+    canApply: true,
+    apply: async () => { await buyPlayer(best.club.id, best.p.id); },
+  };
+}
+const COMMISSION_AREAS = [
+  { id: "lineup", label: "Escalação", icon: "⚽", fn: suggestLineup },
+  { id: "training", label: "Treinos", icon: "🏋️", fn: suggestTraining },
+  { id: "tactics", label: "Tática", icon: "🧭", fn: suggestTactics },
+  { id: "market", label: "Mercado", icon: "💰", fn: suggestMarket },
+];
+function commissionAreaCardHTML(area) {
+  const s = area.fn();
+  return `<div class="mt-card">
+    <div class="mt-card-head"><div class="mt-card-title">${area.icon} ${escapeHtml(area.label)}</div></div>
+    <p class="mt-info-line" style="border-bottom:none;">${escapeHtml(s.text)}</p>
+    ${s.canApply ? `<button class="mt-btn-primary-gold" data-apply="${area.id}" style="width:100%; margin-top:8px;">Aplicar sugestão</button>` : ""}
+  </div>`;
+}
+function renderCommissionScreen() {
+  const hired = CAREER.technicalStaff.hired;
+  document.getElementById("commissionHiredState").classList.toggle("hidden", !hired);
+  document.getElementById("commissionNotHiredState").classList.toggle("hidden", hired);
+  if (!hired) {
+    document.getElementById("commissionCostEstimate").textContent = `${fmtBRL(technicalStaffMonthlyCost())}/mês`;
+    return;
+  }
+  document.getElementById("commissionCostLabel").textContent = `Custo mensal: ${fmtBRL(technicalStaffMonthlyCost())} (pago junto da folha salarial, ${fmtBRL(Math.round(technicalStaffMonthlyCost() / 4))}/rodada)`;
+  document.getElementById("commissionCards").innerHTML = COMMISSION_AREAS.map(commissionAreaCardHTML).join("");
+  document.querySelectorAll("#commissionCards [data-apply]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const area = COMMISSION_AREAS.find((a) => a.id === btn.dataset.apply);
+      const s = area.fn();
+      if (s.apply) await s.apply();
+      renderCommissionScreen();
+      renderAll();
+      toast(`Sugestão de ${area.label} aplicada.`, { type: "pos" });
+    });
+  });
+}
+function openCommissionScreen() {
+  renderCommissionScreen();
+  document.getElementById("commissionOverlay").classList.add("open");
+}
+function closeCommissionScreen() {
+  document.getElementById("commissionOverlay").classList.remove("open");
+}
+async function confirmHireCommission() {
+  const cost = technicalStaffMonthlyCost();
+  if (!(await confirmModal(`Contratar a comissão técnica por ${fmtBRL(cost)}/mês?`, "Contratar"))) return;
+  hireTechnicalStaff();
+  renderCommissionScreen();
+  toast("Comissão técnica contratada — as sugestões já estão disponíveis.", { type: "pos" });
+}
+async function confirmFireCommission() {
+  if (!(await confirmModal("Demitir a comissão técnica? As sugestões deixam de aparecer.", "Demitir"))) return;
+  fireTechnicalStaff();
+  renderCommissionScreen();
+  toast("Comissão técnica demitida.", { type: "warn" });
+}
 // AJUSTE (refatoração completa, Tela 6 — ver 06-escalacao-restyled.html
 // do designer) — campinho próprio (.mt-pitch*, NÃO reaproveita
 // .button-pitch/.button-row/.button-disc de css/style.css, que são
@@ -8483,6 +8686,15 @@ function wireStaticListeners() {
   document.querySelectorAll("#sectorTabs .m3-sector-tab").forEach((btn) => {
     btn.addEventListener("click", () => renderSectorScreen(btn.dataset.sector));
   });
+  // Nova feature — Comissão Técnica, aberta pelo menu "≡".
+  document.getElementById("btnOpenCommission").addEventListener("click", () => {
+    document.getElementById("topbarMenu").classList.remove("open");
+    openCommissionScreen();
+  });
+  document.getElementById("commissionClose").addEventListener("click", closeCommissionScreen);
+  document.getElementById("commissionOverlay").addEventListener("click", (e) => { if (e.target.id === "commissionOverlay") closeCommissionScreen(); });
+  document.getElementById("btnHireCommission").addEventListener("click", confirmHireCommission);
+  document.getElementById("btnFireCommission").addEventListener("click", confirmFireCommission);
   document.getElementById("btnOpenTreinos").addEventListener("click", () => {
     document.getElementById("topbarMenu").classList.remove("open");
     switchToPanel("treinos");
@@ -8741,6 +8953,10 @@ function migrateCareerDefaults() {
   if (!CAREER.tacticalSchemes) CAREER.tacticalSchemes = [];
   if (CAREER.activeSchemeId === undefined) CAREER.activeSchemeId = null;
   if (CAREER.manMarking === undefined) CAREER.manMarking = null;
+  // Nova feature — Comissão Técnica: carreira criada ANTES desta
+  // mudança nunca teve isso — nasce não-contratada (sem custo nenhum
+  // até o técnico decidir contratar), igual carreira nova.
+  if (!CAREER.technicalStaff) CAREER.technicalStaff = { hired: false };
   // AJUSTE (Bloco 2 M3, brtreinadorbloco2tatica.html) — tactics tinha 3
   // campos NOMEADOS (mentality/marking/tempo); vira 4 eixos NUMÉRICOS
   // 1-5 (ver TACTIC_AXES). Migra o que dá pra aproximar (tradução nossa
