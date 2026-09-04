@@ -685,14 +685,22 @@ function crestImg(t, size = 40) {
     : t?.short
       ? `<span class="ct-crest-mono" style="font-size:${Math.round(size * 0.34)}px;">${escapeHtml(t.short)}</span>`
       : "";
-  // Pedido do usuário (junto do fim do clip-path em losango de
-  // .ct-crest): o círculo colorido só faz sentido como MOLDURA do
-  // monograma (fallback sem escudo real) — o escudo de verdade já é
-  // uma marca completa, uma bolha de cor atrás dele só competiria com
-  // a logo oficial. Escudo real vira fundo transparente; sem logo,
-  // continua o degradê da cor do clube.
-  const bg = hasLogo ? "transparent" : `linear-gradient(160deg, ${c1}, ${c2})`;
-  return `<span class="ct-crest" style="height:${size}px;width:${size}px;background:${bg};">${inner}</span>`;
+  // AJUSTE (pedido do usuário: "ajustar a forma de exibir as logos dos
+  // clubes para que todas tenham um contraste adequado e acessível") —
+  // fundo transparente (ver histórico deste comentário) deixava escudos
+  // de cor escura/vermelha (Athletico-PR, Flamengo, Internacional etc.)
+  // quase invisíveis por cima do navy escuro do app inteiro. Escudo real
+  // agora sempre fica sobre uma "chapinha" neutra clara (mesmo tom
+  // "gelo" já usado no toast de rodapé por este MESMO motivo — precisa
+  // destacar em cima de QUALQUER cor de fundo) — convenção padrão de
+  // apps de futebol (Sofascore/FotMob/ESPN etc.): o escudo oficial é
+  // desenhado pra ser lido sobre um fundo claro neutro, então isso
+  // funciona pra QUALQUER clube, sem precisar analisar pixel de imagem
+  // nenhuma (frágil/CORS, já descartado antes nesta sessão pra cor
+  // dinâmica). Sem logo, continua o degradê da cor do clube — a
+  // moldura colorida só faz sentido como fundo do MONOGRAMA.
+  const bg = hasLogo ? "var(--mt-ivory-50)" : `linear-gradient(160deg, ${c1}, ${c2})`;
+  return `<span class="ct-crest${hasLogo ? " has-logo" : ""}" style="height:${size}px;width:${size}px;background:${bg};">${inner}</span>`;
 }
 // teamGradientStops() removida (redesign, Tela 6) — só era usada pelo
 // disco antigo do campinho (.button-disc, cor do TIME); o campinho novo
@@ -5844,25 +5852,13 @@ function renderCentral() {
   document.getElementById("lineupWarning").textContent = filled < 11
     ? `⚠️ Sua escalação tem ${filled}/11 titulares definidos — o time entra com força reduzida. Ajuste em "Escalação".`
     : "";
+  // AJUSTE (pedido do usuário: "remover o card de situação do elenco")
+  // — card "Situação do elenco" (elenco/disponíveis/contundidos/
+  // suspensos/moral média) removido da Central; "Temporada X" que
+  // morava no rótulo desse card já aparece na identidade do topbar
+  // (ver renderTopbarIdentity), então não perde informação nenhuma.
+  // `squad` continua usado logo abaixo (folha salarial/teto).
   const squad = CAREER.squad;
-  const ok = squad.filter((p) => p.status === "ok").length;
-  const hurt = squad.filter((p) => p.status === "contundido").length;
-  const susp = squad.filter((p) => p.status === "suspenso").length;
-  // FASE 2 (b) — moral média do elenco PRINCIPAL (mesmo recorte de
-  // computeBoardGoal), sempre visível na Central — sem isso a moral só
-  // aparecia jogador por jogador, sem noção nenhuma do clima geral do
-  // time.
-  const principalForMorale = squad.filter((p) => p.origin === "principal");
-  const avgMorale = principalForMorale.length
-    ? Math.round(principalForMorale.reduce((s, p) => s + (p.morale == null ? 70 : p.morale), 0) / principalForMorale.length)
-    : 70;
-  // Redesign M3 — bloco "m3" (.m3-stat-card), ver Início/kpiHTML().
-  document.getElementById("squadKpis").innerHTML = [
-    ["Elenco", squad.length], ["Disponíveis", ok], ["Contundidos", hurt], ["Suspensos", susp],
-  ].map(([l, v]) => kpiHTML(l, v, null, "m3")).join("") + kpiHTML("Moral do elenco", avgMorale, avgMorale >= 80 ? "gold" : avgMorale <= 30 ? "red" : null, "m3");
-  // FASE 3 (c) — ano da carreira sempre visível (não só no modal de
-  // transição), mesmo padrão do "(X / 38)" ao lado de "Próximo jogo".
-  document.getElementById("seasonYearLabel").textContent = `Temporada ${CAREER.seasonYear}`;
 
   // FASE 2 (b) — card "Financeiro": caixa e uso do teto salarial (só
   // elenco PRINCIPAL conta pro teto, ver wageBillOf).

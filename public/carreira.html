@@ -182,6 +182,12 @@
     border-radius:50%;
     box-shadow:inset 0 0 0 1px rgba(255,255,255,.14);
   }
+  /* AJUSTE (pedido do usuário: contraste acessível pras logos reais,
+     ver crestImg() em carreira.js) — anel claro (pensado pro fundo em
+     degredê do monograma) quase some em cima da chapinha clara nova;
+     troca por um anel escuro sutil + sombra rasa, que funciona sobre
+     QUALQUER fundo por trás (navy escuro, cards, etc.). */
+  .ct-crest.has-logo{ box-shadow:inset 0 0 0 1px rgba(10,22,40,.18), 0 1px 3px rgba(0,0,0,.28); }
   /* AJUSTE (pedido do usuário, ver crestImg() em carreira.js) — sigla
      do clube como monograma dentro do hexágono, fallback pra time sem
      escudo real. Contorno escuro (multi text-shadow, não outline puro
@@ -1923,11 +1929,15 @@
     display:flex; align-items:center; justify-content:center; overflow:hidden;
     font-family:var(--m3-display); font-weight:700; font-size:13px;
   }
-  /* Pedido do usuário: "tirar o quadrado atrás da logo do clube" —
-     mesmo raciocínio já aplicado em crestImg() (ver renderTopbarIdentity()
-     em carreira.js). Só o monograma (sem escudo real) continua com o
-     quadrado colorido como moldura. */
-  .m3-topbar-crest.has-logo{ background:transparent; }
+  /* AJUSTE (pedido do usuário: "ajustar a forma de exibir as logos dos
+     clubes para que todas tenham um contraste adequado e acessível") —
+     fundo transparente (ver histórico deste comentário, "tirar o
+     quadrado atrás da logo do clube") deixava escudos escuros/
+     vermelhos quase invisíveis em cima do topbar navy — mesmo fundo
+     "gelo" neutro de crestImg() (carreira.js), que funciona pra
+     QUALQUER cor de escudo. Só o monograma (sem escudo real) continua
+     com o quadrado colorido como moldura. */
+  .m3-topbar-crest.has-logo{ background:var(--mt-ivory-50); box-shadow:inset 0 0 0 1px rgba(10,22,40,.18); }
   .m3-topbar-crest img{ width:100%; height:100%; object-fit:contain; }
   .m3-topbar-name{ font-size:13.5px; font-weight:600; color:var(--m3-on-surface); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .m3-topbar-sub{ font-size:10.5px; color:var(--m3-on-surface-variant); margin-top:1px; }
@@ -2369,13 +2379,12 @@
                titular (ver renderCentral em carreira.js). -->
           <p class="mt-badge-alert" id="lineupWarning"></p>
         </div>
-        <div class="m3-card">
-          <div class="mt-card-head" style="margin-bottom:10px;">
-            <div class="m3-card-title" style="margin:0;">Situação do elenco</div>
-            <div class="mt-card-sub" id="seasonYearLabel" style="margin:0;"></div>
-          </div>
-          <div class="m3-stat-row" id="squadKpis"></div>
-        </div>
+        <!-- AJUSTE (pedido do usuário: "remover o card de situação do
+             elenco") — card "Situação do elenco" (elenco/disponíveis/
+             contundidos/suspensos/moral média + "Temporada X") removido
+             daqui; "Temporada X" já aparece na identidade do topbar (ver
+             renderTopbarIdentity em carreira.js), sem perda de
+             informação. -->
         <!-- Redesign (mockup brtreinadorbloco1inicio.html, tela 2 —
              Início) — carrossel horizontal com os destaques do elenco
              principal disponível (maiores overall), ver
