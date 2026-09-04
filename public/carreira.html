@@ -1683,6 +1683,23 @@
   .m3-seg{ width:22px; height:16px; border-radius:var(--m3-shape-full); background:transparent; cursor:pointer; }
   .m3-seg.on{ background:var(--m3-primary); }
 
+  /* Nova feature (Bloco 2 M3, brtreinadorbloco2pendentes.html) — Meus
+     esquemas: linha de esquema salvo, mesmos nomes de classe do
+     mockup (só prefixo "m3-"). */
+  .m3-scheme-row{ display:flex; align-items:center; gap:11px; background:var(--m3-surface-container); border-radius:var(--m3-shape-lg); padding:12px 13px; margin-bottom:9px; cursor:pointer; }
+  .m3-scheme-row:last-child{ margin-bottom:0; }
+  .m3-scheme-row.active{ background:var(--m3-primary-container); }
+  .m3-scheme-icon{ width:34px; height:34px; border-radius:var(--m3-shape-sm); background:var(--m3-surface-container-highest); display:flex; align-items:center; justify-content:center; font-family:var(--m3-display); font-weight:700; font-size:10px; flex-shrink:0; color:var(--m3-on-surface); }
+  .m3-scheme-row.active .m3-scheme-icon{ background:rgba(255,255,255,.2); color:var(--m3-on-primary-container); }
+  .m3-scheme-body{ flex:1; min-width:0; }
+  .m3-scheme-name{ font-size:12.5px; font-weight:600; color:var(--m3-on-surface); }
+  .m3-scheme-row.active .m3-scheme-name{ color:var(--m3-on-primary-container); }
+  .m3-scheme-meta{ font-size:10px; color:var(--m3-on-surface-variant); margin-top:2px; }
+  .m3-scheme-row.active .m3-scheme-meta{ color:var(--m3-on-primary-container); opacity:.85; }
+  .m3-scheme-badge{ font-size:9px; font-weight:700; background:rgba(255,255,255,.2); color:var(--m3-on-primary-container); padding:3px 8px; border-radius:var(--m3-shape-full); flex-shrink:0; }
+  .m3-scheme-delete{ width:32px; height:32px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:none; border:none; border-radius:var(--m3-shape-sm); color:var(--m3-on-surface-variant); cursor:pointer; }
+  .m3-scheme-delete svg{ width:16px; height:16px; }
+
   /* ---- campinho ---- */
   .mt-pitch{
     position:relative;
@@ -2294,6 +2311,10 @@
            resolvidos), sem fingir um estado "ao vivo" que o motor não
            produz. -->
       <button class="mt-topbar-menu-item" id="btnOpenRodada">📆 Rodada</button>
+      <!-- Nova feature — Meus esquemas (Bloco 2 M3,
+           brtreinadorbloco2pendentes.html): biblioteca de esquemas
+           táticos completos (ver openSchemesScreen/carreira.js). -->
+      <button class="mt-topbar-menu-item" id="btnOpenSchemes">🗂️ Meus esquemas</button>
       <button class="mt-topbar-menu-item" id="btnOpenTreinos">🏋️ Treinos</button>
       <button class="mt-topbar-menu-item" id="btnOpenEstatisticas">📊 Estatísticas</button>
       <!-- Retenção/Engajamento (BRDataRetencaoEspecificacao) — 3 telas
@@ -3568,6 +3589,55 @@
     </div>
     <div class="ct-modal-footer">
       <button class="mt-btn-ghost" id="btnRodadaCloseFooter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Nova feature (Bloco 2 M3, brtreinadorbloco2pendentes.html) — Meus
+     esquemas: biblioteca de esquemas táticos completos (formação+
+     titulares+banco+táticas juntos, ver saveTacticalScheme/
+     applyTacticalScheme em carreira.js), aberta pelo Menu
+     (#btnOpenSchemes). "Novo esquema" abre um sheet pequeno só pra
+     nomear (ver #newSchemeSheet abaixo) — salva o estado ATUAL da
+     Escalação, não um formulário à parte. -->
+<div class="ct-modal-overlay ct-modal-fullscreen" id="schemesOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header mt-fullheader">
+      <span class="ct-modal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v4H4zM4 10h16v10H4z"/><line x1="9" y1="15" x2="15" y2="15"/></svg></span>
+      <div class="ct-modal-header-text">
+        <h3>Meus esquemas</h3>
+        <div class="ct-modal-sub" id="schemesCountLabel"></div>
+      </div>
+      <button class="ct-modal-close" id="schemesClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <div class="mt-card">
+        <div id="schemesList"></div>
+      </div>
+    </div>
+    <div class="ct-modal-footer">
+      <button class="mt-btn-primary-gold" id="btnNewScheme"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>Novo esquema</button>
+    </div>
+  </div>
+</div>
+
+<!-- Sheet pequeno só pra nomear o esquema novo — reaproveita
+     .mt-sheet-overlay (mesmo padrão de Conversa individual/Renovar
+     contrato) e o par input+botão já usado em "Adicionar amigo"
+     (.mt-formation-row/.mt-friend-input). -->
+<div class="ct-modal-overlay mt-sheet-overlay" id="newSchemeSheet">
+  <div class="ct-modal">
+    <div class="ct-modal-header">
+      <span class="ct-modal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
+      <div class="ct-modal-header-text">
+        <h3>Novo esquema</h3>
+        <div class="ct-modal-sub">Salva a formação, titulares, banco e táticas de agora</div>
+      </div>
+      <button class="ct-modal-close" id="newSchemeClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <input id="newSchemeNameInput" class="mt-friend-input" placeholder="Ex.: Retranca fora" maxlength="30" style="width:100%;">
+      <button class="mt-btn-primary-gold" id="btnConfirmNewScheme" style="width:100%; margin-top:14px;">Salvar esquema</button>
     </div>
   </div>
 </div>

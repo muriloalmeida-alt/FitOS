@@ -3024,6 +3024,14 @@ async function startCareer(clubId) {
       seasonYear: LIVE_SEASON, seasonHistory: [],
       // Nova feature — Histórico de confrontos (H2H, ver finishLiveMatch).
       matchLog: [],
+      // Nova feature — Meus esquemas (Bloco 2, brtreinadorbloco2pendentes.html):
+      // formação+titulares+banco+táticas salvos juntos (ver
+      // saveTacticalScheme/applyTacticalScheme). activeSchemeId aponta
+      // pro esquema em uso agora — null = "Personalizado" (mesmo
+      // conceito já usado em CAREER.trainingSchemeId no módulo de
+      // Treinos), fica null sozinho quando o técnico mexe em algo
+      // manualmente depois de carregar um esquema (ver markLineupDirty).
+      tacticalSchemes: [], activeSchemeId: null,
       // FASE 4 (item 3) — jejum de vitória por time, pra manchete
       // "encerra jejum de X jogos" (ver updateWinlessStreaks).
       teamWinlessStreak: {},
@@ -6451,6 +6459,10 @@ async function handlePlayerAction(id, act) {
   } else if (act === "sell") {
     if (!(await sellPlayer(id))) return; // cancelado ou bloqueado — mantém o modal aberto
   }
+  // Meus esquemas — qualquer uma dessas ações pode mexer na escalação
+  // (titular/banco), então desvincula do esquema salvo igual as outras
+  // mutações de lineup (ver markLineupDirty).
+  markLineupDirty();
   document.getElementById("detailOverlay").classList.remove("open");
   persistCareer();
   renderElenco(); renderEscalacao(); renderCentral();
@@ -6573,6 +6585,7 @@ function wireTacticAxisRows(containerId) {
         const level = Number(seg.dataset.level);
         row.dataset.level = level;
         row.querySelectorAll(".m3-seg").forEach((s) => s.classList.toggle("on", Number(s.dataset.level) <= level));
+        markLineupDirty();
       });
     });
   });
@@ -6597,6 +6610,7 @@ function renderFormationChips() {
   document.querySelectorAll("#formationChipRow .m3-filter-chip").forEach((btn) => {
     btn.addEventListener("click", () => {
       CAREER.lineup.formation = btn.dataset.formation;
+      markLineupDirty();
       renderFormationChips();
       renderPitch();
     });
@@ -6621,6 +6635,7 @@ function autoFillLineup() {
   const result = autoLineup(CAREER.squad, CAREER.lineup.formation, includeBase);
   CAREER.lineup.starters = result.starters;
   CAREER.lineup.bench = result.bench;
+  markLineupDirty();
   renderPitch(); renderBench();
   persistCareer();
   toast(`Escalação automática aplicada — melhores overalls por posição${includeBase ? " (incluindo base)" : ""}.`, { type: "pos" });
@@ -6638,6 +6653,126 @@ function autoFillLineup() {
 // applyWeeklyTraining).
 function commitLineupTactics() {
   Object.assign(CAREER.lineup.tactics, readTacticAxisRows("tacticAxisRows"));
+}
+
+/* ---------- Meus esquemas (Bloco 2, brtreinadorbloco2pendentes.html) ----------
+   Biblioteca de esquemas táticos completos (formação+titulares+banco+
+   táticas juntos, decisão confirmada com o usuário) — o técnico monta
+   um plano de jogo (ex.: "Retranca fora") uma vez e reaplica inteiro
+   depois, sem reconfigurar tudo de novo toda partida. */
+const MAX_TACTICAL_SCHEMES = 8;
+// Qualquer edição manual (formação/titulares/banco/tática) DEPOIS de
+// carregar um esquema desvincula da origem — mesmo espírito de
+// CAREER.trainingSchemeId=null ("Personalizado") já usado no módulo de
+// Treinos. Chamada nos pontos de mutação de verdade (não em
+// commitLineupTactics/renderEscalacao, que rodam sempre, editado ou
+// não — só onde o usuário genuinamente MUDOU algo).
+function markLineupDirty() {
+  if (CAREER.activeSchemeId != null) CAREER.activeSchemeId = null;
+}
+function saveTacticalScheme(name) {
+  const trimmed = (name || "").trim();
+  if (!trimmed) return { ok: false, reason: "Dê um nome pro esquema." };
+  if (CAREER.tacticalSchemes.length >= MAX_TACTICAL_SCHEMES) {
+    return { ok: false, reason: `Limite de ${MAX_TACTICAL_SCHEMES} esquemas salvos — apague um antes de criar outro.` };
+  }
+  const scheme = {
+    id: `scheme_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+    name: trimmed.slice(0, 30),
+    formation: CAREER.lineup.formation,
+    starters: [...CAREER.lineup.starters],
+    bench: [...CAREER.lineup.bench],
+    tactics: { ...CAREER.lineup.tactics },
+    createdRound: Math.min(CAREER.currentRound, 38),
+  };
+  CAREER.tacticalSchemes.push(scheme);
+  CAREER.activeSchemeId = scheme.id;
+  return { ok: true, scheme };
+}
+function applyTacticalScheme(id) {
+  const scheme = CAREER.tacticalSchemes.find((s) => s.id === id);
+  if (!scheme) return false;
+  CAREER.lineup.formation = scheme.formation;
+  CAREER.lineup.starters = [...scheme.starters];
+  CAREER.lineup.bench = [...scheme.bench];
+  CAREER.lineup.tactics = { ...scheme.tactics };
+  CAREER.activeSchemeId = scheme.id;
+  return true;
+}
+function deleteTacticalScheme(id) {
+  CAREER.tacticalSchemes = CAREER.tacticalSchemes.filter((s) => s.id !== id);
+  if (CAREER.activeSchemeId === id) CAREER.activeSchemeId = null;
+}
+// Meta honesta (não inventa "usado nos últimos 8 jogos" como o mockup —
+// não temos esse dado de verdade) — descreve o que o esquema REALMENTE
+// guarda: quantos titulares tinha quando foi salvo + em que rodada.
+function schemeSummary(s) {
+  const filled = s.starters.filter(Boolean).length;
+  return `Salvo na rodada ${s.createdRound} · ${filled}/11 titulares`;
+}
+function schemeRowHTML(s) {
+  const isActive = s.id === CAREER.activeSchemeId;
+  return `<div class="m3-scheme-row${isActive ? " active" : ""}" data-id="${s.id}">
+    <div class="m3-scheme-icon">${escapeHtml(s.formation)}</div>
+    <div class="m3-scheme-body">
+      <div class="m3-scheme-name">${escapeHtml(s.name)}</div>
+      <div class="m3-scheme-meta">${escapeHtml(schemeSummary(s))}</div>
+    </div>
+    ${isActive ? `<span class="m3-scheme-badge">ATIVO</span>` : ""}
+    <button class="m3-scheme-delete" data-delete="${s.id}" aria-label="Apagar esquema" title="Apagar esquema"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+  </div>`;
+}
+function renderSchemesScreen() {
+  const list = CAREER.tacticalSchemes;
+  document.getElementById("schemesCountLabel").textContent = `Salvos · ${list.length}`;
+  document.getElementById("schemesList").innerHTML = list.length
+    ? list.map(schemeRowHTML).join("")
+    : `<p class="ct-empty">Nenhum esquema salvo ainda — monte a escalação/tática que quiser na aba Tática e toque em "Novo esquema".</p>`;
+  document.querySelectorAll("#schemesList .m3-scheme-row").forEach((row) => {
+    row.addEventListener("click", (e) => {
+      if (e.target.closest("[data-delete]")) return;
+      applyTacticalScheme(row.dataset.id);
+      renderSchemesScreen();
+      renderEscalacao();
+      persistCareer();
+      toast(`Esquema "${CAREER.tacticalSchemes.find((s) => s.id === row.dataset.id)?.name}" aplicado.`, { type: "pos" });
+    });
+  });
+  document.querySelectorAll("#schemesList [data-delete]").forEach((btn) => {
+    btn.addEventListener("click", async (e) => {
+      e.stopPropagation();
+      const scheme = CAREER.tacticalSchemes.find((s) => s.id === btn.dataset.delete);
+      if (!scheme) return;
+      if (!(await confirmModal(`Apagar o esquema "${scheme.name}"?`, "Apagar"))) return;
+      deleteTacticalScheme(scheme.id);
+      renderSchemesScreen();
+      persistCareer();
+    });
+  });
+}
+function openSchemesScreen() {
+  renderSchemesScreen();
+  document.getElementById("schemesOverlay").classList.add("open");
+}
+function closeSchemesScreen() {
+  document.getElementById("schemesOverlay").classList.remove("open");
+}
+function openNewSchemeSheet() {
+  document.getElementById("newSchemeNameInput").value = "";
+  document.getElementById("newSchemeSheet").classList.add("open");
+  document.getElementById("newSchemeNameInput").focus();
+}
+function closeNewSchemeSheet() {
+  document.getElementById("newSchemeSheet").classList.remove("open");
+}
+function confirmNewScheme() {
+  const name = document.getElementById("newSchemeNameInput").value;
+  const result = saveTacticalScheme(name);
+  if (!result.ok) { toast(result.reason, { type: "warn" }); return; }
+  closeNewSchemeSheet();
+  persistCareer();
+  renderSchemesScreen();
+  toast(`Esquema "${result.scheme.name}" salvo e aplicado.`, { type: "pos" });
 }
 // AJUSTE (refatoração completa, Tela 6 — ver 06-escalacao-restyled.html
 // do designer) — campinho próprio (.mt-pitch*, NÃO reaproveita
@@ -6959,6 +7094,7 @@ function pickerChoose(playerId) {
     CAREER.lineup.bench.push(playerId);
   }
   document.getElementById("pickerOverlay").classList.remove("open");
+  markLineupDirty();
   renderPitch(); renderBench();
   persistCareer();
 }
@@ -8091,6 +8227,18 @@ function wireStaticListeners() {
   document.getElementById("rodadaOverlay").addEventListener("click", (e) => { if (e.target.id === "rodadaOverlay") closeRodadaScreen(); });
   document.getElementById("rodadaTabAtual").addEventListener("click", () => renderRodada("atual"));
   document.getElementById("rodadaTabAnterior").addEventListener("click", () => renderRodada("anterior"));
+  // Nova feature — Meus esquemas, aberta pelo menu "≡".
+  document.getElementById("btnOpenSchemes").addEventListener("click", () => {
+    document.getElementById("topbarMenu").classList.remove("open");
+    openSchemesScreen();
+  });
+  document.getElementById("schemesClose").addEventListener("click", closeSchemesScreen);
+  document.getElementById("schemesOverlay").addEventListener("click", (e) => { if (e.target.id === "schemesOverlay") closeSchemesScreen(); });
+  document.getElementById("btnNewScheme").addEventListener("click", openNewSchemeSheet);
+  document.getElementById("newSchemeClose").addEventListener("click", closeNewSchemeSheet);
+  document.getElementById("newSchemeSheet").addEventListener("click", (e) => { if (e.target.id === "newSchemeSheet") closeNewSchemeSheet(); });
+  document.getElementById("btnConfirmNewScheme").addEventListener("click", confirmNewScheme);
+  document.getElementById("newSchemeNameInput").addEventListener("keydown", (e) => { if (e.key === "Enter") confirmNewScheme(); });
   document.getElementById("btnOpenTreinos").addEventListener("click", () => {
     document.getElementById("topbarMenu").classList.remove("open");
     switchToPanel("treinos");
@@ -8342,6 +8490,12 @@ function migrateCareerDefaults() {
   // dá pra reconstruir partidas já jogadas), só passa a acumular daqui
   // pra frente.
   if (!CAREER.matchLog) CAREER.matchLog = [];
+  // Nova feature — Meus esquemas: carreira criada ANTES desta mudança
+  // nunca teve biblioteca de esquemas — sem migração retroativa (não
+  // dá pra reconstruir esquemas nunca salvos), só passa a existir vazia
+  // daqui pra frente, igual carreira nova.
+  if (!CAREER.tacticalSchemes) CAREER.tacticalSchemes = [];
+  if (CAREER.activeSchemeId === undefined) CAREER.activeSchemeId = null;
   // AJUSTE (Bloco 2 M3, brtreinadorbloco2tatica.html) — tactics tinha 3
   // campos NOMEADOS (mentality/marking/tempo); vira 4 eixos NUMÉRICOS
   // 1-5 (ver TACTIC_AXES). Migra o que dá pra aproximar (tradução nossa
