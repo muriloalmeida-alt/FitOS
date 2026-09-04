@@ -155,12 +155,18 @@
     --m3-display:'Space Grotesk', var(--font);
     --m3-navh:78px; /* altura da nav inferior M3 (pílula com folga), ver .m3-bottom-nav */
   }
-  /* Escudo hexagonal (ver crestImg() em carreira.js) — mesmo clip-path
-     de .crest-hex no shared.css do designer. Reaproveitado por toda
-     tela que mostra escudo de time, conforme cada uma for refeita. */
+  /* Escudo do time (ver crestImg() em carreira.js), reaproveitado por
+     TODA tela que mostra escudo de clube. AJUSTE (pedido do usuário:
+     "eliminar os diamantes que ficam atrás das logos dos clubes") —
+     o clip-path hexagonal antigo (herdado do shared.css do designer,
+     de antes do redesign M3) lia como um losango pontudo atrás de
+     qualquer logo real ou monograma, competindo com a marca do clube
+     em vez de servir de moldura discreta. Vira um círculo simples
+     (mesma linguagem de forma redonda já usada em .m3-li-rating/
+     .mt-ovr-badge) — sem cantos pontiagudos, em nenhum tamanho. */
   .ct-crest{
     display:inline-flex; align-items:center; justify-content:center; flex-shrink:0;
-    clip-path:polygon(50% 0%, 100% 18%, 100% 62%, 50% 100%, 0% 62%, 0% 18%);
+    border-radius:50%;
     box-shadow:inset 0 0 0 1px rgba(255,255,255,.14);
   }
   /* AJUSTE (pedido do usuário, ver crestImg() em carreira.js) — sigla
