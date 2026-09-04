@@ -7197,6 +7197,15 @@ const COMMISSION_AREAS = [
 // continua existindo do jeito de sempre, pra quem preferir o contexto
 // completo). Só aparece com a comissão contratada — chamada de dentro
 // de renderCentral().
+// AJUSTE (pedido do usuário: "coloca apenas os ícones nos botões... ao
+// clicar entende-se que o técnico aceitou a sugestão. Cinco botões em
+// uma linha" — confirmado que são os 4 de sempre, "cinco" foi engano
+// na contagem) — botão vira só o ícone (texto completo da sugestão
+// some do card, mas continua acessível via title/aria-label, pra não
+// perder a informação de vez); clicar já É aceitar a sugestão, sem
+// passo a mais. Um pontinho dourado (.has-suggestion) sinaliza "tem
+// sugestão nova pra aceitar" sem precisar de texto nenhum — botão sem
+// sugestão real (canApply:false) fica desabilitado, igual antes.
 function renderCommissionSummaryCard() {
   const card = document.getElementById("commissionSummaryCard");
   const hired = CAREER.technicalStaff && CAREER.technicalStaff.hired;
@@ -7204,10 +7213,9 @@ function renderCommissionSummaryCard() {
   if (!hired) return;
   document.getElementById("commissionSummaryList").innerHTML = COMMISSION_AREAS.map((area) => {
     const s = area.fn();
-    return `<button class="m3-commission-btn" data-apply="${area.id}" ${s.canApply ? "" : "disabled"}>
-      <span class="m3-commission-icon">${area.icon}</span>
-      <span class="m3-commission-text"><b>${escapeHtml(area.label)}</b><span>${escapeHtml(s.text)}</span></span>
-    </button>`;
+    const title = `${area.label}: ${s.text}`;
+    return `<button class="m3-commission-icon-btn ${s.canApply ? "has-suggestion" : ""}" data-apply="${area.id}"
+        ${s.canApply ? "" : "disabled"} title="${escapeHtml(title)}" aria-label="${escapeHtml(title)}">${area.icon}</button>`;
   }).join("");
   document.getElementById("commissionSummaryList").querySelectorAll("[data-apply]").forEach((btn) => {
     btn.addEventListener("click", async () => {
@@ -7216,7 +7224,7 @@ function renderCommissionSummaryCard() {
       if (!s.canApply || !s.apply) return;
       await s.apply();
       renderAll(); // já re-renderiza este card também (ver renderCentral)
-      toast(`Sugestão de ${area.label} aplicada.`, { type: "pos" });
+      toast(`Sugestão de ${area.label} aceita e aplicada.`, { type: "pos" });
     });
   });
 }
