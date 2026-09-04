@@ -220,14 +220,14 @@
      partir de acima da nav (bottom, não top/margin-top). */
   .mt-topbar-menu{
     position:fixed; bottom:calc(var(--mt-navh) + 10px); right:14px; z-index:130;
-    background:linear-gradient(160deg, var(--mt-navy-700), var(--mt-navy-800) 65%);
-    border:1px solid var(--mt-navy-600); border-top:1px solid rgba(232,184,75,.3);
-    border-radius:10px; box-shadow:0 14px 32px rgba(0,0,0,.4); min-width:190px; padding:6px; display:none;
+    background:var(--m3-surface-container-high);
+    border:1px solid var(--m3-outline-variant); border-top:1px solid var(--m3-primary);
+    border-radius:var(--m3-shape-md); box-shadow:0 14px 32px rgba(0,0,0,.4); min-width:190px; padding:6px; display:none;
   }
   .mt-topbar-menu.open{ display:block; }
-  .mt-topbar-menu-item{ display:block; width:100%; text-align:left; background:none; border:none; padding:11px 12px; border-radius:8px; font-size:13.5px; font-weight:600; color:var(--mt-ivory-100); cursor:pointer; font-family:var(--font); text-decoration:none; box-sizing:border-box; }
-  .mt-topbar-menu-item:hover{ background:var(--mt-navy-800); }
-  .mt-topbar-menu-item.danger{ color:var(--mt-crimson-400); }
+  .mt-topbar-menu-item{ display:block; width:100%; text-align:left; background:none; border:none; padding:11px 12px; border-radius:var(--m3-shape-sm); font-size:13.5px; font-weight:600; color:var(--m3-on-surface); cursor:pointer; font-family:var(--font); text-decoration:none; box-sizing:border-box; }
+  .mt-topbar-menu-item:hover{ background:var(--m3-surface-container-highest); }
+  .mt-topbar-menu-item.danger{ color:var(--m3-error); }
   /* Rodada, inline no título "Próximo jogo" ("Próximo Jogo (XX / XX)"). */
   .ct-round-inline{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:13px; letter-spacing:1px; color:var(--mt-ink-muted); text-transform:uppercase; }
 
@@ -241,25 +241,26 @@
   .ct-panel.active{ display:block; }
 
   /* ---- painel chanfrado (Central e demais telas que forem refeitas) ---- */
+  /* Redesign M3 — bridge do cartão genérico (usado por dezenas de
+     telas ainda não reconstruídas individualmente): sai o chanfro
+     diagonal + navy/dourado fixo do sistema antigo, entra o cartão
+     M3 (superfície + forma redonda do resto do sistema, ver .m3-card
+     na fundação) — sem tocar em nenhum id/classe interna dos cartões
+     (mt-card-head/mt-card-sub/ct-help-* continuam, só a casca muda). */
   .mt-card{
-    position:relative; background:linear-gradient(160deg, var(--mt-navy-700), var(--mt-navy-800) 65%);
-    border:1px solid var(--mt-navy-600); border-top:1px solid rgba(232,184,75,.22);
-    clip-path:polygon(0 0, calc(100% - 22px) 0, 100% 22px, 100% 100%, 0 100%);
-    padding:20px 18px; margin-bottom:16px;
+    position:relative; background:var(--m3-surface-container);
+    border:none; clip-path:none; border-radius:var(--m3-shape-lg);
+    padding:16px; margin-bottom:14px;
   }
-  .mt-card::before{
-    content:""; position:absolute; top:0; right:0; width:22px; height:22px;
-    background:linear-gradient(135deg, var(--mt-gold-400), transparent 60%);
-    clip-path:polygon(100% 0, 100% 100%, 0 0); opacity:.6;
-  }
+  .mt-card::before{ content:none; }
   .mt-card-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:2px; }
-  .mt-card-title{ font-family:'Bebas Neue', var(--font); font-size:19px; letter-spacing:.5px; color:var(--mt-ivory-50); margin:0; }
-  .mt-card-sub{ color:var(--mt-ink-faint); font-size:12px; margin:2px 0 14px; }
+  .mt-card-title{ font-family:var(--m3-display); font-weight:600; font-size:14px; letter-spacing:0; color:var(--m3-on-surface); margin:0; }
+  .mt-card-sub{ color:var(--m3-on-surface-variant); font-size:12px; margin:2px 0 14px; }
 
   .mt-badge-alert{
     display:inline-flex; align-items:center; gap:6px;
-    background:rgba(214,69,69,.14); border:1px solid rgba(214,69,69,.4); color:var(--mt-crimson-400);
-    font-family:'Rajdhani', var(--font); font-weight:700; font-size:12.5px; padding:5px 10px; border-radius:4px; margin-bottom:12px;
+    background:rgba(255,84,73,.14); border:1px solid rgba(255,84,73,.4); color:var(--m3-error);
+    font-family:var(--font); font-weight:700; font-size:12px; padding:6px 11px; border-radius:var(--m3-shape-full); margin-bottom:12px;
   }
   /* AJUSTE (Tela 3) — #lineupWarning só recebe texto quando a escalação
      está incompleta (ver renderCentral); :empty esconde o badge de
@@ -267,26 +268,26 @@
   .mt-badge-alert:empty{ display:none; }
   .mt-badge-gold{
     display:inline-flex; align-items:center; gap:6px;
-    background:rgba(232,184,75,.12); border:1px solid rgba(232,184,75,.35); color:var(--mt-gold-300);
-    font-family:'Rajdhani', var(--font); font-weight:700; font-size:12.5px; padding:5px 10px; border-radius:4px; margin-bottom:12px;
+    background:var(--m3-secondary-container); border:none; color:var(--m3-on-secondary-container);
+    font-family:var(--font); font-weight:700; font-size:12px; padding:6px 11px; border-radius:var(--m3-shape-full); margin-bottom:12px;
   }
 
   .mt-stat-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-  .mt-stat-block{ background:var(--mt-navy-900); border:1px solid var(--mt-navy-600); padding:14px 10px; text-align:center; }
-  .mt-stat-block .num{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:26px; color:var(--mt-ivory-50); }
-  .mt-stat-block .num.gold{ color:var(--mt-gold-400); }
-  .mt-stat-block .num.red{ color:var(--mt-crimson-400); }
-  .mt-stat-block .lbl{ font-size:10.5px; letter-spacing:.5px; color:var(--mt-ink-faint); margin-top:3px; font-family:'Rajdhani', var(--font); font-weight:600; }
+  .mt-stat-block{ background:var(--m3-surface-container-high); border:1px solid var(--m3-outline-variant); border-radius:var(--m3-shape-md); padding:14px 10px; text-align:center; }
+  .mt-stat-block .num{ font-family:var(--m3-display); font-weight:700; font-size:24px; color:var(--m3-on-surface); }
+  .mt-stat-block .num.gold{ color:var(--m3-primary); }
+  .mt-stat-block .num.red{ color:var(--m3-error); }
+  .mt-stat-block .lbl{ font-size:10.5px; letter-spacing:.3px; color:var(--m3-on-surface-variant); margin-top:3px; font-family:var(--font); font-weight:600; }
 
   .mt-fin-row{ display:flex; gap:12px; margin-bottom:14px; }
-  .mt-fin-block{ flex:1; text-align:center; background:var(--mt-navy-900); border:1px solid var(--mt-navy-600); padding:16px 8px; }
-  .mt-fin-block .num{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:24px; color:var(--mt-gold-400); }
-  .mt-fin-block .lbl{ font-size:10.5px; color:var(--mt-ink-faint); letter-spacing:.5px; margin-top:2px; font-family:'Rajdhani', var(--font); }
+  .mt-fin-block{ flex:1; text-align:center; background:var(--m3-surface-container-high); border:1px solid var(--m3-outline-variant); border-radius:var(--m3-shape-md); padding:16px 8px; }
+  .mt-fin-block .num{ font-family:var(--m3-display); font-weight:700; font-size:22px; color:var(--m3-primary); }
+  .mt-fin-block .lbl{ font-size:10.5px; color:var(--m3-on-surface-variant); letter-spacing:.3px; margin-top:2px; font-family:var(--font); }
 
   .mt-btn-ghost{
     width:100%; display:flex; align-items:center; justify-content:center; gap:8px;
-    font-family:'Rajdhani', var(--font); font-weight:600; font-size:14px; letter-spacing:.5px;
-    padding:12px; border-radius:999px; cursor:pointer; background:transparent; border:1.5px solid var(--mt-navy-600); color:var(--mt-ivory-100);
+    font-family:var(--font); font-weight:600; font-size:13.5px; letter-spacing:0;
+    padding:12px; border-radius:999px; cursor:pointer; background:var(--m3-surface-container); border:1px solid var(--m3-outline-variant); color:var(--m3-on-surface);
   }
   .mt-btn-ghost:disabled{ opacity:.5; cursor:not-allowed; }
 
@@ -294,14 +295,14 @@
   .mt-sponsor-row:last-child{ border-bottom:none; padding-bottom:0; }
   .mt-sponsor-name{ font-weight:600; font-size:14.5px; margin-bottom:2px; color:var(--mt-ivory-50); }
   .mt-sponsor-detail{ font-size:12px; color:var(--mt-ink-muted); }
-  .mt-sponsor-tag{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:11px; letter-spacing:.5px; color:var(--mt-gold-300); text-transform:uppercase; white-space:nowrap; flex-shrink:0; }
+  .mt-sponsor-tag{ font-family:var(--font); font-weight:700; font-size:11px; letter-spacing:.3px; color:var(--m3-primary); text-transform:uppercase; white-space:nowrap; flex-shrink:0; }
   .mt-sponsor-btn{
     font-family:'Rajdhani', var(--font); font-weight:700; font-size:11.5px; letter-spacing:.3px;
     padding:6px 12px; border-radius:999px; cursor:pointer; flex-shrink:0; white-space:nowrap;
     background:transparent; border:1.5px solid var(--mt-gold-400); color:var(--mt-gold-300);
   }
 
-  .mt-icon-badge{ width:38px; height:38px; border-radius:8px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:rgba(232,184,75,.14); border:1px solid rgba(232,184,75,.35); color:var(--mt-gold-400); }
+  .mt-icon-badge{ width:38px; height:38px; border-radius:var(--m3-shape-sm); flex-shrink:0; display:flex; align-items:center; justify-content:center; background:var(--m3-primary-container); border:none; color:var(--m3-on-primary-container); }
   .mt-icon-badge svg{ width:18px; height:18px; }
   .mt-proposal-row{ display:flex; align-items:flex-start; gap:12px; margin-bottom:14px; }
   .mt-proposal-text b{ display:block; font-size:14.5px; margin-bottom:2px; color:var(--mt-ivory-50); }
@@ -660,8 +661,8 @@
      ajusta width e alterna .warn/.over), só recolorido: gradiente
      dourado brilhante no lugar do azul chapado, âmbar/vermelho no
      aviso/estouro. */
-  .ct-wagecap-track{ width:100%; height:8px; border-radius:100px; background:var(--mt-navy-900); border:1px solid var(--mt-navy-600); overflow:hidden; }
-  .ct-wagecap-fill{ display:block; height:100%; background:linear-gradient(90deg, var(--mt-gold-600), var(--mt-gold-300)); box-shadow:0 0 8px rgba(232,184,75,.5); transition:width .3s; }
+  .ct-wagecap-track{ width:100%; height:8px; border-radius:100px; background:var(--m3-surface-container-highest); border:1px solid var(--m3-outline-variant); overflow:hidden; }
+  .ct-wagecap-fill{ display:block; height:100%; background:linear-gradient(90deg, var(--m3-primary-container), var(--m3-primary)); transition:width .3s; }
   .ct-wagecap-fill.warn{ background:linear-gradient(90deg, #8F6316, var(--mt-gold-400)); }
   .ct-wagecap-fill.over{ background:linear-gradient(90deg, var(--mt-crimson-500), var(--mt-crimson-400)); box-shadow:0 0 8px rgba(227,101,101,.5); }
 
@@ -713,7 +714,7 @@
   .mt-stat-bar-track{ flex:1; min-width:0; }
   .mt-stat-bar-label{ font-size:10.5px; color:var(--mt-ink-faint); text-align:center; margin-bottom:4px; text-transform:uppercase; letter-spacing:.5px; }
   .mt-stat-bar-fill{ display:flex; height:6px; border-radius:100px; overflow:hidden; background:var(--mt-navy-600); }
-  .mt-stat-bar-fill .mine{ background:linear-gradient(90deg, var(--mt-gold-600), var(--mt-gold-300)); }
+  .mt-stat-bar-fill .mine{ background:linear-gradient(90deg, var(--m3-primary-container), var(--m3-primary)); }
   .mt-stat-bar-fill .opp{ background:rgba(143,163,191,.4); }
 
   /* Resultados da rodada — 1 linha por jogo, com escudo dos 2 times;
@@ -762,7 +763,13 @@
      "sobe" da base da tela). Substitui o antigo diálogo "cartão"
      centralizado (inclusive o #confirmOverlay ainda mais estreito, que
      não faz mais sentido numa folha de largura cheia — regra removida). */
-  .ct-modal{ background:var(--navy-card2); border:1px solid var(--navy-line); border-radius:18px 18px 0 0; max-width:none; width:100%; max-height:86vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 -12px 40px rgba(0,0,0,.5); }
+  /* Redesign M3 — bridge dos tokens compartilhados do modal genérico
+     (--navy-card2/--navy-line/--brd-navy → --m3-surface-container-high
+     e --m3-outline-variant): cascata automática pra TODO modal ainda sem modificador
+     próprio (loanOverlay, liveSubOverlay, liveTacticsOverlay etc.),
+     sem precisar reskinar tela por tela. Cantos --m3-shape-xl no lugar
+     dos 18px fixos, mesma escala de forma do resto do sistema M3. */
+  .ct-modal{ background:var(--m3-surface-container-high); border:1px solid var(--m3-outline-variant); border-radius:var(--m3-shape-xl) var(--m3-shape-xl) 0 0; max-width:none; width:100%; max-height:86vh; overflow:hidden; display:flex; flex-direction:column; box-shadow:0 -12px 40px rgba(0,0,0,.5); }
   /* Pedido do usuário: "as modais que ocupam mais espaço podem assumir
      tela cheia — só as de mensagens curtas ficam do tamanho atual".
      Marca (ver .ct-modal-fullscreen na tag do overlay, em carreira.html)
@@ -779,16 +786,16 @@
     .ct-modal-overlay.ct-modal-fullscreen{ padding:24px; }
     .ct-modal-overlay.ct-modal-fullscreen .ct-modal{ max-width:640px; height:92vh; max-height:92vh; border-radius:var(--radius-lg); }
   }
-  .ct-modal-header{ display:flex; align-items:center; gap:10px; padding:16px; background:linear-gradient(135deg, var(--brd-navy), var(--navy-mid)); border-bottom:1px solid var(--navy-line); flex-shrink:0; }
+  .ct-modal-header{ display:flex; align-items:center; gap:10px; padding:16px; background:var(--m3-surface-container-high); border-bottom:1px solid var(--m3-outline-variant); flex-shrink:0; }
   .ct-modal-icon{ font-size:20px; line-height:1; flex-shrink:0; }
   .ct-modal-header-text{ flex:1; min-width:0; }
-  .ct-modal-header h3{ margin:0; font-size:16.5px; font-weight:700; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .ct-modal-sub{ font-size:11px; color:var(--gray-dim); font-weight:600; margin-top:1px; }
+  .ct-modal-header h3{ margin:0; font-size:16.5px; font-weight:700; color:var(--m3-on-surface); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ct-modal-sub{ font-size:11px; color:var(--m3-on-surface-variant); font-weight:600; margin-top:1px; }
   /* AJUSTE (design system): .bd-modal-close é só um "×" solto (cor
      cinza, sem fundo) — a pílula circular translúcida que tinha antes
      era uma invenção daqui, não vem nem do mockup nem do documento. */
-  .ct-modal-close{ background:none; border:none; color:var(--gray); width:26px; height:26px; font-size:18px; cursor:pointer; flex-shrink:0; display:flex; align-items:center; justify-content:center; line-height:1; }
-  .ct-modal-close:hover{ color:#fff; }
+  .ct-modal-close{ background:none; border:none; color:var(--m3-on-surface-variant); width:26px; height:26px; font-size:18px; cursor:pointer; flex-shrink:0; display:flex; align-items:center; justify-content:center; line-height:1; }
+  .ct-modal-close:hover{ color:var(--m3-on-surface); }
   .ct-modal-body{ padding:18px; overflow-y:auto; }
   /* AJUSTE (pedido do usuário: "os botões de ação principal de cada
      tela devem estar travados no rodapé") — mesmo espírito do
@@ -799,15 +806,15 @@
      rodada, feed de notícias, escalação titular etc.), sempre visível
      sem precisar rolar, e é a .ct-modal-body sozinha que rola por
      baixo dele quando o conteúdo não cabe. */
-  .ct-modal-footer{ flex-shrink:0; display:flex; flex-direction:column; gap:8px; padding:14px 18px calc(14px + env(safe-area-inset-bottom, 0px)); border-top:1px solid var(--navy-line); background:var(--navy-card2); }
+  .ct-modal-footer{ flex-shrink:0; display:flex; flex-direction:column; gap:8px; padding:14px 18px calc(14px + env(safe-area-inset-bottom, 0px)); border-top:1px solid var(--m3-outline-variant); background:var(--m3-surface-container-high); }
   /* .ct-pick-row removida (redesign, Tela 7) — só era usada por
      renderPickerList(), que agora usa .mt-sel-row (ver Tela 7 mais
      abaixo). */
   /* AJUSTE (design system): foco dourado nos campos de busca/select
      (.bd-input:focus/.bd-select:focus), não mais o azul genérico do
      navegador — reforça o dourado como cor de marca/interação. */
-  .ct-search{ width:100%; padding:11px 12px; border-radius:var(--radius-sm); border:1px solid var(--border); background:var(--navy-card2); color:var(--text-0); font-family:var(--font); font-size:13px; margin-bottom:10px; }
-  .ct-search:focus{ outline:none; border-color:var(--gold); }
+  .ct-search{ width:100%; padding:11px 12px; border-radius:var(--m3-shape-sm); border:1px solid var(--m3-outline-variant); background:var(--m3-surface-container); color:var(--m3-on-surface); font-family:var(--font); font-size:13px; margin-bottom:10px; }
+  .ct-search:focus{ outline:none; border-color:var(--m3-primary); }
 
   /* AJUSTE (pedido do usuário: "gosto da opção 2 [cápsula reforçada]
      mas acho que ela deve ter largura fixa do tamanho do botão ir
@@ -1037,16 +1044,20 @@
     font-size:12.5px; font-weight:700; color:var(--mt-gold-300);
     background:rgba(232,184,75,.1); border:1px solid rgba(232,184,75,.3); border-radius:6px;
   }
-  .mt-club-grid{ display:grid; grid-template-columns:1fr 1fr; gap:12px; max-width:520px; margin:0 auto; }
+  /* Redesign M3 — reestilizado em cima dos MESMOS seletores (não
+     renomeado: .mt-club-card é clicada direto por ~70 scripts de
+     teste, ver histórico) — tela "sem clube dono" (ver comentário do
+     :root M3 acima), então usa os tokens M3 literais direto, sem
+     applyClubPalette(). */
+  .mt-club-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; max-width:520px; margin:0 auto; }
   .mt-club-card{
-    background:linear-gradient(160deg, var(--mt-navy-700), var(--mt-navy-800) 65%);
-    border:1px solid var(--mt-navy-600);
-    clip-path:polygon(0 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%);
-    padding:18px 12px; display:flex; flex-direction:column; align-items:center; gap:10px;
+    background:var(--m3-surface-container); border:none; border-radius:var(--m3-shape-lg);
+    clip-path:none;
+    padding:16px 12px; display:flex; flex-direction:column; align-items:center; gap:9px;
     text-align:center; cursor:pointer;
   }
-  .mt-club-card:active{ filter:brightness(1.08); }
-  .mt-club-name{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:13.5px; letter-spacing:.3px; color:var(--mt-ivory-100); }
+  .mt-club-card:active{ background:var(--m3-surface-container-high); }
+  .mt-club-name{ font-family:var(--m3-display); font-weight:600; font-size:12.5px; letter-spacing:.2px; color:var(--m3-on-surface); }
 
   /* AJUSTE (pedido do usuário: "acrescentar a Série B, C [ao Modo
      Carreira] com dados reais") — lista de campeonatos (novo 1º passo
@@ -1093,17 +1104,21 @@
   /* AJUSTE (Tela 6) — .mt-pitch-badge/.mt-bench-ovr somados aqui pra
      reaproveitar a MESMA regra de cor por faixa (elite/good/mid) do
      .mt-ovr-badge (Elenco/Detalhe) sem duplicar o gradiente 3x. */
-  .mt-ovr-badge.t-elite, .mt-pitch-badge.t-elite, .mt-bench-ovr.t-elite{ background:radial-gradient(circle at 35% 30%, var(--mt-gold-300), var(--mt-gold-600) 75%); color:#2A1D02; }
-  .mt-ovr-badge.t-good, .mt-pitch-badge.t-good, .mt-bench-ovr.t-good{ background:radial-gradient(circle at 35% 30%, #7FCB98, var(--mt-pitch-700) 75%); color:#0A2415; }
-  .mt-ovr-badge.t-mid, .mt-pitch-badge.t-mid, .mt-bench-ovr.t-mid{ background:radial-gradient(circle at 35% 30%, #8FA3BF, #3A5170 75%); color:#0A1628; }
+  /* Redesign M3 — bridge (mesma faixa elite/good/mid, ver ovrTierClass)
+     cobre de graça Escalação (.mt-pitch-badge), banco (.mt-bench-ovr) e
+     Mercado/Detalhe do jogador (.mt-ovr-badge), sem tocar em nenhuma
+     tela individualmente. */
+  .mt-ovr-badge.t-elite, .mt-pitch-badge.t-elite, .mt-bench-ovr.t-elite{ background:var(--m3-secondary-container); color:var(--m3-on-secondary-container); }
+  .mt-ovr-badge.t-good, .mt-pitch-badge.t-good, .mt-bench-ovr.t-good{ background:var(--m3-tertiary-container); color:var(--m3-on-tertiary-container); }
+  .mt-ovr-badge.t-mid, .mt-pitch-badge.t-mid, .mt-bench-ovr.t-mid{ background:var(--m3-surface-container-highest); color:var(--m3-on-surface); }
 
   .mt-player-main{ flex:1; min-width:0; }
   .mt-player-name{ font-weight:600; font-size:14.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:var(--mt-ivory-50); }
   .mt-player-tags{ display:flex; gap:6px; margin-top:3px; flex-wrap:wrap; }
-  .mt-ptag{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:10px; letter-spacing:.3px; padding:2px 7px; border-radius:4px; display:inline-flex; align-items:center; gap:3px; }
-  .mt-ptag.crimson{ background:rgba(214,69,69,.16); color:var(--mt-crimson-400); border:1px solid rgba(214,69,69,.35); }
-  .mt-ptag.gold{ background:rgba(232,184,75,.14); color:var(--mt-gold-300); border:1px solid rgba(232,184,75,.3); }
-  .mt-ptag.neutral{ background:rgba(143,163,191,.12); color:var(--mt-ink-muted); border:1px solid rgba(143,163,191,.28); }
+  .mt-ptag{ font-family:var(--font); font-weight:700; font-size:9.5px; letter-spacing:0; padding:2px 8px; border-radius:var(--m3-shape-full); display:inline-flex; align-items:center; gap:3px; }
+  .mt-ptag.crimson{ background:rgba(255,84,73,.16); color:var(--m3-error); border:none; }
+  .mt-ptag.gold{ background:var(--m3-secondary-container); color:var(--m3-on-secondary-container); border:none; }
+  .mt-ptag.neutral{ background:var(--m3-surface-container-highest); color:var(--m3-on-surface-variant); border:none; }
 
   .mt-player-meta{ text-align:right; flex-shrink:0; font-family:'Rajdhani', var(--font); }
   .mt-player-meta .age{ font-size:13px; font-weight:600; color:var(--mt-ink-muted); }
@@ -1186,22 +1201,22 @@
     font-family:'Rajdhani', var(--font); font-weight:700; font-size:12.5px; letter-spacing:.4px;
     color:var(--mt-ink-faint); background:transparent; border:none; padding:9px 12px 10px; border-bottom:2px solid transparent; cursor:pointer;
   }
-  .mt-obj-tab.active{ color:var(--mt-gold-300); border-bottom-color:var(--mt-gold-400); }
+  .mt-obj-tab.active{ color:var(--m3-primary); border-bottom-color:var(--m3-primary); }
   .mt-obj-reset-label{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:10.5px; letter-spacing:1px; color:var(--mt-ink-faint); margin:0 0 10px; }
-  .mt-obj-card{ background:var(--mt-navy-900); border:1px solid var(--mt-navy-600); border-radius:10px; padding:13px 14px; margin-bottom:10px; }
-  .mt-obj-card.completed{ background:rgba(232,184,75,.1); border-color:var(--mt-gold-400); }
+  .mt-obj-card{ background:var(--m3-surface-container); border:1px solid var(--m3-outline-variant); border-radius:var(--m3-shape-md); padding:13px 14px; margin-bottom:10px; }
+  .mt-obj-card.completed{ background:var(--m3-primary-container); border-color:var(--m3-primary); }
   .mt-obj-card.claimed{ opacity:.55; }
   .mt-obj-top-row{ display:flex; align-items:flex-start; gap:10px; margin-bottom:9px; }
-  .mt-obj-icon{ width:32px; height:32px; border-radius:8px; background:var(--mt-navy-800); display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0; }
+  .mt-obj-icon{ width:32px; height:32px; border-radius:var(--m3-shape-sm); background:var(--m3-surface-container-highest); display:flex; align-items:center; justify-content:center; font-size:15px; flex-shrink:0; }
   .mt-obj-text-block{ flex:1; min-width:0; }
   .mt-obj-title{ font-size:13px; font-weight:600; color:var(--mt-ivory-50); margin-bottom:2px; }
   .mt-obj-sub{ font-family:'Rajdhani', var(--font); font-size:11px; font-weight:600; color:var(--mt-ink-faint); }
-  .mt-obj-reward{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:12px; color:var(--mt-gold-300); white-space:nowrap; }
+  .mt-obj-reward{ font-family:var(--font); font-weight:700; font-size:12px; color:var(--m3-primary); white-space:nowrap; }
   .mt-progress-track{ height:6px; background:var(--mt-navy-800); border-radius:3px; overflow:hidden; margin-bottom:2px; }
-  .mt-progress-fill{ height:100%; background:var(--mt-gold-400); border-radius:3px; }
+  .mt-progress-fill{ height:100%; background:var(--m3-primary); border-radius:3px; }
   .mt-claim-tag{
-    width:100%; margin-top:8px; background:var(--mt-gold-400); color:var(--mt-navy-950); border:none; border-radius:8px;
-    font-family:'Rajdhani', var(--font); font-weight:700; font-size:12px; letter-spacing:.5px; padding:9px; cursor:pointer;
+    width:100%; margin-top:8px; background:var(--m3-primary); color:var(--m3-on-primary); border:none; border-radius:var(--m3-shape-full);
+    font-family:var(--font); font-weight:700; font-size:12px; letter-spacing:0; padding:9px; cursor:pointer;
   }
 
   /* ---- Conquistas (mockup03conquistas.html) ---- */
@@ -1210,9 +1225,9 @@
     font-family:'Rajdhani', var(--font); font-weight:700; font-size:11px; letter-spacing:.4px; white-space:nowrap;
     color:var(--mt-ink-faint); background:transparent; border:1px solid var(--mt-navy-600); padding:6px 12px; border-radius:14px; cursor:pointer;
   }
-  .mt-chip.active{ background:var(--mt-gold-400); color:var(--mt-navy-950); border-color:var(--mt-gold-400); }
+  .mt-chip.active{ background:var(--m3-primary); color:var(--m3-on-primary); border-color:var(--m3-primary); }
   .mt-badge-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; }
-  .mt-badge{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px; background:var(--mt-navy-900); border:1px solid var(--mt-navy-600); border-radius:12px; padding:12px 6px; aspect-ratio:.9; cursor:pointer; }
+  .mt-badge{ display:flex; flex-direction:column; align-items:center; justify-content:center; gap:7px; background:var(--m3-surface-container); border:1px solid var(--m3-outline-variant); border-radius:var(--m3-shape-md); padding:12px 6px; aspect-ratio:.9; cursor:pointer; }
   .mt-badge-icon{ width:42px; height:42px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:18px; }
   .mt-badge.gold .mt-badge-icon{ background:radial-gradient(circle, rgba(232,184,75,.3), transparent 70%); border:2px solid var(--mt-gold-400); }
   .mt-badge.silver .mt-badge-icon{ background:radial-gradient(circle, rgba(197,202,214,.25), transparent 70%); border:2px solid #C5CAD6; }
@@ -1223,7 +1238,7 @@
   .mt-badge.bronze .mt-tier-label{ color:#B08D57; }
   .mt-badge-name{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:10px; color:var(--mt-ivory-50); text-align:center; line-height:1.25; }
   .mt-badge.locked .mt-badge-name{ color:var(--mt-ink-faint); }
-  .mt-achievements-next{ text-align:center; font-family:'Rajdhani', var(--font); font-weight:700; font-size:12px; color:var(--mt-gold-300); margin:2px 0 0; }
+  .mt-achievements-next{ text-align:center; font-family:var(--font); font-weight:700; font-size:12px; color:var(--m3-primary); margin:2px 0 0; }
 
   /* ---- Ranking (mockup04ranking.html) ---- */
   .mt-scope-toggle{ display:flex; background:var(--mt-navy-900); border-radius:10px; padding:4px; margin-top:4px; }
@@ -1231,19 +1246,19 @@
     flex:1; text-align:center; padding:8px; font-family:'Rajdhani', var(--font); font-weight:700; font-size:12px; letter-spacing:.4px;
     color:var(--mt-ink-faint); background:transparent; border:none; border-radius:8px; cursor:pointer;
   }
-  .mt-scope-btn.active{ background:var(--mt-gold-400); color:var(--mt-navy-950); }
+  .mt-scope-btn.active{ background:var(--m3-primary); color:var(--m3-on-primary); }
   .mt-rank-mycard{
-    margin:0 0 14px; background:linear-gradient(90deg, rgba(232,184,75,.18), rgba(232,184,75,.05));
-    border:1px solid var(--mt-gold-400); border-radius:12px; padding:4px 10px;
+    margin:0 0 14px; background:var(--m3-primary-container);
+    border:1px solid var(--m3-primary); border-radius:var(--m3-shape-md); padding:4px 10px;
   }
   .mt-rank-row{ display:flex; align-items:center; gap:12px; padding:11px 4px; border-bottom:1px solid var(--mt-navy-700); }
   .mt-rank-row:last-child{ border-bottom:none; }
-  .mt-rank-row.me{ color:var(--mt-gold-300); }
+  .mt-rank-row.me{ color:var(--m3-primary); }
   .mt-rank-num{ font-family:'Bebas Neue', var(--font); font-size:19px; color:var(--mt-ink-faint); width:28px; flex-shrink:0; }
-  .mt-rank-num.top3{ color:var(--mt-gold-400); }
+  .mt-rank-num.top3{ color:var(--m3-primary); }
   .mt-rank-info{ flex:1; min-width:0; }
   .mt-rank-name{ font-size:13px; font-weight:600; color:var(--mt-ivory-50); }
-  .mt-rank-you{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:9px; letter-spacing:.5px; color:var(--mt-gold-300); }
+  .mt-rank-you{ font-family:var(--font); font-weight:700; font-size:9px; letter-spacing:.3px; color:var(--m3-primary); }
   .mt-rank-club{ font-family:'Rajdhani', var(--font); font-size:11px; color:var(--mt-ink-faint); }
   .mt-rank-score{ font-family:'Bebas Neue', var(--font); font-size:17px; color:var(--mt-ivory-50); flex-shrink:0; }
   .mt-rank-updated{ text-align:center; font-family:'Rajdhani', var(--font); font-weight:600; font-size:11px; color:var(--mt-ink-faint); margin:10px 0 0; }
@@ -1265,12 +1280,12 @@
   }
   .mt-day-cell-login .dicon{ font-size:13px; }
   .mt-day-cell-login .dnum{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:9px; color:var(--mt-ink-faint); }
-  .mt-day-cell-login.done{ background:rgba(232,184,75,.14); border-color:var(--mt-gold-400); }
-  .mt-day-cell-login.done .dnum{ color:var(--mt-gold-300); }
-  .mt-day-cell-login.today{ background:var(--mt-gold-400); border-color:var(--mt-gold-400); transform:scale(1.08); }
-  .mt-day-cell-login.today .dnum{ color:var(--mt-navy-950); }
+  .mt-day-cell-login.done{ background:var(--m3-primary-container); border-color:var(--m3-primary); }
+  .mt-day-cell-login.done .dnum{ color:var(--m3-on-primary-container); }
+  .mt-day-cell-login.today{ background:var(--m3-primary); border-color:var(--m3-primary); transform:scale(1.08); }
+  .mt-day-cell-login.today .dnum{ color:var(--m3-on-primary); }
   .mt-reward-showcase{ text-align:center; padding:18px 0 20px; border-top:1px solid var(--mt-navy-600); border-bottom:1px solid var(--mt-navy-600); margin-bottom:18px; }
-  .mt-reward-icon{ width:58px; height:58px; border-radius:50%; background:radial-gradient(circle, rgba(232,184,75,.25), transparent 70%); border:2px solid var(--mt-gold-400); margin:0 auto 10px; display:flex; align-items:center; justify-content:center; font-size:24px; }
+  .mt-reward-icon{ width:58px; height:58px; border-radius:50%; background:var(--m3-primary-container); border:2px solid var(--m3-primary); margin:0 auto 10px; display:flex; align-items:center; justify-content:center; font-size:24px; }
   .mt-reward-value{ font-family:'Bebas Neue', var(--font); font-size:22px; color:var(--mt-ivory-50); }
   .mt-reward-label{ font-family:'Rajdhani', var(--font); font-size:11px; font-weight:700; letter-spacing:.5px; color:var(--mt-ink-faint); margin-top:2px; }
   .mt-streak-warning{ text-align:center; font-size:11px; color:var(--mt-ink-faint); line-height:1.4; margin:12px 0 0; }
@@ -1282,12 +1297,12 @@
   .mt-base-name{ font-weight:600; font-size:14px; color:var(--mt-ivory-50); }
   .mt-base-name .yr{ color:var(--mt-ink-faint); font-weight:400; }
   .mt-base-sub{ font-family:'Rajdhani', var(--font); font-size:11.5px; color:var(--mt-ink-faint); margin-top:2px; }
-  .mt-pot-bar-track{ width:64px; height:5px; border-radius:99px; background:var(--mt-navy-900); border:1px solid var(--mt-navy-600); overflow:hidden; margin-top:5px; }
-  .mt-pot-bar-fill{ height:100%; background:linear-gradient(90deg, var(--mt-pitch-400), var(--mt-gold-400)); }
+  .mt-pot-bar-track{ width:64px; height:5px; border-radius:99px; background:var(--m3-surface-container-highest); border:1px solid var(--m3-outline-variant); overflow:hidden; margin-top:5px; }
+  .mt-pot-bar-fill{ height:100%; background:linear-gradient(90deg, var(--m3-primary-container), var(--m3-primary)); }
   .mt-base-ovr{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:20px; color:var(--mt-gold-400); text-align:right; width:34px; flex-shrink:0; }
   .mt-confidence{ display:flex; gap:3px; flex-shrink:0; }
   .mt-confidence .dot{ width:6px; height:6px; border-radius:50%; background:var(--mt-navy-600); }
-  .mt-confidence .dot.on{ background:var(--mt-pitch-400); box-shadow:0 0 5px rgba(61,184,106,.6); }
+  .mt-confidence .dot.on{ background:var(--m3-primary); }
 
   /* ================= Tela 5/5b/5c — Detalhe do jogador, Conversa
      individual, Renovar contrato =================
@@ -1304,13 +1319,13 @@
   .mt-player-hero-info span{ font-family:'Rajdhani', var(--font); font-size:12.5px; color:var(--mt-ink-muted); font-weight:600; }
 
   .mt-attr-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:18px 0; }
-  .mt-attr-block{ background:var(--mt-navy-900); border:1px solid var(--mt-navy-600); padding:14px 10px; text-align:center; }
-  .mt-attr-block .num{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:26px; color:var(--mt-ivory-50); }
+  .mt-attr-block{ background:var(--m3-surface-container-high); border:1px solid var(--m3-outline-variant); border-radius:var(--m3-shape-md); padding:14px 10px; text-align:center; }
+  .mt-attr-block .num{ font-family:var(--m3-display); font-weight:700; font-size:24px; color:var(--m3-on-surface); }
   .mt-attr-block .num.gold{ color:var(--mt-gold-400); }
   .mt-attr-block .num.crimson{ color:var(--mt-crimson-400); }
-  .mt-attr-block .lbl{ font-size:10.5px; letter-spacing:.5px; color:var(--mt-ink-faint); margin-top:3px; font-family:'Rajdhani', var(--font); font-weight:600; }
+  .mt-attr-block .lbl{ font-size:10.5px; letter-spacing:.3px; color:var(--m3-on-surface-variant); margin-top:3px; font-family:var(--font); font-weight:600; }
 
-  .mt-info-line{ font-size:12.5px; color:var(--mt-ink-muted); line-height:1.7; padding:2px 2px 14px; border-bottom:1px solid var(--mt-navy-700); margin-bottom:14px; }
+  .mt-info-line{ font-size:12.5px; color:var(--m3-on-surface-variant); line-height:1.7; padding:2px 2px 14px; border-bottom:1px solid var(--m3-outline-variant); margin-bottom:14px; }
   .mt-info-line b{ color:var(--mt-ivory-100); }
   .mt-info-line:last-of-type{ border-bottom:none; }
   .mt-action-list{ display:flex; flex-direction:column; gap:10px; margin-top:10px; }
@@ -1325,15 +1340,18 @@
      continua com o tratamento de destaque de sempre. */
   .mt-btn-primary-gold, .mt-btn-danger-outline{
     width:100%; display:flex; align-items:center; justify-content:center; gap:8px;
-    font-family:'Rajdhani', var(--font); font-weight:600; font-size:15.5px; letter-spacing:.2px;
+    font-family:var(--font); font-weight:600; font-size:14.5px; letter-spacing:0;
     padding:14px; border-radius:999px; cursor:pointer; border:none;
   }
+  /* Redesign M3 — bridge: fundo dourado fixo vira a cor PRIMARY
+     dinâmica por clube (mesma var já usada pelo FAB da Início) — todo
+     botão de ação principal do app (dentro de modal/sheet) passa a
+     acompanhar a identidade visual do clube de graça. */
   .mt-btn-primary-gold{
-    background:linear-gradient(180deg, var(--mt-gold-300), var(--mt-gold-600)); color:#3A2A03;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.5), 0 6px 16px rgba(184,134,11,.35), 0 2px 0 var(--mt-gold-800);
+    background:var(--m3-primary); color:var(--m3-on-primary);
   }
   .mt-btn-danger-outline{
-    background:transparent; border:1.5px solid var(--mt-crimson-500); color:var(--mt-crimson-400);
+    background:transparent; border:1.5px solid var(--m3-error); color:var(--m3-error);
   }
   .mt-btn-primary-gold:disabled, .mt-btn-danger-outline:disabled{ opacity:.4; cursor:not-allowed; }
   .mt-btn-primary svg, .mt-btn-ghost svg, .mt-btn-primary-gold svg, .mt-btn-danger-outline svg{ width:17px; height:17px; flex-shrink:0; }
@@ -1341,29 +1359,28 @@
   /* ---- bottom sheet (Conversa individual, Renovar contrato) ---- */
   .mt-sheet-overlay{ align-items:flex-end; padding:0; }
   .mt-sheet-overlay .ct-modal{
-    max-width:none; width:100%; max-height:82vh; border-radius:18px 18px 0 0;
-    background:linear-gradient(160deg, var(--mt-navy-700), var(--mt-navy-800) 70%);
-    border:none; border-top:1.5px solid var(--mt-gold-400);
+    max-width:none; width:100%; max-height:82vh; border-radius:var(--m3-shape-xl) var(--m3-shape-xl) 0 0;
+    background:var(--m3-surface-container-high);
+    border:none; border-top:1.5px solid var(--m3-primary);
     box-shadow:0 -12px 40px rgba(0,0,0,.5);
   }
   .mt-sheet-overlay .ct-modal-header{ background:none; border-bottom:none; padding:20px 20px 4px; }
   .mt-sheet-overlay .ct-modal-icon{
-    width:38px; height:38px; border-radius:9px; flex-shrink:0;
+    width:38px; height:38px; border-radius:var(--m3-shape-sm); flex-shrink:0;
     display:flex; align-items:center; justify-content:center; font-size:18px;
-    background:linear-gradient(180deg, var(--mt-gold-300), var(--mt-gold-600));
+    background:var(--m3-primary-container); color:var(--m3-on-primary-container);
   }
-  .mt-sheet-overlay .ct-modal-header h3{ font-family:'Bebas Neue', var(--font); font-size:19px; letter-spacing:.5px; color:var(--mt-ivory-50); }
-  .mt-sheet-overlay .ct-modal-sub{ font-family:'Rajdhani', var(--font); font-size:12px; color:var(--mt-ink-muted); font-weight:600; margin-top:1px; }
+  .mt-sheet-overlay .ct-modal-header h3{ font-family:var(--m3-display); font-weight:600; font-size:16px; letter-spacing:0; color:var(--m3-on-surface); }
+  .mt-sheet-overlay .ct-modal-sub{ font-family:var(--font); font-size:12px; color:var(--m3-on-surface-variant); font-weight:600; margin-top:1px; }
   .mt-sheet-overlay .ct-modal-body{ padding:4px 20px 24px; }
   .mt-sheet-option{
     width:100%; text-align:left; display:block;
-    padding:14px 16px; border-radius:10px;
-    font-family:'Rajdhani', var(--font); font-weight:700; font-size:14.5px;
-    border:1.5px solid var(--mt-navy-600); background:var(--mt-navy-800); color:var(--mt-ivory-50); cursor:pointer;
+    padding:14px 16px; border-radius:var(--m3-shape-md);
+    font-family:var(--font); font-weight:700; font-size:14px;
+    border:1px solid var(--m3-outline-variant); background:var(--m3-surface-container); color:var(--m3-on-surface); cursor:pointer;
   }
   .mt-sheet-option.primary{
-    background:linear-gradient(180deg, var(--mt-pitch-300), var(--mt-pitch-700)); color:#0A2415; border:none;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.35), 0 4px 14px rgba(46,158,91,.3);
+    background:var(--m3-primary-container); color:var(--m3-on-primary-container); border:none;
   }
 
   /* ---- lista de propostas de patrocínio (Tela 12b — ver
@@ -1373,15 +1390,14 @@
      isso, truncaria com reticências como o .ct-modal-header genérico
      faz (mesmo ajuste já feito pro .mt-confirm-overlay, Tela 16b). */
   #sponsorProposalsOverlay .ct-modal-header h3{ white-space:normal; overflow:visible; text-overflow:clip; }
-  .mt-sponsor-proposal-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 0; border-bottom:1px solid var(--mt-navy-700); }
+  .mt-sponsor-proposal-row{ display:flex; align-items:center; justify-content:space-between; gap:12px; padding:14px 0; border-bottom:1px solid var(--m3-outline-variant); }
   .mt-sponsor-proposal-row:last-child{ border-bottom:none; }
-  .mt-sponsor-proposal-name{ font-weight:600; font-size:14.5px; color:var(--mt-ivory-50); }
-  .mt-sponsor-proposal-detail{ font-size:12px; color:var(--mt-ink-faint); margin-top:3px; }
+  .mt-sponsor-proposal-name{ font-weight:600; font-size:14px; color:var(--m3-on-surface); }
+  .mt-sponsor-proposal-detail{ font-size:12px; color:var(--m3-on-surface-variant); margin-top:3px; }
   .mt-btn-sign{
-    flex-shrink:0; font-family:'Rajdhani', var(--font); font-weight:700; font-size:13px;
+    flex-shrink:0; font-family:var(--font); font-weight:700; font-size:12.5px;
     padding:9px 16px; border-radius:999px; border:none; cursor:pointer;
-    background:linear-gradient(180deg, var(--mt-gold-300), var(--mt-gold-600)); color:#3A2A03;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.4), 0 3px 10px rgba(184,134,11,.3);
+    background:var(--m3-primary); color:var(--m3-on-primary);
   }
 
   /* ---- cabeçalho reutilizável pra modais em tela cheia (ícone
@@ -1390,16 +1406,16 @@
      .mt-sheet-overlay/.mt-confirm-overlay: só reestiliza o header já
      existente, sem trocar a marcação. Primeiro uso: Tela 12f
      (Confirmar escalação). ---- */
-  .mt-fullheader{ background:linear-gradient(180deg, rgba(6,13,26,.97), rgba(6,13,26,.9)); border-bottom:1px solid var(--mt-navy-600); }
+  .mt-fullheader{ background:var(--m3-surface-container-high); border-bottom:1px solid var(--m3-outline-variant); }
   .mt-fullheader .ct-modal-icon{
-    width:36px; height:36px; border-radius:9px; flex-shrink:0;
+    width:36px; height:36px; border-radius:var(--m3-shape-sm); flex-shrink:0;
     display:flex; align-items:center; justify-content:center;
-    background:linear-gradient(180deg, var(--mt-gold-300), var(--mt-gold-600)); color:#2A1D02;
+    background:var(--m3-primary-container); color:var(--m3-on-primary-container);
   }
   .mt-fullheader .ct-modal-icon svg{ width:18px; height:18px; }
-  .mt-fullheader .ct-modal-header-text h3{ font-family:'Bebas Neue', var(--font); font-size:19px; letter-spacing:.5px; color:var(--mt-ivory-50); }
-  .mt-fullheader .ct-modal-sub{ font-family:'Rajdhani', var(--font); font-size:12px; color:var(--mt-ink-muted); font-weight:600; }
-  .mt-fullheader .ct-modal-close{ width:34px; height:34px; border-radius:8px; background:var(--mt-navy-800); border:1px solid var(--mt-navy-600); color:var(--mt-ink-muted); }
+  .mt-fullheader .ct-modal-header-text h3{ font-family:var(--m3-display); font-weight:600; font-size:16px; letter-spacing:0; color:var(--m3-on-surface); }
+  .mt-fullheader .ct-modal-sub{ font-family:var(--font); font-size:12px; color:var(--m3-on-surface-variant); font-weight:600; }
+  .mt-fullheader .ct-modal-close{ width:34px; height:34px; border-radius:var(--m3-shape-sm); background:var(--m3-surface-container-highest); border:none; color:var(--m3-on-surface-variant); }
   /* Placar do Resultado do jogo (Tela 14) — mesmo tratamento de HUD
      grande do placar Ao Vivo (.mt-live-scoreboard, Tela 13b), escopado
      só a esse card pra não mexer no .ct-next-match genérico. */
@@ -1420,25 +1436,25 @@
      só combinava com o diálogo centralizado flutuante de antes —
      borda dourada só no topo, mesmo tratamento do sheet. */
   .mt-confirm-overlay .ct-modal{
-    background:linear-gradient(160deg, var(--mt-navy-700), var(--mt-navy-800) 70%);
-    border:none; border-top:1.5px solid var(--mt-gold-600);
+    background:var(--m3-surface-container-high);
+    border:none; border-top:1.5px solid var(--m3-primary);
   }
   .mt-confirm-overlay .ct-modal-header{ background:none; border-bottom:none; padding:22px 22px 0; }
   .mt-confirm-overlay .ct-modal-icon{
-    width:36px; height:36px; border-radius:9px; flex-shrink:0;
+    width:36px; height:36px; border-radius:var(--m3-shape-sm); flex-shrink:0;
     display:flex; align-items:center; justify-content:center;
-    background:rgba(232,184,75,.14); border:1px solid rgba(232,184,75,.4); color:var(--mt-gold-400);
+    background:var(--m3-primary-container); color:var(--m3-on-primary-container);
   }
   .mt-confirm-overlay .ct-modal-icon svg{ width:19px; height:19px; }
   /* AJUSTE (Tela 19 — Demissão) — variante vermelha do ícone, pra
      notícia ruim (mesmo diálogo, só o quadrado do ícone muda de cor). */
-  .mt-confirm-overlay .ct-modal-icon.danger{ background:rgba(214,69,69,.14); border-color:rgba(214,69,69,.4); color:var(--mt-crimson-400); }
+  .mt-confirm-overlay .ct-modal-icon.danger{ background:rgba(255,84,73,.14); border:1px solid rgba(255,84,73,.4); color:var(--m3-error); }
   /* AJUSTE — títulos mais longos (ex: "Proposta por um jogador") não
      cabem numa linha só nesse diálogo estreito; permite quebrar em vez
      de truncar com reticências como o .ct-modal-header genérico faz. */
-  .mt-confirm-overlay .ct-modal-header h3{ font-family:'Bebas Neue', var(--font); font-size:19px; letter-spacing:.5px; color:var(--mt-ivory-50); white-space:normal; overflow:visible; text-overflow:clip; }
+  .mt-confirm-overlay .ct-modal-header h3{ font-family:var(--m3-display); font-weight:600; font-size:16px; letter-spacing:0; color:var(--m3-on-surface); white-space:normal; overflow:visible; text-overflow:clip; }
   .mt-confirm-overlay .ct-modal-body{ padding:14px 22px 22px; }
-  .mt-confirm-overlay .ct-modal-body .ct-sub{ font-family:var(--font); font-size:14px; color:var(--mt-ivory-100); line-height:1.5; }
+  .mt-confirm-overlay .ct-modal-body .ct-sub{ font-family:var(--font); font-size:14px; color:var(--m3-on-surface-variant); line-height:1.5; }
 
   /* ================= Tela 13b — Ao Vivo =================
      AJUSTE (refatoração completa, ver 13b-partida-ao-vivo-restyled.html
@@ -1453,13 +1469,13 @@
   .mt-live-dot{ width:9px; height:9px; border-radius:50%; background:var(--mt-crimson-500); box-shadow:0 0 8px rgba(214,69,69,.8); animation:mtLivePulse 1.4s infinite; }
   @keyframes mtLivePulse{ 0%,100%{ opacity:1; } 50%{ opacity:.35; } }
   .mt-live-title{ font-family:'Bebas Neue', var(--font); font-size:18px; letter-spacing:1px; color:var(--mt-ivory-50); }
-  .mt-live-minute{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:12px; color:var(--mt-gold-400); letter-spacing:.5px; }
+  .mt-live-minute{ font-family:var(--m3-display); font-weight:700; font-size:12px; color:var(--m3-primary); letter-spacing:.2px; }
   .mt-live-close{ width:34px; height:34px; border-radius:8px; display:flex; align-items:center; justify-content:center; background:var(--mt-navy-800); border:1px solid var(--mt-navy-600); color:var(--mt-ink-muted); flex-shrink:0; cursor:pointer; }
   .mt-live-close svg{ width:16px; height:16px; }
 
   .mt-live-scoreboard .ct-next-match{ gap:26px; padding:8px 0; }
-  .mt-live-scoreboard .ct-next-match .vs{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:40px; letter-spacing:1.5px; color:var(--mt-ivory-50); text-shadow:0 0 20px rgba(232,184,75,.4); }
-  .mt-live-scoreboard .ct-next-match .side .n{ font-family:'Bebas Neue', var(--font); font-size:14px; letter-spacing:.5px; color:var(--mt-gold-300); }
+  .mt-live-scoreboard .ct-next-match .vs{ font-family:var(--m3-display); font-weight:700; font-size:40px; letter-spacing:0; color:var(--m3-on-surface); }
+  .mt-live-scoreboard .ct-next-match .side .n{ font-family:var(--m3-display); font-weight:600; font-size:13px; letter-spacing:0; color:var(--m3-primary); }
 
   /* AJUSTE (Play-by-Play v2) — barra de posse ao vivo, 4px (documento,
      Tela hifi-01) — .mt-stat-bar-fill/.mine/.opp reaproveitados da
@@ -1474,26 +1490,26 @@
   .mt-live-speed-row{ display:flex; justify-content:flex-end; margin-top:10px; flex-shrink:0; }
   .mt-live-speed{ display:flex; background:var(--mt-navy-800); border:1px solid var(--mt-navy-600); border-radius:999px; padding:3px; gap:2px; }
   .mt-live-speed-btn{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:12.5px; padding:5px 16px; border-radius:999px; border:none; background:transparent; color:var(--mt-ink-muted); cursor:pointer; }
-  .mt-live-speed-btn.active{ background:linear-gradient(180deg, var(--mt-gold-300), var(--mt-gold-600)); color:#3A2A03; }
+  .mt-live-speed-btn.active{ background:var(--m3-primary); color:var(--m3-on-primary); }
 
-  .mt-live-halftime{ background:linear-gradient(160deg, var(--mt-navy-700), var(--mt-navy-800) 65%); border:1px solid var(--mt-gold-600); border-radius:var(--radius-md); padding:16px; margin-top:14px; text-align:center; flex-shrink:0; }
-  .mt-live-halftime p{ margin:0 0 12px; font-size:13px; font-weight:700; color:var(--mt-gold-300); font-family:'Rajdhani', var(--font); }
+  .mt-live-halftime{ background:var(--m3-surface-container-high); border:1px solid var(--m3-primary); border-radius:var(--m3-shape-lg); padding:16px; margin-top:14px; text-align:center; flex-shrink:0; }
+  .mt-live-halftime p{ margin:0 0 12px; font-size:13px; font-weight:700; color:var(--m3-primary); font-family:var(--font); }
 
   .mt-live-timeline-title{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:12.5px; letter-spacing:1.5px; color:var(--mt-ink-muted); text-transform:uppercase; margin:16px 4px 12px; flex-shrink:0; }
   .mt-live-timeline{ position:relative; padding-left:26px; margin:0 4px; }
-  .mt-live-timeline::before{ content:""; position:absolute; left:9px; top:4px; bottom:4px; width:2px; background:linear-gradient(180deg, var(--mt-gold-600), var(--mt-navy-700)); }
+  .mt-live-timeline::before{ content:""; position:absolute; left:9px; top:4px; bottom:4px; width:2px; background:linear-gradient(180deg, var(--m3-primary), var(--m3-surface-container)); }
   .mt-live-tl-event{ position:relative; padding-bottom:18px; }
   .mt-live-tl-event:last-child{ padding-bottom:0; }
   .mt-live-tl-dot{ position:absolute; left:-26px; top:0; width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:2px solid var(--mt-navy-950); z-index:1; }
   .mt-live-tl-dot svg{ width:11px; height:11px; }
-  .mt-live-tl-dot.gol{ background:linear-gradient(180deg, var(--mt-gold-300), var(--mt-gold-600)); color:#2A1D02; }
+  .mt-live-tl-dot.gol{ background:var(--m3-primary); color:var(--m3-on-primary); }
   .mt-live-tl-dot.assist{ background:var(--mt-navy-700); border:2px solid var(--mt-pitch-400); color:var(--mt-pitch-400); }
   .mt-live-tl-dot.amarelo{ background:linear-gradient(180deg, #F5D66A, #D6A017); color:#2A1D02; }
   .mt-live-tl-dot.vermelho{ background:linear-gradient(180deg, var(--mt-crimson-400), var(--mt-crimson-500)); color:#fff; }
   .mt-live-tl-dot.sub{ background:var(--mt-navy-700); border:2px solid var(--mt-navy-600); color:var(--mt-ink-muted); }
   /* AJUSTE (Play-by-Play v1) — chance perdida/defesa, tom discreto de
      propósito (não pausam a narrativa, ver catálogo do documento). */
-  .mt-live-tl-dot.chance{ background:var(--mt-navy-700); border:2px solid var(--mt-gold-600); color:var(--mt-gold-400); }
+  .mt-live-tl-dot.chance{ background:var(--m3-surface-container-high); border:2px solid var(--m3-primary); color:var(--m3-primary); }
   .mt-live-tl-dot.defesa{ background:var(--mt-navy-700); border:2px solid var(--mt-sky-400); color:var(--mt-sky-400); }
   /* AJUSTE (Play-by-Play v2) — lesão/pênalti/VAR, cada um com
      identidade própria pra não se confundir com cartão (vermelho
@@ -1501,18 +1517,18 @@
   .mt-live-tl-dot.lesao{ background:var(--mt-navy-700); border:2px solid var(--mt-crimson-400); color:var(--mt-crimson-400); }
   .mt-live-tl-dot.penalty{ background:var(--mt-navy-700); border:2px solid var(--mt-violet-400); color:var(--mt-violet-400); }
   .mt-live-tl-dot.var{ background:var(--mt-navy-700); border:2px solid var(--mt-ink-muted); color:var(--mt-ink-muted); }
-  .mt-live-tl-min{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:12px; color:var(--mt-gold-400); margin-bottom:2px; }
+  .mt-live-tl-min{ font-family:var(--font); font-weight:700; font-size:12px; color:var(--m3-primary); margin-bottom:2px; }
   .mt-live-tl-desc{ font-size:14px; color:var(--mt-ivory-100); }
   .mt-live-tl-desc b{ color:var(--mt-ivory-50); }
 
   .mt-live-action-row{ display:flex; gap:10px; }
   .mt-btn-secondary{
     flex:1; display:flex; align-items:center; justify-content:center; gap:7px;
-    font-family:'Rajdhani', var(--font); font-weight:600; font-size:13.5px; letter-spacing:.3px;
+    font-family:var(--font); font-weight:600; font-size:13px; letter-spacing:0;
     padding:12px; border-radius:999px; cursor:pointer;
-    background:var(--mt-navy-800); border:1.5px solid var(--mt-navy-600); color:var(--mt-ivory-100);
+    background:var(--m3-surface-container-high); border:1px solid var(--m3-outline-variant); color:var(--m3-on-surface);
   }
-  .mt-btn-secondary svg{ width:16px; height:16px; color:var(--mt-gold-400); flex-shrink:0; }
+  .mt-btn-secondary svg{ width:16px; height:16px; color:var(--m3-primary); flex-shrink:0; }
   .mt-btn-secondary:disabled{ opacity:.4; cursor:not-allowed; }
 
   /* AJUSTE (Play-by-Play v1, Tela hifi-02 do documento — "Destaque de
@@ -1543,31 +1559,30 @@
      propósito: .button-pitch/.button-row/.button-disc já existem em
      css/style.css (compartilhada com o dashboard principal), colidiria
      em silêncio se reaproveitasse os nomes genéricos aqui. */
-  .mt-field-label{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:11.5px; letter-spacing:1px; color:var(--mt-gold-300); text-transform:uppercase; margin-bottom:8px; display:block; }
+  .mt-field-label{ font-family:var(--font); font-weight:700; font-size:11px; letter-spacing:.6px; color:var(--m3-primary); text-transform:uppercase; margin-bottom:8px; display:block; }
   .mt-formation-row{ display:flex; gap:10px; align-items:center; margin-bottom:14px; }
   .mt-formation-select, .mt-select-box{
     width:100%; appearance:none; -webkit-appearance:none;
-    background:var(--mt-navy-900) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23E8B84B' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") right 12px center/16px no-repeat;
-    border:1px solid var(--mt-navy-600); color:var(--mt-ivory-50);
-    padding:12px 34px 12px 14px; border-radius:6px; cursor:pointer;
+    background:var(--m3-surface-container) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23CBC5BE' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") right 12px center/16px no-repeat;
+    border:1px solid var(--m3-outline-variant); color:var(--m3-on-surface);
+    padding:12px 34px 12px 14px; border-radius:var(--m3-shape-sm); cursor:pointer;
   }
-  .mt-formation-select{ flex:1; font-family:'Rajdhani', var(--font); font-weight:700; font-size:16px; letter-spacing:.5px; }
+  .mt-formation-select{ flex:1; font-family:var(--m3-display); font-weight:600; font-size:15px; letter-spacing:0; }
   .mt-select-box{ font-family:var(--font); font-weight:500; font-size:14.5px; }
   .mt-btn-swap{
     width:44px; height:44px; flex-shrink:0; display:flex; align-items:center; justify-content:center;
-    background:linear-gradient(180deg, var(--mt-gold-300), var(--mt-gold-600));
-    border-radius:8px; border:none; cursor:pointer;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.4), 0 3px 10px rgba(184,134,11,.3);
+    background:var(--m3-primary);
+    border-radius:var(--m3-shape-sm); border:none; cursor:pointer;
   }
-  .mt-btn-swap svg{ width:20px; height:20px; color:#3A2A03; }
+  .mt-btn-swap svg{ width:20px; height:20px; color:var(--m3-on-primary); }
 
   .mt-toggle-row{ display:flex; align-items:center; gap:10px; margin-bottom:18px; cursor:pointer; }
   .mt-toggle-input{ position:absolute; opacity:0; width:0; height:0; }
-  .mt-toggle{ width:38px; height:22px; border-radius:99px; background:var(--mt-navy-900); border:1px solid var(--mt-navy-600); position:relative; flex-shrink:0; }
-  .mt-toggle .knob{ width:16px; height:16px; border-radius:50%; background:var(--mt-ink-faint); position:absolute; top:2px; left:2px; transition:left .15s, background .15s; }
-  .mt-toggle-input:checked + .mt-toggle{ background:rgba(61,184,106,.25); border-color:var(--mt-pitch-400); }
-  .mt-toggle-input:checked + .mt-toggle .knob{ left:18px; background:var(--mt-pitch-400); }
-  .mt-toggle-row .txt{ font-size:13px; color:var(--mt-ink-muted); line-height:1.4; }
+  .mt-toggle{ width:38px; height:22px; border-radius:99px; background:var(--m3-surface-container-highest); border:1px solid var(--m3-outline-variant); position:relative; flex-shrink:0; }
+  .mt-toggle .knob{ width:16px; height:16px; border-radius:50%; background:var(--m3-on-surface-variant); position:absolute; top:2px; left:2px; transition:left .15s, background .15s; }
+  .mt-toggle-input:checked + .mt-toggle{ background:var(--m3-primary-container); border-color:var(--m3-primary); }
+  .mt-toggle-input:checked + .mt-toggle .knob{ left:18px; background:var(--m3-primary); }
+  .mt-toggle-row .txt{ font-size:13px; color:var(--m3-on-surface-variant); line-height:1.4; }
 
   /* ---- campinho ---- */
   .mt-pitch{
@@ -1636,12 +1651,12 @@
      reaproveitado do banco (Tela 6). */
   .mt-search-box{
     display:flex; align-items:center; gap:10px;
-    background:var(--mt-navy-900); border:1px solid var(--mt-navy-600);
-    padding:12px 14px; border-radius:8px; margin-bottom:16px;
+    background:var(--m3-surface-container); border:1px solid var(--m3-outline-variant);
+    padding:12px 14px; border-radius:var(--m3-shape-sm); margin-bottom:16px;
   }
-  .mt-search-box svg{ width:17px; height:17px; color:var(--mt-ink-faint); flex-shrink:0; }
-  .mt-search-box input{ background:none; border:none; outline:none; color:var(--mt-ivory-50); font-family:var(--font); font-size:14px; width:100%; }
-  .mt-search-box input::placeholder{ color:var(--mt-ink-faint); }
+  .mt-search-box svg{ width:17px; height:17px; color:var(--m3-on-surface-variant); flex-shrink:0; }
+  .mt-search-box input{ background:none; border:none; outline:none; color:var(--m3-on-surface); font-family:var(--font); font-size:14px; width:100%; }
+  .mt-search-box input::placeholder{ color:var(--m3-on-surface-variant); }
   .mt-empty-option{
     display:flex; align-items:center; gap:10px; padding:12px 4px; cursor:pointer;
     color:var(--mt-ink-faint); font-family:'Rajdhani', var(--font); font-weight:600; font-size:13.5px;
@@ -1699,7 +1714,7 @@
      restyled.html do designer) — .mt-search-box (Tela 7) e
      .mt-select-box (Tela 6) reaproveitados; .mt-pos-chip (Tela 6)
      reaproveitado nas tags. */
-  .mt-market-row{ padding:14px 0; border-bottom:1px solid var(--mt-navy-700); }
+  .mt-market-row{ padding:14px 0; border-bottom:1px solid var(--m3-outline-variant); }
   .mt-market-row:last-child{ border-bottom:none; }
   /* AJUSTE (pedido do usuário, "Opção B" do mockup de comparação —
      linha mais calma, sem destacar o botão comprar) — ações sobem
@@ -1711,7 +1726,7 @@
      vezes ocupam mais altura que os 2 ícones ao lado. */
   .mt-market-top{ display:flex; align-items:flex-start; gap:12px; margin-bottom:8px; }
   .mt-market-info{ flex:1; min-width:0; }
-  .mt-market-name{ font-weight:600; font-size:14.5px; color:var(--mt-ivory-50); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .mt-market-name{ font-weight:600; font-size:14px; color:var(--m3-on-surface); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .mt-market-tags{ display:flex; gap:6px; margin-top:4px; }
   .mt-market-club{
     font-family:'Rajdhani', var(--font); font-weight:700; font-size:10.5px; letter-spacing:.3px;
@@ -1726,7 +1741,7 @@
     border-radius:8px; cursor:pointer; background:transparent; border:none;
   }
   .mt-btn-buy svg, .mt-btn-loan svg, .mt-btn-sell svg{ width:16px; height:16px; }
-  .mt-btn-buy{ color:var(--mt-gold-400); }
+  .mt-btn-buy{ color:var(--m3-primary); }
   .mt-btn-loan{ color:var(--mt-ink-muted); }
   .mt-btn-sell{ color:var(--mt-crimson-400); }
   .mt-btn-buy:disabled, .mt-btn-loan:disabled, .mt-btn-sell:disabled{ opacity:.4; cursor:not-allowed; }
@@ -1751,9 +1766,9 @@
   .mt-divider-label{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:11px; letter-spacing:1px; color:var(--mt-ink-faint); margin:16px 0 8px; }
   .mt-divider-label:first-child{ margin-top:0; }
 
-  .mt-pkg-card{ position:relative; display:flex; align-items:center; gap:12px; background:var(--mt-navy-900); border:1px solid var(--mt-navy-600); border-radius:12px; padding:13px 14px; margin-bottom:10px; }
-  .mt-pkg-card.featured{ border-color:var(--mt-gold-400); background:linear-gradient(160deg, rgba(232,184,75,.1), var(--mt-navy-900) 65%); }
-  .mt-pkg-best{ position:absolute; top:-8px; right:12px; background:var(--mt-gold-400); color:#3A2A03; font-family:'Rajdhani', var(--font); font-weight:700; font-size:9px; letter-spacing:.5px; padding:3px 8px; border-radius:999px; }
+  .mt-pkg-card{ position:relative; display:flex; align-items:center; gap:12px; background:var(--m3-surface-container); border:1px solid var(--m3-outline-variant); border-radius:var(--m3-shape-md); padding:13px 14px; margin-bottom:10px; }
+  .mt-pkg-card.featured{ border-color:var(--m3-primary); background:var(--m3-primary-container); }
+  .mt-pkg-best{ position:absolute; top:-8px; right:12px; background:var(--m3-primary); color:var(--m3-on-primary); font-family:var(--font); font-weight:700; font-size:9px; letter-spacing:.3px; padding:3px 8px; border-radius:999px; }
   .mt-pkg-icon{ width:48px; height:48px; border-radius:12px; flex-shrink:0; display:flex; flex-direction:column; align-items:center; justify-content:center; line-height:1.1; }
   .mt-pkg-icon .n{ font-family:'Bebas Neue', var(--font); font-size:17px; }
   .mt-pkg-icon .u{ font-size:7px; font-weight:700; letter-spacing:.4px; opacity:.85; }
@@ -1768,13 +1783,12 @@
   .mt-pkg-coins{ font-size:12px; color:var(--mt-ink-muted); margin-top:3px; }
   .mt-pkg-coins b{ color:var(--mt-gold-300); font-weight:700; }
   .mt-pkg-buy{
-    flex-shrink:0; font-family:'Rajdhani', var(--font); font-weight:700; font-size:13.5px;
+    flex-shrink:0; font-family:var(--font); font-weight:700; font-size:13px;
     padding:10px 15px; border-radius:999px; border:none; cursor:pointer;
-    background:linear-gradient(180deg, var(--mt-gold-300), var(--mt-gold-600)); color:#3A2A03;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.4), 0 3px 10px rgba(184,134,11,.3);
+    background:var(--m3-primary); color:var(--m3-on-primary);
   }
 
-  .mt-boost-card{ display:flex; align-items:center; gap:12px; background:var(--mt-navy-900); border:1px solid var(--mt-navy-600); border-radius:12px; padding:13px 14px; margin-bottom:10px; }
+  .mt-boost-card{ display:flex; align-items:center; gap:12px; background:var(--m3-surface-container); border:1px solid var(--m3-outline-variant); border-radius:var(--m3-shape-md); padding:13px 14px; margin-bottom:10px; }
   .mt-boost-icon{ width:40px; height:40px; border-radius:10px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:17px; }
   .mt-boost-icon.conveniencia{ background:rgba(91,155,217,.16); color:var(--mt-sky-400); }
   .mt-boost-icon.patrocinio{ background:rgba(232,184,75,.16); color:var(--mt-gold-400); }
@@ -1784,9 +1798,9 @@
   .mt-boost-desc{ font-size:11.5px; color:var(--mt-ink-muted); margin-top:2px; line-height:1.35; }
   .mt-boost-duration{ display:inline-block; font-family:'Rajdhani', var(--font); font-weight:700; font-size:9px; letter-spacing:.5px; color:var(--mt-ink-faint); margin-top:5px; }
   .mt-boost-buy{
-    flex-shrink:0; display:flex; align-items:center; gap:5px; font-family:'Rajdhani', var(--font); font-weight:700; font-size:13px;
-    padding:9px 13px; border-radius:999px; border:1.5px solid var(--mt-gold-400); cursor:pointer;
-    background:transparent; color:var(--mt-gold-300);
+    flex-shrink:0; display:flex; align-items:center; gap:5px; font-family:var(--font); font-weight:700; font-size:12.5px;
+    padding:9px 13px; border-radius:999px; border:1px solid var(--m3-primary); cursor:pointer;
+    background:transparent; color:var(--m3-primary);
   }
   .mini-coin{ width:12px; height:12px; border-radius:50%; background:radial-gradient(circle at 35% 30%, var(--mt-gold-300), var(--mt-gold-600) 75%); flex-shrink:0; }
 
@@ -1921,6 +1935,14 @@
   .m3-mini-chip{ font-size:9px; font-weight:600; padding:2px 8px; border-radius:var(--m3-shape-full); background:var(--m3-surface-container-highest); color:var(--m3-on-surface-variant); }
   .m3-mini-chip.alert{ background:var(--m3-error); color:var(--m3-on-error); }
   .m3-li-rating{ width:30px; height:30px; border-radius:50%; background:var(--m3-tertiary-container); color:var(--m3-on-tertiary-container); font-family:var(--m3-display); font-weight:700; font-size:12px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  /* Faixa de cor do badge de OVR (ovrTierClass, mesmos limiares
+     elite 80+/good 70-79/mid <70 do resto do app) reaproveitada aqui
+     em cima de .m3-li-rating — Elenco/Base/Mercado em M3. */
+  .m3-li-rating.t-elite{ background:var(--m3-secondary-container); color:var(--m3-on-secondary-container); }
+  .m3-li-rating.t-good{ background:var(--m3-tertiary-container); color:var(--m3-on-tertiary-container); }
+  .m3-li-rating.t-mid{ background:var(--m3-surface-container-highest); color:var(--m3-on-surface); }
+  .m3-li-side{ font-size:9.5px; color:var(--m3-on-surface-variant); text-align:center; flex-shrink:0; line-height:1.4; }
+  .m3-li-side b{ color:var(--m3-on-surface); font-size:13px; font-family:var(--m3-display); }
   .m3-empty{ text-align:center; font-size:12px; color:var(--m3-on-surface-variant); padding:24px 12px; }
 
   /* ---- Ao Vivo: placar + domínio de jogo + lance a lance ---- */
@@ -2310,17 +2332,17 @@
              JS (openDetail por jogador) — nenhuma lógica de jogo mudou,
              só a marcação que renderElenco()/playerRow()/baseRow() (ver
              carreira.js) montam. -->
-        <div class="mt-card">
+        <div class="m3-card">
           <div class="mt-card-head">
-            <div class="mt-card-title">Elenco principal</div>
+            <div class="m3-card-title" style="margin-bottom:0;">Elenco principal</div>
             <button class="ct-help-btn" data-help="helpElencoPrincipal" aria-label="Ajuda">?</button>
           </div>
           <p class="mt-card-sub ct-help-text" id="helpElencoPrincipal" hidden>Clique num jogador pra ver detalhes, escalar, promover a titular do banco, ou dispensar.</p>
           <div id="squadMainList"></div>
         </div>
-        <div class="mt-card">
+        <div class="m3-card">
           <div class="mt-card-head">
-            <div class="mt-card-title">Categoria de base</div>
+            <div class="m3-card-title" style="margin-bottom:0;">Categoria de base</div>
             <button class="ct-help-btn" data-help="helpCategoriaBase" aria-label="Ajuda">?</button>
           </div>
           <p class="mt-card-sub ct-help-text" id="helpCategoriaBase" hidden>Jogadores da base (gerados — a API de dados não cobre elenco sub-20 do Brasileirão hoje). Promova os destaques pro elenco principal.</p>

@@ -5863,14 +5863,14 @@ function playerRow(p) {
   // ainda carrega potencial (promovido recente da base).
   const potRange = scoutedPotentialRange(p);
   const ovrLabel = potRange ? `<span title="Faixa estimada por olheiro — o teto real é incerto até o jogador amadurecer">${p.overall}</span>` : p.overall;
-  return `<div class="mt-player-row" data-id="${p.id}">
-    <div class="mt-ovr-badge ${ovrTierClass(p.overall)}">${ovrLabel}</div>
-    <div class="mt-player-main">
-      <div class="mt-player-name">${escapeHtml(abbreviateName(p.name))}${moraleEmoji}</div>
+  return `<div class="m3-list-item" data-id="${p.id}">
+    <div class="m3-li-rating ${ovrTierClass(p.overall)}">${ovrLabel}</div>
+    <div class="m3-li-body">
+      <div class="m3-li-name">${escapeHtml(abbreviateName(p.name))}${moraleEmoji}</div>
       ${mtConditionBarHTML(p.condition)}
-      ${tags.length ? `<div class="mt-player-tags">${tags.join("")}</div>` : ""}
+      ${tags.length ? `<div class="m3-li-meta">${tags.join("")}</div>` : ""}
     </div>
-    <div class="mt-player-meta"><span class="age"><b>${p.age}</b> anos</span></div>
+    <div class="m3-li-side"><b>${p.age}</b><br>anos</div>
   </div>`;
 }
 // Linha da categoria de base (potencial + confiança do olheiro) — igual
@@ -5888,12 +5888,12 @@ function baseRow(p) {
   // atual / topo da faixa estimada) — progresso real de desenvolvimento,
   // não um número decorativo.
   const potPct = potRange ? clamp(Math.round((p.overall / potRange.hi) * 100), 5, 100) : 0;
-  return `<div class="mt-base-row" data-id="${p.id}">
-    <div class="mt-base-main">
-      <div class="mt-base-name">${escapeHtml(abbreviateName(p.name))} <span class="yr">· ${p.age} anos</span></div>
+  return `<div class="m3-list-item" data-id="${p.id}">
+    <div class="m3-li-rating ${ovrTierClass(p.overall)}">${p.overall}</div>
+    <div class="m3-li-body">
+      <div class="m3-li-name">${escapeHtml(abbreviateName(p.name))} <span class="yr">· ${p.age} anos</span></div>
       ${potRange ? `<div class="mt-base-sub">Potencial ${potRange.lo}–${potRange.hi}</div><div class="mt-pot-bar-track"><div class="mt-pot-bar-fill" style="width:${potPct}%"></div></div>` : ""}
     </div>
-    <div class="mt-base-ovr">${p.overall}</div>
     ${confidenceHTML}
   </div>`;
 }
