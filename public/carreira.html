@@ -1135,46 +1135,48 @@
        coloridos representando a semana"). ---- */
   .mt-scheme-strip{ display:flex; gap:10px; overflow-x:auto; padding:2px 2px 6px; margin:0 -2px; -webkit-overflow-scrolling:touch; }
   .mt-scheme-card{
-    flex-shrink:0; width:168px; background:var(--mt-navy-900); border:1px solid var(--mt-navy-600);
-    border-radius:10px; padding:12px; cursor:pointer; transition:border-color .15s, background .15s;
+    flex-shrink:0; width:168px; background:var(--m3-surface-container); border:1px solid var(--m3-outline-variant);
+    border-radius:var(--m3-shape-md); padding:12px; cursor:pointer; transition:border-color .15s, background .15s;
   }
-  .mt-scheme-card.active{ border-color:var(--mt-gold-400); background:rgba(232,184,75,.1); }
-  .mt-scheme-card .name{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:14px; color:var(--mt-ivory-50); margin-bottom:3px; }
-  .mt-scheme-card.active .name{ color:var(--mt-gold-300); }
-  .mt-scheme-card .desc{ font-size:11px; color:var(--mt-ink-faint); line-height:1.35; margin-bottom:10px; min-height:44px; }
+  .mt-scheme-card.active{ border-color:var(--m3-primary); background:var(--m3-primary-container); }
+  .mt-scheme-card .name{ font-family:var(--font); font-weight:700; font-size:14px; color:var(--m3-on-surface); margin-bottom:3px; }
+  .mt-scheme-card.active .name{ color:var(--m3-on-primary-container); }
+  .mt-scheme-card .desc{ font-size:11px; color:var(--m3-on-surface-variant); line-height:1.35; margin-bottom:10px; min-height:44px; }
+  .mt-scheme-card.active .desc{ color:var(--m3-on-primary-container); opacity:.85; }
   .mt-scheme-preview{ display:flex; gap:3px; }
-  .mt-scheme-preview .dot{ flex:1; height:6px; border-radius:2px; background:var(--mt-ink-faint); }
-  .mt-scheme-preview .dot.protected{ box-shadow:inset 0 0 0 1px var(--mt-pitch-400); }
-  .mt-scheme-preview .dot.tecnico{ background:var(--mt-sky-400); }
-  .mt-scheme-preview .dot.fisico{ background:var(--mt-crimson-400); }
-  .mt-scheme-preview .dot.jogo{ background:var(--mt-gold-400); }
-  .mt-week-label-custom{ color:var(--mt-ink-muted); }
+  .mt-scheme-preview .dot{ flex:1; height:6px; border-radius:2px; background:var(--m3-on-surface-variant); opacity:.4; }
+  .mt-scheme-preview .dot.protected{ box-shadow:inset 0 0 0 1px var(--m3-primary); }
+  .mt-scheme-preview .dot.tecnico{ background:var(--mt-sky-400); opacity:1; }
+  .mt-scheme-preview .dot.fisico{ background:var(--mt-crimson-400); opacity:1; }
+  .mt-scheme-preview .dot.jogo{ background:var(--m3-primary); opacity:1; }
+  .mt-week-label-custom{ color:var(--m3-on-surface-variant); }
 
   /* ---- Treinos: calendário semanal (7 células, ver seção 5.3 do
        briefing — nome abreviado + indicador de cor + escudo protegido). ---- */
   .mt-week-strip{ display:grid; grid-template-columns:repeat(7, 1fr); gap:5px; margin-bottom:16px; }
   .mt-day-cell{
     display:flex; flex-direction:column; align-items:center; gap:5px; padding:9px 2px;
-    background:var(--mt-navy-900); border:1.5px solid var(--mt-navy-600); border-radius:8px; cursor:pointer;
+    background:var(--m3-surface-container); border:1.5px solid var(--m3-outline-variant); border-radius:var(--m3-shape-sm); cursor:pointer;
   }
-  .mt-day-cell.selected{ border-color:var(--mt-gold-400); background:rgba(232,184,75,.08); }
-  .mt-day-cell.dviolated{ border-color:var(--mt-crimson-400); }
-  .mt-day-cell .dname{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:10px; letter-spacing:.4px; color:var(--mt-ink-faint); text-transform:uppercase; }
-  .mt-day-cell .dind{ width:9px; height:9px; border-radius:50%; background:var(--mt-ink-faint); }
+  .mt-day-cell.selected{ border-color:var(--m3-primary); background:var(--m3-primary-container); }
+  .mt-day-cell.dviolated{ border-color:var(--m3-error); }
+  .mt-day-cell .dname{ font-family:var(--font); font-weight:700; font-size:10px; letter-spacing:.3px; color:var(--m3-on-surface-variant); text-transform:uppercase; }
+  .mt-day-cell .dind{ width:9px; height:9px; border-radius:50%; background:var(--m3-on-surface-variant); }
   .mt-day-cell.foco-tecnico .dind{ background:var(--mt-sky-400); box-shadow:0 0 5px rgba(91,155,217,.5); }
   .mt-day-cell.foco-fisico .dind{ background:var(--mt-crimson-400); box-shadow:0 0 5px rgba(214,69,69,.5); }
-  .mt-day-cell.foco-jogo .dind{ background:var(--mt-gold-400); box-shadow:0 0 5px rgba(232,184,75,.5); }
+  .mt-day-cell.foco-jogo .dind{ background:var(--m3-primary); }
+
   .mt-day-cell .dshield{ font-size:10px; line-height:1; }
 
   /* ---- Treinos: segmented control (Foco/Intensidade/Grupo, 3 opções
        lado a lado — ver seção 5.3 do briefing). ---- */
-  .mt-seg-group{ display:flex; background:var(--mt-navy-900); border:1px solid var(--mt-navy-600); border-radius:8px; overflow:hidden; margin-bottom:14px; }
+  .mt-seg-group{ display:flex; background:var(--m3-surface-container); border:1px solid var(--m3-outline-variant); border-radius:var(--m3-shape-sm); overflow:hidden; margin-bottom:14px; }
   .mt-seg-btn{
-    flex:1; padding:10px 4px; text-align:center; background:transparent; border:none; border-right:1px solid var(--mt-navy-600); cursor:pointer;
-    font-family:'Rajdhani', var(--font); font-weight:700; font-size:12.5px; color:var(--mt-ink-muted);
+    flex:1; padding:10px 4px; text-align:center; background:transparent; border:none; border-right:1px solid var(--m3-outline-variant); cursor:pointer;
+    font-family:var(--font); font-weight:700; font-size:12px; color:var(--m3-on-surface-variant);
   }
   .mt-seg-btn:last-child{ border-right:none; }
-  .mt-seg-btn.active{ background:var(--mt-navy-700); color:var(--mt-ivory-50); }
+  .mt-seg-btn.active{ background:var(--m3-surface-container-highest); color:var(--m3-on-surface); }
   .mt-seg-btn[data-seg="foco"].active[data-value="tecnico"]{ color:var(--mt-sky-400); }
   .mt-seg-btn[data-seg="foco"].active[data-value="fisico"]{ color:var(--mt-crimson-400); }
   .mt-seg-group.disabled{ opacity:.4; pointer-events:none; }
@@ -1628,7 +1630,7 @@
   .mt-injury-flag svg{ width:9px; height:9px; color:#3A2A03; }
 
   /* ---- banco de reservas ---- */
-  .mt-bench-row{ display:flex; align-items:center; gap:12px; padding:10px 2px; border-bottom:1px solid var(--mt-navy-700); cursor:pointer; }
+  .mt-bench-row{ display:flex; align-items:center; gap:12px; padding:10px 2px; border-bottom:1px solid var(--m3-outline-variant); cursor:pointer; }
   .mt-bench-row:last-child{ border-bottom:none; }
   .mt-bench-ovr{
     width:34px; height:34px; border-radius:50%; flex-shrink:0;
@@ -1636,7 +1638,7 @@
     font-family:'Rajdhani', var(--font); font-weight:700; font-size:13px;
     box-shadow:inset 0 -2px 4px rgba(0,0,0,.25), 0 0 0 1.5px rgba(255,255,255,.12);
   }
-  .mt-bench-name{ flex:1; min-width:0; font-weight:600; font-size:14px; color:var(--mt-ivory-50); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .mt-bench-name{ flex:1; min-width:0; font-weight:600; font-size:14px; color:var(--m3-on-surface); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .mt-pos-chip{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:11px; letter-spacing:.5px; padding:3px 9px; border-radius:4px; flex-shrink:0; }
   .mt-pos-chip.gol{ background:rgba(232,184,75,.14); color:var(--mt-gold-300); border:1px solid rgba(232,184,75,.32); }
   .mt-pos-chip.def{ background:rgba(91,155,217,.15); color:var(--mt-sky-400); border:1px solid rgba(91,155,217,.35); }
