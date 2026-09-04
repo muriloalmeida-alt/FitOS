@@ -3138,6 +3138,13 @@ async function startCareer(clubId) {
       // salário mensal quando contratada (technicalStaffMonthlyCost),
       // igual à folha do elenco.
       technicalStaff: { hired: false },
+      // Nova feature (Bloco 3, pedido do usuário — mockups
+      // brtreinadorbloco3mercado.html/brtreinadorbloco3pendentes.html)
+      // — negociação de compra (ver openOfferModal/
+      // resolvePendingOffersOutRound) e parcelas de contratações já
+      // fechadas (ver finalizeIncomingPurchase/processPendingInstallments).
+      pendingOffersOut: [],
+      pendingInstallments: [],
       // FASE 4 (item 3) — jejum de vitória por time, pra manchete
       // "encerra jejum de X jogos" (ver updateWinlessStreaks).
       teamWinlessStreak: {},
@@ -4677,7 +4684,7 @@ function renderNewsScreen(currentRoundOnly) {
   const financeEl = document.getElementById("newsFinanceRow");
   const finance = currentRoundOnly && PENDING_ROUND_SUMMARY;
   financeEl.innerHTML = (finance && finance.wagePaid)
-    ? `<div class="mt-news-summary-row"><div class="t">Salários pagos: ${fmtBRL(finance.wagePaid)}${finance.sponsorIncome ? ` · Patrocínio: +${fmtBRL(finance.sponsorIncome)}` : ""} · Caixa: ${fmtBRL(CAREER.finances.cash)}</div></div>`
+    ? `<div class="mt-news-summary-row"><div class="t">Salários pagos: ${fmtBRL(finance.wagePaid)}${finance.sponsorIncome ? ` · Patrocínio: +${fmtBRL(finance.sponsorIncome)}` : ""}${finance.installmentsPaid ? ` · Parcelas de contratação: -${fmtBRL(finance.installmentsPaid)}` : ""} · Caixa: ${fmtBRL(CAREER.finances.cash)}</div></div>`
     : "";
   renderTeamStatusNews();
 }
@@ -5107,6 +5114,11 @@ function finishRoundTail(round, allResults, humanMatch, standingsBefore) {
   // na virada de temporada, que seria um pulo brusco de caixa.
   const sponsorIncome = Math.round(sponsorshipSeasonTotal() / 38);
   CAREER.finances.cash += sponsorIncome;
+  // Nova feature (Bloco 3) — parcelas de contratações já FECHADAS
+  // (ver finalizeIncomingPurchase) continuam descontando o caixa a
+  // cada rodada MESMO fora da janela de contratações (é dívida já
+  // assumida, não uma negociação nova) — ver processPendingInstallments.
+  const installmentsPaid = processPendingInstallments();
   // FASE 2 (c) — mercado de transferências: os outros 19 times também
   // negociam entre si (ver simulateAiTransfers) e, de vez em quando,
   // um deles propõe comprar um jogador SEU (ver maybeGenerateOffer,
@@ -5120,6 +5132,11 @@ function finishRoundTail(round, allResults, humanMatch, standingsBefore) {
     simulateAiTransfers(round);
     maybeGenerateOffer(round);
   }
+  // Nova feature (Bloco 3) — resolve as propostas de compra pendentes
+  // (ver resolvePendingOffersOutRound) MESMO fora da janela: a
+  // proposta já foi enviada legitimamente dentro dela, só a resposta
+  // do clube que pode cair um pouco depois do fechamento.
+  resolvePendingOffersOutRound(round);
   // FASE 2 (a) — Copa do Brasil: só resolve alguma coisa nas 4 rodadas
   // certas (ver CUP_ROUNDS) e só se seu clube ainda estiver na
   // competição (resolveCupPhase devolve null em qualquer outro caso —
@@ -5146,7 +5163,7 @@ function finishRoundTail(round, allResults, humanMatch, standingsBefore) {
   const roundEntries = news.map((n) => ({ ...n, round, seasonYear: CAREER.seasonYear }));
   CAREER.newsFeed = roundEntries.concat(CAREER.newsFeed || []);
   if (CAREER.newsFeed.length > NEWS_FEED_MAX) CAREER.newsFeed.length = NEWS_FEED_MAX;
-  return { round, humanMatch, allResults, lineupChanges, wagePaid, sponsorIncome, newOffer: CAREER.pendingOffer, cup };
+  return { round, humanMatch, allResults, lineupChanges, wagePaid, sponsorIncome, installmentsPaid, newOffer: CAREER.pendingOffer, cup };
 }
 // Fallback pra uma rodada em que o SEU clube não jogue (não deveria
 // acontecer no returno completo de pontos corridos, mas o calendário é
@@ -7845,7 +7862,260 @@ const MARKET_ICON = {
   entrada: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>`,
   saida: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>`,
   emprestimo: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>`,
+  // Nova feature (Bloco 3) — indica proposta em andamento pra esse
+  // jogador (ver openOfferModal/pendingOfferOutFor), no lugar do ícone
+  // de "entrada" enquanto a negociação não fecha.
+  pendente: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 16 14"/></svg>`,
 };
+
+/* ---------- Bloco 3 (1/4) — Mercado: negociação de compra (pedido do
+   usuário, mockups brtreinadorbloco3mercado.html/
+   brtreinadorbloco3pendentes.html) ----------
+   Antes, "Comprar" pagava o valor de mercado à vista e fechava na hora
+   (ver buyPlayer, mantida intacta — ainda usada pelo "Aplicar" da
+   sugestão de Mercado da Comissão Técnica, ver suggestMarket: a
+   assistente já fez a barganha nos bastidores, então aceitar a
+   sugestão dela continua sendo instantâneo de propósito). O botão
+   "Comprar" do Mercado agora abre uma PROPOSTA (CAREER.pendingOffersOut):
+   valor editável (pode ser menor que o de mercado) + parcelamento da
+   taxa, e o clube vendedor demora OFFER_WAIT_ROUNDS rodadas pra
+   responder (ver resolvePendingOffersOutRound, chamada em
+   finishRoundTail a cada rodada simulada — roda mesmo fora da janela
+   de contratações, já que a proposta foi enviada legitimamente dentro
+   dela). Chance de aceite cresce com o quanto a proposta chega perto
+   do valor de mercado; abaixo de 60% dele o clube nem considera.
+   Contraproposta (o clube pede mais) fica esperando o técnico decidir
+   (aceitar o valor pedido ou retirar), sem prazo — não conta como
+   "esperando resposta" de novo. */
+const OFFER_WAIT_ROUNDS = 2; // rodadas até o clube vendedor responder
+let OFFER_CTX = null; // { clubId, playerId } enquanto o sheet de nova proposta está aberto
+function pendingOfferOutFor(playerId) {
+  return (CAREER.pendingOffersOut || []).find((o) => String(o.playerId) === String(playerId));
+}
+function openOfferModal(clubId, playerId) {
+  if (!transferWindowStatus(CAREER.currentRound).open) {
+    toast("Janela de contratações encerrada — não dá pra propor agora.", { type: "warn" });
+    return;
+  }
+  if (pendingOfferOutFor(playerId)) { openMyOffersScreen(); return; } // já tem negociação rolando por esse jogador
+  const p = leagueSquadFor(clubId).find((x) => x.id === playerId);
+  if (!p) return;
+  OFFER_CTX = { clubId: String(clubId), playerId };
+  document.getElementById("offerSub").textContent = `${abbreviateName(p.name)} · ${teamById(clubId).name} · valor de mercado ${fmtBRL(p.value)}`;
+  document.getElementById("offerValueInput").value = p.value;
+  document.getElementById("offerInstallmentsSelect").value = "1";
+  document.getElementById("offerOverlay").classList.add("open");
+}
+function closeOfferModal() {
+  document.getElementById("offerOverlay").classList.remove("open");
+  OFFER_CTX = null;
+}
+function confirmOfferFromModal() {
+  if (!OFFER_CTX) return;
+  const p = leagueSquadFor(OFFER_CTX.clubId).find((x) => x.id === OFFER_CTX.playerId);
+  if (!p) { closeOfferModal(); toast("Esse jogador não está mais disponível.", { type: "warn" }); return; }
+  const value = Math.max(1000, Math.round(Number(document.getElementById("offerValueInput").value) || 0));
+  const installments = Number(document.getElementById("offerInstallmentsSelect").value) || 1;
+  if (wageBillOf(CAREER.squad) + p.wage > CAREER.finances.wageCap) {
+    toast(`Contratar esse jogador estouraria o teto salarial (${fmtBRL(CAREER.finances.wageCap)}).`, { type: "warn" });
+    return;
+  }
+  if (CAREER.squad.length >= MAX_PRINCIPAL + 20) { toast("Elenco já está muito grande — dispense ou venda alguém antes.", { type: "warn" }); return; }
+  const clubName = teamById(OFFER_CTX.clubId).name;
+  CAREER.pendingOffersOut = CAREER.pendingOffersOut || [];
+  CAREER.pendingOffersOut.push({
+    id: `offerout_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+    playerId: p.id, playerName: p.name, clubId: OFFER_CTX.clubId, clubName,
+    marketValue: p.value, offerValue: value, installments,
+    roundsLeft: OFFER_WAIT_ROUNDS, status: "pending", counterValue: null,
+    submittedRound: CAREER.currentRound,
+  });
+  closeOfferModal();
+  persistCareer();
+  renderMercado();
+  toast(`Proposta de ${fmtBRL(value)} por ${abbreviateName(p.name)} enviada ao ${clubName} — aguardando resposta.`, { type: "info" });
+}
+// Aumenta o valor de uma proposta pendente OU aceita o valor que o
+// clube pediu numa contraproposta (mesmo campo, offerValue) — os dois
+// casos reiniciam a espera normal (ver roundsLeft), exceto aceitar
+// contraproposta, que fecha na hora (ver acceptCounterOffer).
+function increaseOffer(offerId, newValue) {
+  const o = (CAREER.pendingOffersOut || []).find((x) => x.id === offerId);
+  if (!o) return;
+  const value = Math.max(o.offerValue, Math.round(Number(newValue) || 0));
+  o.offerValue = value;
+  o.status = "pending";
+  o.counterValue = null;
+  o.roundsLeft = OFFER_WAIT_ROUNDS;
+  persistCareer();
+  renderMyOffersScreen();
+  toast(`Proposta por ${abbreviateName(o.playerName)} atualizada pra ${fmtBRL(value)}.`, { type: "pos" });
+}
+function withdrawOffer(offerId) {
+  const o = (CAREER.pendingOffersOut || []).find((x) => x.id === offerId);
+  if (!o) return;
+  CAREER.pendingOffersOut = (CAREER.pendingOffersOut || []).filter((x) => x.id !== offerId);
+  pushTransferLog(`Você retirou sua proposta por ${o.playerName} (${o.clubName}).`, CAREER.currentRound);
+  persistCareer();
+  renderMyOffersScreen();
+  renderMercado();
+  toast(`Proposta por ${abbreviateName(o.playerName)} retirada.`, { type: "info" });
+}
+// Aceitar a contraproposta do clube (ele pediu counterValue) fecha o
+// negócio NA HORA — o técnico já concordou em pagar o que foi pedido,
+// não faz sentido esperar de novo (ver resolvePendingOffersOutRound,
+// que só gera contraproposta, nunca a resolve sozinha).
+function acceptCounterOffer(offerId) {
+  const o = (CAREER.pendingOffersOut || []).find((x) => x.id === offerId);
+  if (!o || o.counterValue == null) return;
+  o.offerValue = o.counterValue;
+  o.counterValue = null;
+  finalizeIncomingPurchase(o);
+  CAREER.pendingOffersOut = (CAREER.pendingOffersOut || []).filter((x) => x.id !== offerId);
+  persistCareer();
+  renderMyOffersScreen();
+  renderMercado(); renderElenco(); renderCentral();
+}
+// Fecha a compra de verdade (proposta aceita ou contraproposta
+// aceita) — reaproveita a MESMA validação de teto/tamanho de elenco de
+// buyPlayer (pode ter mudado desde que a proposta foi enviada, dias
+// atrás) e o mesmo parcelamento de patrocínio/empréstimo de sempre
+// (paga a 1ª parcela na hora, o resto entra em CAREER.pendingInstallments,
+// processado a cada rodada em processPendingInstallments).
+function finalizeIncomingPurchase(o) {
+  const squad = leagueSquadFor(o.clubId);
+  const idx = squad.findIndex((x) => String(x.id) === String(o.playerId));
+  if (idx < 0) {
+    toast(`${abbreviateName(o.playerName)} não está mais disponível — negociação cancelada.`, { type: "warn" });
+    return;
+  }
+  const p = squad[idx];
+  if (wageBillOf(CAREER.squad) + p.wage > CAREER.finances.wageCap) {
+    toast(`${o.clubName} aceitou, mas contratar ${abbreviateName(p.name)} agora estouraria seu teto salarial — negociação cancelada.`, { type: "warn" });
+    return;
+  }
+  if (CAREER.squad.length >= MAX_PRINCIPAL + 20) {
+    toast(`${o.clubName} aceitou, mas seu elenco está grande demais agora — negociação cancelada.`, { type: "warn" });
+    return;
+  }
+  const perInstallment = Math.round(o.offerValue / o.installments / 1000) * 1000;
+  const firstPayment = o.installments === 1 ? o.offerValue : perInstallment;
+  if (CAREER.finances.cash < firstPayment) {
+    toast(`${o.clubName} aceitou, mas seu caixa não cobre nem a 1ª parcela agora — negociação cancelada.`, { type: "warn" });
+    return;
+  }
+  squad.splice(idx, 1);
+  CAREER.finances.cash -= firstPayment;
+  if (o.installments > 1) {
+    CAREER.pendingInstallments = CAREER.pendingInstallments || [];
+    CAREER.pendingInstallments.push({ roundsLeft: o.installments - 1, perRoundAmount: perInstallment, label: `Parcela de ${p.name}` });
+  }
+  p.origin = "principal";
+  CAREER.squad.push(p);
+  pushTransferLog(`Você contratou ${p.name} do ${o.clubName} por ${fmtBRL(o.offerValue)}${o.installments > 1 ? ` (${o.installments}x)` : ""}.`, CAREER.currentRound);
+  toast(`${abbreviateName(p.name)} contratado! O ${o.clubName} aceitou sua proposta.`, { type: "pos" });
+  ensureObjectivesFresh(); bumpObjective("daily", "obj_market_1_move", 1);
+  if (p.overall >= 82) { firePressConference("15", CAREER.currentRound, false); openPressConferenceModal(); }
+}
+// Roda 1x por rodada simulada (ver finishRoundTail) — decrementa o
+// prazo de cada proposta pendente e resolve quem chegou a zero: quanto
+// mais perto do valor de mercado, maior a chance de aceite; abaixo de
+// 60% dele o clube nem considera (recusa direto). No meio-termo, o
+// clube pode "pedir mais" (contraproposta) em vez de recusar de vez —
+// vira um item parado esperando o técnico decidir (ver
+// acceptCounterOffer/withdrawOffer), sem consumir mais rodadas.
+function resolvePendingOffersOutRound(round) {
+  const list = CAREER.pendingOffersOut || [];
+  const stillPending = [];
+  list.forEach((o) => {
+    if (o.status === "countered") { stillPending.push(o); return; } // esperando o técnico decidir, sem prazo
+    o.roundsLeft -= 1;
+    if (o.roundsLeft > 0) { stillPending.push(o); return; }
+    const ratio = o.offerValue / o.marketValue;
+    const rng = Math.random();
+    if (ratio >= 0.95 && rng < 0.85) { finalizeIncomingPurchase(o); return; }
+    if (ratio >= 0.8 && rng < 0.45) { finalizeIncomingPurchase(o); return; }
+    if (ratio >= 0.6 && rng < 0.5) {
+      o.counterValue = Math.min(o.marketValue, Math.round((o.offerValue + o.marketValue) / 2 / 1000) * 1000);
+      o.status = "countered";
+      stillPending.push(o);
+      toast({ title: "Contraproposta recebida", detail: `${o.clubName} quer ${fmtBRL(o.counterValue)} por ${abbreviateName(o.playerName)} — veja em Minhas propostas.` }, { type: "warn" });
+      return;
+    }
+    toast(`${o.clubName} recusou sua proposta de ${fmtBRL(o.offerValue)} por ${abbreviateName(o.playerName)}.`, { type: "warn" });
+    pushTransferLog(`${o.clubName} recusou sua proposta de ${fmtBRL(o.offerValue)} por ${o.playerName}.`, round);
+  });
+  CAREER.pendingOffersOut = stillPending;
+}
+// Parcelas de contratações já fechadas (ver finalizeIncomingPurchase) —
+// descontam o caixa a cada rodada até quitar, MESMO fora da janela de
+// transferências (é uma dívida já assumida, não uma negociação nova),
+// mesmo espírito de "dinheiro sai/entra aos poucos" do patrocínio.
+function processPendingInstallments() {
+  const list = CAREER.pendingInstallments || [];
+  let totalDue = 0;
+  const stillPending = [];
+  list.forEach((inst) => {
+    totalDue += inst.perRoundAmount;
+    inst.roundsLeft -= 1;
+    if (inst.roundsLeft > 0) stillPending.push(inst);
+  });
+  CAREER.finances.cash -= totalDue;
+  CAREER.pendingInstallments = stillPending;
+  return totalDue;
+}
+function myOffersRowHTML(o) {
+  if (o.status === "countered") {
+    return `<div class="mt-sponsor-proposal-row">
+      <div>
+        <div class="mt-sponsor-proposal-name">${escapeHtml(abbreviateName(o.playerName))} <span class="mt-badge-gold">Contraproposta</span></div>
+        <div class="mt-sponsor-proposal-detail">${escapeHtml(o.clubName)} pede ${fmtBRL(o.counterValue)} (sua oferta: ${fmtBRL(o.offerValue)})</div>
+      </div>
+      <div style="display:flex; gap:6px; flex-shrink:0;">
+        <button class="mt-btn-ghost" data-withdraw="${o.id}" style="padding:9px 12px;">Retirar</button>
+        <button class="mt-btn-sign" data-acceptcounter="${o.id}">Aceitar</button>
+      </div>
+    </div>`;
+  }
+  return `<div class="mt-sponsor-proposal-row">
+    <div>
+      <div class="mt-sponsor-proposal-name">${escapeHtml(abbreviateName(o.playerName))}</div>
+      <div class="mt-sponsor-proposal-detail">${escapeHtml(o.clubName)} · sua oferta ${fmtBRL(o.offerValue)} de ${fmtBRL(o.marketValue)} · aguardando resposta (${o.roundsLeft} rodada${o.roundsLeft === 1 ? "" : "s"})</div>
+    </div>
+    <div style="display:flex; gap:6px; flex-shrink:0;">
+      <button class="mt-btn-ghost" data-withdraw="${o.id}" style="padding:9px 12px;">Retirar</button>
+      <button class="mt-btn-sign" data-increase="${o.id}" data-value="${Math.round(o.marketValue)}">Aumentar</button>
+    </div>
+  </div>`;
+}
+function renderMyOffersScreen() {
+  const list = CAREER.pendingOffersOut || [];
+  document.getElementById("myOffersCountLabel").textContent = list.length
+    ? `${list.length} em andamento`
+    : "Nenhuma em andamento";
+  document.getElementById("myOffersEmpty").classList.toggle("hidden", list.length > 0);
+  document.getElementById("myOffersList").innerHTML = list.map(myOffersRowHTML).join("");
+  document.getElementById("myOffersList").querySelectorAll("[data-withdraw]").forEach((btn) => {
+    btn.addEventListener("click", () => withdrawOffer(btn.dataset.withdraw));
+  });
+  document.getElementById("myOffersList").querySelectorAll("[data-increase]").forEach((btn) => {
+    btn.addEventListener("click", () => increaseOffer(btn.dataset.increase, btn.dataset.value));
+  });
+  document.getElementById("myOffersList").querySelectorAll("[data-acceptcounter]").forEach((btn) => {
+    btn.addEventListener("click", () => acceptCounterOffer(btn.dataset.acceptcounter));
+  });
+  const badge = document.getElementById("myOffersBadge");
+  badge.classList.toggle("hidden", list.length === 0);
+  if (list.length) badge.textContent = String(list.length);
+}
+function openMyOffersScreen() {
+  renderMyOffersScreen();
+  document.getElementById("myOffersOverlay").classList.add("open");
+}
+function closeMyOffersScreen() {
+  document.getElementById("myOffersOverlay").classList.remove("open");
+}
+
 function renderMercado() {
   const offer = CAREER.pendingOffer;
   const offerCard = document.getElementById("pendingOfferCard");
@@ -7854,6 +8124,15 @@ function renderMercado() {
     document.getElementById("pendingOfferText").textContent =
       `${offer.clubName} oferece ${fmtBRL(offer.fee)} pelo seu jogador ${offer.playerName}.`;
   }
+
+  // Nova feature (Bloco 3) — contador de propostas em andamento no
+  // botão "Minhas propostas", atualizado sempre que o Mercado
+  // re-renderiza (não só quando a tela de propostas está aberta —
+  // ver renderMyOffersScreen, que faz o mesmo pro contador de lá).
+  const myOffersCount = (CAREER.pendingOffersOut || []).length;
+  const myOffersBadge = document.getElementById("myOffersBadge");
+  myOffersBadge.classList.toggle("hidden", myOffersCount === 0);
+  if (myOffersCount) myOffersBadge.textContent = String(myOffersCount);
 
   // FASE 1 (item 2) — banner só aparece com a janela FECHADA (ver
   // .mt-badge-gold em carreira.html, Tela 10); "Comprar" fica desabilitado
@@ -7935,16 +8214,24 @@ function renderMercado() {
         ${mine
           ? `<button class="mt-btn-sell" data-sell="${p.id}" aria-label="Vender" title="Vender">${MARKET_ICON.saida}</button>
              <button class="mt-btn-loan" data-loanout="${p.id}" aria-label="Emprestar" ${loanOutBtnAttrs(p, mktWindow) || `title="Emprestar"`}>${MARKET_ICON.emprestimo}</button>`
-          : `<button class="mt-btn-buy" data-buy="${p.id}" data-club="${escapeHtml(String(club.id))}" aria-label="Comprar" ${mktWindow.open ? `title="Comprar"` : `disabled title="Janela de contratações encerrada"`}>${MARKET_ICON.entrada}</button>
-             <button class="mt-btn-loan" data-loanin="${p.id}" data-club="${escapeHtml(String(club.id))}" aria-label="Pegar emprestado" ${loanOutBtnAttrs(p, mktWindow) || `title="Pegar emprestado"`}>${MARKET_ICON.emprestimo}</button>`}
+          : pendingOfferOutFor(p.id)
+            ? `<button class="mt-btn-loan" data-viewoffer="${p.id}" aria-label="Proposta enviada" title="Proposta enviada — ver em Minhas propostas">${MARKET_ICON.pendente}</button>`
+            : `<button class="mt-btn-buy" data-buy="${p.id}" data-club="${escapeHtml(String(club.id))}" aria-label="Propor" ${mktWindow.open ? `title="Fazer proposta"` : `disabled title="Janela de contratações encerrada"`}>${MARKET_ICON.entrada}</button>
+               <button class="mt-btn-loan" data-loanin="${p.id}" data-club="${escapeHtml(String(club.id))}" aria-label="Pegar emprestado" ${loanOutBtnAttrs(p, mktWindow) || `title="Pegar emprestado"`}>${MARKET_ICON.emprestimo}</button>`}
       </div>
     </div>
     <div class="mt-market-detail">Salário: <b>${fmtBRLShort(p.wage)}/mês</b> · Valor: <b>${fmtBRLShort(p.value)}</b></div>
   </div>`;
   }).join("");
   document.getElementById("marketList").innerHTML = rows || `<p class="ct-empty">Nenhum jogador encontrado.</p>`;
+  // Nova feature (Bloco 3) — "Comprar" virou "Fazer proposta"
+  // (ver openOfferModal); botão de quem já tem negociação em
+  // andamento pra esse jogador leva direto pra "Minhas propostas".
   document.getElementById("marketList").querySelectorAll("[data-buy]").forEach((btn) => {
-    btn.addEventListener("click", () => buyPlayer(btn.dataset.club, btn.dataset.buy));
+    btn.addEventListener("click", () => openOfferModal(btn.dataset.club, btn.dataset.buy));
+  });
+  document.getElementById("marketList").querySelectorAll("[data-viewoffer]").forEach((btn) => {
+    btn.addEventListener("click", () => openMyOffersScreen());
   });
   document.getElementById("marketList").querySelectorAll("[data-sell]").forEach((btn) => {
     btn.addEventListener("click", () => sellFromMarket(btn.dataset.sell));
@@ -8968,6 +9255,16 @@ function wireStaticListeners() {
   document.getElementById("loanBuyClauseSelect").addEventListener("change", (e) => {
     document.getElementById("loanBuyValueField").classList.toggle("hidden", e.target.value === "nenhuma");
   });
+  // Nova feature (Bloco 3) — sheet de "Fazer proposta" e tela "Minhas
+  // propostas", mesmo padrão de fechamento das outras (X e clique fora
+  // fecham sem enviar/mudar nada).
+  document.getElementById("offerClose").addEventListener("click", closeOfferModal);
+  document.getElementById("offerOverlay").addEventListener("click", (e) => { if (e.target.id === "offerOverlay") closeOfferModal(); });
+  document.getElementById("btnOfferConfirm").addEventListener("click", confirmOfferFromModal);
+  document.getElementById("btnOpenMyOffers").addEventListener("click", openMyOffersScreen);
+  document.getElementById("myOffersClose").addEventListener("click", closeMyOffersScreen);
+  document.getElementById("btnMyOffersCloseFooter").addEventListener("click", closeMyOffersScreen);
+  document.getElementById("myOffersOverlay").addEventListener("click", (e) => { if (e.target.id === "myOffersOverlay") closeMyOffersScreen(); });
   // Pedido do usuário: X também nas modais de detalhe do jogo e de
   // resultados da rodada (só fecha, igual às outras 2 — quem quiser ver
   // o próximo passo do fluxo clica em "Continuar" mesmo). AJUSTE
@@ -9066,6 +9363,11 @@ function migrateCareerDefaults() {
   // mudança nunca teve isso — nasce não-contratada (sem custo nenhum
   // até o técnico decidir contratar), igual carreira nova.
   if (!CAREER.technicalStaff) CAREER.technicalStaff = { hired: false };
+  // Nova feature (Bloco 3) — negociação de compra: carreira criada
+  // ANTES desta mudança nunca teve proposta pendente nem parcela de
+  // contratação nenhuma — nasce vazia, igual carreira nova.
+  if (!CAREER.pendingOffersOut) CAREER.pendingOffersOut = [];
+  if (!CAREER.pendingInstallments) CAREER.pendingInstallments = [];
   // AJUSTE (Bloco 2 M3, brtreinadorbloco2tatica.html) — tactics tinha 3
   // campos NOMEADOS (mentality/marking/tempo); vira 4 eixos NUMÉRICOS
   // 1-5 (ver TACTIC_AXES). Migra o que dá pra aproximar (tradução nossa

@@ -2939,6 +2939,12 @@
           <div class="mt-card-title">Transferências recentes</div>
           <div id="transferFeed"></div>
         </div>
+        <!-- Nova feature (Bloco 3) — atalho pra "Minhas propostas" de
+             compra em andamento (ver openMyOffersScreen), mesmo espírito
+             do mockup (FAB "📈 Minhas propostas") — botão inline (não
+             flutuante) pra não empilhar em cima da nav fixa, mesmo
+             padrão de "Pedir mais orçamento à diretoria" no Clube. -->
+        <button class="mt-btn-ghost" id="btnOpenMyOffers" style="width:100%;">📈 Minhas propostas <span class="mt-badge-gold hidden" id="myOffersBadge" style="margin-left:6px;"></span></button>
       </section>
 
       <!-- ---------- Retenção/Engajamento (BRDataRetencaoEspecificacao)
@@ -3218,6 +3224,72 @@
     <div class="ct-modal-body">
       <p class="ct-sub" id="pressQuestion" style="font-weight:700; color:var(--mt-ivory-50); margin-bottom:14px;"></p>
       <div id="pressOptions" style="display:flex; flex-direction:column; gap:8px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Nova feature (Bloco 3 — pedido do usuário, mockups
+     brtreinadorbloco3mercado.html/brtreinadorbloco3pendentes.html) —
+     "Fazer proposta" no lugar do "Comprar" instantâneo de antes: em
+     vez de pagar o valor de mercado na hora, o técnico propõe um
+     valor (pode ser menor) + parcelamento, e o clube vendedor demora
+     algumas rodadas pra responder (ver openOfferModal/
+     confirmOfferFromModal/resolvePendingOffersOutRound em
+     carreira.js). Mesmo padrão do modal de empréstimo logo abaixo. -->
+<div class="ct-modal-overlay" id="offerOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header">
+      <span class="ct-modal-icon">💰</span>
+      <div class="ct-modal-header-text">
+        <h3>Fazer proposta</h3>
+        <div class="ct-modal-sub" id="offerSub"></div>
+      </div>
+      <button class="ct-modal-close" id="offerClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <div class="ct-field" style="margin-bottom:12px;">
+        <label>Sua proposta</label>
+        <input type="number" class="ct-search" id="offerValueInput" style="margin-bottom:0;" min="0" step="1000">
+      </div>
+      <div class="ct-field">
+        <label>Parcelamento da taxa</label>
+        <select id="offerInstallmentsSelect">
+          <option value="1">À vista (1x)</option>
+          <option value="2">2x</option>
+          <option value="3">3x</option>
+          <option value="4">4x</option>
+        </select>
+      </div>
+      <p class="mt-card-sub" style="margin-top:10px;">Propor menos que o valor de mercado é possível, mas o clube pode recusar, pedir mais ou demorar pra responder. Você acompanha o andamento em "Minhas propostas".</p>
+    </div>
+    <div class="ct-modal-footer">
+      <button class="mt-btn-primary-gold" id="btnOfferConfirm">Enviar proposta</button>
+    </div>
+  </div>
+</div>
+
+<!-- Nova feature (Bloco 3) — "Minhas propostas": acompanha as
+     negociações de compra em andamento (ver renderMyOffersScreen em
+     carreira.js) -- aumentar/retirar enquanto pendente, aceitar/
+     recusar uma contraproposta do clube. -->
+<div class="ct-modal-overlay ct-modal-fullscreen" id="myOffersOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header mt-fullheader">
+      <span class="ct-modal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg></span>
+      <div class="ct-modal-header-text">
+        <h3>Minhas propostas</h3>
+        <div class="ct-modal-sub" id="myOffersCountLabel"></div>
+      </div>
+      <button class="ct-modal-close" id="myOffersClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <div class="mt-card">
+        <div id="myOffersList"></div>
+        <p class="ct-empty hidden" id="myOffersEmpty">Nenhuma proposta em andamento — faça uma oferta no Mercado.</p>
+      </div>
+    </div>
+    <div class="ct-modal-footer">
+      <button class="mt-btn-ghost" id="btnMyOffersCloseFooter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Fechar</button>
     </div>
   </div>
 </div>
