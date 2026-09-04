@@ -2816,6 +2816,12 @@ async function chooseCompetition(competitionId) {
   renderClubPicker();
   show("screenPicker");
 }
+// Redesign (mockup brtreinadorbloco1inicio.html, tela 1 — Onboarding) —
+// fluxo de 2 passos: clicar numa linha só seleciona (marca com check +
+// fundo na cor do clube), só o FAB "Confirmar clube" chama startCareer()
+// de fato. PICKER_SELECTED_CLUB é resetado a cada renderClubPicker() —
+// nunca sobrevive de uma visita pra outra da tela.
+let PICKER_SELECTED_CLUB = null;
 function renderClubPicker(filterIds, bannerText) {
   const banner = document.getElementById("pickerContextBanner");
   if (bannerText) { banner.textContent = bannerText; banner.hidden = false; }
@@ -2827,21 +2833,50 @@ function renderClubPicker(filterIds, bannerText) {
   const teams = (filterIds ? LEAGUE_TEAMS.filter((t) => filterIds.some((id) => String(id) === String(t.id))) : LEAGUE_TEAMS.slice())
     .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
   const grid = document.getElementById("clubGrid");
-  // AJUSTE (refatoração completa, tela "Escolha do Clube") — .mt-club-card
-  // no lugar de .ct-club-card (ver 02-escolha-do-clube-restyled.html do
-  // designer); crestImg(t, 48) já devolve o escudo hexagonal certo.
-  grid.innerHTML = teams.map((t) => `
-    <div class="mt-club-card" data-id="${escapeHtml(String(t.id))}">
-      ${crestImg(t, 48)}
-      <span class="mt-club-name">${escapeHtml(t.name)}</span>
-    </div>`).join("");
-  grid.querySelectorAll(".mt-club-card").forEach((el) => el.addEventListener("click", () => startCareer(el.dataset.id)));
+  PICKER_SELECTED_CLUB = null;
+  // BUG CORRIGIDO: startCareer() desabilita o FAB (evita duplo clique
+  // enquanto a carreira carrega) mas nunca o reabilitava — reabrir a
+  // Escolha do Clube (ex.: "Reiniciar") herdava o botão travado pra
+  // sempre depois da 1ª carreira criada. Reseta aqui, toda vez que a
+  // tela é (re)montada.
+  const confirmBtn = document.getElementById("btnConfirmClub");
+  confirmBtn.classList.add("hidden");
+  confirmBtn.disabled = false;
+  grid.style.opacity = "";
+  grid.style.pointerEvents = "";
+  // Meta line "Série A · Curitiba, PR" — uf só existe no catálogo demo
+  // (DEMO_TEAMS); dado real (ver mapTeam() em sportmonks.js/frozen.js)
+  // só tem venue.city, sem UF — degrada pra só cidade nesse caso, sem
+  // quebrar nem inventar estado.
+  const compLabel = COMPETITION_SHORT[CURRENT_COMPETITION_ID] || "Brasileirão";
+  grid.innerHTML = teams.map((t) => {
+    const city = t.venue?.city ? `${t.venue.city}${t.uf ? ", " + t.uf : ""}` : "";
+    return `<div class="m3-club-row" data-id="${escapeHtml(String(t.id))}">
+      ${crestImg(t, 36)}
+      <div class="m3-club-body">
+        <div class="m3-club-name">${escapeHtml(t.name)}</div>
+        <div class="m3-club-meta">${escapeHtml(compLabel)}${city ? " · " + escapeHtml(city) : ""}</div>
+      </div>
+      <svg class="m3-club-check hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+    </div>`;
+  }).join("");
+  grid.querySelectorAll(".m3-club-row").forEach((el) => el.addEventListener("click", () => selectClubRow(el.dataset.id)));
+}
+function selectClubRow(clubId) {
+  PICKER_SELECTED_CLUB = clubId;
+  document.querySelectorAll("#clubGrid .m3-club-row").forEach((row) => {
+    const isSel = row.dataset.id === String(clubId);
+    row.classList.toggle("selected", isSel);
+    row.querySelector(".m3-club-check").classList.toggle("hidden", !isSel);
+  });
+  document.getElementById("btnConfirmClub").classList.remove("hidden");
 }
 async function startCareer(clubId) {
   const club = LEAGUE_TEAMS.find((t) => String(t.id) === String(clubId));
   if (!club) return;
   document.getElementById("clubGrid").style.opacity = "0.5";
   document.getElementById("clubGrid").style.pointerEvents = "none";
+  document.getElementById("btnConfirmClub").disabled = true;
   try {
     // AJUSTE (pedido do usuário: "o mercado deve trazer jogadores das
     // 3 ligas para que transações possam ser feitas entre os 60 times
@@ -5652,6 +5687,36 @@ function renderTopbarIdentity() {
 }
 
 /* ---------- Renderização: Central ---------- */
+// Iniciais pro avatar redondo do carrossel "Elenco em destaque"
+// (mockup brtreinadorbloco1inicio.html, tela 2) — mesma ideia do
+// monograma de escudo (crestImg()), mas de jogador: 1ª letra do
+// primeiro + 1ª do último nome ("C. Villasanti" -> "CV").
+function playerInitials(name) {
+  const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+// Redesign (mockup brtreinadorbloco1inicio.html, tela 2 — Início) —
+// carrossel horizontal com os destaques do elenco: maiores overall do
+// elenco principal DISPONÍVEL (não adianta destacar quem tá machucado/
+// suspenso, não vai jogar mesmo) — não é um dado novo, só uma leitura
+// derivada do overall que já existe em cada jogador.
+function renderDestaquePlayers() {
+  const destaques = CAREER.squad
+    .filter((p) => (p.origin === "principal" || p.origin === "loan") && p.status === "ok")
+    .sort((a, b) => b.overall - a.overall)
+    .slice(0, 8);
+  const wrap = document.getElementById("destaquePlayers");
+  document.getElementById("destaqueTitle").style.display = destaques.length ? "" : "none";
+  wrap.innerHTML = destaques.map((p) => `
+    <div class="m3-player-mini" data-id="${p.id}">
+      <div class="m3-player-avatar">${escapeHtml(playerInitials(p.name))}</div>
+      <div class="m3-player-mini-name">${escapeHtml(abbreviateName(p.name))}</div>
+      <div class="m3-player-mini-pos">${SUBPOS_LABEL[subPositionOf(p)] || ""}</div>
+    </div>`).join("");
+  wrap.querySelectorAll("[data-id]").forEach((el) => el.addEventListener("click", () => openDetail(el.dataset.id)));
+}
 function renderCentral() {
   refreshAvailability();
   // FASE 4 (item 4) — card só aparece quando há proposta pendente (ver
@@ -5755,6 +5820,7 @@ function renderCentral() {
   // renderSponsorship).
   renderSponsorship();
 
+  renderDestaquePlayers();
   const lastCard = document.getElementById("lastResultCard");
   const last = CAREER.resultsByRound[round - 1];
   const fx = last && last.find((m) => String(m.home) === String(CAREER.clubId) || String(m.away) === String(CAREER.clubId));
@@ -5925,6 +5991,18 @@ function groupedListHTML(players, rowFn, emptyMsg) {
   });
   return html;
 }
+// Redesign (mockup brtreinadorbloco1inicio.html, tela 4 — Elenco) —
+// filter chips por cima dos 2 cards já existentes. Estado do filtro
+// ativo fica só na sessão (não persiste no save — é preferência de
+// navegação, não dado de carreira), reseta pro padrão "todos" a cada
+// reload como o resto da UI.
+let ELENCO_FILTER = "todos";
+const ELENCO_FILTERS = [
+  { id: "todos", label: "Todos" },
+  { id: "titulares", label: "Titulares" },
+  { id: "lesionados", label: "Lesionados" },
+  { id: "base", label: "Base" },
+];
 function renderElenco() {
   refreshAvailability();
   // AJUSTE (feedback do usuário: "a meta da diretoria pode sair da
@@ -5943,8 +6021,30 @@ function renderElenco() {
   // no Elenco mesmo estando disponível pra escalar.
   const principal = CAREER.squad.filter((p) => p.origin === "principal" || p.origin === "loan").sort((a, b) => squadSortKey(a) - squadSortKey(b));
   const base = CAREER.squad.filter((p) => p.origin === "base").sort((a, b) => squadSortKey(a) - squadSortKey(b));
+
+  const lesionadosCount = principal.filter((p) => p.status !== "ok").length;
+  document.getElementById("elencoFilterRow").innerHTML = ELENCO_FILTERS.map((f) => {
+    const count = f.id === "todos" ? principal.length + base.length : f.id === "lesionados" ? lesionadosCount : null;
+    const label = count === null ? f.label : `${f.label} · ${count}`;
+    return `<button class="m3-filter-chip${ELENCO_FILTER === f.id ? " on" : ""}" data-filter="${f.id}">${escapeHtml(label)}</button>`;
+  }).join("");
+  document.querySelectorAll("#elencoFilterRow .m3-filter-chip").forEach((btn) => {
+    btn.addEventListener("click", () => { ELENCO_FILTER = btn.dataset.filter; renderElenco(); });
+  });
+
+  // Não junta as 2 listas numa só — playerRow()/baseRow() mostram
+  // colunas diferentes (potencial/confiança do olheiro só existe na
+  // base). O filtro só decide QUAIS cards aparecem e, dentro do
+  // principal, quais jogadores.
+  let mainData = principal, showMain = true, showBase = true;
+  if (ELENCO_FILTER === "titulares") { mainData = principal.filter((p) => CAREER.lineup.starters.includes(p.id)); showBase = false; }
+  else if (ELENCO_FILTER === "lesionados") { mainData = principal.filter((p) => p.status !== "ok"); showBase = false; }
+  else if (ELENCO_FILTER === "base") { showMain = false; }
+  document.getElementById("squadMainCard").classList.toggle("hidden", !showMain);
+  document.getElementById("squadBaseCard").classList.toggle("hidden", !showBase);
+
   const mainList = document.getElementById("squadMainList");
-  mainList.innerHTML = groupedListHTML(principal, playerRow, "Sem jogadores.");
+  mainList.innerHTML = groupedListHTML(mainData, playerRow, ELENCO_FILTER === "titulares" ? "Nenhum titular escalado ainda." : ELENCO_FILTER === "lesionados" ? "Ninguém no departamento médico." : "Sem jogadores.");
   const baseList = document.getElementById("squadBaseList");
   baseList.innerHTML = groupedListHTML(base, baseRow, "Sem jogadores.");
   [mainList, baseList].forEach((list) => list.querySelectorAll("[data-id]").forEach((row) => row.addEventListener("click", () => openDetail(row.dataset.id))));
@@ -6049,6 +6149,20 @@ function proposeRenewal() {
   renderElenco(); renderCentral();
   if (document.getElementById("detailOverlay").classList.contains("open")) openDetail(p.id);
 }
+// Redesign (mockup brtreinadorbloco1inicio.html, tela 6 — Perfil do
+// jogador) — atributo em barra (label + trilho preenchido + número),
+// reaproveitado só no detalhe do jogador por enquanto. Escala 0-99
+// (mesmo teto de sempre pros atributos do motor; moral já é 0-100,
+// mesma leitura visual serve pras duas sem precisar normalizar).
+function attrBarHTML(label, value, variant, trendHTML) {
+  const pct = clamp(Math.round(value), 0, 100);
+  const fillClass = variant === "red" ? " crimson" : variant === "gold" ? " gold" : "";
+  return `<div class="m3-attr-row">
+    <div class="m3-attr-label">${escapeHtml(label)}</div>
+    <div class="m3-attr-bar"><div class="m3-attr-fill${fillClass}" style="width:${pct}%;"></div></div>
+    <div class="m3-attr-num">${value}${trendHTML || ""}</div>
+  </div>`;
+}
 function openDetail(id) {
   const p = CAREER.squad.find((x) => x.id === id);
   if (!p) return;
@@ -6105,12 +6219,12 @@ function openDetail(id) {
         <span>${heroSub}</span>
       </div>
     </div>
-    <div class="mt-attr-grid">
-      <div class="mt-attr-block"><div class="num gold">${p.overall}${trendArrow("overall")}</div><div class="lbl">GERAL</div></div>
-      <div class="mt-attr-block"><div class="num">${p.atk}${trendArrow("atk")}</div><div class="lbl">ATAQUE</div></div>
-      <div class="mt-attr-block"><div class="num">${p.def}${trendArrow("def")}</div><div class="lbl">DEFESA</div></div>
-      <div class="mt-attr-block"><div class="num">${p.phys}${trendArrow("phys")}</div><div class="lbl">FÍSICO</div></div>
-      <div class="mt-attr-block" style="grid-column:span 2;"><div class="num${moraleVariant === "red" ? " crimson" : moraleVariant === "gold" ? " gold" : ""}">${morale}</div><div class="lbl">MORAL</div></div>
+    <div class="m3-attr-bars">
+      ${attrBarHTML("Geral", p.overall, "gold", trendArrow("overall"))}
+      ${attrBarHTML("Ataque", p.atk, null, trendArrow("atk"))}
+      ${attrBarHTML("Defesa", p.def, null, trendArrow("def"))}
+      ${attrBarHTML("Físico", p.phys, null, trendArrow("phys"))}
+      ${attrBarHTML("Moral", morale, moraleVariant, "")}
     </div>
     ${potRange ? `<p class="mt-badge-gold" style="display:flex;">🔭 Avaliação do olheiro: potencial entre ${potRange.lo} e ${potRange.hi}.</p>` : ""}
     ${mtConditionBarHTML(p.condition)}
@@ -7718,6 +7832,11 @@ function wireStaticListeners() {
   document.getElementById("btnPickerLogout").addEventListener("click", async () => {
     try { await fetchJSON("/api/auth/logout", { method: "POST" }); } catch { /* segue mesmo se falhar */ }
     location.href = "/";
+  });
+  // Fluxo de 2 passos (ver renderClubPicker/selectClubRow) — só inicia
+  // a carreira quando o técnico já escolheu E confirmou.
+  document.getElementById("btnConfirmClub").addEventListener("click", () => {
+    if (PICKER_SELECTED_CLUB) startCareer(PICKER_SELECTED_CLUB);
   });
   // Mesmo botão/ação da Escolha do Clube, agora também na Escolha de
   // Campeonato (novo 1º passo, ver renderCompetitionPicker) — mesmo
