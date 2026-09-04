@@ -87,16 +87,58 @@ const FORMATION_MOD = {
   "4-2-2-2": { atk: 1.08, def: 0.92 },
   "5-4-1": { atk: 0.88, def: 1.12 },
 };
-const TACTIC_OPTIONS = {
-  mentality: [["defensiva", "Defensiva"], ["equilibrada", "Equilibrada"], ["ofensiva", "Ofensiva"]],
-  marking: [["zona", "Zona"], ["individual", "Individual"]],
-  tempo: [["paciente", "Paciente"], ["normal", "Normal"], ["direto", "Direto (bola longa)"]],
+// AJUSTE (Bloco 2 M3 — brtreinadorbloco2tatica.html, "seja fiel às
+// features e ao design") — as 3 categorias nomeadas (mentalidade/
+// marcação/ritmo, 2-3 opções cada) viram 4 EIXOS REAIS em escala 1-5
+// (Ritmo de jogo/Pressão/Linha defensiva/Estilo de passe), confirmado
+// com o usuário antes de implementar ("Expandir pra 4 eixos reais" —
+// não é só um reskin visual do <select> pra barra, a granularidade e os
+// próprios eixos mudam de verdade). Nível 3 = centro/neutro (sem
+// modificador nenhum); cada eixo pesa um pouco de atk contra um pouco
+// de def por PASSO de distância do centro (nunca mais que ±10%
+// isolado, na mesma ordem de grandeza do sistema antigo de 3
+// categorias) — combinados multiplicativamente igual sempre (ver
+// computeHumanStrength).
+const TACTIC_AXES = [
+  { id: "ritmo", label: "Ritmo de jogo", lowLabel: "Muito paciente", highLabel: "Muito direto" },
+  { id: "pressao", label: "Pressão", lowLabel: "Baixa", highLabel: "Alta" },
+  { id: "linhaDefensiva", label: "Linha defensiva", lowLabel: "Recuada", highLabel: "Adiantada" },
+  { id: "estiloPasse", label: "Estilo de passe", lowLabel: "Curto", highLabel: "Bola longa" },
+];
+const TACTIC_AXIS_DELTA = {
+  ritmo: { atk: 0.025, def: -0.02 },
+  pressao: { atk: 0.02, def: -0.025 },
+  linhaDefensiva: { atk: 0.015, def: -0.025 },
+  estiloPasse: { atk: 0.02, def: -0.015 },
 };
-const TACTIC_MOD = {
-  mentality: { defensiva: { atk: 0.90, def: 1.10 }, equilibrada: { atk: 1, def: 1 }, ofensiva: { atk: 1.10, def: 0.90 } },
-  marking: { zona: { atk: 1, def: 1 }, individual: { atk: 0.98, def: 1.05 } },
-  tempo: { paciente: { atk: 0.96, def: 1.04 }, normal: { atk: 1, def: 1 }, direto: { atk: 1.05, def: 0.97 } },
-};
+function tacticAxisMod(axisId, level) {
+  const d = TACTIC_AXIS_DELTA[axisId];
+  const steps = (level == null ? 3 : level) - 3; // -2..+2
+  return { atk: 1 + d.atk * steps, def: 1 + d.def * steps };
+}
+// Combina os 4 eixos (+ a camada opcional de Instruções por setor, ver
+// TACTIC_SECTOR_* mais abaixo) num único par {atk,def} multiplicativo —
+// usado por computeHumanStrength (única chamadora, tática só afeta o
+// SEU próprio jogo, nunca CPU x CPU).
+function combinedTacticMod() {
+  const t = CAREER.lineup.tactics || {};
+  let atk = 1, def = 1;
+  TACTIC_AXES.forEach((ax) => {
+    const m = tacticAxisMod(ax.id, t[ax.id]);
+    atk *= m.atk; def *= m.def;
+  });
+  const sectorMod = combinedSectorTacticMod();
+  atk *= sectorMod.atk; def *= sectorMod.def;
+  return { atk, def };
+}
+// Camada de "Instruções por setor" (Defesa/Meio/Ataque) — feature
+// própria do Bloco 2, ainda não implementada nesta etapa (fica neutra
+// até lá); mantida como função separada desde já pra combinedTacticMod
+// já nascer preparada pra somar essa camada sem precisar mexer aqui de
+// novo depois.
+function combinedSectorTacticMod() {
+  return { atk: 1, def: 1 };
+}
 // AJUSTE (pedido do usuário: "vamos evoluir o método de treinos",
 // BRDataTreinadorBriefingTreinos_2.docx) — TRAINING_OPTIONS/TRAINING_MOD
 // (o antigo seletor "Foco de treino" da Escalação, com um multiplicador
@@ -361,6 +403,9 @@ function toastBottomOffset() {
   const nav = document.querySelector(".m3-bottom-nav") || document.querySelector(".mt-bottom-nav");
   if (!isRendered(nav)) return 18;
   let offset = nav.getBoundingClientRect().height + 14;
+  // AJUSTE (Bloco 2 M3) — Escalação virou FAB (mesmo padrão da
+  // Central), mas Treinos ("Aplicar treino da semana") continua com a
+  // barra de ação full-width — esta checagem continua necessária.
   const actionBar = [...document.querySelectorAll(".mt-action-bar")].find(isRendered);
   if (actionBar) offset += actionBar.getBoundingClientRect().height;
   return offset;
@@ -2744,7 +2789,9 @@ function autoLineup(squad, formation, includeBase = true) {
   // daquele grupo.
   const BENCH_SHAPE = [["G", 1], ["D", 4], ["M", 3], ["F", 3]];
   const bench = BENCH_SHAPE.flatMap(([grp, count]) => Array.from({ length: count }, () => pickForGroup(grp))).filter(Boolean);
-  return { formation, starters, bench, tactics: { mentality: "equilibrada", marking: "zona", tempo: "normal" } };
+  // AJUSTE (Bloco 2 M3) — tactics nasce com os 4 eixos reais, todos
+  // neutros (nível 3/5, centro da barra segmentada — ver TACTIC_AXES).
+  return { formation, starters, bench, tactics: { ritmo: 3, pressao: 3, linhaDefensiva: 3, estiloPasse: 3 } };
 }
 
 /* ---------- Persistência ---------- */
@@ -3085,11 +3132,9 @@ function computeHumanStrength(club) {
   let atkMult = clamp(startAtk / baselineAtk, 0.7, 1.3) * completeness;
   let defMult = clamp(startDef / baselineDef, 0.7, 1.3) * completeness;
   const fMod = FORMATION_MOD[CAREER.lineup.formation] || { atk: 1, def: 1 };
-  const mMod = TACTIC_MOD.mentality[CAREER.lineup.tactics.mentality] || { atk: 1, def: 1 };
-  const tMod = TACTIC_MOD.tempo[CAREER.lineup.tactics.tempo] || { atk: 1, def: 1 };
-  const kMod = TACTIC_MOD.marking[CAREER.lineup.tactics.marking] || { atk: 1, def: 1 };
-  atkMult *= fMod.atk * mMod.atk * tMod.atk * kMod.atk;
-  defMult *= fMod.def * mMod.def * tMod.def * kMod.def;
+  const tacticMod = combinedTacticMod();
+  atkMult *= fMod.atk * tacticMod.atk;
+  defMult *= fMod.def * tacticMod.def;
   const avgCond = avg(usable.map((p) => p.condition)) ?? 100;
   atkMult *= 0.85 + 0.15 * (avgCond / 100);
   defMult *= 0.90 + 0.10 * (avgCond / 100);
@@ -5668,9 +5713,7 @@ function openLiveTacticsModal() {
   if (!LIVE_MATCH || LIVE_MATCH.finished) return;
   pauseLiveMatch();
   document.getElementById("liveTacticsFormation").value = CAREER.lineup.formation;
-  document.getElementById("liveTacticsMentality").value = CAREER.lineup.tactics.mentality;
-  document.getElementById("liveTacticsMarking").value = CAREER.lineup.tactics.marking;
-  document.getElementById("liveTacticsTempo").value = CAREER.lineup.tactics.tempo;
+  renderTacticAxisRows("liveTacticAxisRows", CAREER.lineup.tactics);
   document.getElementById("liveTacticsOverlay").classList.add("open");
 }
 function closeLiveTacticsModal() {
@@ -5685,9 +5728,7 @@ function confirmLiveTactics() {
     LIVE_MATCH.formationPenaltyChunksLeft = LIVE_TACTICS_FAMILIARITY_PENALTY_CHUNKS;
     toast("Esquema alterado — o time perde um pouco de efetividade até se ajustar.");
   }
-  CAREER.lineup.tactics.mentality = document.getElementById("liveTacticsMentality").value;
-  CAREER.lineup.tactics.marking = document.getElementById("liveTacticsMarking").value;
-  CAREER.lineup.tactics.tempo = document.getElementById("liveTacticsTempo").value;
+  Object.assign(CAREER.lineup.tactics, readTacticAxisRows("liveTacticAxisRows"));
   document.getElementById("liveTacticsOverlay").classList.remove("open");
   resumeLiveMatch();
 }
@@ -6508,12 +6549,63 @@ function closeCompareScreen() {
 }
 
 /* ---------- Renderização: Escalação ---------- */
+// AJUSTE (Bloco 2 M3, brtreinadorbloco2tatica.html) — "Instruções de
+// jogo" viram barra de 5 segmentos clicáveis (era <select> com 2-3
+// opções nomeadas). Mesmo padrão de "comita só ao Salvar" que o resto
+// da Escalação já usava pros <select> de tática (ver commitLineupTactics
+// abaixo) — clicar num segmento só muda o preenchimento VISUAL
+// (data-level na linha), CAREER só é escrito de fato quando
+// commitLineupTactics() roda (Salvar ou Ir pro jogo). Reaproveitada
+// pelas 2 telas que mostram os 4 eixos (Escalação normal e o sub-modal
+// de ajuste tático ao vivo — ver openLiveTacticsModal/confirmLiveTactics),
+// só muda o container/prefixo do id.
+function tacticAxisRowHTML(axis, level) {
+  const segs = [1, 2, 3, 4, 5].map((n) => `<span class="m3-seg${n <= level ? " on" : ""}" data-level="${n}"></span>`).join("");
+  return `<div class="m3-instr-row" data-axis="${axis.id}" data-level="${level}">
+    <div class="m3-instr-label">${escapeHtml(axis.label)}</div>
+    <div class="m3-segbar">${segs}</div>
+  </div>`;
+}
+function wireTacticAxisRows(containerId) {
+  document.querySelectorAll(`#${containerId} .m3-instr-row`).forEach((row) => {
+    row.querySelectorAll(".m3-seg").forEach((seg) => {
+      seg.addEventListener("click", () => {
+        const level = Number(seg.dataset.level);
+        row.dataset.level = level;
+        row.querySelectorAll(".m3-seg").forEach((s) => s.classList.toggle("on", Number(s.dataset.level) <= level));
+      });
+    });
+  });
+}
+function renderTacticAxisRows(containerId, tactics) {
+  document.getElementById(containerId).innerHTML = TACTIC_AXES.map((ax) => tacticAxisRowHTML(ax, tactics[ax.id] || 3)).join("");
+  wireTacticAxisRows(containerId);
+}
+function readTacticAxisRows(containerId) {
+  const result = {};
+  document.querySelectorAll(`#${containerId} .m3-instr-row`).forEach((row) => { result[row.dataset.axis] = Number(row.dataset.level); });
+  return result;
+}
+// AJUSTE (Bloco 2 M3, brtreinadorbloco2tatica.html) — esquema tático
+// vira chip row horizontal rolável (era <select>) — clica e aplica na
+// hora (mesmo comportamento imediato que o <select> já tinha, só muda
+// o componente visual).
+function renderFormationChips() {
+  document.getElementById("formationChipRow").innerHTML = Object.keys(FORMATIONS).map((f) =>
+    `<button class="m3-filter-chip${f === CAREER.lineup.formation ? " on" : ""}" data-formation="${escapeHtml(f)}">${escapeHtml(f)}</button>`
+  ).join("");
+  document.querySelectorAll("#formationChipRow .m3-filter-chip").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      CAREER.lineup.formation = btn.dataset.formation;
+      renderFormationChips();
+      renderPitch();
+    });
+  });
+}
 function renderEscalacao() {
   refreshAvailability();
-  document.getElementById("formationSelect").value = CAREER.lineup.formation;
-  document.getElementById("tacticMentality").value = CAREER.lineup.tactics.mentality;
-  document.getElementById("tacticMarking").value = CAREER.lineup.tactics.marking;
-  document.getElementById("tacticTempo").value = CAREER.lineup.tactics.tempo;
+  renderFormationChips();
+  renderTacticAxisRows("tacticAxisRows", CAREER.lineup.tactics);
   renderPitch();
   renderBench();
 }
@@ -6545,9 +6637,7 @@ function autoFillLineup() {
 // daqui — retirado por completo (ver módulo de treinos novo,
 // applyWeeklyTraining).
 function commitLineupTactics() {
-  CAREER.lineup.tactics.mentality = document.getElementById("tacticMentality").value;
-  CAREER.lineup.tactics.marking = document.getElementById("tacticMarking").value;
-  CAREER.lineup.tactics.tempo = document.getElementById("tacticTempo").value;
+  Object.assign(CAREER.lineup.tactics, readTacticAxisRows("tacticAxisRows"));
 }
 // AJUSTE (refatoração completa, Tela 6 — ver 06-escalacao-restyled.html
 // do designer) — campinho próprio (.mt-pitch*, NÃO reaproveita
@@ -6692,10 +6782,11 @@ function openAdjustLineupModal() {
   const panel = document.getElementById("panel-escalacao");
   ADJUST_LINEUP_WAS_ACTIVE = panel.classList.contains("active");
   panel.classList.add("active"); // .ct-panel só fica visível com essa classe (ver CSS)
-  // A barra de ação própria da aba ("Salvar escalação e táticas") não
-  // faz sentido aqui dentro — esta modal já tem seu próprio rodapé
-  // fixo com "Ir para o jogo" (ver .ct-modal-footer abaixo).
-  panel.querySelector(".mt-action-bar").classList.add("hidden");
+  // O FAB "Salvar escalação e táticas" (era barra de ação full-width,
+  // ver histórico deste comentário) não faz sentido aqui dentro — esta
+  // modal já tem seu próprio rodapé fixo com "Ir para o jogo" (ver
+  // .ct-modal-footer abaixo).
+  panel.querySelector(".m3-fab").classList.add("hidden");
   document.getElementById("adjustLineupBody").appendChild(panel);
   renderEscalacao();
   document.getElementById("adjustLineupOverlay").classList.add("open");
@@ -6707,7 +6798,7 @@ function closeAdjustLineupModal() {
   const anchor = document.getElementById("escalacaoPanelAnchor");
   anchor.parentNode.insertBefore(panel, anchor);
   panel.classList.toggle("active", ADJUST_LINEUP_WAS_ACTIVE);
-  panel.querySelector(".mt-action-bar").classList.remove("hidden");
+  panel.querySelector(".m3-fab").classList.remove("hidden");
   overlay.classList.remove("open");
   // A confirmação de escalação continua aberta por baixo — atualiza
   // com qualquer mudança feita aqui (formação/titulares/banco/táticas).
@@ -7730,16 +7821,12 @@ function populateSelect(id, options) {
   document.getElementById(id).innerHTML = options.map(([v, l]) => `<option value="${v}">${l}</option>`).join("");
 }
 function wireStaticListeners() {
-  populateSelect("formationSelect", Object.keys(FORMATIONS).map((k) => [k, k]));
-  populateSelect("tacticMentality", TACTIC_OPTIONS.mentality);
-  populateSelect("tacticMarking", TACTIC_OPTIONS.marking);
-  populateSelect("tacticTempo", TACTIC_OPTIONS.tempo);
-  // FASE 3 (item 2) — mesmas opções do sub-modal de tática ao vivo,
-  // reaproveitadas das constantes de sempre (ver openLiveTacticsModal).
+  // AJUSTE (Bloco 2 M3) — formationSelect (Escalação) e tacticMentality/
+  // Marking/Tempo (<select>) saíram: formação vira chip row
+  // (ver renderFormationChips), instruções de jogo viram os 4 eixos em
+  // barra segmentada (ver renderTacticAxisRows), populados no
+  // render/abertura de cada tela, não aqui no boot.
   populateSelect("liveTacticsFormation", Object.keys(FORMATIONS).map((k) => [k, k]));
-  populateSelect("liveTacticsMentality", TACTIC_OPTIONS.mentality);
-  populateSelect("liveTacticsMarking", TACTIC_OPTIONS.marking);
-  populateSelect("liveTacticsTempo", TACTIC_OPTIONS.tempo);
 
   // AJUSTE (pedido do usuário: "o hambúrguer não ficaria melhor no
   // rodapé junto com os demais?") — seletor agora exige [data-panel]
@@ -7762,10 +7849,6 @@ function wireStaticListeners() {
     });
   });
 
-  document.getElementById("formationSelect").addEventListener("change", (e) => {
-    CAREER.lineup.formation = e.target.value;
-    renderPitch();
-  });
   document.getElementById("btnAutoLineup").addEventListener("click", autoFillLineup);
   document.getElementById("btnSaveLineup").addEventListener("click", () => {
     commitLineupTactics();
@@ -8259,6 +8342,29 @@ function migrateCareerDefaults() {
   // dá pra reconstruir partidas já jogadas), só passa a acumular daqui
   // pra frente.
   if (!CAREER.matchLog) CAREER.matchLog = [];
+  // AJUSTE (Bloco 2 M3, brtreinadorbloco2tatica.html) — tactics tinha 3
+  // campos NOMEADOS (mentality/marking/tempo); vira 4 eixos NUMÉRICOS
+  // 1-5 (ver TACTIC_AXES). Migra o que dá pra aproximar (tradução nossa
+  // documentada, não uma equivalência perfeita — cada campo antigo
+  // aponta pro eixo novo mais parecido: tempo→ritmo, mentalidade→
+  // pressão E linha defensiva, já que "ofensiva" historicamente também
+  // empurrava a linha pra frente); Estilo de passe não tem equivalente
+  // antigo nenhum, nasce sempre neutro.
+  if (CAREER.lineup && CAREER.lineup.tactics && CAREER.lineup.tactics.mentality !== undefined) {
+    const old = CAREER.lineup.tactics;
+    const MENT_TO_LEVEL = { defensiva: 2, equilibrada: 3, ofensiva: 4 };
+    const TEMPO_TO_LEVEL = { paciente: 2, normal: 3, direto: 4 };
+    CAREER.lineup.tactics = {
+      ritmo: TEMPO_TO_LEVEL[old.tempo] ?? 3,
+      pressao: MENT_TO_LEVEL[old.mentality] ?? 3,
+      linhaDefensiva: MENT_TO_LEVEL[old.mentality] ?? 3,
+      estiloPasse: 3,
+    };
+  }
+  // Garantia geral — carreira sem tactics nenhum, ou faltando algum dos
+  // 4 eixos por qualquer motivo, nasce neutra (nível 3) nesse eixo.
+  if (CAREER.lineup && !CAREER.lineup.tactics) CAREER.lineup.tactics = {};
+  if (CAREER.lineup) TACTIC_AXES.forEach((ax) => { if (CAREER.lineup.tactics[ax.id] == null) CAREER.lineup.tactics[ax.id] = 3; });
   // AJUSTE (pedido do usuário: "o mercado deve trazer jogadores das 3
   // ligas") — carreira criada ANTES desta mudança nunca teve elenco
   // das outras 2 competições montado — marca explicitamente como
