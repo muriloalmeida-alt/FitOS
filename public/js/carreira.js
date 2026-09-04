@@ -1827,6 +1827,14 @@ function computeTicketRevenue(club) {
    temporada real da API, e não teria por que mudar só porque a
    carreira avançou um ano). */
 const MAX_SEASON_HISTORY = 15;
+// Nova feature (mockup brtreinadorbloco1pendentes.html, tela "Histórico
+// de confrontos") — histórico de partidas do SEU clube (não da liga
+// inteira: só os ~38 jogos por temporada em que CAREER.clubId jogou),
+// guardado pra sempre dar retrospecto V-E-D contra um adversário
+// específico. Cap generoso (~5 temporadas) — cada entrada é minúscula
+// (5 campos), mas sem teto cresceria sem parar numa carreira muito
+// longa, mesmo espírito de MAX_SEASON_HISTORY/NEWS_FEED_MAX.
+const MAX_MATCH_LOG = 200;
 // Elenco de um time CPU: envelhece, quem venceu contrato sai, repõe
 // até o mínimo jogável com "contratações" novas (mesmo gerador
 // profissional adulto de sempre — CPU não tem categoria de base
@@ -2959,6 +2967,8 @@ async function startCareer(clubId) {
       // começa em LIVE_SEASON (a temporada real dos dados) e só sobe
       // quando VOCÊ avança de temporada — LIVE_SEASON em si é fixo.
       seasonYear: LIVE_SEASON, seasonHistory: [],
+      // Nova feature — Histórico de confrontos (H2H, ver finishLiveMatch).
+      matchLog: [],
       // FASE 4 (item 3) — jejum de vitória por time, pra manchete
       // "encerra jejum de X jogos" (ver updateWinlessStreaks).
       teamWinlessStreak: {},
@@ -5441,6 +5451,17 @@ async function finishLiveMatch() {
   };
   stats.possession.away = 100 - stats.possession.home;
   const humanMatch = { ...result, isHome: lm.isHome, ticketRevenue, stats, allEvents: lm.events };
+  // Nova feature — Histórico de confrontos (H2H, ver renderH2H()):
+  // registra o resultado do SEU jogo pra sempre poder puxar o
+  // retrospecto contra um adversário específico depois. unshift (mais
+  // recente primeiro) — mesma convenção de CAREER.seasonHistory.
+  CAREER.matchLog = CAREER.matchLog || [];
+  CAREER.matchLog.unshift({
+    seasonYear: CAREER.seasonYear, round: lm.round,
+    opponentId: lm.isHome ? lm.humanFx.away : lm.humanFx.home,
+    home: lm.isHome, gh: lm.gh, ga: lm.ga,
+  });
+  if (CAREER.matchLog.length > MAX_MATCH_LOG) CAREER.matchLog.length = MAX_MATCH_LOG;
   const myGoals = lm.isHome ? lm.gh : lm.ga, oppGoals = lm.isHome ? lm.ga : lm.gh;
   pushRecentForm(myGoals > oppGoals ? 3 : myGoals === oppGoals ? 1 : 0);
   applyMoraleAfterMatch(myGoals, oppGoals);
@@ -5717,6 +5738,50 @@ function renderDestaquePlayers() {
     </div>`).join("");
   wrap.querySelectorAll("[data-id]").forEach((el) => el.addEventListener("click", () => openDetail(el.dataset.id)));
 }
+// Nova feature (mockup brtreinadorbloco1pendentes.html — Histórico de
+// confrontos) — retrospecto V-E-D contra um adversário específico,
+// puxado de CAREER.matchLog (só os jogos do PRÓPRIO clube, ver
+// finishLiveMatch — nunca inventa histórico de antes desta carreira).
+function renderH2H(opponentId) {
+  const opponent = teamById(opponentId);
+  const myClub = teamById(CAREER.clubId);
+  const meetings = (CAREER.matchLog || []).filter((m) => String(m.opponentId) === String(opponentId));
+  let v = 0, e = 0, d = 0;
+  meetings.forEach((m) => {
+    const myGoals = m.home ? m.gh : m.ga, oppGoals = m.home ? m.ga : m.gh;
+    if (myGoals > oppGoals) v++; else if (myGoals === oppGoals) e++; else d++;
+  });
+  document.getElementById("h2hMyCrest").innerHTML = crestImg(myClub, 38);
+  document.getElementById("h2hMyName").textContent = myClub?.name || CAREER.clubName || "";
+  document.getElementById("h2hOppCrest").innerHTML = crestImg(opponent, 38);
+  document.getElementById("h2hOppName").textContent = opponent?.name || "Adversário";
+  document.getElementById("h2hRecord").textContent = meetings.length ? `${v}–${e}–${d}` : "—";
+  document.getElementById("h2hSub").textContent = meetings.length
+    ? `V–E–D em ${meetings.length} jogo(s) nesta carreira`
+    : "Vocês ainda não se enfrentaram nesta carreira.";
+  document.getElementById("h2hFormRow").innerHTML = meetings.slice(0, 5).map((m) => {
+    const myGoals = m.home ? m.gh : m.ga, oppGoals = m.home ? m.ga : m.gh;
+    const cls = myGoals > oppGoals ? "v" : myGoals === oppGoals ? "e" : "d";
+    const label = myGoals > oppGoals ? "V" : myGoals === oppGoals ? "E" : "D";
+    return `<div class="m3-form-dot ${cls}">${label}</div>`;
+  }).join("");
+  document.getElementById("h2hMatchList").innerHTML = meetings.slice(0, 10).map((m) => {
+    const leftName = m.home ? (myClub?.name || CAREER.clubName) : (opponent?.name || "Adversário");
+    const rightName = m.home ? (opponent?.name || "Adversário") : (myClub?.name || CAREER.clubName);
+    return `<div class="m3-match-row">
+      <div class="m3-match-date">Temp. ${m.seasonYear} · R${m.round}</div>
+      <div class="m3-match-score">${escapeHtml(leftName)} ${m.gh} x ${m.ga} ${escapeHtml(rightName)}</div>
+    </div>`;
+  }).join("") || `<p class="ct-empty">Ainda não jogaram entre si nesta carreira.</p>`;
+}
+function openH2H(opponentId) {
+  if (!opponentId) return;
+  renderH2H(opponentId);
+  document.getElementById("h2hOverlay").classList.add("open");
+}
+function closeH2H() {
+  document.getElementById("h2hOverlay").classList.remove("open");
+}
 function renderCentral() {
   refreshAvailability();
   // FASE 4 (item 4) — card só aparece quando há proposta pendente (ver
@@ -5745,6 +5810,7 @@ function renderCentral() {
     box.innerHTML = `<p class="ct-empty">Temporada ${CAREER.seasonYear} encerrada! Confira sua posição final na Tabela, ou avance pra próxima temporada.</p>`;
     btn.classList.add("hidden");
     document.getElementById("btnAdvanceSeason").classList.remove("hidden");
+    delete box.dataset.opponentId;
   } else {
     btn.classList.remove("hidden");
     document.getElementById("btnAdvanceSeason").classList.add("hidden");
@@ -5764,8 +5830,13 @@ function renderCentral() {
           <span class="mt-nextmatch-spot"><span class="mt-nextmatch-glow" style="background:radial-gradient(circle, ${away?.c1 || "#8892A0"} 0%, transparent 70%);"></span>${crestImg(away, 72)}</span>
           <span class="n">${escapeHtml(away.name)}</span>
         </div>`;
+      // Nova feature — Histórico de confrontos (H2H): card do próximo
+      // jogo vira clicável (ver wireStaticListeners/openH2H), abre o
+      // retrospecto contra o adversário desta rodada.
+      box.dataset.opponentId = String(fx.home) === String(CAREER.clubId) ? fx.away : fx.home;
     } else {
       box.innerHTML = `<p class="ct-empty">Sem jogo do seu time nessa rodada (folga).</p>`;
+      delete box.dataset.opponentId;
     }
     btn.disabled = false;
   }
@@ -7714,6 +7785,12 @@ function wireStaticListeners() {
     openCoachProfileScreen();
   });
   document.getElementById("coachProfileClose").addEventListener("click", closeCoachProfileScreen);
+  // Nova feature — Histórico de confrontos (H2H): card do próximo jogo
+  // (ver renderCentral()) abre o retrospecto do adversário certo dessa
+  // rodada; sem jogo marcado (folga/fim de temporada) o clique não faz
+  // nada (dataset.opponentId nunca foi setado).
+  document.getElementById("nextMatchBox").addEventListener("click", () => openH2H(document.getElementById("nextMatchBox").dataset.opponentId));
+  document.getElementById("h2hClose").addEventListener("click", closeH2H);
   document.getElementById("coachProfileOverlay").addEventListener("click", (e) => { if (e.target.id === "coachProfileOverlay") closeCoachProfileScreen(); });
   // FASE 4 (item 4) — notificação de proposta de outro clube: X e
   // clique fora só fecham (sem aceitar nem recusar), reabrível pelo
@@ -8014,6 +8091,11 @@ function migrateCareerDefaults() {
   // então "brasileirao" é o default certo aqui, não uma suposição.
   if (!CAREER.competitionId) CAREER.competitionId = "brasileirao";
   if (!CAREER.leagueSquads) CAREER.leagueSquads = {};
+  // Nova feature — Histórico de confrontos (H2H): carreira criada ANTES
+  // desta mudança nunca gravou matchLog — sem migração retroativa (não
+  // dá pra reconstruir partidas já jogadas), só passa a acumular daqui
+  // pra frente.
+  if (!CAREER.matchLog) CAREER.matchLog = [];
   // AJUSTE (pedido do usuário: "o mercado deve trazer jogadores das 3
   // ligas") — carreira criada ANTES desta mudança nunca teve elenco
   // das outras 2 competições montado — marca explicitamente como

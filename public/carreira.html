@@ -1370,6 +1370,24 @@
   .m3-attr-fill.crimson{ background:var(--m3-error); }
   .m3-attr-num{ font-size:11.5px; font-weight:700; width:26px; text-align:right; flex-shrink:0; font-family:var(--m3-display); color:var(--m3-on-surface); }
 
+  /* Nova feature (mockup brtreinadorbloco1pendentes.html — Histórico
+     de confrontos/H2H) — retrospecto V-E-D contra um adversário. */
+  .m3-h2h-hero{ display:flex; align-items:center; justify-content:space-around; background:var(--m3-surface-container); border-radius:var(--m3-shape-xl); padding:18px 14px; margin-bottom:16px; text-align:center; }
+  .m3-h2h-side{ flex:1; }
+  .m3-h2h-crest{ margin:0 auto 6px; }
+  .m3-h2h-name{ font-size:10px; color:var(--m3-on-surface-variant); max-width:90px; margin:0 auto; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .m3-h2h-mid{ flex-shrink:0; padding:0 10px; }
+  .m3-h2h-record{ font-family:var(--m3-display); font-weight:700; font-size:22px; color:var(--m3-on-surface); }
+  .m3-h2h-sub{ font-size:10px; color:var(--m3-on-surface-variant); margin-top:2px; }
+  .m3-form-row{ display:flex; gap:6px; justify-content:center; margin:0 0 18px; }
+  .m3-form-dot{ width:24px; height:24px; border-radius:50%; font-size:10px; font-weight:700; display:flex; align-items:center; justify-content:center; font-family:var(--m3-display); }
+  .m3-form-dot.v{ background:rgba(109,219,148,.2); color:#6DDB94; }
+  .m3-form-dot.e{ background:var(--m3-surface-container-highest); color:var(--m3-on-surface-variant); }
+  .m3-form-dot.d{ background:rgba(255,84,73,.2); color:var(--m3-error); }
+  .m3-match-row{ display:flex; align-items:center; gap:10px; background:var(--m3-surface-container); border-radius:var(--m3-shape-md); padding:11px 12px; margin-bottom:8px; }
+  .m3-match-date{ font-size:9.5px; color:var(--m3-on-surface-variant); width:80px; flex-shrink:0; }
+  .m3-match-score{ flex:1; font-size:11.5px; font-weight:600; color:var(--m3-on-surface); }
+
   .mt-info-line{ font-size:12.5px; color:var(--m3-on-surface-variant); line-height:1.7; padding:2px 2px 14px; border-bottom:1px solid var(--m3-outline-variant); margin-bottom:14px; }
   .mt-info-line b{ color:var(--mt-ivory-100); }
   .mt-info-line:last-of-type{ border-bottom:none; }
@@ -1953,7 +1971,7 @@
      .m3-hero-match (não mexe no .ct-next-match genérico usado por
      Confirmar escalação/Resultado do jogo/Ao Vivo, cada um com seu
      próprio escopo, mesmo padrão de sempre). */
-  .m3-hero-match{ display:flex; align-items:center; justify-content:center; gap:16px; padding:6px 0; }
+  .m3-hero-match{ display:flex; align-items:center; justify-content:center; gap:16px; padding:6px 0; cursor:pointer; }
   .m3-hero-match .side .n{ font-size:11.5px; font-weight:600; text-align:center; color:var(--m3-on-primary-container); }
   .m3-hero-match .vs{ font-family:var(--m3-display); font-weight:700; font-size:16px; opacity:.7; color:var(--m3-on-primary-container); }
   .m3-hero-meta{ font-size:11px; opacity:.8; text-align:center; margin-top:8px; }
@@ -3651,6 +3669,34 @@
       <button class="ct-modal-close" id="coachProfileClose">✕</button>
     </div>
     <div class="ct-modal-body" id="coachProfileBody"></div>
+  </div>
+</div>
+
+<!-- Nova feature (mockup brtreinadorbloco1pendentes.html — Histórico
+     de confrontos) — retrospecto V-E-D contra um adversário
+     específico, aberto a partir do card "Próximo jogo" da Início (ver
+     openH2H()/renderH2H() em carreira.js). CAREER.matchLog guarda só
+     os jogos do PRÓPRIO clube (ver finishLiveMatch), então é sempre
+     retrospecto DESTA carreira — não inventa histórico anterior. -->
+<div class="ct-modal-overlay ct-modal-fullscreen" id="h2hOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header mt-fullheader">
+      <span class="ct-modal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16v6a8 8 0 0 1-16 0z"/><path d="M4 4c-1.5 0-2.5 1-2.5 2.5S2.5 9 4 9M20 4c1.5 0 2.5 1 2.5 2.5S21.5 9 20 9"/><line x1="12" y1="18" x2="12" y2="21"/><line x1="9" y1="21" x2="15" y2="21"/></svg></span>
+      <div class="ct-modal-header-text">
+        <h3>Histórico de confrontos</h3>
+      </div>
+      <button class="ct-modal-close" id="h2hClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <div class="m3-h2h-hero">
+        <div class="m3-h2h-side"><div class="m3-h2h-crest" id="h2hMyCrest"></div><div class="m3-h2h-name" id="h2hMyName"></div></div>
+        <div class="m3-h2h-mid"><div class="m3-h2h-record" id="h2hRecord">—</div><div class="m3-h2h-sub" id="h2hSub"></div></div>
+        <div class="m3-h2h-side"><div class="m3-h2h-crest" id="h2hOppCrest"></div><div class="m3-h2h-name" id="h2hOppName"></div></div>
+      </div>
+      <div class="m3-form-row" id="h2hFormRow"></div>
+      <div class="m3-card-title">Últimos confrontos</div>
+      <div id="h2hMatchList"></div>
+    </div>
   </div>
 </div>
 
