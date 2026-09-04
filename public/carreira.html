@@ -218,6 +218,16 @@
   .ct-full p{ font-size:13.5px; color:var(--text-2); margin:0; max-width:420px; }
   .ct-spinner{ width:28px; height:28px; border-radius:50%; border:3px solid var(--border); border-top-color:var(--brd-blue); animation:ct-spin 0.8s linear infinite; }
   @keyframes ct-spin{ to{ transform:rotate(360deg); } }
+  /* Nova feature — overlay genérico "ação demorada" (ver fetchJSON em
+     carreira.js), acima de QUALQUER modal aberta (maior z-index do
+     arquivo — o próximo mais alto, .mt-goal-highlight, é 400). */
+  .ct-action-loading{
+    position:fixed; inset:0; z-index:999; display:none;
+    align-items:center; justify-content:center;
+    background:rgba(6,13,26,.6);
+  }
+  .ct-action-loading.open{ display:flex; }
+  .ct-action-loading .ct-spinner{ width:38px; height:38px; border-width:4px; }
 
   /* ---------- Topbar ----------
      AJUSTE (pedido do usuário: "isso é um jogo. Temos que ter um
@@ -247,12 +257,30 @@
     position:fixed; bottom:calc(var(--mt-navh) + 10px); right:14px; z-index:130;
     background:var(--m3-surface-container-high);
     border:1px solid var(--m3-outline-variant); border-top:1px solid var(--m3-primary);
-    border-radius:var(--m3-shape-md); box-shadow:0 14px 32px rgba(0,0,0,.4); min-width:190px; padding:6px; display:none;
+    border-radius:var(--m3-shape-md); box-shadow:0 14px 32px rgba(0,0,0,.4); min-width:210px; padding:6px; display:none;
+    max-height:min(70vh, 420px); overflow-y:auto;
   }
   .mt-topbar-menu.open{ display:block; }
   .mt-topbar-menu-item{ display:block; width:100%; text-align:left; background:none; border:none; padding:11px 12px; border-radius:var(--m3-shape-sm); font-size:13.5px; font-weight:600; color:var(--m3-on-surface); cursor:pointer; font-family:var(--font); text-decoration:none; box-sizing:border-box; }
   .mt-topbar-menu-item:hover{ background:var(--m3-surface-container-highest); }
   .mt-topbar-menu-item.danger{ color:var(--m3-error); }
+  /* AJUSTE (pedido do usuário: "menu Mais muito extenso ... criação de
+     submenus") — item que abre uma categoria (raiz do popover): mesmo
+     visual dos demais, só com a "›" alinhada à direita indicando que
+     tem mais coisa por trás. */
+  .mt-topbar-menu-item.group{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .mt-menu-chevron{ color:var(--mt-ink-muted); font-size:16px; line-height:1; font-weight:400; }
+  /* Cabeçalho de "voltar" de cada submenu — mesma família dos rótulos
+     discretos já usados no app (uppercase pequeno), não é um item
+     clicável igual aos demais (não abre tela nenhuma, só volta). */
+  .mt-topbar-submenu-back{
+    display:flex; align-items:center; gap:4px; width:100%; text-align:left;
+    background:none; border:none; padding:8px 12px 9px; margin-bottom:2px;
+    border-bottom:1px solid var(--m3-outline-variant);
+    font-size:12px; font-weight:700; letter-spacing:.3px; text-transform:uppercase;
+    color:var(--mt-ink-muted); cursor:pointer; font-family:var(--font);
+  }
+  .mt-topbar-submenu-back:hover{ color:var(--m3-on-surface); }
   /* Rodada, inline no título "Próximo jogo" ("Próximo Jogo (XX / XX)"). */
   .ct-round-inline{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:13px; letter-spacing:1px; color:var(--mt-ink-muted); text-transform:uppercase; }
 
@@ -1483,6 +1511,17 @@
     padding:9px 16px; border-radius:999px; border:none; cursor:pointer;
     background:var(--m3-primary); color:var(--m3-on-primary);
   }
+  /* Nova feature (Bloco 3, 2/4) — "Comparar propostas": 2 colunas
+     lado a lado (sua proposta × a do concorrente), a que está na
+     frente (ver offerEffectiveValue) ganha destaque de cor primária —
+     mesmo espírito do mockup (offer-col.win). */
+  .mt-offercmp-row{ display:flex; gap:10px; }
+  .mt-offercmp-col{ flex:1; background:var(--m3-surface-container-high); border-radius:var(--m3-shape-md); padding:13px; }
+  .mt-offercmp-col.lead{ background:var(--m3-primary-container); color:var(--m3-on-primary-container); }
+  .mt-offercmp-club{ font-size:11px; font-weight:700; margin-bottom:8px; }
+  .mt-offercmp-line{ display:flex; justify-content:space-between; font-size:11px; padding:4px 0; border-bottom:1px solid rgba(255,255,255,.08); }
+  .mt-offercmp-line:last-child{ border-bottom:none; }
+  .mt-offercmp-line span:last-child{ font-weight:700; }
 
   /* ---- cabeçalho reutilizável pra modais em tela cheia (ícone
      pequeno em quadrado dourado, no lugar do gradiente/emoji genérico
@@ -2031,6 +2070,34 @@
   /* ---- cartões/heróis genéricos ---- */
   .m3-card{ background:var(--m3-surface-container); border-radius:var(--m3-shape-lg); padding:16px; margin-bottom:14px; }
   .m3-card-title{ font-family:var(--m3-display); font-weight:600; font-size:14px; color:var(--m3-on-surface); margin-bottom:10px; }
+  /* Nova feature (pedido do usuário: "criar um card no início com o
+     título comissão técnica e com os botões com as sugestões dadas
+     por eles de maneira resumida") — versão condensada das 4 sugestões
+     da Comissão Técnica (ver COMMISSION_AREAS/renderCommissionSummaryCard
+     em carreira.js) direto no Início, sem precisar abrir a tela cheia
+     (Menu > Equipe & Treinos > Comissão Técnica) — mesma ação
+     "Aplicar" de lá, só resumida num botão por área.
+     AJUSTE (pedido do usuário: "coloca apenas os ícones nos botões...
+     cinco botões em uma linha" — confirmado que são só os 4 de sempre)
+     — só o ícone (texto da sugestão vira `title`/aria-label, pra não
+     perder a informação, só sair da vista); os 4 numa linha só
+     (.m3-commission-row), cada um ocupando espaço igual. Clicável só
+     quando há sugestão de verdade pra aceitar (canApply) — clicar já
+     é o "o técnico aceitou a sugestão", sem passo intermediário; um
+     pontinho dourado sinaliza "tem sugestão nova" sem precisar de
+     texto nenhum (ver .has-suggestion). */
+  .m3-commission-row{ display:flex; gap:8px; }
+  .m3-commission-icon-btn{
+    position:relative; flex:1; aspect-ratio:1/1; display:flex; align-items:center; justify-content:center;
+    background:var(--m3-surface-container-high); border:1px solid var(--m3-outline-variant);
+    border-radius:var(--m3-shape-md); font-size:24px; cursor:pointer; padding:0;
+  }
+  .m3-commission-icon-btn:not(:disabled):hover{ border-color:var(--m3-primary); }
+  .m3-commission-icon-btn:disabled{ opacity:.35; cursor:not-allowed; }
+  .m3-commission-icon-btn.has-suggestion::after{
+    content:""; position:absolute; top:6px; right:6px; width:8px; height:8px;
+    border-radius:50%; background:var(--m3-primary); box-shadow:0 0 0 2px var(--m3-surface-container-high);
+  }
   .m3-hero-card{ background:var(--m3-primary-container); color:var(--m3-on-primary-container); border-radius:var(--m3-shape-xl); padding:18px; margin-bottom:14px; }
   .m3-hero-top{ display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; }
   .m3-hero-label{ font-size:10.5px; font-weight:700; letter-spacing:.5px; opacity:.85; }
@@ -2147,6 +2214,20 @@
   <div class="ct-full" id="screenLoading">
     <div class="ct-spinner"></div>
     <p>Carregando o Modo Técnico...</p>
+  </div>
+
+  <!-- Nova feature (pedido do usuário: "criar uma tela de loading que
+       deve aparecer sempre que uma ação demorar mais que 3 segundos")
+       — overlay GENÉRICO por cima de QUALQUER tela/modal aberta (ver
+       z-index no <style>), independente do sistema de telas acima
+       (show() só mexe nos 5 ids citados ali, nunca neste). fetchJSON()
+       é o ÚNICO ponto do app que faz requisição de rede (ver
+       carreira.js) — arma um timer de 3s ao começar QUALQUER chamada e
+       só mostra o overlay se ainda não tiver respondido até lá; some
+       assim que a chamada (ou a última, se houver mais de uma ao mesmo
+       tempo) terminar, sucesso ou erro. -->
+  <div class="ct-action-loading" id="actionLoadingOverlay">
+    <div class="ct-spinner"></div>
   </div>
 
   <!-- ================= Login necessário =================
@@ -2312,67 +2393,117 @@
          abaixo); Tabela e Treinos saíram de lá (só cabem 5 + Menu
          agora) e entraram aqui como os 2 primeiros itens, junto de
          Estatísticas que já morava aqui. -->
+    <!-- AJUSTE (pedido do usuário: "o menu Mais está muito extenso ...
+         criação de submenus") — os 16 itens que antes ficavam soltos
+         numa lista só (popover ficava enorme, difícil de escanear)
+         agora entram em 5 categorias com um "drill-down" dentro do
+         MESMO popover: a raiz (#topbarMenuRoot) mostra só as 5
+         categorias + os 4 itens que já eram destaque (Loja, Histórico,
+         Reiniciar, Sair); clicar numa categoria esconde a raiz e mostra
+         só o submenu dela (ver wireStaticListeners, botões
+         ".mt-topbar-menu-item.group"), com um "‹ Menu" pra voltar.
+         Nenhum id/classe dos itens-folha mudou — só a marcação AO
+         REDOR deles (raiz -> submenu em vez de tudo solto), então
+         nenhum listener existente precisou mudar. Reabrir o menu do
+         zero sempre volta pra raiz (ver showTopbarMenuRoot, chamada no
+         clique de #btnBottomMenu). -->
     <div class="mt-topbar-menu" id="topbarMenu">
-      <button class="mt-topbar-menu-item" id="btnOpenTabela">📅 Tabela</button>
-      <!-- Nova feature — Resumo da rodada (brtreinadorbloco1pendentes.html):
-           todos os confrontos da rodada, inclusive os ainda não jogados
-           (ver renderRodada/openRodadaScreen em carreira.js) — dado
-           honesto: a rodada resolve inteira de uma vez só (motor não
-           simula jogos concorrentes em paralelo), então só existem 2
-           estados de verdade (nenhum jogo resolvido ainda / todos
-           resolvidos), sem fingir um estado "ao vivo" que o motor não
-           produz. -->
-      <button class="mt-topbar-menu-item" id="btnOpenRodada">📆 Rodada</button>
-      <!-- Nova feature — Meus esquemas (Bloco 2 M3,
-           brtreinadorbloco2pendentes.html): biblioteca de esquemas
-           táticos completos (ver openSchemesScreen/carreira.js). -->
-      <button class="mt-topbar-menu-item" id="btnOpenSchemes">🗂️ Meus esquemas</button>
-      <!-- Nova feature — Marcação individual (Bloco 2 M3,
-           brtreinadorbloco2pendentes.html): ver openManMarkingScreen/
-           carreira.js. -->
-      <button class="mt-topbar-menu-item" id="btnOpenMarking">🎯 Marcação individual</button>
-      <!-- Nova feature — Instruções por setor (Bloco 2 M3,
-           brtreinadorbloco2pendentes.html): ver openSectorScreen/
-           carreira.js. -->
-      <button class="mt-topbar-menu-item" id="btnOpenSector">🎚️ Instruções por setor</button>
-      <!-- Nova feature — Comissão Técnica (pedido do usuário: "ajudar
-           nos treinos, escalação, táticas e outras opções pra garantir
-           que sempre o melhor time estará em campo") — ver
-           openCommissionScreen/carreira.js. -->
-      <button class="mt-topbar-menu-item" id="btnOpenCommission">🧑‍💼 Comissão Técnica</button>
-      <button class="mt-topbar-menu-item" id="btnOpenTreinos">🏋️ Treinos</button>
-      <button class="mt-topbar-menu-item" id="btnOpenEstatisticas">📊 Estatísticas</button>
-      <!-- Retenção/Engajamento (BRDataRetencaoEspecificacao) — 3 telas
-           novas, mesmo padrão de Mercado/Estatísticas acima (sem aba
-           própria no rodapé, só pelo Menu). -->
-      <button class="mt-topbar-menu-item" id="btnOpenObjetivos">🎯 Objetivos</button>
-      <button class="mt-topbar-menu-item" id="btnOpenConquistas">🥇 Conquistas</button>
-      <button class="mt-topbar-menu-item" id="btnOpenRanking">📈 Ranking</button>
-      <!-- Loja (BR_Data_Treinador_Monetizacao.xlsx +
-           BR_Data_Treinador_Loja_Mockup.html) — mesmo padrão de item
-           sem aba própria no rodapé. Ver AVISO grande em renderLoja()
-           (carreira.js): esta entrega é só o catálogo/tela, nenhum
-           pagamento de verdade acontece ainda. -->
-      <button class="mt-topbar-menu-item" id="btnOpenLoja">🛒 Loja</button>
-      <!-- AJUSTE (pedido do usuário: "esperava uma tela exclusiva
-           pra notícias nos padrões de um portal de esportes") — ver
-           openNewsScreen em carreira.js. -->
-      <button class="mt-topbar-menu-item" id="btnOpenNews">📰 Notícias</button>
-      <!-- FASE 4 (item 6) — tela própria de histórico de premiações
-           (ver openAwardsScreen em carreira.js), pedido do usuário:
-           "uma tela que armazena os resultados de cada ano". -->
-      <button class="mt-topbar-menu-item" id="btnOpenAwards">🏆 Premiações</button>
-      <!-- FASE 4 (item 4) — currículo do técnico (reputação +
-           histórico de clubes), ver openCoachProfileScreen. -->
-      <button class="mt-topbar-menu-item" id="btnOpenCoachProfile">👔 Perfil do Técnico</button>
-      <!-- AJUSTE (pedido do usuário: "página estática que controle
-           o histórico de mudanças do jogo") — página própria,
-           fora do SPA (ver historico.html), por isso é um <a>
-           normal (navega de verdade) e não um botão com listener
-           JS como os outros itens deste menu. -->
-      <a class="mt-topbar-menu-item" href="historico.html">🗒️ Histórico de Atualizações</a>
-      <button class="mt-topbar-menu-item" id="btnRestart">↺ Reiniciar</button>
-      <button class="mt-topbar-menu-item danger" id="btnLogout">⎋ Sair</button>
+      <div id="topbarMenuRoot">
+        <button class="mt-topbar-menu-item group" data-submenu="competicao">📊 Competição <span class="mt-menu-chevron">›</span></button>
+        <button class="mt-topbar-menu-item group" data-submenu="tatica">🎯 Tática avançada <span class="mt-menu-chevron">›</span></button>
+        <button class="mt-topbar-menu-item group" data-submenu="equipe">👔 Equipe &amp; Treinos <span class="mt-menu-chevron">›</span></button>
+        <button class="mt-topbar-menu-item group" data-submenu="progresso">🏅 Progresso <span class="mt-menu-chevron">›</span></button>
+        <button class="mt-topbar-menu-item group" data-submenu="imprensa">📰 Imprensa <span class="mt-menu-chevron">›</span></button>
+        <!-- Loja (BR_Data_Treinador_Monetizacao.xlsx +
+             BR_Data_Treinador_Loja_Mockup.html) — mesmo padrão de item
+             sem aba própria no rodapé. Ver AVISO grande em renderLoja()
+             (carreira.js): esta entrega é só o catálogo/tela, nenhum
+             pagamento de verdade acontece ainda. Fica solta na raiz
+             (não é "categoria" de mais nada) — mesmo critério de
+             Reiniciar/Sair abaixo. -->
+        <button class="mt-topbar-menu-item" id="btnOpenLoja">🛒 Loja</button>
+        <!-- AJUSTE (pedido do usuário: "página estática que controle
+             o histórico de mudanças do jogo") — página própria,
+             fora do SPA (ver historico.html), por isso é um <a>
+             normal (navega de verdade) e não um botão com listener
+             JS como os outros itens deste menu. -->
+        <a class="mt-topbar-menu-item" href="historico.html">🗒️ Histórico de Atualizações</a>
+        <button class="mt-topbar-menu-item" id="btnRestart">↺ Reiniciar</button>
+        <button class="mt-topbar-menu-item danger" id="btnLogout">⎋ Sair</button>
+      </div>
+
+      <!-- Competição: telas de acompanhamento da liga (leitura, sem
+           ação de gestão nenhuma). -->
+      <div class="mt-topbar-submenu hidden" data-submenu-panel="competicao">
+        <button class="mt-topbar-submenu-back">‹ Menu</button>
+        <button class="mt-topbar-menu-item" id="btnOpenTabela">📅 Tabela</button>
+        <!-- Nova feature — Resumo da rodada (brtreinadorbloco1pendentes.html):
+             todos os confrontos da rodada, inclusive os ainda não jogados
+             (ver renderRodada/openRodadaScreen em carreira.js) — dado
+             honesto: a rodada resolve inteira de uma vez só (motor não
+             simula jogos concorrentes em paralelo), então só existem 2
+             estados de verdade (nenhum jogo resolvido ainda / todos
+             resolvidos), sem fingir um estado "ao vivo" que o motor não
+             produz. -->
+        <button class="mt-topbar-menu-item" id="btnOpenRodada">📆 Rodada</button>
+        <button class="mt-topbar-menu-item" id="btnOpenEstatisticas">📊 Estatísticas</button>
+      </div>
+
+      <!-- Tática avançada: os 3 ajustes do Bloco 2 M3, complementares à
+           aba "Tática" do rodapé (nome diferente de propósito, pra não
+           confundir com a aba de verdade). -->
+      <div class="mt-topbar-submenu hidden" data-submenu-panel="tatica">
+        <button class="mt-topbar-submenu-back">‹ Menu</button>
+        <!-- Nova feature — Meus esquemas (Bloco 2 M3,
+             brtreinadorbloco2pendentes.html): biblioteca de esquemas
+             táticos completos (ver openSchemesScreen/carreira.js). -->
+        <button class="mt-topbar-menu-item" id="btnOpenSchemes">🗂️ Meus esquemas</button>
+        <!-- Nova feature — Marcação individual (Bloco 2 M3,
+             brtreinadorbloco2pendentes.html): ver openManMarkingScreen/
+             carreira.js. -->
+        <button class="mt-topbar-menu-item" id="btnOpenMarking">🎯 Marcação individual</button>
+        <!-- Nova feature — Instruções por setor (Bloco 2 M3,
+             brtreinadorbloco2pendentes.html): ver openSectorScreen/
+             carreira.js. -->
+        <button class="mt-topbar-menu-item" id="btnOpenSector">🎚️ Instruções por setor</button>
+      </div>
+
+      <!-- Equipe & Treinos: gestão do dia a dia do clube. -->
+      <div class="mt-topbar-submenu hidden" data-submenu-panel="equipe">
+        <button class="mt-topbar-submenu-back">‹ Menu</button>
+        <!-- Nova feature — Comissão Técnica (pedido do usuário: "ajudar
+             nos treinos, escalação, táticas e outras opções pra garantir
+             que sempre o melhor time estará em campo") — ver
+             openCommissionScreen/carreira.js. -->
+        <button class="mt-topbar-menu-item" id="btnOpenCommission">🧑‍💼 Comissão Técnica</button>
+        <button class="mt-topbar-menu-item" id="btnOpenTreinos">🏋️ Treinos</button>
+      </div>
+
+      <!-- Progresso: Retenção/Engajamento (BRDataRetencaoEspecificacao)
+           + Premiações (FASE 4 item 6) — tudo sobre o que o técnico já
+           conquistou. -->
+      <div class="mt-topbar-submenu hidden" data-submenu-panel="progresso">
+        <button class="mt-topbar-submenu-back">‹ Menu</button>
+        <button class="mt-topbar-menu-item" id="btnOpenObjetivos">🎯 Objetivos</button>
+        <button class="mt-topbar-menu-item" id="btnOpenConquistas">🥇 Conquistas</button>
+        <button class="mt-topbar-menu-item" id="btnOpenRanking">📈 Ranking</button>
+        <!-- FASE 4 (item 6) — tela própria de histórico de premiações
+             (ver openAwardsScreen em carreira.js), pedido do usuário:
+             "uma tela que armazena os resultados de cada ano". -->
+        <button class="mt-topbar-menu-item" id="btnOpenAwards">🏆 Premiações</button>
+      </div>
+
+      <!-- Imprensa: conteúdo editorial/institucional, não gestão. -->
+      <div class="mt-topbar-submenu hidden" data-submenu-panel="imprensa">
+        <button class="mt-topbar-submenu-back">‹ Menu</button>
+        <!-- AJUSTE (pedido do usuário: "esperava uma tela exclusiva
+             pra notícias nos padrões de um portal de esportes") — ver
+             openNewsScreen em carreira.js. -->
+        <button class="mt-topbar-menu-item" id="btnOpenNews">📰 Notícias</button>
+        <!-- FASE 4 (item 4) — currículo do técnico (reputação +
+             histórico de clubes), ver openCoachProfileScreen. -->
+        <button class="mt-topbar-menu-item" id="btnOpenCoachProfile">👔 Perfil do Técnico</button>
+      </div>
     </div>
 
     <!-- AJUSTE (redesign M3, documento BRTreinadorSistemadeDesignM3v1.docx
@@ -2456,6 +2587,16 @@
         <div class="m3-card" id="lastResultCard" style="display:none;">
           <div class="m3-card-title">Resultado da última rodada</div>
           <div id="lastResultBox"></div>
+        </div>
+        <!-- Nova feature (pedido do usuário: "criar um card no início
+             com o título comissão técnica e com os botões com as
+             sugestões dadas por eles de maneira resumida") — só
+             aparece com a Comissão Técnica contratada (ver
+             renderCommissionSummaryCard em carreira.js); sem ela
+             contratada não há sugestão nenhuma pra mostrar. -->
+        <div class="m3-card" id="commissionSummaryCard" style="display:none;">
+          <div class="m3-card-title">🧑‍💼 Comissão Técnica</div>
+          <div class="m3-commission-row" id="commissionSummaryList"></div>
         </div>
         <!-- Redesign M3 — FAB estendido (documento, seção 5: "uma ação
              primária por tela") no lugar da barra de ação fixa. Mesmos
@@ -2809,6 +2950,12 @@
           <div class="mt-card-title">Transferências recentes</div>
           <div id="transferFeed"></div>
         </div>
+        <!-- Nova feature (Bloco 3) — atalho pra "Minhas propostas" de
+             compra em andamento (ver openMyOffersScreen), mesmo espírito
+             do mockup (FAB "📈 Minhas propostas") — botão inline (não
+             flutuante) pra não empilhar em cima da nav fixa, mesmo
+             padrão de "Pedir mais orçamento à diretoria" no Clube. -->
+        <button class="mt-btn-ghost" id="btnOpenMyOffers" style="width:100%;">📈 Minhas propostas <span class="mt-badge-gold hidden" id="myOffersBadge" style="margin-left:6px;"></span></button>
       </section>
 
       <!-- ---------- Retenção/Engajamento (BRDataRetencaoEspecificacao)
@@ -3088,6 +3235,100 @@
     <div class="ct-modal-body">
       <p class="ct-sub" id="pressQuestion" style="font-weight:700; color:var(--mt-ivory-50); margin-bottom:14px;"></p>
       <div id="pressOptions" style="display:flex; flex-direction:column; gap:8px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Nova feature (Bloco 3 — pedido do usuário, mockups
+     brtreinadorbloco3mercado.html/brtreinadorbloco3pendentes.html) —
+     "Fazer proposta" no lugar do "Comprar" instantâneo de antes: em
+     vez de pagar o valor de mercado na hora, o técnico propõe um
+     valor (pode ser menor) + parcelamento, e o clube vendedor demora
+     algumas rodadas pra responder (ver openOfferModal/
+     confirmOfferFromModal/resolvePendingOffersOutRound em
+     carreira.js). Mesmo padrão do modal de empréstimo logo abaixo. -->
+<div class="ct-modal-overlay" id="offerOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header">
+      <span class="ct-modal-icon">💰</span>
+      <div class="ct-modal-header-text">
+        <h3>Fazer proposta</h3>
+        <div class="ct-modal-sub" id="offerSub"></div>
+      </div>
+      <button class="ct-modal-close" id="offerClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <div class="ct-field" style="margin-bottom:12px;">
+        <label>Sua proposta</label>
+        <input type="number" class="ct-search" id="offerValueInput" style="margin-bottom:0;" min="0" step="1000">
+      </div>
+      <div class="ct-field">
+        <label>Parcelamento da taxa</label>
+        <select id="offerInstallmentsSelect">
+          <option value="1">À vista (1x)</option>
+          <option value="2">2x</option>
+          <option value="3">3x</option>
+          <option value="4">4x</option>
+        </select>
+      </div>
+      <p class="mt-card-sub" style="margin-top:10px;">Propor menos que o valor de mercado é possível, mas o clube pode recusar, pedir mais ou demorar pra responder. Você acompanha o andamento em "Minhas propostas".</p>
+    </div>
+    <div class="ct-modal-footer">
+      <button class="mt-btn-primary-gold" id="btnOfferConfirm">Enviar proposta</button>
+    </div>
+  </div>
+</div>
+
+<!-- Nova feature (Bloco 3) — "Minhas propostas": acompanha as
+     negociações de compra em andamento (ver renderMyOffersScreen em
+     carreira.js) -- aumentar/retirar enquanto pendente, aceitar/
+     recusar uma contraproposta do clube. -->
+<div class="ct-modal-overlay ct-modal-fullscreen" id="myOffersOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header mt-fullheader">
+      <span class="ct-modal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg></span>
+      <div class="ct-modal-header-text">
+        <h3>Minhas propostas</h3>
+        <div class="ct-modal-sub" id="myOffersCountLabel"></div>
+      </div>
+      <button class="ct-modal-close" id="myOffersClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <div class="mt-card">
+        <div id="myOffersList"></div>
+        <p class="ct-empty hidden" id="myOffersEmpty">Nenhuma proposta em andamento — faça uma oferta no Mercado.</p>
+      </div>
+    </div>
+    <div class="ct-modal-footer">
+      <button class="mt-btn-ghost" id="btnMyOffersCloseFooter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Nova feature (Bloco 3, 2/4 — pedido do usuário, mockup
+     brtreinadorbloco3pendentes.html "Comparar propostas") — quando um
+     clube CPU também disputa o mesmo alvo (ver maybeSpawnRivalOffer/
+     openOfferCompareScreen em carreira.js), esta tela mostra as 2
+     propostas lado a lado + uma análise de quem está na frente. -->
+<div class="ct-modal-overlay ct-modal-fullscreen" id="offerCompareOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header mt-fullheader">
+      <span class="ct-modal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M5 8l-3 7a4 4 0 0 0 6 0l-3-7Zm14 0l-3 7a4 4 0 0 0 6 0l-3-7ZM5 8h14M9 3h6"/></svg></span>
+      <div class="ct-modal-header-text">
+        <h3>Comparar propostas</h3>
+        <div class="ct-modal-sub" id="offerCompareSub"></div>
+      </div>
+      <button class="ct-modal-close" id="offerCompareClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <div class="mt-card" id="offerCompareCard"></div>
+      <div class="mt-card">
+        <div class="mt-card-title">Análise</div>
+        <p class="mt-card-sub" id="offerCompareAnalysis" style="margin:0;"></p>
+      </div>
+    </div>
+    <div class="ct-modal-footer">
+      <button class="mt-btn-primary-gold" id="btnOfferCompareIncrease">Aumentar proposta</button>
     </div>
   </div>
 </div>
