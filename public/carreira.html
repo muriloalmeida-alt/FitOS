@@ -2124,15 +2124,11 @@
 
   /* Redesign (mockup brtreinadorbloco1inicio.html, tela 2 — Início) —
      título de seção solto (sem cartão em volta, só separa blocos de
-     conteúdo dentro do corpo já rolável) e carrossel "Elenco em
-     destaque". */
+     conteúdo dentro do corpo já rolável). AJUSTE (pedido do usuário:
+     "Comissão Técnica deve substituir o card de elenco em destaque")
+     — o carrossel "Elenco em destaque" que morava aqui (.m3-player-*)
+     saiu do Início; classes removidas junto (sem outro uso no app). */
   .section-title{ font-family:var(--m3-display); font-weight:600; font-size:12.5px; color:var(--m3-on-surface); margin-bottom:8px; }
-  .m3-player-scroll{ display:flex; gap:9px; overflow-x:auto; margin-bottom:16px; padding-bottom:2px; }
-  .m3-player-scroll:empty{ display:none; }
-  .m3-player-mini{ flex-shrink:0; width:84px; background:var(--m3-surface-container); border-radius:var(--m3-shape-lg); padding:11px 8px; text-align:center; cursor:pointer; }
-  .m3-player-avatar{ width:32px; height:32px; border-radius:50%; background:var(--m3-tertiary-container); color:var(--m3-on-tertiary-container); font-family:var(--m3-display); font-weight:700; font-size:11px; display:flex; align-items:center; justify-content:center; margin:0 auto 7px; }
-  .m3-player-mini-name{ font-size:10px; font-weight:600; color:var(--m3-on-surface); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .m3-player-mini-pos{ font-size:9px; color:var(--m3-on-surface-variant); margin-top:1px; }
 
   /* ---- lista com avatar + rating (Elenco) ---- */
   .m3-filter-row{ display:flex; gap:8px; overflow-x:auto; margin-bottom:14px; padding-bottom:2px; }
@@ -2577,26 +2573,21 @@
              daqui; "Temporada X" já aparece na identidade do topbar (ver
              renderTopbarIdentity em carreira.js), sem perda de
              informação. -->
-        <!-- Redesign (mockup brtreinadorbloco1inicio.html, tela 2 —
-             Início) — carrossel horizontal com os destaques do elenco
-             principal disponível (maiores overall), ver
-             renderDestaquePlayers() em carreira.js. Só aparece com
-             elenco disponível de verdade (:empty esconde sozinho). -->
-        <div class="section-title" id="destaqueTitle" style="display:none;">Elenco em destaque</div>
-        <div class="m3-player-scroll" id="destaquePlayers"></div>
-        <div class="m3-card" id="lastResultCard" style="display:none;">
-          <div class="m3-card-title">Resultado da última rodada</div>
-          <div id="lastResultBox"></div>
-        </div>
-        <!-- Nova feature (pedido do usuário: "criar um card no início
-             com o título comissão técnica e com os botões com as
-             sugestões dadas por eles de maneira resumida") — só
-             aparece com a Comissão Técnica contratada (ver
+        <!-- AJUSTE (pedido do usuário: "card de Comissão Técnica na
+             página inicial deve substituir o card de elenco em
+             destaque") — o carrossel "Elenco em destaque" (maiores
+             overall do elenco disponível) saiu daqui; a Comissão
+             Técnica assume o mesmo lugar, logo abaixo do próximo jogo.
+             Só aparece com a Comissão Técnica contratada (ver
              renderCommissionSummaryCard em carreira.js); sem ela
              contratada não há sugestão nenhuma pra mostrar. -->
         <div class="m3-card" id="commissionSummaryCard" style="display:none;">
           <div class="m3-card-title">🧑‍💼 Comissão Técnica</div>
           <div class="m3-commission-row" id="commissionSummaryList"></div>
+        </div>
+        <div class="m3-card" id="lastResultCard" style="display:none;">
+          <div class="m3-card-title">Resultado da última rodada</div>
+          <div id="lastResultBox"></div>
         </div>
         <!-- Redesign M3 — FAB estendido (documento, seção 5: "uma ação
              primária por tela") no lugar da barra de ação fixa. Mesmos
@@ -2777,14 +2768,23 @@
             <button class="ct-help-btn" data-help="helpTabelaCarreira" aria-label="Ajuda">?</button>
           </div>
           <p class="mt-card-sub ct-help-text" id="helpTabelaCarreira" hidden>Classificação própria dessa carreira (não é a tabela real do Brasileirão) — atualizada a cada rodada simulada.</p>
+          <!-- Nova feature (pedido do usuário: "reinicie o tema do
+               rebaixamento") — só aparece em carreira com o sistema de
+               acesso/rebaixamento ativado (ver wireTabelaDivisionSwitch
+               em carreira.js); a Tabela sempre abre na SUA divisão. -->
+          <div class="mt-seg-group" id="tabelaDivisionSwitch" hidden>
+            <button type="button" class="mt-seg-btn" data-division="brasileirao">Série A</button>
+            <button type="button" class="mt-seg-btn" data-division="serie_b">Série B</button>
+            <button type="button" class="mt-seg-btn" data-division="serie_c">Série C</button>
+          </div>
           <div class="mt-table-head-row">
             <div class="mt-pos-num">#</div><div class="mt-team-cell">TIME</div>
             <div class="mt-stat-col head">P</div><div class="mt-stat-col head">J</div><div class="mt-stat-col head">V</div><div class="mt-stat-col head">E</div><div class="mt-stat-col head">D</div><div class="mt-stat-col head">SG</div>
           </div>
           <div id="standingsTable"></div>
           <div class="mt-legend-row">
-            <div class="mt-legend-item"><span class="dot" style="background:var(--mt-gold-400);"></span>Libertadores</div>
-            <div class="mt-legend-item"><span class="dot" style="background:var(--mt-sky-400);"></span>Pré-Libertadores</div>
+            <div class="mt-legend-item"><span class="dot" style="background:var(--mt-gold-400);"></span><span id="tabelaLegendTop">Libertadores</span></div>
+            <div class="mt-legend-item" id="tabelaLegendMidWrap"><span class="dot" style="background:var(--mt-sky-400);"></span>Pré-Libertadores</div>
             <div class="mt-legend-item"><span class="dot" style="background:var(--mt-crimson-400);"></span>Rebaixamento</div>
           </div>
         </div>
@@ -4362,6 +4362,12 @@
     <div class="ct-modal-body">
       <p class="ct-sub" id="seasonSummaryText"></p>
       <div id="seasonDepartures"></div>
+      <!-- Nova feature (pedido do usuário: "reinicie o tema do
+           rebaixamento") — só aparece quando a temporada que terminou
+           teve acesso/rebaixamento pra decidir (ver showSeasonModal em
+           carreira.js — vazio/escondido em carreira sem o sistema
+           ativado). -->
+      <div id="seasonDivisionMove"></div>
       <button class="mt-btn-primary-gold" id="btnSeasonContinue" style="margin-top:14px;">Começar a temporada</button>
     </div>
   </div>

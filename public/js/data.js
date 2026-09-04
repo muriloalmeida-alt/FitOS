@@ -234,6 +234,42 @@ const DEMO_TEAMS_SERIE_C = [
   { id: "mga", name: "Maringá",         short: "MGA", uf: "PR", c1: "#003DA5", c2: "#FFFFFF", atk: 1.02, def: 1.29, venue: { name: "Willie Davids", city: "Maringá" } },
 ];
 
+/* 20 clubes REPOSITÓRIO da Série D (pedido do usuário: "reinicie o
+   tema do rebaixamento") — NUNCA jogam partida nenhuma neste app
+   (mesmo motivo já documentado pra Série D no site principal: formato
+   real em 8 grupos + mata-mata, incompatível com o motor de pontos
+   corridos, ver engine.js/competitions.js) — só existem como
+   repositório de nomes pra virada de temporada do Modo Carreira: 4
+   times de baixo da Série C descem pra esse pool, 4 times de dentro
+   dele sobem sorteados pra Série C (ver applyPromotionRelegation em
+   carreira.js). Por isso NÃO entra em DEMO_DATA_BY_COMPETITION (não é
+   uma competição carregável/jogável) — atk/def só decidem a força do
+   elenco fictício que ganham ao serem promovidos (buildLeagueSquad já
+   cai pro catálogo gerado quando não há fonte de dado real, mesmo
+   fallback de sempre). */
+const DEMO_TEAMS_SERIE_D = [
+  { id: "mna", name: "Manaus FC",              short: "MNA", uf: "AM", c1: "#0057B8", c2: "#FFFFFF", atk: 1.18, def: 1.06, venue: { name: "Ismael Benigno", city: "Manaus" } },
+  { id: "joi", name: "Joinville",              short: "JOI", uf: "SC", c1: "#DC2626", c2: "#1A1A1A", atk: 1.15, def: 1.09, venue: { name: "Arena Joinville", city: "Joinville" } },
+  { id: "gam", name: "Gama",                   short: "GAM", uf: "DF", c1: "#1A1A1A", c2: "#FFFFFF", atk: 1.13, def: 1.11, venue: { name: "Bezerrão", city: "Brasília" } },
+  { id: "apr", name: "Aparecidense",           short: "APR", uf: "GO", c1: "#003DA5", c2: "#FFFFFF", atk: 1.11, def: 1.13, venue: { name: "Noroeste Goiano", city: "Aparecida de Goiânia" } },
+  { id: "mad", name: "Marcílio Dias",          short: "MAD", uf: "SC", c1: "#DC2626", c2: "#1A1A1A", atk: 1.09, def: 1.15, venue: { name: "Vidal Ramos", city: "Itajaí" } },
+  { id: "rbr", name: "Rio Branco-AC",          short: "RBR", uf: "AC", c1: "#1E7A3D", c2: "#FFFFFF", atk: 1.08, def: 1.17, venue: { name: "Arena da Floresta", city: "Rio Branco" } },
+  { id: "bsl", name: "Brasiliense",            short: "BSL", uf: "DF", c1: "#FFC93C", c2: "#1A1A1A", atk: 1.07, def: 1.19, venue: { name: "Boca do Jacaré", city: "Taguatinga" } },
+  { id: "rbs", name: "Real Brasília",          short: "RBS", uf: "DF", c1: "#003DA5", c2: "#FFFFFF", atk: 1.06, def: 1.21, venue: { name: "Serejão", city: "Ceilândia" } },
+  { id: "srr", name: "São Raimundo-RR",        short: "SRR", uf: "RR", c1: "#DC2626", c2: "#FFFFFF", atk: 1.05, def: 1.23, venue: { name: "Canarinho", city: "Boa Vista" } },
+  { id: "pds", name: "Princesa do Solimões",   short: "PSO", uf: "AM", c1: "#0B6E33", c2: "#FFFFFF", atk: 1.04, def: 1.25, venue: { name: "Ismael Benigno", city: "Manacapuru" } },
+  { id: "cbr", name: "Camboriú",               short: "CAM", uf: "SC", c1: "#1E3A8A", c2: "#FFFFFF", atk: 1.03, def: 1.27, venue: { name: "Ariosto Filho", city: "Balneário Camboriú" } },
+  { id: "jac", name: "Jacuipense",             short: "JAC", uf: "BA", c1: "#DC2626", c2: "#1A1A1A", atk: 1.02, def: 1.29, venue: { name: "Nilton Santos", city: "Riachão do Jacuípe" } },
+  { id: "ala", name: "Atlético de Alagoinhas", short: "ALA", uf: "BA", c1: "#1A1A1A", c2: "#FFC93C", atk: 1.01, def: 1.31, venue: { name: "Joia da Princesa", city: "Alagoinhas" } },
+  { id: "sgp", name: "Sergipe",                short: "SGP", uf: "SE", c1: "#0057B8", c2: "#FFFFFF", atk: 1.00, def: 1.33, venue: { name: "Etelvino Mendonça", city: "Aracaju" } },
+  { id: "ctr", name: "Central",                short: "CEN", uf: "PE", c1: "#1E7A3D", c2: "#FFFFFF", atk: 0.98, def: 1.35, venue: { name: "Central de Caruaru", city: "Caruaru" } },
+  { id: "ptl", name: "Petrolina",              short: "PTL", uf: "PE", c1: "#DC2626", c2: "#FFFFFF", atk: 0.97, def: 1.37, venue: { name: "Adauto Moraes", city: "Petrolina" } },
+  { id: "tze", name: "Treze",                  short: "TRZ", uf: "PB", c1: "#1A1A1A", c2: "#FFFFFF", atk: 0.96, def: 1.39, venue: { name: "Presidente Vargas", city: "Campina Grande" } },
+  { id: "trm", name: "Trem-AP",                short: "TRE", uf: "AP", c1: "#003DA5", c2: "#FFC93C", atk: 0.94, def: 1.41, venue: { name: "Zerão", city: "Macapá" } },
+  { id: "gen", name: "Genus",                  short: "GEN", uf: "AP", c1: "#0B6E33", c2: "#FFFFFF", atk: 0.92, def: 1.43, venue: { name: "Zerão", city: "Macapá" } },
+  { id: "brz", name: "Barra-SC",               short: "BAR", uf: "SC", c1: "#DC2626", c2: "#1A1A1A", atk: 0.90, def: 1.45, venue: { name: "Marcílio de Brito", city: "Barra Velha" } },
+];
+
 /* Jogadores de exemplo (fictícios) — elenco de 24 por time (3
    goleiros, 8 zagueiros/laterais, 7 meias, 6 atacantes — composição
    parecida com um elenco de verdade), usados na sub-aba "Jogadores" de
