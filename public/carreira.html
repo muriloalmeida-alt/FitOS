@@ -550,7 +550,7 @@
   .ct-prematch-row .pos{ width:64px; flex-shrink:0; font-family:'Rajdhani', var(--font); font-size:11px; color:var(--mt-ink-faint); font-weight:700; text-transform:uppercase; letter-spacing:.3px; }
   .ct-prematch-row .nm{ flex:1; min-width:0; font-weight:600; color:var(--mt-ivory-50); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .ct-prematch-row .nm.problem{ color:var(--mt-crimson-400); }
-  .ct-prematch-row .ovr{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:15px; color:var(--mt-gold-400); flex-shrink:0; }
+  .ct-prematch-row .ovr{ font-family:var(--font); font-weight:700; font-size:15px; color:var(--m3-primary); flex-shrink:0; }
   /* .ct-sponsor-row removido (redesign, Tela 3) — renderSponsorship()
      agora emite .mt-sponsor-row (ver CSS lá em cima). */
   /* Fase 2 (olheiro) — faixa de potencial embaixo do overall na lista
@@ -688,28 +688,28 @@
      COMPARTILHADO com o card "Resultado da última rodada" da Central
      (Tela 3, já pronta) — ganha a pele nova de graça também. */
   .ct-event-list{ display:flex; flex-direction:column; gap:0; margin-top:14px; }
-  .ct-event-row{ display:flex; align-items:center; gap:10px; padding:9px 4px; border-bottom:1px solid var(--mt-navy-700); }
+  .ct-event-row{ display:flex; align-items:center; gap:10px; padding:9px 4px; border-bottom:1px solid var(--m3-outline-variant); }
   .ct-event-row:last-child{ border-bottom:none; }
   .ct-event-icon{ width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
   .ct-event-icon svg{ width:12px; height:12px; }
-  .ct-event-icon.gol{ background:linear-gradient(180deg, var(--mt-gold-300), var(--mt-gold-600)); color:#2A1D02; }
-  .ct-event-icon.assist{ background:var(--mt-navy-700); border:2px solid var(--mt-pitch-400); color:var(--mt-pitch-400); }
+  .ct-event-icon.gol{ background:var(--m3-primary); color:var(--m3-on-primary); }
+  .ct-event-icon.assist{ background:var(--m3-surface-container-high); border:2px solid var(--m3-primary); color:var(--m3-primary); }
   .ct-event-icon.amarelo{ background:linear-gradient(180deg, #F5D66A, #D6A017); color:#2A1D02; border-radius:5px; }
   .ct-event-icon.vermelho{ background:linear-gradient(180deg, var(--mt-crimson-400), var(--mt-crimson-500)); color:#fff; border-radius:5px; }
-  .ct-event-row .nm{ font-weight:600; color:var(--mt-ivory-50); font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .ct-event-row .tp{ color:var(--mt-ink-faint); font-size:11.5px; margin-left:auto; flex-shrink:0; padding-left:8px; }
+  .ct-event-row .nm{ font-weight:600; color:var(--m3-on-surface); font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ct-event-row .tp{ color:var(--m3-on-surface-variant); font-size:11.5px; margin-left:auto; flex-shrink:0; padding-left:8px; }
   /* AJUSTE (Play-by-Play v1) — assistência virou o campo assistPlayer
      do evento "gol" (não mais uma linha própria na lista) — aparece
      como uma linha discreta abaixo do nome do artilheiro. */
   .ct-event-namewrap{ display:flex; flex-direction:column; min-width:0; }
-  .ct-event-assist{ font-size:10.5px; color:var(--mt-ink-faint); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .ct-event-assist{ font-size:10.5px; color:var(--m3-on-surface-variant); margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
   /* AJUSTE (Play-by-Play v1, Tela hifi-03 do documento) — 4 barras
      espelhadas douradas (SEU time) vs. cinza (adversário). */
   .mt-stat-bar-row{ display:flex; align-items:center; gap:10px; margin-bottom:14px; }
   .mt-stat-bar-row:last-child{ margin-bottom:0; }
   .mt-stat-bar-val{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:15px; width:36px; flex-shrink:0; text-align:center; }
-  .mt-stat-bar-val.mine{ color:var(--mt-gold-300); }
+  .mt-stat-bar-val.mine{ color:var(--m3-primary); }
   .mt-stat-bar-val.opp{ color:var(--mt-ink-muted); }
   .mt-stat-bar-track{ flex:1; min-width:0; }
   .mt-stat-bar-label{ font-size:10.5px; color:var(--mt-ink-faint); text-align:center; margin-bottom:4px; text-transform:uppercase; letter-spacing:.5px; }
@@ -726,7 +726,7 @@
      mesmo tratamento de .mt-tr.highlight (Tela 8). */
   .ct-round-result-row{ display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:8px; padding:10px; border-bottom:1px solid var(--mt-navy-700); font-size:12.5px; }
   .ct-round-result-row:last-child{ border-bottom:none; }
-  .ct-round-result-row.me{ background:rgba(232,184,75,.08); border-left:3px solid var(--mt-gold-400); font-weight:800; margin-left:-4px; padding-left:7px; }
+  .ct-round-result-row.me{ background:var(--m3-primary-container); border-left:3px solid var(--m3-primary); font-weight:800; margin-left:-4px; padding-left:7px; }
   .ct-rr-team{ display:flex; align-items:center; gap:6px; min-width:0; overflow:hidden; white-space:nowrap; color:var(--mt-ivory-100); font-weight:600; }
   .ct-rr-team.right{ flex-direction:row-reverse; text-align:right; justify-content:flex-start; }
   .ct-rr-score{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:14px; color:var(--mt-ivory-50); white-space:nowrap; text-align:center; font-variant-numeric:tabular-nums; }
@@ -1422,9 +1422,9 @@
      grande do placar Ao Vivo (.mt-live-scoreboard, Tela 13b), escopado
      só a esse card pra não mexer no .ct-next-match genérico. */
   .mt-matchdetail-score .ct-next-match{ gap:22px; padding:8px 0; }
-  .mt-matchdetail-score .ct-next-match .vs{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:34px; letter-spacing:1.5px; color:var(--mt-ivory-50); text-shadow:0 0 20px rgba(232,184,75,.3); }
-  .mt-matchdetail-score .ct-next-match .side .n{ font-family:'Bebas Neue', var(--font); font-size:14px; letter-spacing:.5px; color:var(--mt-gold-300); }
-  .mt-matchdetail-score #matchDetailTickets{ color:var(--mt-ink-muted); font-size:12px; margin-top:8px; }
+  .mt-matchdetail-score .ct-next-match .vs{ font-family:var(--m3-display); font-weight:700; font-size:34px; letter-spacing:0; color:var(--m3-on-surface); }
+  .mt-matchdetail-score .ct-next-match .side .n{ font-family:var(--m3-display); font-weight:600; font-size:13px; letter-spacing:0; color:var(--m3-primary); }
+  .mt-matchdetail-score #matchDetailTickets{ color:var(--m3-on-surface-variant); font-size:12px; margin-top:8px; }
 
   /* ---- diálogo de confirmação genérico (Tela 10b — ver
      10b-confirmar-venda-restyled.html do designer) — escopado a
@@ -1545,13 +1545,13 @@
   }
   .mt-goal-highlight.open{ display:flex; }
   .mt-goal-tag-row{ display:flex; align-items:center; gap:14px; }
-  .mt-goal-rule{ width:44px; height:2px; background:linear-gradient(90deg, transparent, var(--mt-gold-400)); }
-  .mt-goal-rule.right{ background:linear-gradient(90deg, var(--mt-gold-400), transparent); }
-  .mt-goal-tag{ font-family:'Bebas Neue', var(--font); font-size:26px; letter-spacing:8px; color:var(--mt-gold-300); }
+  .mt-goal-rule{ width:44px; height:2px; background:linear-gradient(90deg, transparent, var(--m3-primary)); }
+  .mt-goal-rule.right{ background:linear-gradient(90deg, var(--m3-primary), transparent); }
+  .mt-goal-tag{ font-family:var(--m3-display); font-size:24px; letter-spacing:4px; color:var(--m3-primary); }
   .mt-goal-crest{ margin-top:8px; }
-  .mt-goal-crest .ct-crest{ box-shadow:inset 0 0 0 3px var(--mt-gold-400), 0 0 44px rgba(232,184,75,.5); }
+  .mt-goal-crest .ct-crest{ box-shadow:inset 0 0 0 3px var(--m3-primary), 0 0 44px rgba(255,255,255,.2); }
   .mt-goal-scorer{ font-family:'Bebas Neue', var(--font); font-size:40px; color:#fff; letter-spacing:.5px; text-wrap:balance; }
-  .mt-goal-assist{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:12px; letter-spacing:.5px; color:var(--mt-gold-300); text-transform:uppercase; }
+  .mt-goal-assist{ font-family:var(--font); font-weight:700; font-size:12px; letter-spacing:.3px; color:var(--m3-primary); text-transform:uppercase; }
   .mt-goal-score{ margin-top:10px; padding-top:14px; border-top:1px solid rgba(232,184,75,.25); }
   .mt-goal-score .vs{ font-family:'Bebas Neue', var(--font); font-size:30px; color:var(--mt-ivory-50); }
 
@@ -1670,10 +1670,10 @@
   .mt-sel-name .status{ font-weight:400; color:var(--mt-ink-faint); font-size:12px; }
   .mt-sel-meta{ display:flex; align-items:center; gap:8px; flex-shrink:0; }
   .mt-sel-ovr{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:15px; color:var(--mt-ivory-100); }
-  .mt-sel-ovr.gold{ color:var(--mt-gold-400); }
+  .mt-sel-ovr.gold{ color:var(--m3-primary); }
   .mt-sel-src{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:9.5px; letter-spacing:.3px; padding:2px 7px; border-radius:4px; text-transform:uppercase; }
   .mt-sel-src.principal{ background:rgba(61,184,106,.14); color:var(--mt-pitch-300); border:1px solid rgba(61,184,106,.3); }
-  .mt-sel-src.base{ background:rgba(232,184,75,.12); color:var(--mt-gold-300); border:1px solid rgba(232,184,75,.28); }
+  .mt-sel-src.base{ background:var(--m3-primary-container); color:var(--m3-on-primary-container); border:none; }
   .mt-sel-src.loan{ background:rgba(143,163,191,.12); color:var(--mt-ink-muted); border:1px solid rgba(143,163,191,.28); }
 
   /* ================= Tela 8 — Tabela ================= */
@@ -1684,7 +1684,7 @@
   }
   .mt-tr{ display:flex; align-items:center; gap:5px; padding:9px 4px; border-bottom:1px solid var(--mt-navy-700); }
   .mt-tr:last-child{ border-bottom:none; }
-  .mt-tr.highlight{ background:rgba(232,184,75,.08); border-left:3px solid var(--mt-gold-400); margin-left:-4px; padding-left:1px; }
+  .mt-tr.highlight{ background:var(--m3-primary-container); border-left:3px solid var(--m3-primary); margin-left:-4px; padding-left:1px; }
   .mt-pos-num{ width:20px; flex-shrink:0; font-family:'Rajdhani', var(--font); font-weight:700; font-size:13px; text-align:center; position:relative; color:var(--mt-ivory-100); }
   .mt-zone-dot{ width:6px; height:6px; border-radius:50%; position:absolute; left:-2px; top:-2px; }
   .mt-zone-dot.libertadores{ background:var(--mt-gold-400); box-shadow:0 0 5px rgba(232,184,75,.6); }
@@ -1706,7 +1706,7 @@
   .mt-mini-head{ display:flex; gap:8px; padding:4px 4px 8px; font-family:'Rajdhani', var(--font); font-weight:700; font-size:10px; color:var(--mt-ink-faint); letter-spacing:.4px; text-transform:uppercase; border-bottom:1px solid var(--mt-navy-600); }
   .mt-mini-row{ display:flex; align-items:center; gap:8px; padding:9px 4px; border-bottom:1px solid var(--mt-navy-700); font-size:13px; }
   .mt-mini-row:last-child{ border-bottom:none; }
-  .mt-mini-row.highlight{ background:rgba(232,184,75,.08); border-left:3px solid var(--mt-gold-400); margin-left:-4px; padding-left:1px; }
+  .mt-mini-row.highlight{ background:var(--m3-primary-container); border-left:3px solid var(--m3-primary); margin-left:-4px; padding-left:1px; }
   .mt-mini-col{ flex:1; text-align:center; font-family:'Rajdhani', var(--font); font-weight:700; color:var(--mt-ivory-100); }
   .mt-mini-col.head{ color:var(--mt-ink-faint); font-weight:700; font-size:10px; }
   .mt-mini-col.name{ flex:1.6; text-align:left; font-weight:600; font-family:var(--font); color:var(--mt-ivory-50); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
