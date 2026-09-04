@@ -1668,6 +1668,21 @@
   .mt-toggle-input:checked + .mt-toggle .knob{ left:18px; background:var(--m3-primary); }
   .mt-toggle-row .txt{ font-size:13px; color:var(--m3-on-surface-variant); line-height:1.4; }
 
+  /* Redesign (Bloco 2 M3, brtreinadorbloco2tatica.html) — bloco leve
+     (sem chrome de card) pros controles de auto-escalar acima do campo
+     hero (ver panel-escalacao). */
+  .m3-lineup-tools{ display:flex; align-items:center; gap:12px; margin-bottom:14px; }
+  /* "Instruções de jogo" — 4 eixos reais em barra de 5 segmentos
+     clicáveis (era <select> com 2-3 opções nomeadas, ver TACTIC_AXES/
+     renderTacticAxisRows em carreira.js). Reaproveitada também pelo
+     sub-modal de ajuste tático ao vivo (#liveTacticAxisRows). */
+  .m3-instr-row{ display:flex; align-items:center; justify-content:space-between; background:var(--m3-surface-container); border-radius:var(--m3-shape-md); padding:12px 14px; margin-bottom:9px; }
+  .m3-instr-row:last-child{ margin-bottom:0; }
+  .m3-instr-label{ font-size:12px; font-weight:600; color:var(--m3-on-surface); }
+  .m3-segbar{ display:flex; gap:3px; background:var(--m3-surface-container-highest); border-radius:var(--m3-shape-full); padding:3px; flex-shrink:0; }
+  .m3-seg{ width:22px; height:16px; border-radius:var(--m3-shape-full); background:transparent; cursor:pointer; }
+  .m3-seg.on{ background:var(--m3-primary); }
+
   /* ---- campinho ---- */
   .mt-pitch{
     position:relative;
@@ -2514,53 +2529,53 @@
            DOM) pra dentro do #adjustLineupOverlay e de volta — sem
            duplicar nenhum id/render/wiring dos controles daqui. -->
       <div id="escalacaoPanelAnchor" hidden></div>
+      <!-- Redesign (Bloco 2 M3, brtreinadorbloco2tatica.html — "seja
+           fiel às features e ao design") — campo tático vira o HERO
+           visual da tela (sem .mt-card ao redor, igual ao mockup: "ele
+           é o conteúdo"); esquema tático vira chip row horizontal
+           rolável (era <select>, ver renderFormationChips) ACIMA do
+           campo. Auto-escalar/incluir base (controles do app, não
+           existem no mockup) ficam junto da chip row, num bloco leve
+           sem chrome de card, pra não competir com o campo logo
+           abaixo. -->
       <section class="ct-panel" id="panel-escalacao">
-        <div class="mt-card">
-          <div class="mt-card-head"><div class="mt-card-title">Formação e titulares</div></div>
-          <span class="mt-field-label">Esquema tático</span>
-          <div class="mt-formation-row">
-            <select id="formationSelect" class="mt-formation-select"></select>
-            <button class="mt-btn-swap" id="btnAutoLineup" title="Escalar automaticamente — melhores overalls por posição" aria-label="Escalar automaticamente"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></button>
-          </div>
+        <div class="m3-filter-row" id="formationChipRow"></div>
+        <div class="m3-lineup-tools">
+          <button class="mt-btn-swap" id="btnAutoLineup" title="Escalar automaticamente — melhores overalls por posição" aria-label="Escalar automaticamente"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></button>
           <!-- Pedido do usuário: toggle discreto pra incluir (ou não) a
                categoria de base na escalação automática — default
                desligado (base costuma ter overall bem menor, não é o
                que o treinador quer no time principal na maioria das
                vezes). -->
-          <label class="mt-toggle-row">
+          <label class="mt-toggle-row" style="margin:0; flex:1;">
             <input type="checkbox" id="autoLineupIncludeBase" class="mt-toggle-input">
             <span class="mt-toggle"><span class="knob"></span></span>
-            <span class="txt">Incluir jogadores da base ao escalar automaticamente</span>
+            <span class="txt">Incluir base ao escalar automaticamente</span>
           </label>
-          <div id="pitchLines"></div>
         </div>
+        <div id="pitchLines"></div>
         <div class="mt-card">
           <div class="mt-card-head"><div class="mt-card-title">Banco de reservas</div><span class="mt-card-sub" style="margin:0;">até 11</span></div>
           <div id="benchList"></div>
         </div>
+        <!-- AJUSTE (Bloco 2 M3) — "Instruções táticas" (3 <select> com
+             2-3 opções nomeadas) vira "Instruções de jogo" (mesmo nome
+             do mockup), 4 EIXOS REAIS em barra de 5 segmentos — decisão
+             confirmada com o usuário antes de implementar ("Expandir
+             pra 4 eixos reais", não só um reskin visual do componente).
+             Ver TACTIC_AXES/renderTacticAxisRows em carreira.js. -->
         <div class="mt-card">
           <div class="mt-card-head">
-            <div class="mt-card-title">Instruções táticas</div>
+            <div class="mt-card-title">Instruções de jogo</div>
           </div>
-          <!-- AJUSTE (pedido do usuário: "vamos evoluir o método de
-               treinos") — "Foco de treino" saiu daqui por completo,
-               virou a aba própria "Treinos" (ver panel-treinos); o "?"
-               de ajuda também saiu — sem o foco de treino, sobraram só
-               3 seletores autoexplicativos, sem nada mais a esclarecer. -->
-          <div class="mt-field-block"><span class="mt-field-label">Mentalidade</span><select id="tacticMentality" class="mt-select-box"></select></div>
-          <div class="mt-field-block"><span class="mt-field-label">Marcação</span><select id="tacticMarking" class="mt-select-box"></select></div>
-          <div class="mt-field-block" style="margin-bottom:0;"><span class="mt-field-label">Ritmo de jogo</span><select id="tacticTempo" class="mt-select-box"></select></div>
+          <div id="tacticAxisRows"></div>
         </div>
-        <div class="mt-action-bar">
-          <!-- AJUSTE (pedido do usuário: "Botão 'Avançar a próxima
-               temporada' e 'Salvar escalação e táticas' deve ter o
-               padrão de todos os demais botões") — era o último botão
-               de ação principal ainda com o verde .mt-btn-primary
-               (caixa alta/tracking largo) — trocado pro
-               .mt-btn-primary-gold de sempre; ícone SVG já existia,
-               sem mudança nele. -->
-          <button class="mt-btn-primary-gold" id="btnSaveLineup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Salvar escalação e táticas</button>
-        </div>
+        <!-- Botão salvar vira FAB (era barra de ação full-width, ver
+             .mt-action-bar) — mesmo padrão já usado na Central
+             (#btnSimulate/#btnAdvanceSeason). openAdjustLineupModal()/
+             closeAdjustLineupModal() escondem/mostram por classe
+             (agora .m3-fab, era .mt-action-bar). -->
+        <button class="m3-fab" id="btnSaveLineup"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Salvar escalação e táticas</button>
       </section>
 
       <!-- ---------- Tabela ---------- -->
@@ -3305,10 +3320,11 @@
     <div class="ct-modal-body">
       <div class="ct-tactics">
         <div class="ct-field"><label>Esquema tático</label><select id="liveTacticsFormation"></select></div>
-        <div class="ct-field"><label>Mentalidade</label><select id="liveTacticsMentality"></select></div>
-        <div class="ct-field"><label>Marcação</label><select id="liveTacticsMarking"></select></div>
-        <div class="ct-field"><label>Ritmo de jogo</label><select id="liveTacticsTempo"></select></div>
       </div>
+      <!-- AJUSTE (Bloco 2 M3) — mesmos 4 eixos reais da aba Tática
+           (ver TACTIC_AXES/renderTacticAxisRows em carreira.js), só num
+           contexto reduzido (sub-modal ao vivo). -->
+      <div id="liveTacticAxisRows"></div>
     </div>
     <div class="ct-modal-footer">
       <button class="mt-btn-primary-gold" id="btnLiveTacticsConfirm">Aplicar</button>
