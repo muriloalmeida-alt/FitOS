@@ -6232,36 +6232,12 @@ function renderTopbarIdentity() {
 }
 
 /* ---------- Renderização: Central ---------- */
-// Iniciais pro avatar redondo do carrossel "Elenco em destaque"
-// (mockup brtreinadorbloco1inicio.html, tela 2) — mesma ideia do
-// monograma de escudo (crestImg()), mas de jogador: 1ª letra do
-// primeiro + 1ª do último nome ("C. Villasanti" -> "CV").
-function playerInitials(name) {
-  const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
-  if (!parts.length) return "?";
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-}
-// Redesign (mockup brtreinadorbloco1inicio.html, tela 2 — Início) —
-// carrossel horizontal com os destaques do elenco: maiores overall do
-// elenco principal DISPONÍVEL (não adianta destacar quem tá machucado/
-// suspenso, não vai jogar mesmo) — não é um dado novo, só uma leitura
-// derivada do overall que já existe em cada jogador.
-function renderDestaquePlayers() {
-  const destaques = CAREER.squad
-    .filter((p) => (p.origin === "principal" || p.origin === "loan") && p.status === "ok")
-    .sort((a, b) => b.overall - a.overall)
-    .slice(0, 8);
-  const wrap = document.getElementById("destaquePlayers");
-  document.getElementById("destaqueTitle").style.display = destaques.length ? "" : "none";
-  wrap.innerHTML = destaques.map((p) => `
-    <div class="m3-player-mini" data-id="${p.id}">
-      <div class="m3-player-avatar">${escapeHtml(playerInitials(p.name))}</div>
-      <div class="m3-player-mini-name">${escapeHtml(abbreviateName(p.name))}</div>
-      <div class="m3-player-mini-pos">${SUBPOS_LABEL[subPositionOf(p)] || ""}</div>
-    </div>`).join("");
-  wrap.querySelectorAll("[data-id]").forEach((el) => el.addEventListener("click", () => openDetail(el.dataset.id)));
-}
+// AJUSTE (pedido do usuário: "Comissão Técnica na página inicial deve
+// substituir o card de elenco em destaque") — o carrossel "Elenco em
+// destaque" (playerInitials/renderDestaquePlayers, mockup
+// brtreinadorbloco1inicio.html tela 2) saiu do Início; a Comissão
+// Técnica (ver renderCommissionSummaryCard mais abaixo) assume o mesmo
+// lugar no card, logo abaixo do próximo jogo.
 // Nova feature (mockup brtreinadorbloco1pendentes.html — Histórico de
 // confrontos) — retrospecto V-E-D contra um adversário específico,
 // puxado de CAREER.matchLog (só os jogos do PRÓPRIO clube, ver
@@ -6403,10 +6379,11 @@ function renderCentral() {
   // renderSponsorship).
   renderSponsorship();
   // Nova feature — resumo da Comissão Técnica (ver
-  // renderCommissionSummaryCard/COMMISSION_AREAS) direto no Início.
+  // renderCommissionSummaryCard/COMMISSION_AREAS) direto no Início —
+  // substitui o antigo carrossel "Elenco em destaque" nesse lugar do
+  // card (pedido do usuário).
   renderCommissionSummaryCard();
 
-  renderDestaquePlayers();
   const lastCard = document.getElementById("lastResultCard");
   const last = CAREER.resultsByRound[round - 1];
   const fx = last && last.find((m) => String(m.home) === String(CAREER.clubId) || String(m.away) === String(CAREER.clubId));
@@ -7554,9 +7531,15 @@ function renderCommissionSummaryCard() {
       const area = COMMISSION_AREAS.find((a) => a.id === btn.dataset.apply);
       const s = area.fn();
       if (!s.canApply || !s.apply) return;
+      // AJUSTE (pedido do usuário: "ao clicar na caixa de mensagem deve
+      // informar qual foi a sugestão aceita") — s.text é lido ANTES de
+      // aplicar (depois de aceita, a sugestão pode nem existir mais
+      // pra essa área) e vai no corpo da mensagem, não só o nome da
+      // área — o técnico sabe exatamente o que acabou de aceitar.
+      const acceptedText = s.text;
       await s.apply();
       renderAll(); // já re-renderiza este card também (ver renderCentral)
-      toast(`Sugestão de ${area.label} aceita e aplicada.`, { type: "pos" });
+      toast({ title: `Sugestão de ${area.label} aceita`, detail: acceptedText }, { type: "pos" });
     });
   });
 }
