@@ -5635,7 +5635,13 @@ function confirmLiveTactics() {
    em dia (posição muda a cada rodada). */
 function renderTopbarIdentity() {
   const club = teamById(CAREER.clubId);
-  document.getElementById("topbarClubCrest").innerHTML = club?.logo
+  // Pedido do usuário (mesmo raciocínio do fundo redondo por trás do
+  // escudo, ver crestImg()) — o quadrado colorido só faz sentido como
+  // moldura da sigla (sem escudo real); com logo de verdade, o quadrado
+  // só competiria com a marca oficial.
+  const topbarCrest = document.getElementById("topbarClubCrest");
+  topbarCrest.classList.toggle("has-logo", !!club?.logo);
+  topbarCrest.innerHTML = club?.logo
     ? `<img src="${club.logo}" alt="">`
     : escapeHtml(club?.short || "?");
   document.getElementById("topbarClubName").textContent = club?.name || "";
