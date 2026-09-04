@@ -150,6 +150,19 @@
     --m3-surface-container-highest:#373432;
     --m3-on-surface:#E7E2DE; --m3-on-surface-variant:#CBC5BE;
     --m3-outline:#948E88; --m3-outline-variant:#4A4744;
+    /* Papel "inverse surface/on-inverse-surface" do M3 (spec oficial de
+       Snackbar/Toast: container na cor INVERSA à superfície padrão da
+       tela — aqui, tema escuro, então inverse-surface é claro) — sem
+       isso o toast usava --mt-ivory-* soltas, uma exceção ao sistema
+       de tokens M3. "Extended colors" (pos/warn/info) seguem o mesmo
+       princípio das M3 Custom Colors: paleta própria, mas calibrada
+       pro PAR sobre inverse-surface (claro) — não dá pra simplesmente
+       reusar --m3-primary/--m3-error aqui, que foram calibradas pro
+       oposto (texto claro sobre superfície ESCURA); usá-las direto
+       sobre um fundo claro quebraria o contraste WCAG que o próprio
+       M3 exige. */
+    --m3-inverse-surface:#F5F1E6; --m3-inverse-on-surface:#0A1628;
+    --m3-inverse-success:#1D6B3D; --m3-inverse-warning:#D64545; --m3-inverse-accent:#B8860B;
     --m3-shape-xs:4px; --m3-shape-sm:8px; --m3-shape-md:12px;
     --m3-shape-lg:16px; --m3-shape-xl:28px; --m3-shape-full:999px;
     --m3-display:'Space Grotesk', var(--font);
@@ -849,26 +862,38 @@
      crimson-500/gold-600 em vez de pitch-300/crimson-400/gold-300,
      que foram calibradas pra saltar num fundo ESCURO e ficam
      ilegíveis num fundo claro). */
+  /* Redesign M3 — snackbar seguindo o componente de referência oficial
+     (m3.material.io/components/snackbar): forma "extra small"
+     (--m3-shape-xs, NÃO um valor solto de 14px), superfície INVERSA
+     (ver tokens --m3-inverse-* no :root) em vez do gradiente
+     --mt-ivory-* de antes, margens alinhadas à mesma régua de 16px que
+     .m3-body usa pro resto do conteúdo (era 18px, resquício de antes
+     do sistema M3). Largura NUNCA foi de propósito amarrada a nenhum
+     botão específico (nem ao FAB, nem ao antigo botão de largura
+     cheia) — full width com essas margens simétricas é o próprio
+     comportamento de snackbar em compact width class do M3, cai numa
+     largura parecida com a de um botão cheio por coincidência de
+     layout, não por regra. */
   .ct-toast{
-    position:fixed; left:18px; right:18px; margin:0 auto; max-width:420px; bottom:18px;
+    position:fixed; left:16px; right:16px; margin:0 auto; max-width:420px; bottom:16px;
     display:none; align-items:flex-start; gap:11px;
-    background:linear-gradient(160deg, var(--mt-ivory-50), var(--mt-ivory-100) 65%);
-    border:1px solid rgba(10,22,40,.14); border-top:1px solid rgba(232,184,75,.5);
-    border-radius:14px; padding:13px 16px;
+    background:var(--m3-inverse-surface);
+    border:none;
+    border-radius:var(--m3-shape-xs); padding:13px 16px;
     z-index:300; box-shadow:0 12px 32px rgba(10,22,40,.24);
   }
-  .ct-toast-icon{ width:32px; height:32px; border-radius:9px; flex-shrink:0; display:flex; align-items:center; justify-content:center; }
+  .ct-toast-icon{ width:32px; height:32px; border-radius:var(--m3-shape-sm); flex-shrink:0; display:flex; align-items:center; justify-content:center; }
   .ct-toast-icon svg{ width:17px; height:17px; }
-  .ct-toast.pos .ct-toast-icon{ background:rgba(29,107,61,.14); color:var(--mt-pitch-700); }
-  .ct-toast.info .ct-toast-icon{ background:rgba(184,134,11,.14); color:var(--mt-gold-600); }
-  .ct-toast.warn .ct-toast-icon{ background:rgba(214,69,69,.14); color:var(--mt-crimson-500); }
+  .ct-toast.pos .ct-toast-icon{ background:rgba(29,107,61,.14); color:var(--m3-inverse-success); }
+  .ct-toast.info .ct-toast-icon{ background:rgba(184,134,11,.14); color:var(--m3-inverse-accent); }
+  .ct-toast.warn .ct-toast-icon{ background:rgba(214,69,69,.14); color:var(--m3-inverse-warning); }
   .ct-toast-body{ min-width:0; flex:1; padding-top:1px; }
-  .ct-toast-title{ font-size:13.5px; font-weight:700; color:var(--mt-navy-900); line-height:1.35; }
+  .ct-toast-title{ font-size:13.5px; font-weight:700; color:var(--m3-inverse-on-surface); line-height:1.35; }
   .ct-toast-detail{ font-size:12px; color:rgba(10,22,40,.62); margin-top:3px; line-height:1.45; }
   .ct-toast-stats{ display:flex; gap:6px; margin-top:7px; flex-wrap:wrap; }
-  .ct-toast-stat{ font-family:'Rajdhani', var(--font); font-size:11.5px; font-weight:700; padding:2px 8px; border-radius:100px; }
-  .ct-toast-stat.pos{ background:rgba(29,107,61,.14); color:var(--mt-pitch-700); }
-  .ct-toast-stat.neg{ background:rgba(214,69,69,.14); color:var(--mt-crimson-500); }
+  .ct-toast-stat{ font-family:var(--font); font-size:11.5px; font-weight:700; padding:2px 8px; border-radius:var(--m3-shape-full); }
+  .ct-toast-stat.pos{ background:rgba(29,107,61,.14); color:var(--m3-inverse-success); }
+  .ct-toast-stat.neg{ background:rgba(214,69,69,.14); color:var(--m3-inverse-warning); }
   .ct-toast-stat.zero{ background:rgba(10,22,40,.08); color:rgba(10,22,40,.62); }
   .ct-empty{ color:var(--text-2); font-size:13px; text-align:center; padding:20px 0; }
   .hidden{ display:none !important; }
