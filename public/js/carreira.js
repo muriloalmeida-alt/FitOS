@@ -8645,16 +8645,43 @@ function wireStaticListeners() {
     show("screenCompetitionPicker");
   });
 
+  // AJUSTE (pedido do usuário: "o menu Mais está muito extenso ...
+  // criação de submenus") — o popover agora tem uma raiz
+  // (#topbarMenuRoot, só categorias + os 4 itens soltos) e N submenus
+  // (".mt-topbar-submenu", um por categoria, começam escondidos —
+  // ver CSS/HTML). showTopbarMenuRoot() volta pra raiz escondendo
+  // qualquer submenu aberto; os botões ".group" fazem o caminho
+  // inverso (escondem a raiz, mostram só o submenu clicado). Nenhum
+  // botão-folha (Tabela, Notícias etc.) mudou de id/listener — só a
+  // marcação ao redor deles.
+  function showTopbarMenuRoot() {
+    document.getElementById("topbarMenuRoot").classList.remove("hidden");
+    document.querySelectorAll("#topbarMenu .mt-topbar-submenu").forEach((el) => el.classList.add("hidden"));
+  }
+  document.querySelectorAll("#topbarMenu .mt-topbar-menu-item.group").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      document.getElementById("topbarMenuRoot").classList.add("hidden");
+      document.querySelectorAll("#topbarMenu .mt-topbar-submenu").forEach((el) => {
+        el.classList.toggle("hidden", el.dataset.submenuPanel !== btn.dataset.submenu);
+      });
+    });
+  });
+  document.querySelectorAll("#topbarMenu .mt-topbar-submenu-back").forEach((btn) => {
+    btn.addEventListener("click", showTopbarMenuRoot);
+  });
   // Menu (pedido do usuário: "o hambúrguer não ficaria melhor no
   // rodapé junto com os demais?") — antes um ícone solto no topbar
   // (#btnTopbarMenu), agora o botão "Menu" do rodapé (#btnBottomMenu,
   // ver .mt-bottom-nav) — mesmo popover #topbarMenu de sempre, só
   // reancorado (ver CSS) pra abrir a partir de baixo. Fecha ao clicar
   // em qualquer item, ao clicar fora, ou de novo no próprio botão.
+  // Reabrir sempre volta pra raiz (showTopbarMenuRoot acima) — senão o
+  // popover reabriria preso no último submenu visitado.
   document.getElementById("btnBottomMenu").addEventListener("click", (e) => {
     e.stopPropagation();
     const menu = document.getElementById("topbarMenu");
     const willOpen = !menu.classList.contains("open");
+    if (willOpen) showTopbarMenuRoot();
     menu.classList.toggle("open", willOpen);
     document.getElementById("btnBottomMenu").setAttribute("aria-expanded", String(willOpen));
   });
