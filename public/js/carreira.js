@@ -409,11 +409,42 @@ function applyClubPalette(club) {
 // antes da próxima tela (que pode não ter clube nenhum ainda).
 function resetToDefaultM3Palette() { applyM3Palette(M3_DEFAULT_PALETTE); }
 
+// Nova feature (pedido do usuário: "criar uma tela de loading que deve
+// aparecer sempre que uma ação demorar mais que 3 segundos") —
+// fetchJSON é o ÚNICO ponto do app que faz requisição de rede (todo o
+// resto do arquivo já passa por aqui, nenhum fetch() cru em lugar
+// nenhum), então armar/desarmar o timer só AQUI já cobre toda ação de
+// verdade (salvar carreira, comprar/vender jogador, simular rodada,
+// login etc.) sem precisar tocar em cada chamador. ACTION_LOADING_DEPTH
+// conta chamadas em voo ao mesmo tempo — só esconde quando a ÚLTIMA
+// também termina (evita esconder cedo demais com 2+ chamadas
+// simultâneas).
+let ACTION_LOADING_TIMER = null;
+let ACTION_LOADING_DEPTH = 0;
+const ACTION_LOADING_DELAY_MS = 3000;
+function beginActionLoading() {
+  ACTION_LOADING_DEPTH++;
+  if (ACTION_LOADING_TIMER) return; // já tem um timer armado por outra chamada em voo
+  ACTION_LOADING_TIMER = setTimeout(() => {
+    document.getElementById("actionLoadingOverlay").classList.add("open");
+  }, ACTION_LOADING_DELAY_MS);
+}
+function endActionLoading() {
+  ACTION_LOADING_DEPTH = Math.max(0, ACTION_LOADING_DEPTH - 1);
+  if (ACTION_LOADING_DEPTH > 0) return; // outra chamada ainda em voo
+  if (ACTION_LOADING_TIMER) { clearTimeout(ACTION_LOADING_TIMER); ACTION_LOADING_TIMER = null; }
+  document.getElementById("actionLoadingOverlay").classList.remove("open");
+}
 async function fetchJSON(url, opts) {
-  const res = await fetch(url, opts);
-  const data = await res.json().catch(() => null);
-  if (!res.ok) { const e = new Error(data?.error || `Falha em ${url}`); e.status = res.status; e.code = data?.code; throw e; }
-  return data;
+  beginActionLoading();
+  try {
+    const res = await fetch(url, opts);
+    const data = await res.json().catch(() => null);
+    if (!res.ok) { const e = new Error(data?.error || `Falha em ${url}`); e.status = res.status; e.code = data?.code; throw e; }
+    return data;
+  } finally {
+    endActionLoading();
+  }
 }
 let toastTimer = null;
 // AJUSTE (pedido do usuário: "as mensagens que aparecem em várias
