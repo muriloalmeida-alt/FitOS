@@ -1145,6 +1145,68 @@ function applySeasonMoraleReset(squad) {
     p.morale = clamp(m, 0, 100);
   });
 }
+/* ---------- Evolução de atributos mais realista (pedido do usuário:
+   "os atributos precisam ser mais reais... com os treinos chega um
+   momento que todos os atletas estão em 99... evolução menos
+   agressiva e os jogadores também podem perder atributos
+   naturalmente") ----------
+   DIAGNÓSTICO: p.potential já existia (só pra jogador da BASE, ver
+   buildBasePlayer) mas nunca era lido como teto de crescimento em
+   lugar NENHUM do motor de evolução — só alimentava o bônus de valor
+   de mercado (computeContractFields) e a faixa exibida ao olheiro
+   (scoutedPotentialRange). O treino (applyWeeklyTraining) dava ganho
+   DETERMINÍSTICO (sem chance, sem teto por jogador) a cada rodada
+   aplicada — qualquer jogador, de qualquer idade, convergia pra 99 em
+   poucas rodadas, sem relação nenhuma com talento/idade real.
+
+   Corrigido: potential passa a valer de verdade como teto — de
+   overall E de phys (mesma escala 0-99, reaproveitado sem inventar um
+   2º campo) — em QUALQUER ganho de atributo (treino OU maturação
+   natural, ver applyNaturalAgingEvolution). E, decisão nova, todo
+   jogador ganha um potencial coerente, não só a base: adulto real/
+   gerado (buildRealPlayer/buildGeneratedProPlayer) recebe um teto
+   derivado da IDADE — jovem tem espaço real pra crescer via treino;
+   veterano (30+) já nasce no próprio teto, sem espaço nenhum (só
+   declínio a partir daí, ver applyNaturalAgingEvolution). Saves
+   antigos (sem esse campo pra jogador adulto) recebem um valor
+   retroativo determinístico na migração (ver backfillPlayerPotential/
+   migrateCareerDefaults). */
+function derivePotentialForAdult(overall, age, rng) {
+  let room;
+  if (age <= 20) room = 8 + rng() * 10;       // 8-18: base jovem ainda tem margem real
+  else if (age <= 23) room = 4 + rng() * 8;   // 4-12
+  else if (age <= 26) room = 1 + rng() * 5;   // 1-6
+  else if (age <= 29) room = rng() * 3;       // 0-3
+  else room = 0;                               // 30+: sem mais espaço de crescimento por treino
+  return Math.round(clamp(overall + room, overall, 99));
+}
+// Ganho de um atributo no treino (ver applyWeeklyTraining) respeitando
+// o teto do jogador, com retorno DECRESCENTE perto dele: baseGain
+// (fórmula do documento, ver TRAINING_INTENSITY_MULT) continua sendo o
+// máximo POSSÍVEL numa rodada, mas cada "unidade" de ganho só converte
+// de verdade com uma chance proporcional ao espaço restante até o teto
+// — longe dele (espaço >= 15), quase sempre o ganho cheio, igual antes;
+// perto dele, cada unidade vira cada vez mais rara (nunca zero de
+// propósito — sempre >= 5% de chance —, mas na prática convergindo
+// bem mais devagar); no teto, sempre zero. Nunca passa do teto.
+function attributeTrainingGain(currentValue, ceiling, baseGain) {
+  const room = ceiling - currentValue;
+  if (room <= 0) return 0;
+  let gained = 0;
+  for (let i = 0; i < baseGain; i++) {
+    const chance = clamp(room / 15, 0.05, 1);
+    if (Math.random() < chance) gained++;
+  }
+  return Math.min(gained, room);
+}
+// Backfill pra saves de ANTES desta mudança — jogador adulto nunca
+// tinha esse campo. Seed determinística por jogador (mesmo padrão de
+// seededRngFromKey já usado em renew-league/renew-human/contract-
+// backfill) — não muda de valor a cada load do mesmo save.
+function backfillPlayerPotential(p) {
+  if (p.potential != null) return;
+  p.potential = derivePotentialForAdult(p.overall, p.age, seededRngFromKey(`potential-backfill:${p.id}`));
+}
 function buildRealPlayer(raw, club, rng) {
   const group = mapPositionGroup(raw.position) || ["D", "M", "F"][Math.floor(rng() * 3)];
   const ratingBase = raw.rating != null ? clamp((raw.rating - 5) / 4, 0, 1) : 0.5;
@@ -1164,9 +1226,14 @@ function buildRealPlayer(raw, club, rng) {
   // segurança pra quando o fornecedor não tiver esse dado (ex.: Modo
   // Exemplo sem chave configurada, ou resposta incompleta da API).
   const age = Number.isFinite(raw.age) && raw.age > 0 ? Math.round(raw.age) : 18 + Math.floor(rng() * 18);
+  // Nova feature (pedido do usuário: "atributos precisam ser mais
+  // reais... evolução menos agressiva") — teto de crescimento por
+  // idade, ver derivePotentialForAdult (bloco de comentário grande
+  // acima de buildRealPlayer).
+  const potential = derivePotentialForAdult(overall, age, rng);
   return {
     id: `real_${raw.id}`, name: raw.name || "Jogador", photo: raw.photo || null,
-    group, age, overall, atk, def, phys,
+    group, age, overall, atk, def, phys, potential,
     origin: "principal", real: true,
     status: "ok", outUntilRound: null, yellowCards: 0, condition: 100, morale: 70,
     // FASE 4 (item 1) — relacionamento jogador-técnico, ver bloco de
@@ -1174,7 +1241,7 @@ function buildRealPlayer(raw, club, rng) {
     benchStreak: 0, moraleReason: "Neutro no clube", moraleTrend: "estavel",
     wantsTransfer: false, lastTalkRound: null,
     goalsCareer: 0, assistsCareer: 0, apps: 0,
-    ...computeContractFields(overall, age, null, rng),
+    ...computeContractFields(overall, age, potential, rng),
   };
 }
 // Composição fixa (não sorteada) pra GARANTIR pelo menos 2 goleiros na
@@ -1221,6 +1288,17 @@ function buildBasePlayer(club, idx, rng) {
    jovem, mais incerta a projeção (folga maior). */
 function scoutedPotentialRange(p) {
   if (p.potential == null) return null;
+  // Nova feature (pedido do usuário: "atributos precisam ser mais
+  // reais... evolução menos agressiva") — QUALQUER jogador adulto
+  // ganhou p.potential (ver derivePotentialForAdult), não só quem
+  // "ainda carrega potencial" (promovido da base) como antes — sem
+  // este corte, um veterano de 34 anos (potential === overall, sem
+  // espaço nenhum) passaria a mostrar uma faixa de olheiro cheia de
+  // incerteza (a fórmula de fuzz abaixo não sabe que o teto real já
+  // foi alcançado) — não faz sentido "escoutar" quem já está formado.
+  // Continua aparecendo pra jovem promissor de verdade (base OU
+  // adulto recém-assinado com espaço real de crescimento).
+  if (p.potential <= p.overall && !p.scoutRevealed) return null;
   // Retenção/Engajamento — recompensa "scout_token" do login diário
   // (ver applyDailyLoginReward) marca p.scoutRevealed em vez de tocar
   // em p.potential: o potencial REAL continua intacto (ele já é usado
@@ -1254,15 +1332,19 @@ function buildGeneratedProPlayer(club, idx, rng) {
   const phys = clamp(Math.round(55 + rng() * 30), 38, 90);
   const first = DEMO_FIRST_NAMES[Math.floor(rng() * DEMO_FIRST_NAMES.length)];
   const last = DEMO_LAST_NAMES[Math.floor(rng() * DEMO_LAST_NAMES.length)];
+  // Nova feature (pedido do usuário: "atributos precisam ser mais
+  // reais... evolução menos agressiva") — mesmo teto por idade de
+  // buildRealPlayer, ver derivePotentialForAdult.
+  const potential = derivePotentialForAdult(overall, age, rng);
   return {
     id: `gen_${club.id}_${idx}`, name: `${first} ${last}`, photo: null,
-    group, age, overall, atk, def, phys,
+    group, age, overall, atk, def, phys, potential,
     origin: "principal", real: false,
     status: "ok", outUntilRound: null, yellowCards: 0, condition: 100, morale: 70,
     benchStreak: 0, moraleReason: "Neutro no clube", moraleTrend: "estavel",
     wantsTransfer: false, lastTalkRound: null,
     goalsCareer: 0, assistsCareer: 0, apps: 0,
-    ...computeContractFields(overall, age, null, rng),
+    ...computeContractFields(overall, age, potential, rng),
   };
 }
 // Elenco principal: usa TODOS os jogadores reais que o fornecedor
@@ -3307,9 +3389,17 @@ function applyNaturalAgingEvolution(playedThisRound) {
     else if (p.age < declineAge) { growChance = played ? 0.06 : 0.01; declineChance = played ? 0 : 0.01; }
     else { growChance = played ? 0.02 : 0; declineChance = (played ? 0.05 : 0.08) + (p.age - declineAge) * 0.01; }
     const trend = p.attrTrend || { overall: 0, atk: 0, def: 0, phys: 0 };
+    // Nova feature (pedido do usuário: "atributos precisam ser mais
+    // reais... evolução menos agressiva") — a maturação natural
+    // também respeita o teto (p.potential, ver derivePotentialForAdult/
+    // buildBasePlayer) — sem isso, um jovem promissor acabaria
+    // passando do próprio potencial só de jogar muitas temporadas,
+    // mesmo sem treino nenhum envolvido. Declínio nunca é limitado por
+    // teto (é sobre o PISO, 20, que já valia).
+    const ceiling = p.potential != null ? p.potential : 99;
     ["overall", "atk", "def", "phys"].forEach((attr) => {
       const roll = Math.random();
-      if (roll < growChance) { p[attr] = clamp(p[attr] + 1, 20, 99); trend[attr] += 1; }
+      if (roll < growChance) { if (p[attr] < ceiling) { p[attr] = clamp(p[attr] + 1, 20, ceiling); trend[attr] += 1; } }
       else if (roll > 1 - declineChance) { p[attr] = clamp(p[attr] - 1, 20, 99); trend[attr] -= 1; }
     });
     // Acumula até o jogador ser aberto no detalhe de novo (ver
@@ -3477,16 +3567,26 @@ function applyWeeklyTraining() {
       return;
     }
     const mult = TRAINING_INTENSITY_MULT[entry.intensidade] || 1;
-    const gain = Math.round(2 * mult);   // fórmula exata do documento (2.2)
+    const baseGain = Math.round(2 * mult);   // fórmula exata do documento (2.2) — teto POSSÍVEL, não garantido, ver attributeTrainingGain
     const fatigueCost = Math.round(6 * mult);
     const attr = entry.foco === "tecnico" ? "overall" : "phys"; // ver aviso de mapeamento no topo
     trainingTargets(entry).forEach((p) => {
       p.condition = clamp((p.condition == null ? 100 : p.condition) - fatigueCost, 0, 100);
-      p[attr] = clamp(p[attr] + gain, 20, 99);
-      const trend = p.attrTrend || { overall: 0, atk: 0, def: 0, phys: 0 };
-      trend[attr] += gain;
-      p.attrTrend = trend;
-      gains.set(p.id, (gains.get(p.id) || 0) + gain);
+      // Nova feature (pedido do usuário: "atributos precisam ser mais
+      // reais... evolução menos agressiva") — ganho respeita o teto
+      // de cada jogador (p.potential), com retorno decrescente perto
+      // dele (ver attributeTrainingGain) — fadiga sempre é cobrada
+      // (o esforço aconteceu), mas o ganho de verdade pode vir menor
+      // que baseGain, ou zero, se o jogador já estiver perto/no teto.
+      const ceiling = p.potential != null ? p.potential : 99;
+      const gain = attributeTrainingGain(p[attr], ceiling, baseGain);
+      if (gain > 0) {
+        p[attr] = clamp(p[attr] + gain, 20, ceiling);
+        const trend = p.attrTrend || { overall: 0, atk: 0, def: 0, phys: 0 };
+        trend[attr] += gain;
+        p.attrTrend = trend;
+        gains.set(p.id, (gains.get(p.id) || 0) + gain);
+      }
       // Regra do documento (2.5): Sub-20 treinando no grupo Misto com
       // o elenco principal ganha moral "feliz" — na escala numérica
       // já existente, isso é um empurrão positivo + motivo explícito
@@ -9469,6 +9569,15 @@ function migrateCareerDefaults() {
   // então "brasileirao" é o default certo aqui, não uma suposição.
   if (!CAREER.competitionId) CAREER.competitionId = "brasileirao";
   if (!CAREER.leagueSquads) CAREER.leagueSquads = {};
+  // Nova feature (pedido do usuário: "atributos precisam ser mais
+  // reais... evolução menos agressiva") — save de ANTES desta mudança
+  // não tinha p.potential pra jogador adulto (só base sempre teve) —
+  // ver bloco de comentário grande acima de buildRealPlayer/
+  // backfillPlayerPotential. Sem isso, o treino desse jogador cairia
+  // no fallback de 99 (sem teto de verdade) até ele ser negociado/
+  // renovado — melhor corrigir todo mundo já na migração.
+  CAREER.squad.forEach(backfillPlayerPotential);
+  Object.values(CAREER.leagueSquads).forEach((squad) => squad.forEach(backfillPlayerPotential));
   // Nova feature — Histórico de confrontos (H2H): carreira criada ANTES
   // desta mudança nunca gravou matchLog — sem migração retroativa (não
   // dá pra reconstruir partidas já jogadas), só passa a acumular daqui
