@@ -7476,6 +7476,57 @@ function showRoundResultsModal(summary) {
 function closeRoundResultsModal() {
   document.getElementById("roundResultsOverlay").classList.remove("open");
 }
+
+// Nova feature — Resumo da rodada (brtreinadorbloco1pendentes.html):
+// aberta a qualquer momento pelo Menu (#btnOpenRodada), diferente de
+// #roundResultsOverlay acima (que só abre sozinha no fluxo pós-jogo).
+// Só 2 estados de verdade — nunca um "ao vivo" fake que o motor não
+// produz (a rodada inteira resolve de uma vez, ver resolveRoundInstant/
+// finishLiveMatch, nunca em paralelo):
+//  - "atual": CAREER.currentRound, ainda não jogada — todo confronto
+//    aparece "— x —" (não existe entrada em resultsByRound pra uma
+//    rodada que ainda não rolou).
+//  - "anterior": CAREER.currentRound - 1, com placar real — só existe
+//    essa opção enquanto o dado ainda não foi podado (resultsByRound
+//    só guarda a rodada atual e a anterior, ver comentário grande em
+//    finishRoundTail) — o que cobre exatamente "a rodada que acabou de
+//    rolar", sempre disponível assim que currentRound avança.
+let RODADA_VIEW = "atual";
+function renderRodada(view) {
+  if (view) RODADA_VIEW = view;
+  const hasAnterior = CAREER.currentRound > 1;
+  if (RODADA_VIEW === "anterior" && !hasAnterior) RODADA_VIEW = "atual";
+  const round = RODADA_VIEW === "anterior" ? CAREER.currentRound - 1 : CAREER.currentRound;
+  document.getElementById("rodadaRoundLabel").textContent = `Rodada ${Math.min(round, 38)}`;
+  document.getElementById("rodadaTabAtual").classList.toggle("on", RODADA_VIEW === "atual");
+  const tabAnterior = document.getElementById("rodadaTabAnterior");
+  tabAnterior.classList.toggle("hidden", !hasAnterior);
+  tabAnterior.classList.toggle("on", RODADA_VIEW === "anterior");
+
+  const fixtures = (CAREER.schedule && CAREER.schedule[round]) || [];
+  const results = (CAREER.resultsByRound && CAREER.resultsByRound[round]) || [];
+  document.getElementById("rodadaEmpty").classList.toggle("hidden", fixtures.length > 0);
+  document.getElementById("rodadaList").innerHTML = fixtures.map((fx) => {
+    const home = teamById(fx.home), away = teamById(fx.away);
+    const isMe = String(fx.home) === String(CAREER.clubId) || String(fx.away) === String(CAREER.clubId);
+    const played = results.find((r) => String(r.home) === String(fx.home) && String(r.away) === String(fx.away));
+    const scoreHTML = played ? `${played.gh} <small>x</small> ${played.ga}` : `— <small>x</small> —`;
+    return `<div class="ct-round-result-row ${isMe ? "me" : ""}">
+      <div class="ct-rr-team">${crestImg(home, 22)}<span>${escapeHtml(home.short || home.name)}</span></div>
+      <span class="ct-rr-score">${scoreHTML}</span>
+      <div class="ct-rr-team right">${crestImg(away, 22)}<span>${escapeHtml(away.short || away.name)}</span></div>
+    </div>`;
+  }).join("");
+}
+function openRodadaScreen() {
+  RODADA_VIEW = "atual";
+  renderRodada();
+  document.getElementById("rodadaOverlay").classList.add("open");
+}
+function closeRodadaScreen() {
+  document.getElementById("rodadaOverlay").classList.remove("open");
+}
+
 // Lista os confrontos da fase da Copa que acabou de rolar (mesmo
 // componente visual .ct-round-result-row/.me da lista de resultados do
 // Brasileirão) + uma linha de status (classificado/eliminado/campeão)
@@ -7845,6 +7896,16 @@ function wireStaticListeners() {
     document.getElementById("topbarMenu").classList.remove("open");
     switchToPanel("tabela");
   });
+  // Nova feature — Resumo da rodada, aberta pelo menu "≡".
+  document.getElementById("btnOpenRodada").addEventListener("click", () => {
+    document.getElementById("topbarMenu").classList.remove("open");
+    openRodadaScreen();
+  });
+  document.getElementById("rodadaClose").addEventListener("click", closeRodadaScreen);
+  document.getElementById("btnRodadaCloseFooter").addEventListener("click", closeRodadaScreen);
+  document.getElementById("rodadaOverlay").addEventListener("click", (e) => { if (e.target.id === "rodadaOverlay") closeRodadaScreen(); });
+  document.getElementById("rodadaTabAtual").addEventListener("click", () => renderRodada("atual"));
+  document.getElementById("rodadaTabAnterior").addEventListener("click", () => renderRodada("anterior"));
   document.getElementById("btnOpenTreinos").addEventListener("click", () => {
     document.getElementById("topbarMenu").classList.remove("open");
     switchToPanel("treinos");
