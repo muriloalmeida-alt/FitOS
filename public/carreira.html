@@ -1370,6 +1370,21 @@
   .m3-attr-fill.crimson{ background:var(--m3-error); }
   .m3-attr-num{ font-size:11.5px; font-weight:700; width:26px; text-align:right; flex-shrink:0; font-family:var(--m3-display); color:var(--m3-on-surface); }
 
+  /* Nova feature (mockup brtreinadorbloco1pendentes.html — Comparar
+     jogadores): entry point no Perfil do jogador (ver #btnComparePlayer
+     em openDetail/carreira.js), 2 passos dentro do MESMO overlay —
+     escolher o 2º jogador (mesma posição, reaproveita .mt-sel-row já
+     usado no picker de escalação) e o resultado lado a lado. */
+  .m3-compare-header{ display:flex; align-items:center; justify-content:center; gap:14px; padding:6px 0 16px; }
+  .m3-compare-player{ flex:1; display:flex; flex-direction:column; align-items:center; gap:8px; min-width:0; }
+  .m3-compare-player b{ font-size:13px; font-family:'Bebas Neue', var(--font); letter-spacing:.3px; color:var(--mt-ivory-50); text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+  .m3-compare-vs{ font-family:var(--m3-display); font-size:12px; font-weight:700; color:var(--m3-on-surface-variant); flex-shrink:0; }
+  .m3-compare-row{ display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:10px; padding:9px 0; border-bottom:1px solid var(--mt-navy-700); }
+  .m3-compare-row:last-child{ border-bottom:none; }
+  .m3-compare-val{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:14px; color:var(--mt-ink-muted); text-align:center; font-variant-numeric:tabular-nums; }
+  .m3-compare-val.win{ color:var(--m3-secondary); font-weight:800; }
+  .m3-compare-label{ font-size:10.5px; color:var(--m3-on-surface-variant); text-align:center; text-transform:uppercase; letter-spacing:.3px; }
+
   /* Nova feature (mockup brtreinadorbloco1pendentes.html — Histórico
      de confrontos/H2H) — retrospecto V-E-D contra um adversário. */
   .m3-h2h-hero{ display:flex; align-items:center; justify-content:space-around; background:var(--m3-surface-container); border-radius:var(--m3-shape-xl); padding:18px 14px; margin-bottom:16px; text-align:center; }
@@ -3743,6 +3758,46 @@
       <div class="m3-form-row" id="h2hFormRow"></div>
       <div class="m3-card-title">Últimos confrontos</div>
       <div id="h2hMatchList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Nova feature (mockup brtreinadorbloco1pendentes.html — Comparar
+     jogadores): entry point é o botão "⚖️ Comparar jogador" dentro do
+     Perfil (ver openDetail/handlePlayerAction em carreira.js). MESMO
+     overlay cobre os 2 passos (ver openComparePicker/renderCompareResult):
+     escolher o 2º jogador (só da MESMA posição — comparar goleiro com
+     atacante não diz nada de útil) e o resultado lado a lado, sem abrir
+     uma tela nova pra cada passo. -->
+<div class="ct-modal-overlay ct-modal-fullscreen" id="compareOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header mt-fullheader">
+      <span class="ct-modal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M7 7H2l2.5 6L2 19h5M17 7h5l-2.5 6L22 19h-5"/></svg></span>
+      <div class="ct-modal-header-text">
+        <h3>Comparar jogadores</h3>
+        <div class="ct-modal-sub" id="compareSub"></div>
+      </div>
+      <button class="ct-modal-close" id="compareClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <!-- Passo 1 — escolher o 2º jogador (mesma posição do jogador de
+           origem), mesmo componente de lista já usado no picker de
+           escalação (.mt-sel-row). -->
+      <div id="comparePickStep">
+        <div id="comparePickList"></div>
+      </div>
+      <!-- Passo 2 — resultado lado a lado, escondido até um 2º jogador
+           ser escolhido (ver renderCompareResult). -->
+      <div id="compareResultStep" class="hidden">
+        <div class="m3-compare-header" id="compareHeaderRow"></div>
+        <div class="mt-card">
+          <div id="compareRows"></div>
+        </div>
+        <p class="mt-badge-gold" id="compareVerdict" style="display:flex;"></p>
+      </div>
+    </div>
+    <div class="ct-modal-footer">
+      <button class="mt-btn-ghost hidden" id="btnCompareChangePlayer">Trocar jogador</button>
     </div>
   </div>
 </div>

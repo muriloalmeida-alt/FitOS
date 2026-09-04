@@ -6329,6 +6329,12 @@ function openDetail(id) {
          ação irreversível de verdade aqui). -->
     <div class="mt-action-list">
       ${canTalkTo(p) ? `<button class="mt-btn-ghost" data-act="talk">💬 Conversar</button>` : ""}
+      <!-- Nova feature (mockup brtreinadorbloco1pendentes.html — Comparar
+           jogadores): entry point pedido explicitamente aqui no Perfil.
+           Sem trava de posição/status — a trava real é no picker (só
+           mostra quem joga na MESMA posição), então até um jogador
+           lesionado/suspenso pode abrir a comparação normalmente. -->
+      <button class="mt-btn-ghost" data-act="compare">⚖️ Comparar jogador</button>
       ${isContractExpiring(p) ? `<button class="mt-btn-primary-gold" data-act="renew">✍️ Renovar contrato</button>` : ""}
       ${inStarters ? `<button class="mt-btn-ghost" data-act="removeStarter">Tirar do time titular</button>` : ""}
       ${!inStarters && inBench ? `<button class="mt-btn-ghost" data-act="removeBench">Tirar do banco</button>` : ""}
@@ -6370,6 +6376,8 @@ async function handlePlayerAction(id, act) {
   // de configuração do empréstimo POR CIMA do detalhe, sem mexer em
   // nada ainda — quem decide o que muda é confirmLoanFromModal().
   if (act === "loanout") { openLoanOutModal(id); return; }
+  // Nova feature — Comparar jogadores (ver openComparePicker).
+  if (act === "compare") { openComparePicker(id); return; }
   if (act === "removeStarter") {
     CAREER.lineup.starters = CAREER.lineup.starters.map((x) => (x === id ? null : x));
   } else if (act === "removeBench") {
@@ -6409,6 +6417,98 @@ async function handlePlayerAction(id, act) {
   document.getElementById("detailOverlay").classList.remove("open");
   persistCareer();
   renderElenco(); renderEscalacao(); renderCentral();
+}
+
+/* ---------- Comparar jogadores (brtreinadorbloco1pendentes.html) ----------
+   Entry point: botão "⚖️ Comparar jogador" no Perfil (ver openDetail).
+   Um jogador só faz sentido comparado a outro da MESMA posição — o
+   filtro do picker (renderComparePickList) já garante isso, então
+   renderCompareResult nunca precisa checar de novo. */
+let COMPARE_BASE_ID = null;
+function openComparePicker(baseId) {
+  COMPARE_BASE_ID = baseId;
+  const base = CAREER.squad.find((x) => x.id === baseId);
+  if (!base) return;
+  document.getElementById("compareSub").textContent = `Escolha um ${SUBPOS_LABEL[subPositionOf(base)] || "jogador"} pra comparar com ${abbreviateName(base.name)}`;
+  document.getElementById("comparePickStep").classList.remove("hidden");
+  document.getElementById("compareResultStep").classList.add("hidden");
+  document.getElementById("btnCompareChangePlayer").classList.add("hidden");
+  renderComparePickList();
+  document.getElementById("compareOverlay").classList.add("open");
+}
+function renderComparePickList() {
+  const base = CAREER.squad.find((x) => x.id === COMPARE_BASE_ID);
+  if (!base) return;
+  const subpos = subPositionOf(base);
+  // Sem trava de status (lesionado/suspenso não fica de fora) — a
+  // comparação é sobre ATRIBUTOS, não sobre quem pode jogar agora
+  // (diferente do picker de escalação, que É sobre isso).
+  const pool = CAREER.squad
+    .filter((p) => p.id !== base.id && subPositionOf(p) === subpos)
+    .sort((a, b) => b.overall - a.overall);
+  const list = document.getElementById("comparePickList");
+  list.innerHTML = pool.length ? pool.map((p) => {
+    const srcClass = p.origin === "base" ? "base" : p.origin === "loan" ? "loan" : "principal";
+    const srcLabel = p.origin === "base" ? "base" : p.origin === "loan" ? "emprestado" : "principal";
+    return `<div class="mt-sel-row" data-id="${p.id}">
+      <span class="mt-pos-chip ${SUBPOS_DIVCLASS[subpos]}">${subpos}</span>
+      <div class="mt-sel-name">${escapeHtml(abbreviateName(p.name))}</div>
+      <div class="mt-sel-meta"><span class="mt-sel-ovr${p.overall >= 80 ? " gold" : ""}">${p.overall}</span><span class="mt-sel-src ${srcClass}">${srcLabel}</span></div>
+    </div>`;
+  }).join("") : `<p class="ct-empty">Nenhum outro ${SUBPOS_LABEL[subpos] || "jogador"} no elenco pra comparar.</p>`;
+  list.querySelectorAll("[data-id]").forEach((el) => el.addEventListener("click", () => renderCompareResult(el.dataset.id)));
+}
+// Linha de comparação genérica — destaca (.win) só o lado que estiver
+// numericamente melhor; higherIsBetter=false inverte pra métricas de
+// CUSTO (salário/valor), onde o lado mais barato é a vantagem.
+function compareRowHTML(label, valA, valB, higherIsBetter, fmt) {
+  const f = fmt || ((v) => v);
+  const aWins = higherIsBetter ? valA > valB : valA < valB;
+  const bWins = higherIsBetter ? valB > valA : valB < valA;
+  return `<div class="m3-compare-row">
+    <div class="m3-compare-val${aWins ? " win" : ""}">${f(valA)}</div>
+    <div class="m3-compare-label">${escapeHtml(label)}</div>
+    <div class="m3-compare-val${bWins ? " win" : ""}">${f(valB)}</div>
+  </div>`;
+}
+function renderCompareResult(otherId) {
+  const a = CAREER.squad.find((x) => x.id === COMPARE_BASE_ID);
+  const b = CAREER.squad.find((x) => x.id === otherId);
+  if (!a || !b) return;
+  document.getElementById("compareSub").textContent = "";
+  document.getElementById("comparePickStep").classList.add("hidden");
+  document.getElementById("compareResultStep").classList.remove("hidden");
+  document.getElementById("btnCompareChangePlayer").classList.remove("hidden");
+  document.getElementById("compareHeaderRow").innerHTML = `
+    <div class="m3-compare-player"><div class="mt-ovr-badge sz-lg ${ovrTierClass(a.overall)}">${a.overall}</div><b>${escapeHtml(abbreviateName(a.name))}</b></div>
+    <div class="m3-compare-vs">VS</div>
+    <div class="m3-compare-player"><div class="mt-ovr-badge sz-lg ${ovrTierClass(b.overall)}">${b.overall}</div><b>${escapeHtml(abbreviateName(b.name))}</b></div>`;
+  document.getElementById("compareRows").innerHTML = [
+    compareRowHTML("Geral", a.overall, b.overall, true),
+    compareRowHTML("Ataque", a.atk, b.atk, true),
+    compareRowHTML("Defesa", a.def, b.def, true),
+    compareRowHTML("Físico", a.phys, b.phys, true),
+    compareRowHTML("Idade", a.age, b.age, false),
+    compareRowHTML("Salário", a.wage, b.wage, false, fmtBRL),
+    compareRowHTML("Valor de mercado", a.value, b.value, false, fmtBRL),
+  ].join("");
+  // Custo-benefício: quanto custa (salário mensal) cada ponto de
+  // overall — quem paga MENOS por ponto entrega mais retorno pro
+  // dinheiro investido (nada inventado, só uma razão entre 2 campos
+  // reais que o jogador já tem). Empate raro (mesma razão exata) não
+  // declara vencedor, só descreve os 2 números.
+  const costA = a.wage / a.overall, costB = b.wage / b.overall;
+  const verdictEl = document.getElementById("compareVerdict");
+  if (Math.abs(costA - costB) < 1) {
+    verdictEl.textContent = `⚖️ Custo-benefício empatado: os dois custam cerca de ${fmtBRL(Math.round(costA))}/mês por ponto de overall.`;
+  } else {
+    const winner = costA < costB ? a : b;
+    const winnerCost = Math.min(costA, costB), loserCost = Math.max(costA, costB);
+    verdictEl.textContent = `⚖️ Melhor custo-benefício: ${abbreviateName(winner.name)} — ${fmtBRL(Math.round(winnerCost))}/mês por ponto de overall (contra ${fmtBRL(Math.round(loserCost))}/mês do outro).`;
+  }
+}
+function closeCompareScreen() {
+  document.getElementById("compareOverlay").classList.remove("open");
 }
 
 /* ---------- Renderização: Escalação ---------- */
@@ -7842,6 +7942,12 @@ function wireStaticListeners() {
   // nada (dataset.opponentId nunca foi setado).
   document.getElementById("nextMatchBox").addEventListener("click", () => openH2H(document.getElementById("nextMatchBox").dataset.opponentId));
   document.getElementById("h2hClose").addEventListener("click", closeH2H);
+  // Nova feature — Comparar jogadores (ver openComparePicker/handlePlayerAction).
+  document.getElementById("compareClose").addEventListener("click", closeCompareScreen);
+  document.getElementById("compareOverlay").addEventListener("click", (e) => { if (e.target.id === "compareOverlay") closeCompareScreen(); });
+  // "Trocar jogador" (só visível no passo de resultado) volta pro
+  // passo 1 sem fechar o modal nem perder o jogador de origem.
+  document.getElementById("btnCompareChangePlayer").addEventListener("click", () => openComparePicker(COMPARE_BASE_ID));
   document.getElementById("coachProfileOverlay").addEventListener("click", (e) => { if (e.target.id === "coachProfileOverlay") closeCoachProfileScreen(); });
   // FASE 4 (item 4) — notificação de proposta de outro clube: X e
   // clique fora só fecham (sem aceitar nem recusar), reabrível pelo
