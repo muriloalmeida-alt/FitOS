@@ -679,12 +679,20 @@ function teamById(id) {
 // hexágono liso de cor só.
 function crestImg(t, size = 40) {
   const c1 = t?.c1 || "#8892A0", c2 = t?.c2 || "#333";
-  const inner = t && t.logo
+  const hasLogo = !!(t && t.logo);
+  const inner = hasLogo
     ? `<img src="${t.logo}" alt="" style="height:${Math.round(size * 0.62)}px;width:${Math.round(size * 0.62)}px;object-fit:contain;">`
     : t?.short
       ? `<span class="ct-crest-mono" style="font-size:${Math.round(size * 0.34)}px;">${escapeHtml(t.short)}</span>`
       : "";
-  return `<span class="ct-crest" style="height:${size}px;width:${size}px;background:linear-gradient(160deg, ${c1}, ${c2});">${inner}</span>`;
+  // Pedido do usuário (junto do fim do clip-path em losango de
+  // .ct-crest): o círculo colorido só faz sentido como MOLDURA do
+  // monograma (fallback sem escudo real) — o escudo de verdade já é
+  // uma marca completa, uma bolha de cor atrás dele só competiria com
+  // a logo oficial. Escudo real vira fundo transparente; sem logo,
+  // continua o degradê da cor do clube.
+  const bg = hasLogo ? "transparent" : `linear-gradient(160deg, ${c1}, ${c2})`;
+  return `<span class="ct-crest" style="height:${size}px;width:${size}px;background:${bg};">${inner}</span>`;
 }
 // teamGradientStops() removida (redesign, Tela 6) — só era usada pelo
 // disco antigo do campinho (.button-disc, cor do TIME); o campinho novo
