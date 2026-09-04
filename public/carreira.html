@@ -1700,6 +1700,13 @@
   .m3-scheme-delete{ width:32px; height:32px; flex-shrink:0; display:flex; align-items:center; justify-content:center; background:none; border:none; border-radius:var(--m3-shape-sm); color:var(--m3-on-surface-variant); cursor:pointer; }
   .m3-scheme-delete svg{ width:16px; height:16px; }
 
+  /* Nova feature (Bloco 2 M3 — Instruções por setor) — abas
+     Defesa/Meio/Ataque, mesmos nomes de classe do mockup (só prefixo
+     "m3-"), largura igual pros 3. */
+  .m3-sector-tabs{ display:flex; gap:8px; margin-bottom:14px; }
+  .m3-sector-tab{ flex:1; text-align:center; font-size:12px; font-weight:600; padding:10px 4px; border-radius:var(--m3-shape-md); background:var(--m3-surface-container); color:var(--m3-on-surface-variant); border:none; cursor:pointer; }
+  .m3-sector-tab.on{ background:var(--m3-primary-container); color:var(--m3-on-primary-container); }
+
   /* ---- campinho ---- */
   .mt-pitch{
     position:relative;
@@ -2324,6 +2331,10 @@
            brtreinadorbloco2pendentes.html): ver openManMarkingScreen/
            carreira.js. -->
       <button class="mt-topbar-menu-item" id="btnOpenMarking">🎯 Marcação individual</button>
+      <!-- Nova feature — Instruções por setor (Bloco 2 M3,
+           brtreinadorbloco2pendentes.html): ver openSectorScreen/
+           carreira.js. -->
+      <button class="mt-topbar-menu-item" id="btnOpenSector">🎚️ Instruções por setor</button>
       <button class="mt-topbar-menu-item" id="btnOpenTreinos">🏋️ Treinos</button>
       <button class="mt-topbar-menu-item" id="btnOpenEstatisticas">📊 Estatísticas</button>
       <!-- Retenção/Engajamento (BRDataRetencaoEspecificacao) — 3 telas
@@ -3687,6 +3698,37 @@
     </div>
     <div class="ct-modal-footer">
       <button class="mt-btn-primary-gold" id="btnApplyMarking" disabled>Aplicar marcação</button>
+    </div>
+  </div>
+</div>
+
+<!-- Nova feature (Bloco 2 M3, brtreinadorbloco2pendentes.html) —
+     Instruções por setor: camada de ajuste fino ADICIONAL sobre os 4
+     eixos gerais da aba Tática (efeito real, ver SECTOR_INSTRUCTIONS/
+     combinedSectorTacticMod em carreira.js), com magnitude menor —
+     nunca substitui os 4 eixos gerais, só refina por cima. Aplica na
+     hora (sem botão "Salvar" — mesmo espírito de Meus esquemas/
+     Marcação individual, nenhuma das outras 2 telas novas do Bloco 2
+     usa o padrão "comita só ao salvar" da aba Tática principal). -->
+<div class="ct-modal-overlay ct-modal-fullscreen" id="sectorOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header mt-fullheader">
+      <span class="ct-modal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><circle cx="9" cy="6" r="2" fill="currentColor" stroke="none"/><line x1="4" y1="12" x2="20" y2="12"/><circle cx="15" cy="12" r="2" fill="currentColor" stroke="none"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="11" cy="18" r="2" fill="currentColor" stroke="none"/></svg></span>
+      <div class="ct-modal-header-text">
+        <h3>Instruções por setor</h3>
+        <div class="ct-modal-sub">Ajuste fino sobre as instruções gerais da Tática</div>
+      </div>
+      <button class="ct-modal-close" id="sectorClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <div class="m3-sector-tabs" id="sectorTabs">
+        <button class="m3-sector-tab" data-sector="defesa">Defesa</button>
+        <button class="m3-sector-tab" data-sector="meio">Meio</button>
+        <button class="m3-sector-tab" data-sector="ataque">Ataque</button>
+      </div>
+      <div class="mt-card">
+        <div id="sectorInstrRows"></div>
+      </div>
     </div>
   </div>
 </div>
