@@ -6070,6 +6070,9 @@ function renderCentral() {
   // FASE 4 (item 5) — patrocínio/material esportivo (ver
   // renderSponsorship).
   renderSponsorship();
+  // Nova feature — resumo da Comissão Técnica (ver
+  // renderCommissionSummaryCard/COMMISSION_AREAS) direto no Início.
+  renderCommissionSummaryCard();
 
   renderDestaquePlayers();
   const lastCard = document.getElementById("lastResultCard");
@@ -7184,6 +7187,39 @@ const COMMISSION_AREAS = [
   { id: "tactics", label: "Tática", icon: "🧭", fn: suggestTactics },
   { id: "market", label: "Mercado", icon: "💰", fn: suggestMarket },
 ];
+// Nova feature (pedido do usuário: "criar um card no início com o
+// título comissão técnica e com os botões com as sugestões dadas por
+// eles de maneira resumida") — versão condensada de
+// commissionAreaCardHTML/renderCommissionScreen direto no Início:
+// reaproveita os MESMOS COMMISSION_AREAS/textos/ação "Aplicar" da tela
+// cheia (nenhuma sugestão nova, só um atalho pra não precisar abrir o
+// Menu), num botão por área em vez de um cartão por área (a tela cheia
+// continua existindo do jeito de sempre, pra quem preferir o contexto
+// completo). Só aparece com a comissão contratada — chamada de dentro
+// de renderCentral().
+function renderCommissionSummaryCard() {
+  const card = document.getElementById("commissionSummaryCard");
+  const hired = CAREER.technicalStaff && CAREER.technicalStaff.hired;
+  card.style.display = hired ? "" : "none";
+  if (!hired) return;
+  document.getElementById("commissionSummaryList").innerHTML = COMMISSION_AREAS.map((area) => {
+    const s = area.fn();
+    return `<button class="m3-commission-btn" data-apply="${area.id}" ${s.canApply ? "" : "disabled"}>
+      <span class="m3-commission-icon">${area.icon}</span>
+      <span class="m3-commission-text"><b>${escapeHtml(area.label)}</b><span>${escapeHtml(s.text)}</span></span>
+    </button>`;
+  }).join("");
+  document.getElementById("commissionSummaryList").querySelectorAll("[data-apply]").forEach((btn) => {
+    btn.addEventListener("click", async () => {
+      const area = COMMISSION_AREAS.find((a) => a.id === btn.dataset.apply);
+      const s = area.fn();
+      if (!s.canApply || !s.apply) return;
+      await s.apply();
+      renderAll(); // já re-renderiza este card também (ver renderCentral)
+      toast(`Sugestão de ${area.label} aplicada.`, { type: "pos" });
+    });
+  });
+}
 function commissionAreaCardHTML(area) {
   const s = area.fn();
   return `<div class="mt-card">
@@ -7225,12 +7261,19 @@ async function confirmHireCommission() {
   if (!(await confirmModal(`Contratar a comissão técnica por ${fmtBRL(cost)}/mês?`, "Contratar"))) return;
   hireTechnicalStaff();
   renderCommissionScreen();
+  // Nova feature — card resumido no Início (ver renderCommissionSummaryCard):
+  // sem isso, o card só apareceria na próxima vez que ALGUMA OUTRA
+  // ação já re-renderizasse a Central de verdade (switchToPanel não
+  // re-renderiza sozinho, ver comentário lá) — contratar aqui e voltar
+  // direto pro Início antes ficaria com o card escondido por engano.
+  renderCommissionSummaryCard();
   toast("Comissão técnica contratada — as sugestões já estão disponíveis.", { type: "pos" });
 }
 async function confirmFireCommission() {
   if (!(await confirmModal("Demitir a comissão técnica? As sugestões deixam de aparecer.", "Demitir"))) return;
   fireTechnicalStaff();
   renderCommissionScreen();
+  renderCommissionSummaryCard(); // mesmo motivo do hire acima
   toast("Comissão técnica demitida.", { type: "warn" });
 }
 // AJUSTE (refatoração completa, Tela 6 — ver 06-escalacao-restyled.html
