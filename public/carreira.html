@@ -1511,6 +1511,17 @@
     padding:9px 16px; border-radius:999px; border:none; cursor:pointer;
     background:var(--m3-primary); color:var(--m3-on-primary);
   }
+  /* Nova feature (Bloco 3, 2/4) — "Comparar propostas": 2 colunas
+     lado a lado (sua proposta × a do concorrente), a que está na
+     frente (ver offerEffectiveValue) ganha destaque de cor primária —
+     mesmo espírito do mockup (offer-col.win). */
+  .mt-offercmp-row{ display:flex; gap:10px; }
+  .mt-offercmp-col{ flex:1; background:var(--m3-surface-container-high); border-radius:var(--m3-shape-md); padding:13px; }
+  .mt-offercmp-col.lead{ background:var(--m3-primary-container); color:var(--m3-on-primary-container); }
+  .mt-offercmp-club{ font-size:11px; font-weight:700; margin-bottom:8px; }
+  .mt-offercmp-line{ display:flex; justify-content:space-between; font-size:11px; padding:4px 0; border-bottom:1px solid rgba(255,255,255,.08); }
+  .mt-offercmp-line:last-child{ border-bottom:none; }
+  .mt-offercmp-line span:last-child{ font-weight:700; }
 
   /* ---- cabeçalho reutilizável pra modais em tela cheia (ícone
      pequeno em quadrado dourado, no lugar do gradiente/emoji genérico
@@ -3290,6 +3301,34 @@
     </div>
     <div class="ct-modal-footer">
       <button class="mt-btn-ghost" id="btnMyOffersCloseFooter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Nova feature (Bloco 3, 2/4 — pedido do usuário, mockup
+     brtreinadorbloco3pendentes.html "Comparar propostas") — quando um
+     clube CPU também disputa o mesmo alvo (ver maybeSpawnRivalOffer/
+     openOfferCompareScreen em carreira.js), esta tela mostra as 2
+     propostas lado a lado + uma análise de quem está na frente. -->
+<div class="ct-modal-overlay ct-modal-fullscreen" id="offerCompareOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header mt-fullheader">
+      <span class="ct-modal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M5 8l-3 7a4 4 0 0 0 6 0l-3-7Zm14 0l-3 7a4 4 0 0 0 6 0l-3-7ZM5 8h14M9 3h6"/></svg></span>
+      <div class="ct-modal-header-text">
+        <h3>Comparar propostas</h3>
+        <div class="ct-modal-sub" id="offerCompareSub"></div>
+      </div>
+      <button class="ct-modal-close" id="offerCompareClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <div class="mt-card" id="offerCompareCard"></div>
+      <div class="mt-card">
+        <div class="mt-card-title">Análise</div>
+        <p class="mt-card-sub" id="offerCompareAnalysis" style="margin:0;"></p>
+      </div>
+    </div>
+    <div class="ct-modal-footer">
+      <button class="mt-btn-primary-gold" id="btnOfferCompareIncrease">Aumentar proposta</button>
     </div>
   </div>
 </div>

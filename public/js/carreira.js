@@ -8017,20 +8017,65 @@ function finalizeIncomingPurchase(o) {
   ensureObjectivesFresh(); bumpObjective("daily", "obj_market_1_move", 1);
   if (p.overall >= 82) { firePressConference("15", CAREER.currentRound, false); openPressConferenceModal(); }
 }
+/* ---------- Bloco 3 (2/4) — concorrência real por um alvo (pedido do
+   usuário, mockup brtreinadorbloco3pendentes.html, "Comparar
+   propostas") ----------
+   Enquanto sua proposta espera resposta, um clube CPU pode também se
+   interessar pelo MESMO jogador (ver maybeSpawnRivalOffer, chamada a
+   cada rodada por resolvePendingOffersOutRound antes de decrementar o
+   prazo) — vira o.rivalOffer, visível em "Minhas propostas" (botão
+   "Comparar propostas", ver myOffersRowHTML/openOfferCompareScreen).
+   Só nasce UMA vez por proposta (nunca escala depois de aparecer —
+   decisão nossa: dá tensão real sem virar leilão infinito) e nunca
+   enquanto a proposta está "countered" (o clube já está negociando
+   direto com você nesse estado, sem espaço pra um 3º interessado). */
+const RIVAL_OFFER_CHANCE_PER_ROUND = 0.35;
+function maybeSpawnRivalOffer(o) {
+  if (o.rivalOffer || o.status !== "pending") return;
+  if (Math.random() >= RIVAL_OFFER_CHANCE_PER_ROUND) return;
+  const pool = marketTeamsPool().filter((t) => String(t.id) !== String(o.clubId) && String(t.id) !== String(CAREER.clubId));
+  if (!pool.length) return;
+  const rivalClub = pool[Math.floor(Math.random() * pool.length)];
+  const factor = 0.75 + Math.random() * 0.4; // proposta rival entre 75% e 115% do valor de mercado
+  const rivalValue = Math.max(1000, Math.round((o.marketValue * factor) / 1000) * 1000);
+  const rivalInstallments = Math.random() < 0.7 ? 1 : 2; // clube CPU quase sempre paga à vista
+  o.rivalOffer = { clubId: String(rivalClub.id), clubName: rivalClub.name, offerValue: rivalValue, installments: rivalInstallments };
+  toast({ title: "Concorrência pelo alvo", detail: `${rivalClub.name} também quer ${abbreviateName(o.playerName)} — compare as propostas.` }, { type: "warn" });
+}
+// "Peso" de uma proposta pra quem vende: parcelar desconta um pouco
+// (recebe mais devagar) — mesmo raciocínio usado em qualquer venda a
+// prazo, sem inventar juros nenhum, só uma penalidade leve por parcela
+// extra. Usado pra decidir quem "ganha" quando há concorrência.
+function offerEffectiveValue(offerValue, installments) {
+  return offerValue * (1 - 0.03 * (installments - 1));
+}
 // Roda 1x por rodada simulada (ver finishRoundTail) — decrementa o
-// prazo de cada proposta pendente e resolve quem chegou a zero: quanto
-// mais perto do valor de mercado, maior a chance de aceite; abaixo de
-// 60% dele o clube nem considera (recusa direto). No meio-termo, o
-// clube pode "pedir mais" (contraproposta) em vez de recusar de vez —
-// vira um item parado esperando o técnico decidir (ver
-// acceptCounterOffer/withdrawOffer), sem consumir mais rodadas.
+// prazo de cada proposta pendente e resolve quem chegou a zero. Com
+// concorrente (ver rivalOffer acima), o clube compara as 2 propostas
+// (offerEffectiveValue) — a de maior peso tem 80% de chance de vencer,
+// a menor só 25% (chance de zebra, sem ser garantido nem impossível).
+// Sem concorrente, vale a regra de sempre: quanto mais perto do valor
+// de mercado, maior a chance de aceite; abaixo de 60% dele o clube nem
+// considera (recusa direto); no meio-termo, contraproposta em vez de
+// recusar de vez (vira um item parado esperando o técnico decidir, ver
+// acceptCounterOffer/withdrawOffer, sem consumir mais rodadas).
 function resolvePendingOffersOutRound(round) {
   const list = CAREER.pendingOffersOut || [];
   const stillPending = [];
   list.forEach((o) => {
     if (o.status === "countered") { stillPending.push(o); return; } // esperando o técnico decidir, sem prazo
+    maybeSpawnRivalOffer(o);
     o.roundsLeft -= 1;
     if (o.roundsLeft > 0) { stillPending.push(o); return; }
+    if (o.rivalOffer) {
+      const mine = offerEffectiveValue(o.offerValue, o.installments);
+      const rival = offerEffectiveValue(o.rivalOffer.offerValue, o.rivalOffer.installments);
+      const winChance = mine >= rival ? 0.8 : 0.25;
+      if (Math.random() < winChance) { finalizeIncomingPurchase(o); return; }
+      toast(`${o.clubName} vendeu ${abbreviateName(o.playerName)} pro ${o.rivalOffer.clubName} — a proposta concorrente venceu.`, { type: "warn" });
+      pushTransferLog(`${o.rivalOffer.clubName} venceu a disputa por ${o.playerName} (sua proposta era de ${fmtBRL(o.offerValue)}).`, round);
+      return;
+    }
     const ratio = o.offerValue / o.marketValue;
     const rng = Math.random();
     if (ratio >= 0.95 && rng < 0.85) { finalizeIncomingPurchase(o); return; }
@@ -8077,14 +8122,22 @@ function myOffersRowHTML(o) {
       </div>
     </div>`;
   }
+  // Nova feature (Bloco 3, 2/4) — proposta com concorrente real (ver
+  // maybeSpawnRivalOffer) ganha um selo + o botão leva pra tela de
+  // comparação (openOfferCompareScreen) em vez de aumentar direto —
+  // lá o técnico vê os 2 lados antes de decidir se cobre ou não.
+  const rivalBadge = o.rivalOffer ? ` <span class="mt-badge-alert">Concorrência</span>` : "";
+  const increaseBtn = o.rivalOffer
+    ? `<button class="mt-btn-sign" data-compare="${o.id}">Comparar</button>`
+    : `<button class="mt-btn-sign" data-increase="${o.id}" data-value="${Math.round(o.marketValue)}">Aumentar</button>`;
   return `<div class="mt-sponsor-proposal-row">
     <div>
-      <div class="mt-sponsor-proposal-name">${escapeHtml(abbreviateName(o.playerName))}</div>
+      <div class="mt-sponsor-proposal-name">${escapeHtml(abbreviateName(o.playerName))}${rivalBadge}</div>
       <div class="mt-sponsor-proposal-detail">${escapeHtml(o.clubName)} · sua oferta ${fmtBRL(o.offerValue)} de ${fmtBRL(o.marketValue)} · aguardando resposta (${o.roundsLeft} rodada${o.roundsLeft === 1 ? "" : "s"})</div>
     </div>
     <div style="display:flex; gap:6px; flex-shrink:0;">
       <button class="mt-btn-ghost" data-withdraw="${o.id}" style="padding:9px 12px;">Retirar</button>
-      <button class="mt-btn-sign" data-increase="${o.id}" data-value="${Math.round(o.marketValue)}">Aumentar</button>
+      ${increaseBtn}
     </div>
   </div>`;
 }
@@ -8104,6 +8157,9 @@ function renderMyOffersScreen() {
   document.getElementById("myOffersList").querySelectorAll("[data-acceptcounter]").forEach((btn) => {
     btn.addEventListener("click", () => acceptCounterOffer(btn.dataset.acceptcounter));
   });
+  document.getElementById("myOffersList").querySelectorAll("[data-compare]").forEach((btn) => {
+    btn.addEventListener("click", () => openOfferCompareScreen(btn.dataset.compare));
+  });
   const badge = document.getElementById("myOffersBadge");
   badge.classList.toggle("hidden", list.length === 0);
   if (list.length) badge.textContent = String(list.length);
@@ -8114,6 +8170,67 @@ function openMyOffersScreen() {
 }
 function closeMyOffersScreen() {
   document.getElementById("myOffersOverlay").classList.remove("open");
+}
+
+/* ---------- Bloco 3 (2/4) — tela "Comparar propostas" (mockup
+   brtreinadorbloco3pendentes.html) ---------- */
+let OFFER_COMPARE_ID = null; // id da proposta (CAREER.pendingOffersOut) sendo comparada
+// Texto de análise: heurística com dado real (mesma comparação que
+// decide quem ganha em resolvePendingOffersOutRound, ver
+// offerEffectiveValue) — nunca texto de enchimento.
+function offerCompareAnalysisText(o) {
+  const mine = offerEffectiveValue(o.offerValue, o.installments);
+  const rival = offerEffectiveValue(o.rivalOffer.offerValue, o.rivalOffer.installments);
+  const cheaperMine = o.offerValue < o.rivalOffer.offerValue;
+  const fasterMine = o.installments <= o.rivalOffer.installments;
+  if (mine >= rival) {
+    return cheaperMine
+      ? `Sua proposta é mais barata e ainda assim competitiva no pagamento — você está na frente, mas nada garantido até o clube decidir.`
+      : `Sua proposta paga mais rápido que a do ${o.rivalOffer.clubName} — isso pesa a seu favor, mesmo sem ser a mais alta.`;
+  }
+  return fasterMine
+    ? `O ${o.rivalOffer.clubName} está oferecendo mais — considere aumentar sua proposta antes que o clube decida.`
+    : `O ${o.rivalOffer.clubName} paga mais rápido (menos parcelas) e isso pesa a favor dele, mesmo com valor parecido — considere aumentar ou pagar mais à vista.`;
+}
+function renderOfferCompareScreen() {
+  const o = (CAREER.pendingOffersOut || []).find((x) => x.id === OFFER_COMPARE_ID);
+  if (!o || !o.rivalOffer) { closeOfferCompareScreen(); return; }
+  document.getElementById("offerCompareSub").textContent = `${abbreviateName(o.playerName)} · ${o.clubName}`;
+  const mineWins = offerEffectiveValue(o.offerValue, o.installments) >= offerEffectiveValue(o.rivalOffer.offerValue, o.rivalOffer.installments);
+  document.getElementById("offerCompareCard").innerHTML = `
+    <div class="mt-offercmp-row">
+      <div class="mt-offercmp-col ${mineWins ? "lead" : ""}">
+        <div class="mt-offercmp-club">Sua proposta</div>
+        <div class="mt-offercmp-line"><span>Valor</span><span>${fmtBRL(o.offerValue)}</span></div>
+        <div class="mt-offercmp-line"><span>Parcelas</span><span>${o.installments}x</span></div>
+      </div>
+      <div class="mt-offercmp-col ${mineWins ? "" : "lead"}">
+        <div class="mt-offercmp-club">${escapeHtml(o.rivalOffer.clubName)}</div>
+        <div class="mt-offercmp-line"><span>Valor</span><span>${fmtBRL(o.rivalOffer.offerValue)}</span></div>
+        <div class="mt-offercmp-line"><span>Parcelas</span><span>${o.rivalOffer.installments}x</span></div>
+      </div>
+    </div>`;
+  document.getElementById("offerCompareAnalysis").textContent = offerCompareAnalysisText(o);
+}
+function openOfferCompareScreen(offerId) {
+  OFFER_COMPARE_ID = offerId;
+  renderOfferCompareScreen();
+  document.getElementById("offerCompareOverlay").classList.add("open");
+}
+function closeOfferCompareScreen() {
+  document.getElementById("offerCompareOverlay").classList.remove("open");
+  OFFER_COMPARE_ID = null;
+}
+// FAB "Aumentar oferta" do mockup — aumenta pro valor do concorrente
+// (o mínimo pra virar a disputa a seu favor de novo, ver
+// offerEffectiveValue) e volta pra "Minhas propostas".
+function increaseOfferFromCompare() {
+  const o = (CAREER.pendingOffersOut || []).find((x) => x.id === OFFER_COMPARE_ID);
+  if (!o || !o.rivalOffer) return;
+  const target = Math.max(o.offerValue, o.rivalOffer.offerValue);
+  increaseOffer(o.id, target);
+  closeOfferCompareScreen();
+  renderMyOffersScreen();
 }
 
 function renderMercado() {
@@ -9265,6 +9382,11 @@ function wireStaticListeners() {
   document.getElementById("myOffersClose").addEventListener("click", closeMyOffersScreen);
   document.getElementById("btnMyOffersCloseFooter").addEventListener("click", closeMyOffersScreen);
   document.getElementById("myOffersOverlay").addEventListener("click", (e) => { if (e.target.id === "myOffersOverlay") closeMyOffersScreen(); });
+  // Nova feature (Bloco 3, 2/4) — "Comparar propostas", aberta a
+  // partir de "Minhas propostas" quando há concorrente real.
+  document.getElementById("offerCompareClose").addEventListener("click", closeOfferCompareScreen);
+  document.getElementById("offerCompareOverlay").addEventListener("click", (e) => { if (e.target.id === "offerCompareOverlay") closeOfferCompareScreen(); });
+  document.getElementById("btnOfferCompareIncrease").addEventListener("click", increaseOfferFromCompare);
   // Pedido do usuário: X também nas modais de detalhe do jogo e de
   // resultados da rodada (só fecha, igual às outras 2 — quem quiser ver
   // o próximo passo do fluxo clica em "Continuar" mesmo). AJUSTE
