@@ -1057,7 +1057,7 @@
   .mt-icon-btn svg{ width:21px; height:21px; display:block; }
 
   .mt-picker-screen{ min-height:100vh; background:linear-gradient(180deg, var(--mt-navy-900) 0%, var(--mt-navy-950) 60%, #030811 100%); }
-  .mt-picker-content{ padding:20px 18px 40px; }
+  .mt-picker-content{ padding:20px 18px 90px; }
   .mt-intro{ text-align:center; margin-bottom:24px; }
   .mt-intro-crest{
     width:52px; height:56px; margin:0 auto 16px; flex-shrink:0;
@@ -1357,6 +1357,18 @@
   .mt-attr-block .num.gold{ color:var(--mt-gold-400); }
   .mt-attr-block .num.crimson{ color:var(--mt-crimson-400); }
   .mt-attr-block .lbl{ font-size:10.5px; letter-spacing:.3px; color:var(--m3-on-surface-variant); margin-top:3px; font-family:var(--font); font-weight:600; }
+
+  /* Redesign (mockup brtreinadorbloco1inicio.html, tela 6 — Perfil do
+     jogador) — atributos em barra no lugar dos blocos .mt-attr-block
+     (mesmos valores, só a leitura visual muda: barra preenchida deixa
+     claro o quanto falta pro máximo de 99, não só o número solto). */
+  .m3-attr-row{ display:flex; align-items:center; gap:9px; margin-bottom:9px; }
+  .m3-attr-label{ font-size:11px; width:60px; flex-shrink:0; color:var(--m3-on-surface-variant); }
+  .m3-attr-bar{ flex:1; height:7px; border-radius:var(--m3-shape-full); background:var(--m3-surface-container-high); overflow:hidden; }
+  .m3-attr-fill{ height:100%; background:var(--m3-primary); border-radius:var(--m3-shape-full); }
+  .m3-attr-fill.gold{ background:var(--m3-secondary); }
+  .m3-attr-fill.crimson{ background:var(--m3-error); }
+  .m3-attr-num{ font-size:11.5px; font-weight:700; width:26px; text-align:right; flex-shrink:0; font-family:var(--m3-display); color:var(--m3-on-surface); }
 
   .mt-info-line{ font-size:12.5px; color:var(--m3-on-surface-variant); line-height:1.7; padding:2px 2px 14px; border-bottom:1px solid var(--m3-outline-variant); margin-bottom:14px; }
   .mt-info-line b{ color:var(--mt-ivory-100); }
@@ -1956,6 +1968,18 @@
   .m3-stat-name{ font-size:9.5px; color:var(--m3-on-surface-variant); margin-top:3px; }
   .m3-stat-card.gold .m3-stat-name{ color:var(--m3-on-secondary-container); opacity:.85; }
 
+  /* Redesign (mockup brtreinadorbloco1inicio.html, tela 2 — Início) —
+     título de seção solto (sem cartão em volta, só separa blocos de
+     conteúdo dentro do corpo já rolável) e carrossel "Elenco em
+     destaque". */
+  .section-title{ font-family:var(--m3-display); font-weight:600; font-size:12.5px; color:var(--m3-on-surface); margin-bottom:8px; }
+  .m3-player-scroll{ display:flex; gap:9px; overflow-x:auto; margin-bottom:16px; padding-bottom:2px; }
+  .m3-player-scroll:empty{ display:none; }
+  .m3-player-mini{ flex-shrink:0; width:84px; background:var(--m3-surface-container); border-radius:var(--m3-shape-lg); padding:11px 8px; text-align:center; cursor:pointer; }
+  .m3-player-avatar{ width:32px; height:32px; border-radius:50%; background:var(--m3-tertiary-container); color:var(--m3-on-tertiary-container); font-family:var(--m3-display); font-weight:700; font-size:11px; display:flex; align-items:center; justify-content:center; margin:0 auto 7px; }
+  .m3-player-mini-name{ font-size:10px; font-weight:600; color:var(--m3-on-surface); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .m3-player-mini-pos{ font-size:9px; color:var(--m3-on-surface-variant); margin-top:1px; }
+
   /* ---- lista com avatar + rating (Elenco) ---- */
   .m3-filter-row{ display:flex; gap:8px; overflow-x:auto; margin-bottom:14px; padding-bottom:2px; }
   .m3-filter-chip{
@@ -2010,6 +2034,18 @@
   .m3-club-crest img{ width:100%; height:100%; object-fit:contain; }
   .m3-club-name{ font-size:12.5px; font-weight:600; color:var(--m3-on-surface); }
   .m3-club-meta{ font-size:10px; color:var(--m3-on-surface-variant); margin-top:1px; }
+  /* Redesign (mockup brtreinadorbloco1inicio.html, tela 1 — Onboarding)
+     — fluxo de 2 passos: clicar numa linha só SELECIONA (não começa a
+     carreira na hora); "Confirmar clube" (FAB) é que de fato chama
+     startCareer(). */
+  .m3-club-row.selected{ background:var(--m3-primary-container); border-color:var(--m3-primary); color:var(--m3-on-primary-container); }
+  .m3-club-row.selected .m3-club-crest{ background:var(--m3-primary); color:var(--m3-on-primary); }
+  .m3-club-row.selected .m3-club-meta{ color:var(--m3-on-primary-container); opacity:.8; }
+  .m3-club-check{ margin-left:auto; width:20px; height:20px; flex-shrink:0; color:var(--m3-on-primary-container); }
+  .m3-club-body{ flex:1; min-width:0; }
+  /* Tela de Escolha do clube não tem nav inferior — o FAB de confirmar
+     não precisa abrir espaço pra ela (--m3-navh), só a margem normal. */
+  #btnConfirmClub{ bottom:calc(20px + env(safe-area-inset-bottom, 0px)); }
 
   /* ---- botões genéricos M3 (pílula) ---- */
   .m3-btn-primary{ width:100%; display:flex; align-items:center; justify-content:center; gap:8px; background:var(--m3-primary); color:var(--m3-on-primary); border:none; border-radius:var(--m3-shape-full); padding:13px; font-family:var(--font); font-weight:700; font-size:13px; cursor:pointer; }
@@ -2148,8 +2184,12 @@
              acceptClubProposal/renderClubPicker em carreira.js) — some
              normalmente na 1ª escolha, reinício e demissão. -->
         <p class="mt-picker-banner" id="pickerContextBanner" hidden></p>
-        <div class="mt-club-grid" id="clubGrid"></div>
+        <div class="m3-club-grid" id="clubGrid"></div>
       </div>
+      <button class="m3-fab hidden" id="btnConfirmClub">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        Confirmar clube
+      </button>
     </div>
   </div>
 
@@ -2294,6 +2334,13 @@
           </div>
           <div class="m3-stat-row" id="squadKpis"></div>
         </div>
+        <!-- Redesign (mockup brtreinadorbloco1inicio.html, tela 2 —
+             Início) — carrossel horizontal com os destaques do elenco
+             principal disponível (maiores overall), ver
+             renderDestaquePlayers() em carreira.js. Só aparece com
+             elenco disponível de verdade (:empty esconde sozinho). -->
+        <div class="section-title" id="destaqueTitle" style="display:none;">Elenco em destaque</div>
+        <div class="m3-player-scroll" id="destaquePlayers"></div>
         <div class="m3-card" id="lastResultCard" style="display:none;">
           <div class="m3-card-title">Resultado da última rodada</div>
           <div id="lastResultBox"></div>
@@ -2358,6 +2405,16 @@
              por isso dá pra reaproveitar aqui mesmo o painel ainda não
              estando na Tela 4 (Elenco) redesenhada. -->
         <p class="mt-badge-gold" id="boardGoalLabel" style="margin:0 0 14px;"></p>
+        <!-- Redesign (mockup brtreinadorbloco1inicio.html, tela 4 —
+             Elenco) — filter chips (Todos/Titulares/Lesionados/Base)
+             por cima dos 2 cards já existentes (Elenco principal/
+             Categoria de base): não junta as 2 listas numa só (row
+             de playerRow() e baseRow() têm colunas diferentes —
+             potencial/confiança do olheiro só faz sentido na base) —
+             só alterna a VISIBILIDADE de cada card e filtra dentro do
+             principal, ver renderElencoFilters()/applyElencoFilter()
+             em carreira.js. -->
+        <div class="m3-filter-row" id="elencoFilterRow"></div>
         <!-- AJUSTE (refatoração completa, Tela 4 — Elenco, ver
              04-elenco-restyled.html do designer) — reconstruída do zero:
              lista de jogadores agrupada por posição (com divisor
@@ -2370,7 +2427,7 @@
              JS (openDetail por jogador) — nenhuma lógica de jogo mudou,
              só a marcação que renderElenco()/playerRow()/baseRow() (ver
              carreira.js) montam. -->
-        <div class="m3-card">
+        <div class="m3-card" id="squadMainCard">
           <div class="mt-card-head">
             <div class="m3-card-title" style="margin-bottom:0;">Elenco principal</div>
             <button class="ct-help-btn" data-help="helpElencoPrincipal" aria-label="Ajuda">?</button>
@@ -2378,7 +2435,7 @@
           <p class="mt-card-sub ct-help-text" id="helpElencoPrincipal" hidden>Clique num jogador pra ver detalhes, escalar, promover a titular do banco, ou dispensar.</p>
           <div id="squadMainList"></div>
         </div>
-        <div class="m3-card">
+        <div class="m3-card" id="squadBaseCard">
           <div class="mt-card-head">
             <div class="m3-card-title" style="margin-bottom:0;">Categoria de base</div>
             <button class="ct-help-btn" data-help="helpCategoriaBase" aria-label="Ajuda">?</button>
