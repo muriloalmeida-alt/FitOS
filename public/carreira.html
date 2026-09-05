@@ -2112,6 +2112,30 @@
   .m3-hero-match .vs{ font-family:var(--m3-display); font-weight:700; font-size:16px; opacity:.7; color:var(--m3-on-primary-container); }
   .m3-hero-meta{ font-size:11px; opacity:.8; text-align:center; margin-top:8px; }
 
+  /* Bloco 4 (mockups brtreinadorbloco4clube.html/
+     brtreinadorbloco4pendentes.html) — hero de caixa (card Financeiro),
+     mini-gráfico das últimas rodadas (ver financeCashBarsHTML em
+     carreira.js) e barra genérica pra usar DENTRO de um .m3-hero-card
+     (fundo primary-container — preenchimento em branco translúcido, não
+     var(--m3-primary), senão sumiria de contraste em cima da própria
+     cor primária). Reaproveitada pela barra de progresso de Metas da
+     diretoria (boardGoalsHeroFill). */
+  .m3-finance-num{ font-family:var(--m3-display); font-weight:700; font-size:26px; margin:2px 0 10px; }
+  .m3-fin-bars{ display:flex; gap:4px; align-items:flex-end; height:36px; }
+  .m3-fin-bars .m3-fin-bar{ flex:1; background:rgba(255,255,255,.35); border-radius:4px 4px 0 0; min-height:3px; }
+  .m3-fin-bars .m3-fin-bar.now{ background:#fff; }
+  .m3-hero-bar{ width:100%; height:8px; border-radius:var(--m3-shape-full); background:rgba(255,255,255,.25); overflow:hidden; }
+  .m3-hero-bar-fill{ display:block; height:100%; background:#fff; transition:width .3s; }
+
+  /* Bloco 4 — linha compra de melhoria de estádio (mesmo formato do
+     upgrade-cost do mockup: valor vira o próprio botão) e leitura
+     "bloqueada/em obra/concluída" do .m3-list-item ao lado (opacidade
+     reduzida, sem cursor de clique — cada linha já não é clicável
+     nesses estados). */
+  .m3-upgrade-buy{ font-family:var(--m3-display); font-weight:700; font-size:11px; background:var(--m3-surface-container-highest); color:var(--m3-on-surface); border:none; border-radius:var(--m3-shape-full); padding:8px 13px; cursor:pointer; flex-shrink:0; }
+  .m3-upgrade-buy:disabled{ opacity:.5; cursor:not-allowed; }
+  .m3-list-item.locked{ opacity:.6; cursor:default; }
+
   /* ---- linha de stat cards ---- */
   .m3-stat-row{ display:grid; grid-template-columns:repeat(auto-fit, minmax(80px, 1fr)); gap:10px; margin-bottom:14px; }
   .m3-stat-card{ background:var(--m3-surface-container); border-radius:var(--m3-shape-md); padding:12px 10px; text-align:center; }
@@ -2603,12 +2627,20 @@
       <!-- ---------- Clube (novo, 5º item do rodapé M3) =================
            Financeiro/Patrocínios/Proposta de outro clube — antes
            dentro da Central, movidos pra cá quando o rodapé virou 5
-           itens (Início/Elenco/Tática/Mercado/Clube). Marcação e ids
-           IDÊNTICOS a antes, só de endereço novo — renderCentral() (que
-           continua alimentando estes 3 cards) não precisou mudar nada.
-           Visual ainda no sistema --mt-* de sempre (reskin M3 completo
-           do "Clube" fica pro Bloco 4; esta etapa é só Fundação +
-           Bloco 1). -->
+           itens (Início/Elenco/Tática/Mercado/Clube).
+           AJUSTE (Bloco 4, mockups brtreinadorbloco4clube.html/
+           brtreinadorbloco4pendentes.html) — reskin M3 completo desta
+           tela (a única que ainda estava no visual --mt-* de sempre,
+           ver renderCentral em carreira.js): caixa virou hero
+           (m3-hero-card) com mini-gráfico das últimas rodadas,
+           Patrocínios/Estádio/Diretoria viraram m3-list-item (mesmo
+           componente do resto do app), Estádio e Diretoria ganharam
+           tela própria (STADIUM_UPGRADES/openStadiumScreen,
+           openBoardGoalsScreen) e o extrato financeiro estruturado é
+           novo (openExtratoScreen/CAREER.financeLedger). Ids antigos
+           (financeKpis/wageCapFill/wageCapLabel/btnAskBoard/
+           boardDecisionText/sponsorshipBox) preservados — só a
+           marcação ao redor mudou. -->
       <section class="ct-panel" id="panel-clube">
         <div class="mt-card" id="clubProposalCard" style="display:none;">
           <div class="mt-proposal-row">
@@ -2620,22 +2652,33 @@
           </div>
           <button class="mt-btn-ghost" id="btnViewClubProposal">Ver proposta</button>
         </div>
-        <div class="mt-card">
-          <div class="mt-card-title" style="margin-bottom:14px;">Financeiro</div>
-          <div class="mt-fin-row" id="financeKpis"></div>
-          <div class="ct-wagecap-track"><span class="ct-wagecap-fill" id="wageCapFill" style="width:0%"></span></div>
-          <p class="mt-card-sub" id="wageCapLabel" style="margin-top:6px;"></p>
-          <button class="mt-btn-ghost" id="btnAskBoard" style="margin-top:10px;">🏛️ Pedir mais orçamento à diretoria</button>
-          <p class="mt-card-sub" id="boardDecisionText" style="margin-top:8px; margin-bottom:0; text-align:center;"></p>
+
+        <div class="m3-hero-card">
+          <div class="m3-hero-top"><span class="m3-hero-label">CAIXA ATUAL</span></div>
+          <div class="m3-finance-num" id="financeCashNum"></div>
+          <div class="m3-fin-bars" id="financeCashBars"></div>
         </div>
-        <div class="mt-card">
-          <div class="mt-card-head">
-            <div class="mt-card-title">Patrocínios</div>
-            <button class="ct-help-btn" data-help="helpPatrocinios" aria-label="Ajuda">?</button>
-          </div>
-          <p class="mt-card-sub ct-help-text" id="helpPatrocinios" hidden style="margin-top:10px;">Contratos comerciais somam receita fixa por temporada, pagos aos poucos a cada rodada. Ao vencer, aparecem propostas concorrentes pra renovar — o valor melhora conforme o desempenho recente do clube.</p>
-          <div id="sponsorshipBox" style="margin-top:2px;"></div>
+        <div class="m3-stat-row" id="financeKpis"></div>
+        <div class="ct-wagecap-track"><span class="ct-wagecap-fill" id="wageCapFill" style="width:0%"></span></div>
+        <p class="mt-card-sub" id="wageCapLabel" style="margin-top:6px;"></p>
+        <button class="m3-btn-ghost" id="btnAskBoard" style="margin-top:10px;">🏛️ Pedir mais orçamento à diretoria</button>
+        <p class="mt-card-sub" id="boardDecisionText" style="margin:8px 0 0; text-align:center;"></p>
+        <button class="m3-btn-ghost" id="btnOpenExtrato" style="margin-top:10px;">📄 Ver extrato financeiro</button>
+
+        <div class="mt-card-head" style="margin-top:18px;">
+          <div class="mt-card-title" style="margin-bottom:0;">Patrocínios</div>
+          <button class="ct-help-btn" data-help="helpPatrocinios" aria-label="Ajuda">?</button>
         </div>
+        <p class="mt-card-sub ct-help-text" id="helpPatrocinios" hidden style="margin-top:10px;">Contratos comerciais somam receita fixa por temporada, pagos aos poucos a cada rodada. Ao vencer, aparecem propostas concorrentes pra renovar — o valor melhora conforme o desempenho recente do clube.</p>
+        <div id="sponsorshipBox" style="margin-top:2px;"></div>
+
+        <div class="mt-card-title" style="margin:18px 0 9px;">Estádio</div>
+        <div class="m3-list-item" id="stadiumSummaryRow"></div>
+
+        <div class="mt-card-title" style="margin:18px 0 9px;">Diretoria</div>
+        <div class="m3-list-item" id="boardGoalSummaryRow"></div>
+
+        <button class="m3-fab" id="btnNewSponsorFab">📄 Novo patrocínio</button>
       </section>
 
       <!-- ---------- Elenco ---------- -->
@@ -3400,6 +3443,79 @@
       <button class="ct-modal-close" id="sponsorProposalsClose">✕</button>
     </div>
     <div class="ct-modal-body" id="sponsorProposalsList"></div>
+  </div>
+</div>
+
+<!-- Bloco 4 (mockup brtreinadorbloco4pendentes.html — "Upgrade de
+     estádio") — hero de capacidade + lista de melhorias compráveis (ver
+     STADIUM_UPGRADES/renderStadiumScreen/startStadiumUpgrade em
+     carreira.js). Aberta a partir do card Estádio da tela Clube. -->
+<div class="ct-modal-overlay ct-modal-fullscreen" id="stadiumOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header mt-fullheader">
+      <span class="ct-modal-icon">🏟️</span>
+      <div class="ct-modal-header-text">
+        <h3 id="stadiumScreenName">Estádio</h3>
+        <div class="ct-modal-sub">Capacidade e melhorias</div>
+      </div>
+      <button class="ct-modal-close" id="stadiumClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <div class="m3-hero-card" style="text-align:center;">
+        <div class="m3-finance-num" id="stadiumScreenCapacity" style="font-size:28px;"></div>
+        <div class="m3-hero-label" style="opacity:.85;">lugares atuais</div>
+      </div>
+      <div class="mt-card-title">Melhorias disponíveis</div>
+      <div id="stadiumUpgradeList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Bloco 4 (mockup brtreinadorbloco4pendentes.html — "Metas da
+     diretoria") — meta atual com barra de progresso + histórico de
+     temporadas (CAREER.seasonHistory, já existente — ver
+     renderBoardGoalsScreen em carreira.js). Aberta a partir da linha
+     Diretoria da tela Clube. -->
+<div class="ct-modal-overlay ct-modal-fullscreen" id="boardGoalsOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header mt-fullheader">
+      <span class="ct-modal-icon">👔</span>
+      <div class="ct-modal-header-text">
+        <h3>Metas da diretoria</h3>
+      </div>
+      <button class="ct-modal-close" id="boardGoalsClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <div class="m3-hero-card">
+        <div class="m3-hero-label" id="boardGoalsHeroLabel"></div>
+        <div class="m3-finance-num" id="boardGoalsHeroTitle" style="font-size:16px; margin:4px 0 10px;"></div>
+        <div class="m3-hero-bar"><span class="m3-hero-bar-fill" id="boardGoalsHeroFill" style="width:0%"></span></div>
+        <div class="m3-hero-meta" id="boardGoalsHeroSub"></div>
+      </div>
+      <div class="mt-card-title">Temporadas anteriores</div>
+      <div id="boardGoalsHistoryList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Bloco 4 (mockup brtreinadorbloco4pendentes.html — "Extrato
+     financeiro") — filtro por tipo + lista de CAREER.financeLedger (novo,
+     ver pushLedger/renderExtratoScreen em carreira.js), agrupado por
+     rodada (este jogo não tem calendário real, só número de rodada).
+     Aberta pelo botão "Ver extrato financeiro" da tela Clube. -->
+<div class="ct-modal-overlay ct-modal-fullscreen" id="extratoOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header mt-fullheader">
+      <span class="ct-modal-icon">📄</span>
+      <div class="ct-modal-header-text">
+        <h3>Extrato financeiro</h3>
+      </div>
+      <button class="ct-modal-close" id="extratoClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <div class="m3-filter-row" id="extratoFilterRow"></div>
+      <div id="extratoList"></div>
+    </div>
   </div>
 </div>
 
