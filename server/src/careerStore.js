@@ -21,6 +21,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const { scheduleWrite } = require("./debouncedPersist");
 
 const DATA_DIR = path.join(__dirname, "..", "data");
 const FILE = path.join(DATA_DIR, "careers.json");
@@ -60,13 +61,18 @@ function load() {
   }
 }
 
+// Performance (pedido do usuário: "o jogo está lento") — este é o
+// arquivo de save mais quente do backend inteiro (50+ pontos no
+// cliente chamam persistCareer() a cada ação de verdade — comprar,
+// treinar, simular rodada...) e também o maior (uma conta "multi" já
+// nasce acima de 500KB). Escrita síncrona do arquivo INTEIRO a cada
+// PUT media ~100-125ms de verdade (medido: curl direto, sem overhead
+// de browser, comparado a ~0.5ms de um GET que não escreve nada) e
+// BLOQUEIA o event loop, travando qualquer outra requisição em
+// andamento nesse meio-tempo — não escala com a base de contas. Ver
+// debouncedPersist.js pro raciocínio completo do trade-off aceito.
 function persist() {
-  try {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-    fs.writeFileSync(FILE, JSON.stringify(Object.fromEntries(store), null, 2));
-  } catch (err) {
-    console.error("[careerStore] falha ao salvar arquivo local:", err.message);
-  }
+  scheduleWrite(FILE, DATA_DIR, () => JSON.stringify(Object.fromEntries(store)));
 }
 
 load();

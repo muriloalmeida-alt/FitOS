@@ -27,6 +27,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const { scheduleWrite } = require("./debouncedPersist");
 
 const DATA_DIR = path.join(__dirname, "..", "data");
 const FILE = path.join(DATA_DIR, "leaderboard.json");
@@ -54,13 +55,10 @@ function load() {
   }
 }
 
+// Performance (pedido do usuário: "o jogo está lento") — ver
+// debouncedPersist.js.
 function persist() {
-  try {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-    fs.writeFileSync(FILE, JSON.stringify(Object.fromEntries(store), null, 2));
-  } catch (err) {
-    console.error("[leaderboard] falha ao salvar arquivo local:", err.message);
-  }
+  scheduleWrite(FILE, DATA_DIR, () => JSON.stringify(Object.fromEntries(store)));
 }
 
 load();
