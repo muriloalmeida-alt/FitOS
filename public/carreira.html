@@ -2,7 +2,17 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- Pedido do usuário: "bloquear zoom em qualquer situação" + "garantir
+     que ao carregar as telas o zoom sempre estará em 100%". maximum-scale=1
+     + user-scalable=no bloqueiam pinch-zoom (a maioria dos navegadores
+     mobile ainda respeita isso, apesar de alguns ignorarem
+     user-scalable sozinho — daí o maximum-scale igual ao initial-scale,
+     que é o que realmente impede o zoom até em navegadores que
+     "relaxam" a regra de acessibilidade). Duplo-toque pra ampliar
+     (gesto do WebKit em elemento sem handler de clique, não é
+     "zoom" no sentido de viewport) é bloqueado à parte via
+     touch-action:manipulation no <body>, ver <style>. -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Modo Técnico · BR Data</title>
 <!-- AJUSTE (pedido do usuário: "quando eu clico em adicionar à tela
      de início no Chrome eu quero que a logo do BR Data fique em
@@ -208,6 +218,13 @@
      <html> também, não só no <body>, fecha esse buraco de vez (além do
      limite de largura no toast em si, ver .ct-toast). */
   html{ background:var(--bg-app); }
+  /* Pedido do usuário: "bloquear zoom em qualquer situação" — o meta
+     viewport (ver <head>) bloqueia pinch-zoom; touch-action:manipulation
+     bloqueia o gesto de duplo-toque-pra-ampliar do WebKit em qualquer
+     área sem handler de clique próprio (o navegador só amplia texto
+     "solto" nesse duplo toque — botões/links já ignoram esse gesto
+     nativamente, então não muda nada na resposta de toque deles). */
+  html, body{ touch-action:manipulation; }
   body{ background:var(--bg-app); }
   .ct-shell{ min-height:100vh; display:flex; flex-direction:column; }
 
@@ -218,6 +235,17 @@
   .ct-full p{ font-size:13.5px; color:var(--text-2); margin:0; max-width:420px; }
   .ct-spinner{ width:28px; height:28px; border-radius:50%; border:3px solid var(--border); border-top-color:var(--brd-blue); animation:ct-spin 0.8s linear infinite; }
   @keyframes ct-spin{ to{ transform:rotate(360deg); } }
+  /* AJUSTE (pedido do usuário: "colocar a tela de Carregamento no
+     padrão M3") — .ct-full/.ct-spinner acima são genéricos do SITE
+     (--brd-blue/--text-0/--text-2, nada a ver com o Modo Técnico) —
+     #screenLoading é o único consumidor deles nesta página (ver
+     grep), então sobrescrever aqui não afeta mais nada. Fundo escuro
+     já vem de .mt-body (ver adiante); só faltava texto/spinner na
+     paleta M3 — sem clube "dono" aqui, mesmo raciocínio do Login. */
+  #screenLoading{ background:var(--m3-surface-dim); }
+  #screenLoading h1{ font-family:var(--m3-display); color:var(--m3-on-surface); }
+  #screenLoading p{ color:var(--m3-on-surface-variant); font-weight:600; }
+  #screenLoading .ct-spinner{ border-color:var(--m3-surface-container-highest); border-top-color:var(--m3-primary); }
   /* Nova feature — overlay genérico "ação demorada" (ver fetchJSON em
      carreira.js), acima de QUALQUER modal aberta (maior z-index do
      arquivo — o próximo mais alto, .mt-goal-highlight, é 400). */
@@ -958,83 +986,73 @@
      vazariam estilo errado pra dentro desta tela. Esse prefixo é a
      convenção adotada daqui em diante pra TODA tela reconstruída nas
      próximas fases, evitando essa colisão de vez em qualquer uma delas. */
+  /* AJUSTE (pedido do usuário: "colocar as primeiras telas —
+     Carregamento e Login — no padrão do M3") — Login era a última tela
+     ainda no design system ANTERIOR ao M3 (chanfro/tokens --mt-*
+     fixos, ver histórico deste comentário). Reconstruída em cima dos
+     MESMOS tokens --m3-* de qualquer outra tela — sem clube "dono"
+     aqui (ver comentário grande do :root M3), então usa a paleta
+     default direto, igual .mt-club-card/.mt-competition-card. */
   .mt-screen{
     position:relative; min-height:100vh; overflow:hidden;
     background:
-      radial-gradient(600px 500px at 50% -10%, rgba(232,184,75,.10), transparent 60%),
-      radial-gradient(500px 400px at 90% 100%, rgba(46,158,91,.06), transparent 60%),
-      linear-gradient(180deg, #0A1628 0%, #060D1A 55%, #030811 100%);
+      radial-gradient(600px 500px at 50% -10%, rgba(109,219,148,.08), transparent 60%),
+      linear-gradient(180deg, var(--m3-surface) 0%, var(--m3-surface-dim) 55%, var(--m3-surface-container-lowest) 100%);
   }
-  /* Textura sutil de linhas de campo (referência a estádio à noite) —
-     mesmo repeating-linear-gradient do arquivo original do designer. */
+  /* Textura sutil de linhas de campo (referência a estádio à noite). */
   .mt-screen::before{
     content:""; position:absolute; inset:0; pointer-events:none;
     background-image:repeating-linear-gradient(0deg, rgba(255,255,255,.015) 0px, rgba(255,255,255,.015) 1px, transparent 1px, transparent 64px);
   }
-  /* AJUSTE (pedido do usuário: "ajustar pra caber na primeira dobra —
-     diminuir delicadamente os espaços no topo e entre a logo e o texto
-     principal") — só respiros reduzidos (padding-top e as 2 margens do
-     bloco da marca); nenhum tamanho de fonte/crest/painel muda. */
   .mt-login-content{ position:relative; z-index:1; padding:40px 26px 40px; min-height:100vh; display:flex; flex-direction:column; }
 
-  /* ---- marca/escudo ---- */
+  /* ---- marca/escudo ---- mesmo tratamento arredondado do crest de
+     splash (ver .mt-splash-crest), só maior — herói da tela. */
   .mt-brand{ display:flex; flex-direction:column; align-items:center; margin-bottom:26px; }
   .mt-crest{
-    width:88px; height:96px; position:relative; flex-shrink:0;
-    clip-path:polygon(50% 0%, 100% 18%, 100% 62%, 50% 100%, 0% 62%, 0% 18%);
-    background:linear-gradient(160deg, #1F3E63, #0A1628 70%);
-    border:1.5px solid #E8B84B;
+    width:76px; height:76px; flex-shrink:0;
+    border-radius:var(--m3-shape-lg);
+    background:linear-gradient(160deg, var(--m3-surface-container-high), var(--m3-surface-container-lowest) 70%);
     display:flex; align-items:center; justify-content:center;
-    box-shadow:0 0 24px rgba(232,184,75,.18), inset 0 1px 0 rgba(255,255,255,.08);
-    margin-bottom:10px;
+    box-shadow:0 8px 22px rgba(0,0,0,.35);
+    margin-bottom:12px;
   }
-  /* AJUSTE: o arquivo original do designer usa o texto "BR" solto (sem
-     ter o logo vetorizado à mão); aqui dentro do app de verdade o
-     brasão de marca já existe (img/logo.png) — a moldura hexagonal é a
-     mesma, só com o logo real dentro em vez de um monograma de texto. */
-  /* AJUSTE (pedido do usuário: "a logo pode ficar maior no badge") —
-     52px -> 66px, ainda com folga dentro do hexágono (88x96). */
-  .mt-crest img{ height:66px; width:66px; object-fit:contain; }
-  .mt-brand-name{ font-family:'Bebas Neue', var(--font); font-size:26px; letter-spacing:3px; color:#F5F1E6; }
-  .mt-brand-name span{ background:linear-gradient(180deg,#F5D68A,#B8860B); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  .mt-crest img{ height:52px; width:52px; object-fit:contain; }
+  .mt-brand-name{ font-family:var(--m3-display); font-size:24px; letter-spacing:1px; color:var(--m3-on-surface); font-weight:600; }
+  .mt-brand-name span{ color:var(--m3-primary); }
 
-  /* ---- painel chanfrado (assinatura do sistema) ---- */
+  /* ---- painel (cartão M3 arredondado, sem chanfro) ---- */
   .mt-panel{
-    background:linear-gradient(160deg, #16304F, #0F2038 65%);
-    border:1px solid #1F3E63; border-top:1px solid rgba(232,184,75,.25);
-    clip-path:polygon(0 0, calc(100% - 26px) 0, 100% 26px, 100% 100%, 0 100%);
-    padding:28px 24px 26px; position:relative;
+    background:var(--m3-surface-container); border-radius:var(--m3-shape-lg);
+    padding:26px 22px 24px;
   }
-  .mt-panel::before{
-    content:""; position:absolute; top:0; right:0; width:26px; height:26px;
-    background:linear-gradient(135deg, #E8B84B, transparent 60%);
-    clip-path:polygon(100% 0, 100% 100%, 0 0); opacity:.65;
-  }
-  .mt-panel h1{ font-family:'Bebas Neue', var(--font); font-size:30px; letter-spacing:1px; margin:0 0 8px; text-align:center; color:#F5F1E6; }
-  .mt-panel .mt-sub{ text-align:center; color:#8FA3BF; font-size:13.5px; line-height:1.55; margin:0 0 28px; }
+  .mt-panel h1{ font-family:var(--m3-display); font-weight:600; font-size:24px; margin:0 0 8px; text-align:center; color:var(--m3-on-surface); }
+  .mt-panel .mt-sub{ text-align:center; color:var(--m3-on-surface-variant); font-size:13.5px; line-height:1.55; margin:0 0 26px; }
 
   /* ---- campos ---- */
-  .mt-field{ margin-bottom:18px; }
-  .mt-field label{ display:block; font-family:'Rajdhani', var(--font); font-weight:600; font-size:12.5px; letter-spacing:1px; color:#F5D68A; margin-bottom:7px; }
+  .mt-field{ margin-bottom:16px; }
+  .mt-field label{ display:block; font-family:var(--font); font-weight:600; font-size:12px; letter-spacing:.3px; color:var(--m3-on-surface-variant); margin-bottom:7px; }
   .mt-field input{
-    width:100%; background:#0A1628; border:1px solid #1F3E63; border-radius:3px;
-    padding:13px 14px; color:#F5F1E6; font-family:var(--font); font-size:14.5px; outline:none;
+    width:100%; background:var(--m3-surface-container-high); border:1px solid var(--m3-outline-variant); border-radius:var(--m3-shape-sm);
+    padding:13px 14px; color:var(--m3-on-surface); font-family:var(--font); font-size:14.5px; outline:none;
   }
-  .mt-field input::placeholder{ color:#5C7192; }
-  .mt-field input:focus{ border-color:#E8B84B; box-shadow:0 0 0 3px rgba(232,184,75,.12); }
+  .mt-field input::placeholder{ color:var(--m3-on-surface-variant); opacity:.7; }
+  .mt-field input:focus{ border-color:var(--m3-primary); box-shadow:0 0 0 3px color-mix(in srgb, var(--m3-primary) 18%, transparent); }
 
-  .mt-form-error{ color:#E36565; font-size:12.5px; margin:-6px 0 14px; text-align:center; }
+  .mt-form-error{ color:var(--m3-error); font-size:12.5px; margin:-6px 0 14px; text-align:center; }
 
+  /* Mesmo botão de ação principal do resto do app (ver
+     .mt-btn-primary-gold) — cor dinâmica de clube não se aplica aqui
+     (tela sem clube "dono"), então renderiza com o M3 primary default. */
   .mt-btn-enter{
-    width:100%; margin-top:6px; font-family:'Rajdhani', var(--font); font-weight:700; font-size:16px;
-    letter-spacing:1px; text-transform:uppercase; padding:15px; border:none; border-radius:999px; cursor:pointer;
-    background:linear-gradient(180deg, #F5D68A, #B8860B); color:#3A2A03;
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.5), 0 6px 18px rgba(184,134,11,.35), 0 2px 0 #7A5A08;
+    width:100%; margin-top:6px; font-family:var(--font); font-weight:600; font-size:14.5px;
+    letter-spacing:0; padding:14px; border:none; border-radius:var(--m3-shape-full); cursor:pointer;
+    background:var(--m3-primary); color:var(--m3-on-primary);
   }
-  .mt-btn-enter:disabled{ opacity:.6; cursor:not-allowed; }
+  .mt-btn-enter:disabled{ opacity:.5; cursor:not-allowed; }
 
-  .mt-signup{ text-align:center; margin-top:20px; font-size:13px; color:#8FA3BF; }
-  .mt-signup a{ color:#E8B84B; font-weight:600; text-decoration:none; border-bottom:1px solid rgba(232,184,75,.4); }
+  .mt-signup{ text-align:center; margin-top:20px; font-size:13px; color:var(--m3-on-surface-variant); }
+  .mt-signup a{ color:var(--m3-primary); font-weight:600; text-decoration:none; border-bottom:1px solid color-mix(in srgb, var(--m3-primary) 45%, transparent); }
 
   /* AJUSTE (pedido do usuário: "tem um texto inútil abaixo do Entrar")
      — a nota de rodapé "Temporada 2026 · Modo Carreira" (puramente
@@ -1967,7 +1985,7 @@
   .mt-zone-dot.safe{ background:var(--mt-pitch-400); }
   .mt-zone-dot.pre{ background:var(--mt-sky-400); }
   .mt-zone-dot.rebaixamento{ background:var(--mt-crimson-400); box-shadow:0 0 5px rgba(214,69,69,.6); }
-  .mt-team-cell{ flex:1; display:flex; align-items:center; gap:9px; min-width:0; }
+  .mt-team-cell{ flex:1; display:flex; align-items:center; gap:9px; min-width:0; cursor:pointer; }
   .mt-team-cell .name{ font-weight:600; font-size:13px; color:var(--mt-ivory-50); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .mt-stat-col{ width:20px; flex-shrink:0; text-align:center; font-family:'Rajdhani', var(--font); font-weight:700; font-size:12px; color:var(--mt-ivory-100); }
   .mt-stat-col.head{ color:var(--mt-ink-faint); font-weight:700; font-size:10px; }
@@ -1983,6 +2001,13 @@
   .mt-mini-row{ display:flex; align-items:center; gap:8px; padding:9px 4px; border-bottom:1px solid var(--mt-navy-700); font-size:13px; }
   .mt-mini-row:last-child{ border-bottom:none; }
   .mt-mini-row.highlight{ background:var(--m3-primary-container); border-left:3px solid var(--m3-primary); margin-left:-4px; padding-left:1px; }
+  /* Pedido do usuário: nome de clube/jogador clicável em qualquer
+     lista/card estruturado (Tabela, Mercado, Estatísticas, Resultado
+     do jogo, Indicações dos olheiros etc.) — cursor de ponteiro
+     genérico pra qualquer elemento marcado com esses 2 data-atributos
+     (ver openPlayerCard/openClubRoster em carreira.js), sem precisar
+     de uma regra de cursor dedicada em cada componente novo. */
+  [data-openplayer], [data-openclub] { cursor:pointer; }
   .mt-mini-col{ flex:1; text-align:center; font-family:'Rajdhani', var(--font); font-weight:700; color:var(--mt-ivory-100); }
   .mt-mini-col.head{ color:var(--mt-ink-faint); font-weight:700; font-size:10px; }
   .mt-mini-col.name{ flex:1.6; text-align:left; font-weight:600; font-family:var(--font); color:var(--mt-ivory-50); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -2003,13 +2028,13 @@
      inteira sozinhos. align-items:flex-start porque nome+tags às
      vezes ocupam mais altura que os 2 ícones ao lado. */
   .mt-market-top{ display:flex; align-items:flex-start; gap:12px; margin-bottom:8px; }
-  .mt-market-info{ flex:1; min-width:0; }
+  .mt-market-info{ flex:1; min-width:0; cursor:pointer; }
   .mt-market-name{ font-weight:600; font-size:14px; color:var(--m3-on-surface); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .mt-market-tags{ display:flex; gap:6px; margin-top:4px; }
   .mt-market-club{
     font-family:'Rajdhani', var(--font); font-weight:700; font-size:10.5px; letter-spacing:.3px;
     color:var(--mt-ink-muted); background:var(--mt-navy-900); border:1px solid var(--mt-navy-600);
-    padding:2px 7px; border-radius:4px;
+    padding:2px 7px; border-radius:4px; cursor:pointer;
   }
   .mt-market-detail{ font-size:12px; color:var(--mt-ink-faint); padding-left:50px; }
   .mt-market-detail b{ color:var(--mt-ink-muted); }
@@ -4834,6 +4859,29 @@
       <button class="ct-modal-close" id="notificationsSheetClose">✕</button>
     </div>
     <div class="ct-modal-body" id="notificationsSheetBody"></div>
+  </div>
+</div>
+
+<!-- Pedido do usuário: "todos os locais que aparecer nome do clube...
+     deve ser clicável e abrir a página do jogador ou do clube
+     (elenco)" — elenco read-only de QUALQUER outro clube (Tabela,
+     Mercado, Escolha do Clube etc.), reaproveitando groupedListHTML/
+     playerRow do Elenco (genéricos o bastante pra qualquer squad, não
+     só o seu — ver openClubRoster em carreira.js). Clicar num jogador
+     daqui abre openPlayerCard() (versão somente-leitura do
+     #detailOverlay), não o openDetail() de ações do seu próprio
+     elenco. -->
+<div class="ct-modal-overlay ct-modal-fullscreen" id="clubRosterOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header mt-fullheader">
+      <span class="ct-modal-icon" id="clubRosterCrest"></span>
+      <div class="ct-modal-header-text">
+        <h3 id="clubRosterName"></h3>
+        <div class="ct-modal-sub" id="clubRosterSub"></div>
+      </div>
+      <button class="ct-modal-close" id="clubRosterClose">✕</button>
+    </div>
+    <div class="ct-modal-body" id="clubRosterBody"></div>
   </div>
 </div>
 

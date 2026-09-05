@@ -2,7 +2,9 @@
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- Pedido do usuário: "bloquear zoom em qualquer situação" — mesmo
+     ajuste de viewport já aplicado em carreira.html. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Histórico de Atualizações — BR Treinador</title>
 <link rel="icon" href="img/icons/favicon-32.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -19,7 +21,10 @@
     --font:'Inter', system-ui, sans-serif;
   }
   *{ box-sizing:border-box; }
-  html, body{ margin:0; background:var(--mt-navy-950); }
+  /* Pedido do usuário: "bloquear zoom em qualquer situação" — mesmo
+     ajuste de carreira.html (touch-action bloqueia o duplo-toque de
+     ampliar; o meta viewport, no <head>, bloqueia o pinch-zoom). */
+  html, body{ margin:0; background:var(--mt-navy-950); touch-action:manipulation; }
   body{
     min-height:100vh; color:var(--mt-ivory-100); font-family:var(--font);
     background:linear-gradient(180deg, var(--mt-navy-900) 0%, var(--mt-navy-950) 60%, #030811 100%);
