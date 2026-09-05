@@ -1644,6 +1644,22 @@
   .mt-live-tl-desc{ font-size:14px; color:var(--mt-ivory-100); }
   .mt-live-tl-desc b{ color:var(--mt-ivory-50); }
 
+  /* Nova feature (Bloco 3, 4/4) — "Histórico de negociações": mesmo
+     espírito visual da timeline do Ao Vivo acima (ponto colorido +
+     texto), com identidade própria por tipo (compra/venda/empréstimo/
+     proposta perdida/outros) — ver transferLogIcon em carreira.js. */
+  .mt-transfer-item{ position:relative; padding:10px 0 10px 30px; border-bottom:1px solid var(--m3-outline-variant); }
+  .mt-transfer-item:last-child{ border-bottom:none; }
+  .mt-transfer-dot{ position:absolute; left:0; top:12px; width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; border:2px solid var(--mt-navy-950); }
+  .mt-transfer-dot svg{ width:11px; height:11px; }
+  .mt-transfer-dot.buy{ background:linear-gradient(180deg, #F5D66A, #D6A017); color:#2A1D02; border-color:var(--mt-navy-950); }
+  .mt-transfer-dot.sell{ background:var(--mt-pitch-400); color:#0E3D22; border-color:var(--mt-navy-950); }
+  .mt-transfer-dot.loan{ background:var(--mt-navy-700); border-color:var(--mt-sky-400); color:var(--mt-sky-400); }
+  .mt-transfer-dot.lost{ background:var(--mt-navy-700); border-color:var(--mt-crimson-400); color:var(--mt-crimson-400); }
+  .mt-transfer-dot.info{ background:var(--mt-navy-700); border-color:var(--mt-ink-muted); color:var(--mt-ink-muted); }
+  .mt-transfer-round{ font-family:var(--font); font-weight:700; font-size:11.5px; color:var(--m3-primary); margin-bottom:2px; }
+  .mt-transfer-text{ font-size:13px; color:var(--mt-ivory-100); }
+
   .mt-live-action-row{ display:flex; gap:10px; }
   .mt-btn-secondary{
     flex:1; display:flex; align-items:center; justify-content:center; gap:7px;
@@ -2967,6 +2983,13 @@
              propostas" acima, só que pra jogadores de outros clubes
              com espaço real de crescimento (ver openScoutSuggestionsScreen). -->
         <button class="mt-btn-ghost" id="btnOpenScoutSuggestions" style="width:100%; margin-top:8px;">🔭 Indicações dos olheiros <span class="mt-badge-gold hidden" id="scoutSuggestionsBadge" style="margin-left:6px;"></span></button>
+        <!-- Nova feature (Bloco 3, 4/4 — pedido do usuário) — "Histórico
+             de negociações": mesmo espírito de "Minhas propostas"/
+             "Minhas vendas"/"Indicações dos olheiros" acima, só que
+             mostra TODO o histórico (CAREER.transferLog inteiro, ver
+             renderTransferHistoryScreen) — o card "Transferências
+             recentes" logo acima continua com só as mais novas. -->
+        <button class="mt-btn-ghost" id="btnOpenTransferHistory" style="width:100%; margin-top:8px;">🕘 Histórico de negociações <span class="mt-badge-gold hidden" id="transferHistoryBadge" style="margin-left:6px;"></span></button>
       </section>
 
       <!-- ---------- Retenção/Engajamento (BRDataRetencaoEspecificacao)
@@ -3422,6 +3445,32 @@
     </div>
     <div class="ct-modal-footer">
       <button class="mt-btn-ghost" id="btnScoutSuggestionsCloseFooter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Nova feature (Bloco 3, 4/4 — pedido do usuário) — "Histórico de
+     negociações": timeline com TODO o histórico de transferências
+     (mesma fonte de dado do card "Transferências recentes" do
+     Mercado, CAREER.transferLog — ver renderTransferHistoryScreen em
+     carreira.js), cada linha com um ícone por tipo de evento (compra/
+     venda/empréstimo/proposta perdida/outros). -->
+<div class="ct-modal-overlay ct-modal-fullscreen" id="transferHistoryOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header mt-fullheader">
+      <span class="ct-modal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 16 14"/></svg></span>
+      <div class="ct-modal-header-text">
+        <h3>Histórico de negociações</h3>
+        <div class="ct-modal-sub" id="transferHistoryCountLabel"></div>
+      </div>
+      <button class="ct-modal-close" id="transferHistoryClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <div id="transferHistoryList"></div>
+      <p class="ct-empty hidden" id="transferHistoryEmpty">Nenhuma negociação ainda — compre, venda ou empreste alguém no Mercado.</p>
+    </div>
+    <div class="ct-modal-footer">
+      <button class="mt-btn-ghost" id="btnTransferHistoryCloseFooter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Fechar</button>
     </div>
   </div>
 </div>
