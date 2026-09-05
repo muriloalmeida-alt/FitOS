@@ -851,6 +851,22 @@ function crestImg(t, size = 40) {
   const bg = hasLogo ? "var(--mt-ivory-50)" : `linear-gradient(160deg, ${c1}, ${c2})`;
   return `<span class="ct-crest${hasLogo ? " has-logo" : ""}" style="height:${size}px;width:${size}px;background:${bg};">${inner}</span>`;
 }
+// Célula reutilizável "escudo + nome" das listas de confronto
+// (Resultados da rodada, Resumo da rodada, Copa do Brasil — mesmo
+// .ct-rr-team usado nas 3) — pedido do usuário: nome do clube
+// clicável abre o elenco dele (ver openClubRoster). `label` opcional
+// (ex.: "Você", já usado no card de status da Copa) substitui o nome
+// de verdade só na EXIBIÇÃO — o clique continua indo pro clube certo.
+function rrTeamCellHTML(team, { right, label } = {}) {
+  return `<div class="ct-rr-team${right ? " right" : ""}" data-openclub="${escapeHtml(String(team.id))}">${crestImg(team, 22)}<span>${escapeHtml(label || team.short || team.name)}</span></div>`;
+}
+// Wire genérico pra qualquer container que acabou de receber um lote
+// de rrTeamCellHTML() — chamar de novo depois de cada innerHTML.
+function wireClubRosterClicks(containerId) {
+  document.getElementById(containerId).querySelectorAll("[data-openclub]").forEach((el) => {
+    el.addEventListener("click", (e) => { e.stopPropagation(); openClubRoster(el.dataset.openclub); });
+  });
+}
 // teamGradientStops() removida (redesign, Tela 6) — só era usada pelo
 // disco antigo do campinho (.button-disc, cor do TIME); o campinho novo
 // usa a mesma faixa de cor por OVR do Elenco/Detalhe (ovrTierClass),
@@ -3307,9 +3323,9 @@ async function confirmLoanFromModal() {
   }
   if (!ok) return; // mantém o modal aberto pra ajustar
   closeLoanModal();
-  if (document.getElementById("detailOverlay").classList.contains("open")) document.getElementById("detailOverlay").classList.remove("open");
   persistCareer();
   renderMercado(); renderElenco(); renderCentral();
+  finishOperationAndGoHome();
 }
 async function finalizeLoanOut(id, { returnRound, buyOption, buyer: passedBuyer } = {}) {
   const p = CAREER.squad.find((x) => x.id === id);
@@ -5930,7 +5946,13 @@ function closePressConferenceModal() {
   // próximo passo agora é a tela de Notícias (que por sua vez segue
   // pros Resultados da rodada, ver openNewsScreen/continueFromNewsScreen),
   // não mais direto pros Resultados.
-  if (chain && PENDING_ROUND_SUMMARY) openNewsScreen(true);
+  if (chain && PENDING_ROUND_SUMMARY) { openNewsScreen(true); return; }
+  // Pedido do usuário: "ao encerrar uma operação, fechar as janelas e
+  // voltar pra Início" — só quando a coletiva é uma operação SOZINHA
+  // (chain=false, ex.: ao recusar contratação/venda de um craque, ou
+  // ao recusar renovação de contrato) — a coletiva ENCADEADA no
+  // pós-jogo (chain=true, tratada acima) nunca chega aqui embaixo.
+  finishOperationAndGoHome();
 }
 function applyPressAnswer(letra) {
   if (!PENDING_PRESS) { closePressConferenceModal(); return; }
@@ -6926,6 +6948,11 @@ function renderH2H(opponentId) {
   document.getElementById("h2hMyName").textContent = myClub?.name || CAREER.clubName || "";
   document.getElementById("h2hOppCrest").innerHTML = crestImg(opponent, 38);
   document.getElementById("h2hOppName").textContent = opponent?.name || "Adversário";
+  // Pedido do usuário: nome/escudo do clube clicável abre o elenco —
+  // guarda o id no dataset (varia a cada abertura) pro clique
+  // delegado único já wireado em wireStaticListeners (ver #h2hOverlay).
+  ["h2hMyCrest", "h2hMyName"].forEach((elId) => { document.getElementById(elId).dataset.openclub = String(CAREER.clubId); });
+  ["h2hOppCrest", "h2hOppName"].forEach((elId) => { document.getElementById(elId).dataset.openclub = String(opponentId); });
   document.getElementById("h2hRecord").textContent = meetings.length ? `${v}–${e}–${d}` : "—";
   document.getElementById("h2hSub").textContent = meetings.length
     ? `V–E–D em ${meetings.length} jogo(s) nesta carreira`
@@ -7579,7 +7606,7 @@ function proposeRenewal() {
   toast(`${abbreviateName(p.name)} renovou até ${p.contractUntil} por ${fmtBRL(p.wage)}/mês!`, { type: "pos" });
   persistCareer();
   renderElenco(); renderCentral();
-  if (document.getElementById("detailOverlay").classList.contains("open")) openDetail(p.id);
+  finishOperationAndGoHome();
 }
 // Redesign (mockup brtreinadorbloco1inicio.html, tela 6 — Perfil do
 // jogador) — atributo em barra (label + trilho preenchido + número),
@@ -7594,6 +7621,80 @@ function attrBarHTML(label, value, variant, trendHTML) {
     <div class="m3-attr-bar"><div class="m3-attr-fill${fillClass}" style="width:${pct}%;"></div></div>
     <div class="m3-attr-num">${value}${trendHTML || ""}</div>
   </div>`;
+}
+/* ---------- Nomes de clube/jogador clicáveis em listas/cards
+   (pedido do usuário) ----------
+   Escopo confirmado via AskUserQuestion: só onde o nome já é um
+   elemento PRÓPRIO de lista/card (linha do Elenco, Mercado, Tabela,
+   artilheiros, histórico de negociações, resultado do jogo etc.) —
+   texto CORRIDO (manchete de notícia, pergunta da coletiva, texto de
+   notificação) fica de fora, de propósito. */
+// Elenco de QUALQUER clube que não seja o seu, somente leitura (ver
+// .mt-fullheader/#clubRosterOverlay em carreira.html) — reaproveita os
+// MESMOS componentes do Elenco de verdade (groupedListHTML/playerRow),
+// que já são genéricos o bastante pra funcionar em qualquer squad.
+function openClubRoster(clubId) {
+  // Clicar no nome do PRÓPRIO clube leva pra aba Elenco de verdade (com
+  // todas as ações) — o visualizador somente-leitura só faz sentido
+  // pra time que não é seu.
+  if (String(clubId) === String(CAREER.clubId)) { switchToPanel("elenco"); return; }
+  const club = teamById(clubId);
+  if (!club) return;
+  const squad = leagueSquadFor(clubId).slice().sort((a, b) => squadSortKey(a) - squadSortKey(b));
+  document.getElementById("clubRosterCrest").innerHTML = crestImg(club, 30);
+  document.getElementById("clubRosterName").textContent = club.name;
+  document.getElementById("clubRosterSub").textContent = `Elenco · ${squad.length} jogador${squad.length === 1 ? "" : "es"}`;
+  document.getElementById("clubRosterBody").innerHTML = groupedListHTML(squad, playerRow, "Elenco não disponível pra este clube.");
+  document.getElementById("clubRosterBody").querySelectorAll("[data-id]").forEach((row) => {
+    row.addEventListener("click", () => openPlayerCard(row.dataset.id, clubId));
+  });
+  document.getElementById("clubRosterOverlay").classList.add("open");
+}
+function closeClubRoster() {
+  document.getElementById("clubRosterOverlay").classList.remove("open");
+}
+// Perfil de jogador clicado fora do seu elenco (Mercado, artilheiros,
+// resultado do jogo, elenco de outro clube via openClubRoster...) —
+// reaproveita o MESMO overlay/corpo de openDetail (#detailOverlay/
+// #detailBody), só que sem NENHUMA ação de gestão (não é seu jogador
+// pra comprar/vender/escalar daqui — pra negociar de verdade, o
+// caminho continua sendo o Mercado). Jogador do SEU elenco cai direto
+// no openDetail() de sempre, com todas as ações normais.
+function openPlayerCard(id, clubIdHint) {
+  const mine = CAREER.squad.find((x) => x.id === id);
+  if (mine) { openDetail(id); return; }
+  let p = null, club = null;
+  if (clubIdHint) {
+    p = leagueSquadFor(clubIdHint).find((x) => x.id === id);
+    if (p) club = teamById(clubIdHint);
+  }
+  if (!p) {
+    const found = allMarketPlayers().find(({ p: cand }) => cand.id === id);
+    if (found) { p = found.p; club = found.club; }
+  }
+  if (!p) return;
+  const subpos = subPositionOf(p);
+  const groupFull = SUBPOS_LABEL[subpos] || "—";
+  document.getElementById("detailIcon").textContent = subpos === "GOL" ? "🧤" : "⚽";
+  document.getElementById("detailName").textContent = "Perfil do jogador";
+  document.getElementById("detailSub").textContent = club ? club.name : "";
+  document.getElementById("detailBody").innerHTML = `
+    <div class="mt-player-hero">
+      <div class="mt-ovr-badge sz-lg ${ovrTierClass(p.overall)}">${p.overall}</div>
+      <div class="mt-player-hero-info">
+        <b>${escapeHtml(p.name.toUpperCase())}</b>
+        <span>${groupFull} · ${p.age} anos${club ? ` · ${escapeHtml(club.name)}` : ""}</span>
+      </div>
+    </div>
+    <div class="m3-attr-bars">
+      ${attrBarHTML("Geral", p.overall, "gold")}
+      ${attrBarHTML("Ataque", p.atk)}
+      ${attrBarHTML("Defesa", p.def)}
+      ${attrBarHTML("Físico", p.phys)}
+    </div>
+    <p class="mt-info-line">Valor de mercado: ${fmtBRL(p.value)} · Salário: ${fmtBRL(p.wage)}/mês · Contrato até: ${p.contractUntil}</p>
+    <p class="ct-empty" style="margin-top:8px;">Jogador de outro clube — consulta apenas. Pra negociar, use o Mercado.</p>`;
+  document.getElementById("detailOverlay").classList.add("open");
 }
 function openDetail(id) {
   const p = CAREER.squad.find((x) => x.id === id);
@@ -8852,11 +8953,16 @@ function renderTabela(containerId = "standingsTable", standings = CAREER.standin
     const isMe = String(r.id) === String(CAREER.clubId);
     return `<div class="mt-tr${isMe ? " highlight" : ""}">
       <div class="mt-pos-num"><span class="mt-zone-dot ${dotClass}"></span>${pos}</div>
-      <div class="mt-team-cell">${crestImg(t, 20)}<div class="name">${escapeHtml(t.name)}</div></div>
+      <div class="mt-team-cell" data-openclub="${escapeHtml(String(t.id))}">${crestImg(t, 20)}<div class="name">${escapeHtml(t.name)}</div></div>
       <div class="mt-stat-col">${r.pts}</div><div class="mt-stat-col">${r.j}</div><div class="mt-stat-col">${r.v}</div><div class="mt-stat-col">${r.e}</div><div class="mt-stat-col">${r.d}</div><div class="mt-stat-col">${r.sg > 0 ? "+" : ""}${r.sg}</div>
     </div>`;
   }).join("");
   document.getElementById(containerId).innerHTML = body;
+  // Pedido do usuário: nome do clube clicável abre o elenco (ver
+  // openClubRoster) — mesma linha reaproveitada pra tabela E modal.
+  document.getElementById(containerId).querySelectorAll("[data-openclub]").forEach((el) => {
+    el.addEventListener("click", () => openClubRoster(el.dataset.openclub));
+  });
   if (containerId === "standingsTable") {
     const legendTop = document.getElementById("tabelaLegendTop");
     const legendMidWrap = document.getElementById("tabelaLegendMidWrap");
@@ -8923,13 +9029,14 @@ function renderCopa(statusElId = "cupStatusText", histElId = "cupHistory") {
     const oppScore = isHomeMe ? tie.ga : tie.gh;
     const won = String(tie.winner) === String(CAREER.clubId);
     return `<div class="ct-round-result-row me">
-      <div class="ct-rr-team">${crestImg(teamById(CAREER.clubId), 22)}<span>Você</span></div>
+      ${rrTeamCellHTML(teamById(CAREER.clubId), { label: "Você" })}
       <span class="ct-rr-score">${myScore} <small>x</small> ${oppScore}${tie.penalties ? " <small>(pên.)</small>" : ""}</span>
-      <div class="ct-rr-team right">${crestImg(opp, 22)}<span>${escapeHtml(opp.name)}</span></div>
+      ${rrTeamCellHTML(opp, { right: true })}
     </div>
     <p class="ct-sub" style="margin:2px 0 8px;">${CUP_PHASE_LABEL[phase]}: ${won ? "✅ Classificado" : "❌ Eliminado"}</p>`;
   }).join("");
   histEl.innerHTML = rows || `<p class="ct-empty">Nenhum confronto disputado ainda.</p>`;
+  wireClubRosterClicks(histElId);
 }
 // Pedido do usuário: "ao clicar em ver tabela atualizada, abrir tabela
 // em modal tela cheia e não redirecionar para a página" — antes o
@@ -9008,11 +9115,14 @@ function renderEstatisticas() {
     .sort((a, b) => (b.goalsCareer || 0) - (a.goalsCareer || 0) || (b.assistsCareer || 0) - (a.assistsCareer || 0))
     .slice(0, 10);
   const teamTopRows = topPlayers.map((p) => `<div class="mt-mini-row">
-    <div class="mt-mini-col name">${escapeHtml(abbreviateName(p.name))}</div><div class="mt-mini-col">${subPositionOf(p)}</div>
+    <div class="mt-mini-col name" data-openplayer="${p.id}">${escapeHtml(abbreviateName(p.name))}</div><div class="mt-mini-col">${subPositionOf(p)}</div>
     <div class="mt-mini-col">${p.goalsCareer || 0}</div><div class="mt-mini-col">${p.assistsCareer || 0}</div>
   </div>`).join("");
   document.getElementById("teamTopPlayersTable").innerHTML =
     teamTopRows || `<p class="ct-empty">Ninguém marcou gol ou deu assistência ainda.</p>`;
+  document.getElementById("teamTopPlayersTable").querySelectorAll("[data-openplayer]").forEach((el) => {
+    el.addEventListener("click", () => openPlayerCard(el.dataset.openplayer, CAREER.clubId));
+  });
 
   // FASE 2 (a) — pedido do usuário: "estatísticas reais de todos os
   // times". Artilheiros/garçons da LIGA INTEIRA (seu elenco +
@@ -9041,12 +9151,18 @@ function renderEstatisticas() {
   const leagueTopRows = topLeague.map(({ p, teamId }) => {
     const t = teamById(teamId);
     return `<div class="mt-mini-row">
-      <div class="mt-mini-col name">${escapeHtml(abbreviateName(p.name))}</div><div class="mt-mini-col">${escapeHtml(t.short || t.name)}</div>
+      <div class="mt-mini-col name" data-openplayer="${p.id}" data-club="${escapeHtml(String(teamId))}">${escapeHtml(abbreviateName(p.name))}</div><div class="mt-mini-col" data-openclub="${escapeHtml(String(teamId))}">${escapeHtml(t.short || t.name)}</div>
       <div class="mt-mini-col">${p.goalsCareer || 0}</div><div class="mt-mini-col">${p.assistsCareer || 0}</div>
     </div>`;
   }).join("");
   document.getElementById("leagueTopScorersTable").innerHTML =
     leagueTopRows || `<p class="ct-empty">Ninguém marcou gol ou deu assistência ainda.</p>`;
+  document.getElementById("leagueTopScorersTable").querySelectorAll("[data-openplayer]").forEach((el) => {
+    el.addEventListener("click", () => openPlayerCard(el.dataset.openplayer, el.dataset.club));
+  });
+  document.getElementById("leagueTopScorersTable").querySelectorAll("[data-openclub]").forEach((el) => {
+    el.addEventListener("click", () => openClubRoster(el.dataset.openclub));
+  });
 
   // Times da competição — ranking por gols/cartões usando os dados já
   // reais de CAREER.standings (isso já vinha da API antes da Fase 2,
@@ -9168,6 +9284,7 @@ function confirmOfferFromModal() {
   persistCareer();
   renderMercado();
   toast(`Proposta de ${fmtBRL(value)} por ${abbreviateName(p.name)} enviada ao ${clubName} — aguardando resposta.`, { type: "info" });
+  finishOperationAndGoHome();
 }
 // Aumenta o valor de uma proposta pendente OU aceita o valor que o
 // clube pediu numa contraproposta (mesmo campo, offerValue) — os dois
@@ -9460,6 +9577,7 @@ function confirmListFromModal() {
   persistCareer();
   renderMercado();
   toast({ title: "Jogador anunciado", detail: `${abbreviateName(p.name)} colocado à venda por ${fmtBRL(askingValue)} — acompanhe em Minhas vendas.` }, { type: "info" });
+  finishOperationAndGoHome();
 }
 // Recusa só ESSA proposta (o anúncio continua ativo, pode chegar outra
 // depois) — diferente de cancelar o anúncio inteiro (ver cancelListing).
@@ -9558,8 +9676,13 @@ function renderMySalesScreen() {
   document.getElementById("mySalesCountLabel").textContent = list.length ? `${list.length} anunciado(s)` : "Nenhum anúncio ativo";
   document.getElementById("mySalesEmpty").classList.toggle("hidden", list.length > 0);
   document.getElementById("mySalesList").innerHTML = list.map(mySalesListingHTML).join("");
+  // Pedido do usuário: "ao encerrar uma operação, voltar pra Início" —
+  // só ao ACEITAR (venda de verdade concluída, jogador sai do elenco).
+  // Recusar uma proposta específica (a listagem continua ativa,
+  // esperando outra) ou cancelar o anúncio inteiro não "concluem" uma
+  // venda — continuam só atualizando a lista aqui mesmo.
   document.getElementById("mySalesList").querySelectorAll("[data-acceptlisting]").forEach((btn) => {
-    btn.addEventListener("click", () => acceptListingOffer(btn.dataset.acceptlisting, btn.dataset.offer));
+    btn.addEventListener("click", () => { acceptListingOffer(btn.dataset.acceptlisting, btn.dataset.offer); finishOperationAndGoHome(); });
   });
   document.getElementById("mySalesList").querySelectorAll("[data-rejectlisting]").forEach((btn) => {
     btn.addEventListener("click", () => rejectListingOffer(btn.dataset.rejectlisting, btn.dataset.offer));
@@ -10018,7 +10141,7 @@ function acceptScoutSuggestion(id) {
 }
 function scoutSuggestionRowHTML(s) {
   return `<div class="mt-sponsor-proposal-row">
-    <div>
+    <div data-openplayer="${s.playerId}" data-club="${escapeHtml(String(s.clubId))}">
       <div class="mt-sponsor-proposal-name">${escapeHtml(abbreviateName(s.playerName))} <span class="mt-pos-chip ${SUBPOS_DIVCLASS[s.subpos]}">${s.subpos}</span></div>
       <div class="mt-sponsor-proposal-detail">${escapeHtml(s.clubName)} · overall ${s.overall} (potencial ${s.potential}) · ${fmtBRL(s.value)}</div>
     </div>
@@ -10038,6 +10161,9 @@ function renderScoutSuggestionsScreen() {
   });
   document.getElementById("scoutSuggestionsList").querySelectorAll("[data-rejectscout]").forEach((btn) => {
     btn.addEventListener("click", () => rejectScoutSuggestion(btn.dataset.rejectscout));
+  });
+  document.getElementById("scoutSuggestionsList").querySelectorAll("[data-openplayer]").forEach((el) => {
+    el.addEventListener("click", () => openPlayerCard(el.dataset.openplayer, el.dataset.club));
   });
   const btnSearch = document.getElementById("btnScoutSearch");
   const onCooldown = CAREER.lastScoutSearchRound === CAREER.currentRound;
@@ -10333,9 +10459,9 @@ function renderMercado() {
     return `<div class="mt-market-row">
     <div class="mt-market-top">
       <div class="mt-ovr-badge ${ovrTierClass(p.overall)}">${p.overall}</div>
-      <div class="mt-market-info">
+      <div class="mt-market-info" data-openplayer="${p.id}" data-club="${escapeHtml(String(club.id))}">
         <div class="mt-market-name">${escapeHtml(abbreviateName(p.name))}</div>
-        <div class="mt-market-tags"><span class="mt-market-club">${escapeHtml(club.short || club.name)}</span><span class="mt-pos-chip ${SUBPOS_DIVCLASS[subpos]}">${subpos}</span>${compTag}</div>
+        <div class="mt-market-tags"><span class="mt-market-club" data-openclub="${escapeHtml(String(club.id))}">${escapeHtml(club.short || club.name)}</span><span class="mt-pos-chip ${SUBPOS_DIVCLASS[subpos]}">${subpos}</span>${compTag}</div>
       </div>
       <div class="mt-market-actions-corner">
         ${mine
@@ -10377,6 +10503,16 @@ function renderMercado() {
   });
   document.getElementById("marketList").querySelectorAll("[data-loanin]").forEach((btn) => {
     btn.addEventListener("click", () => openLoanInModal(btn.dataset.club, btn.dataset.loanin));
+  });
+  // Pedido do usuário: nome do jogador/clube clicável abre o
+  // perfil/elenco (ver openPlayerCard/openClubRoster) — o nome do
+  // clube tem seu próprio alvo (stopPropagation) pra não também abrir
+  // o perfil do jogador quando clicado.
+  document.getElementById("marketList").querySelectorAll("[data-openplayer]").forEach((el) => {
+    el.addEventListener("click", () => openPlayerCard(el.dataset.openplayer, el.dataset.club));
+  });
+  document.getElementById("marketList").querySelectorAll("[data-openclub]").forEach((el) => {
+    el.addEventListener("click", (e) => { e.stopPropagation(); openClubRoster(el.dataset.openclub); });
   });
 
   // AJUSTE (Bloco 3, 4/4 — pedido do usuário: tela "Histórico de
@@ -10503,6 +10639,13 @@ function switchToPanel(name) {
   // .m3-bottom-nav em carreira.html.
   document.querySelectorAll(".m3-nav-item").forEach((b) => b.classList.toggle("active", b.dataset.panel === name));
   document.querySelectorAll(".ct-panel").forEach((p) => p.classList.toggle("active", p.id === "panel-" + name));
+  // Pedido do usuário: "ao trocar de tela sempre colocar foco no topo"
+  // — trocar de aba (Início/Elenco/Tática/Mercado/Clube) rolava a
+  // página inteira igual show() já fazia pras 4 telas de fora do jogo,
+  // só que switchToPanel() nunca tinha esse reset — quem trocava de
+  // aba rolado lá embaixo entrava na próxima já rolado, com o
+  // cabeçalho da tela nova escondido acima da dobra.
+  window.scrollTo(0, 0);
   // Retenção/Engajamento — objetivos/conquistas são atualizados por
   // vários pontos de evento espalhados pelo código (comprar/vender/
   // emprestar jogador, treinar, promover da base...), cada um chamando
@@ -10519,6 +10662,24 @@ function switchToPanel(name) {
   if (name === "loja") renderLoja();
 }
 
+// Pedido do usuário: "ao encerrar uma operação, sempre fechar as
+// janelas abertas e devolver o jogador pra página de Início" —
+// confirmado via AskUserQuestion: só pras operações que MUDAM O ESTADO
+// do jogo (comprar/vender/emprestar jogador, renovar contrato,
+// responder coletiva, aplicar treino, aceitar/recusar proposta). Uma
+// tela de mera CONSULTA (Perfil do jogador, Tabela, Estatísticas)
+// continua devolvendo pra aba de origem ao fechar, sem redirecionar —
+// só chamada nos pontos de conclusão de verdade dessas operações
+// específicas, nunca de forma genérica em todo fechamento de modal
+// (isso quebraria fluxos ENCADEADOS de propósito, como coletiva ->
+// Notícias no pós-jogo, ou o modal de "Proposta em destaque" ->
+// Tabela — ver closePressConferenceModal/closePlayerOfferModal, que
+// NÃO chamam isso).
+function finishOperationAndGoHome() {
+  document.querySelectorAll(".ct-modal-overlay.open").forEach((el) => el.classList.remove("open"));
+  switchToPanel("central");
+}
+
 /* ---------- Modais do fluxo "Simular rodada" (pedido do usuário) ---------- */
 // 1º modal: o jogo do PRÓPRIO clube (se jogou essa rodada — bye/folga
 // pula direto pro modal de resultados, não tem jogo pra detalhar).
@@ -10528,9 +10689,12 @@ function showMatchDetailModal(summary) {
   const homeTeam = teamById(home), awayTeam = teamById(away);
   document.getElementById("matchDetailRound").textContent = summary.round;
   document.getElementById("matchDetailScore").innerHTML = `
-    <div class="side">${crestImg(homeTeam)}<span class="n">${escapeHtml(homeTeam.name)}</span></div>
+    <div class="side" data-openclub="${escapeHtml(String(homeTeam.id))}">${crestImg(homeTeam)}<span class="n">${escapeHtml(homeTeam.name)}</span></div>
     <span class="vs">${gh} × ${ga}</span>
-    <div class="side">${crestImg(awayTeam)}<span class="n">${escapeHtml(awayTeam.name)}</span></div>`;
+    <div class="side" data-openclub="${escapeHtml(String(awayTeam.id))}">${crestImg(awayTeam)}<span class="n">${escapeHtml(awayTeam.name)}</span></div>`;
+  document.getElementById("matchDetailScore").querySelectorAll("[data-openclub]").forEach((el) => {
+    el.addEventListener("click", () => openClubRoster(el.dataset.openclub));
+  });
   document.getElementById("matchDetailEvents").innerHTML = matchEventsSummaryHTML(events)
     || `<p class="ct-empty">Nenhum gol, cartão ou assistência nesse jogo.</p>`;
   // AJUSTE (Play-by-Play v1, Tela hifi-03) — barras de posse/
@@ -10620,11 +10784,12 @@ function showRoundResultsModal(summary) {
     const home = teamById(r.home), away = teamById(r.away);
     const isMe = String(r.home) === String(CAREER.clubId) || String(r.away) === String(CAREER.clubId);
     return `<div class="ct-round-result-row ${isMe ? "me" : ""}">
-      <div class="ct-rr-team">${crestImg(home, 22)}<span>${escapeHtml(home.short || home.name)}</span></div>
+      ${rrTeamCellHTML(home)}
       <span class="ct-rr-score">${r.gh} <small>x</small> ${r.ga}</span>
-      <div class="ct-rr-team right">${crestImg(away, 22)}<span>${escapeHtml(away.short || away.name)}</span></div>
+      ${rrTeamCellHTML(away, { right: true })}
     </div>`;
   }).join("");
+  wireClubRosterClicks("roundResultsList");
   document.getElementById("roundResultsChanges").textContent = (summary.lineupChanges && summary.lineupChanges.length)
     ? `Mudanças no time pra próxima rodada: ${summary.lineupChanges.join("; ")}.`
     : "";
@@ -10651,6 +10816,7 @@ function showRoundResultsModal(summary) {
   // FASE 2 (a) — Copa do Brasil: só existe summary.cup nas 4 rodadas
   // certas com seu clube ainda vivo (ver resolveCupPhase).
   document.getElementById("roundResultsCup").innerHTML = summary.cup ? cupRoundResultsHTML(summary.cup) : "";
+  if (summary.cup) wireClubRosterClicks("roundResultsCup");
   PENDING_ROUND_SUMMARY = null;
   document.getElementById("roundResultsOverlay").classList.add("open");
 }
@@ -10698,11 +10864,12 @@ function renderRodada(view) {
     const played = results.find((r) => String(r.home) === String(fx.home) && String(r.away) === String(fx.away));
     const scoreHTML = played ? `${played.gh} <small>x</small> ${played.ga}` : `— <small>x</small> —`;
     return `<div class="ct-round-result-row ${isMe ? "me" : ""}">
-      <div class="ct-rr-team">${crestImg(home, 22)}<span>${escapeHtml(home.short || home.name)}</span></div>
+      ${rrTeamCellHTML(home)}
       <span class="ct-rr-score">${scoreHTML}</span>
-      <div class="ct-rr-team right">${crestImg(away, 22)}<span>${escapeHtml(away.short || away.name)}</span></div>
+      ${rrTeamCellHTML(away, { right: true })}
     </div>`;
   }).join("");
+  wireClubRosterClicks("rodadaList");
 }
 function openRodadaScreen() {
   RODADA_VIEW = "atual";
@@ -10723,9 +10890,9 @@ function cupRoundResultsHTML(cupResult) {
     const home = teamById(tie.home), away = teamById(tie.away);
     const isMe = String(tie.home) === String(CAREER.clubId) || String(tie.away) === String(CAREER.clubId);
     return `<div class="ct-round-result-row ${isMe ? "me" : ""}">
-      <div class="ct-rr-team">${crestImg(home, 22)}<span>${escapeHtml(home.short || home.name)}</span></div>
+      ${rrTeamCellHTML(home)}
       <span class="ct-rr-score">${tie.gh} <small>x</small> ${tie.ga}${tie.penalties ? " <small>(pên.)</small>" : ""}</span>
-      <div class="ct-rr-team right">${crestImg(away, 22)}<span>${escapeHtml(away.short || away.name)}</span></div>
+      ${rrTeamCellHTML(away, { right: true })}
     </div>`;
   }).join("");
   const cup = CAREER.cup;
@@ -10900,6 +11067,12 @@ function wireStaticListeners() {
       ? { title: "Treino da semana aplicado", detail: `${gains.size} jogador${gains.size > 1 ? "es" : ""} evoluíram atributos.` }
       : { title: "Treino da semana aplicado", detail: "Semana de descanso — sem ganho de atributo, condição recuperada." },
       { type: "pos" });
+    // Pedido do usuário: "ao encerrar uma operação, voltar pra Início"
+    // — só no clique DIRETO deste botão (não dentro de
+    // applyWeeklyTraining() em si, que também roda como rede de
+    // segurança dentro de goToMatch() — nesse caso o técnico está indo
+    // pro jogo, não "concluindo" o treino como ação isolada).
+    finishOperationAndGoHome();
   });
 
   // Bloco 5 ("pendentes") — "Histórico de fadiga", mesmo padrão de
@@ -11079,6 +11252,13 @@ function wireStaticListeners() {
   // nada (dataset.opponentId nunca foi setado).
   document.getElementById("nextMatchBox").addEventListener("click", () => openH2H(document.getElementById("nextMatchBox").dataset.opponentId));
   document.getElementById("h2hClose").addEventListener("click", closeH2H);
+  // Pedido do usuário: nome/escudo do clube clicável (ver renderH2H,
+  // que grava o id certo no dataset a cada abertura) — delegado uma
+  // vez só, os elementos são estáticos.
+  document.getElementById("h2hOverlay").addEventListener("click", (e) => {
+    const el = e.target.closest("[data-openclub]");
+    if (el) openClubRoster(el.dataset.openclub);
+  });
   // Bloco 4 (mockups brtreinadorbloco4clube.html/
   // brtreinadorbloco4pendentes.html) — tela Clube: cards de Estádio e
   // Diretoria abrem tela cheia, FAB abre a proposta de patrocínio
@@ -11334,8 +11514,14 @@ function wireStaticListeners() {
   document.getElementById("marketSearch").addEventListener("input", renderMercado);
   document.getElementById("marketPosFilter").addEventListener("change", renderMercado);
   document.getElementById("marketCompFilter").addEventListener("change", renderMercado);
-  document.getElementById("btnAcceptOffer").addEventListener("click", acceptOffer);
-  document.getElementById("btnDeclineOffer").addEventListener("click", declineOffer);
+  // Pedido do usuário: "ao encerrar uma operação, voltar pra Início" —
+  // só aqui, no card de proposta recebida DENTRO da aba Mercado (ação
+  // isolada). O MESMO aceitar/recusar disparado de dentro do modal
+  // "Proposta em destaque" do pós-jogo (ver acceptOfferFromModal/
+  // declineOfferFromModal) continua encadeado pra Tabela, sem chamar
+  // isso — são wrappers próprios, não passam por aqui.
+  document.getElementById("btnAcceptOffer").addEventListener("click", () => { acceptOffer(); finishOperationAndGoHome(); });
+  document.getElementById("btnDeclineOffer").addEventListener("click", () => { declineOffer(); finishOperationAndGoHome(); });
   document.getElementById("btnAskBoard").addEventListener("click", askBoard);
 
   // FASE 3 (c) — multitemporadas: avança a temporada (ver
@@ -11393,6 +11579,10 @@ function wireStaticListeners() {
   document.getElementById("pickerOverlay").addEventListener("click", (e) => { if (e.target.id === "pickerOverlay") e.currentTarget.classList.remove("open"); });
   document.getElementById("detailClose").addEventListener("click", () => document.getElementById("detailOverlay").classList.remove("open"));
   document.getElementById("detailOverlay").addEventListener("click", (e) => { if (e.target.id === "detailOverlay") e.currentTarget.classList.remove("open"); });
+  // Pedido do usuário: nomes de clube clicáveis abrem o elenco (ver
+  // openClubRoster) — mesmo padrão de fechamento de sempre.
+  document.getElementById("clubRosterClose").addEventListener("click", closeClubRoster);
+  document.getElementById("clubRosterOverlay").addEventListener("click", (e) => { if (e.target.id === "clubRosterOverlay") closeClubRoster(); });
   // FASE 1 (item 1) — sub-modal de renovação, mesmo padrão de
   // fechamento dos outros (X e clique fora fecham sem propor nada).
   document.getElementById("renewClose").addEventListener("click", closeRenewModal);
@@ -11808,9 +11998,31 @@ async function enterAfterAuth() {
     show("screenCompetitionPicker");
   }
 }
+// Pedido do usuário: "ao trocar de tela sempre colocar foco no topo" —
+// cobre as dezenas de modais/telas cheias (.ct-modal-overlay) do jogo
+// de UMA VEZ SÓ, em vez de caçar e editar cada uma das funções
+// openXOverlay() espalhadas pelo arquivo (fácil esquecer uma, e toda
+// modal nova precisaria lembrar de fazer o mesmo). Observa a troca de
+// classe em QUALQUER elemento .ct-modal-overlay do documento — ao
+// ganhar "open", zera o scroll do corpo rolável dela (.ct-modal-body)
+// e da própria overlay (só por garantia, a maioria não rola por si só).
+function wireModalScrollResetObserver() {
+  const observer = new MutationObserver((mutations) => {
+    for (const m of mutations) {
+      const el = m.target;
+      if (!(el instanceof Element) || !el.classList.contains("ct-modal-overlay")) continue;
+      if (!el.classList.contains("open")) continue;
+      el.scrollTop = 0;
+      const body = el.querySelector(".ct-modal-body");
+      if (body) body.scrollTop = 0;
+    }
+  });
+  observer.observe(document.body, { attributes: true, attributeFilter: ["class"], subtree: true });
+}
 async function boot() {
   applyStoredTheme();
   wireStaticListeners();
+  wireModalScrollResetObserver();
   try {
     const me = await fetchJSON("/api/auth/me").catch(() => ({ authenticated: false }));
     if (!me.authenticated) { show("screenLoginRequired"); return; }
