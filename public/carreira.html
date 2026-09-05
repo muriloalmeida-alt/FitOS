@@ -2180,6 +2180,22 @@
   .m3-upgrade-buy{ font-family:var(--m3-display); font-weight:700; font-size:11px; background:var(--m3-surface-container-highest); color:var(--m3-on-surface); border:none; border-radius:var(--m3-shape-full); padding:8px 13px; cursor:pointer; flex-shrink:0; }
   .m3-upgrade-buy:disabled{ opacity:.5; cursor:not-allowed; }
   .m3-list-item.locked{ opacity:.6; cursor:default; }
+  /* Selecionado dentro de uma lista escolhível (ex.: olheiro escolhido
+     na folha "Nova missão", ver renderMissionSheet) — mesmo tom de
+     .m3-scheme-row.active, generalizado pra qualquer .m3-list-item. */
+  .m3-list-item.active{ background:var(--m3-primary-container); color:var(--m3-on-primary-container); }
+  .m3-list-item.active .m3-li-name, .m3-list-item.active .m3-li-meta .m3-mini-chip{ color:inherit; }
+
+  /* Bloco 6 (mockups brtreinadorbloco6base.html/
+     brtreinadorbloco6pendentes.html) — barra curta de progresso de
+     missão (olheiro em campo), selo de potencial em estrelas
+     (promissor/mercado de olheiros) e nota escrita do olheiro na ficha
+     do promissor. */
+  .m3-prog-bar{ width:52px; height:5px; border-radius:var(--m3-shape-full); background:var(--m3-surface-container-highest); overflow:hidden; flex-shrink:0; }
+  .m3-prog-fill{ height:100%; background:var(--m3-primary); }
+  .m3-potential-badge{ font-family:var(--m3-display); font-weight:700; font-size:11px; color:var(--m3-secondary); flex-shrink:0; }
+  .m3-recruit-stars{ font-size:10px; color:var(--m3-secondary); margin-top:3px; }
+  .scout-note{ background:var(--m3-surface-container); border-radius:var(--m3-shape-lg); padding:12px 14px; font-size:11.5px; color:var(--m3-on-surface-variant); line-height:1.5; margin:14px 0 0; }
 
   /* ---- linha de stat cards ---- */
   .m3-stat-row{ display:grid; grid-template-columns:repeat(auto-fit, minmax(80px, 1fr)); gap:10px; margin-bottom:14px; }
@@ -2542,6 +2558,11 @@
              openCommissionScreen/carreira.js. -->
         <button class="mt-topbar-menu-item" id="btnOpenCommission">🧑‍💼 Comissão Técnica</button>
         <button class="mt-topbar-menu-item" id="btnOpenTreinos">🏋️ Treinos</button>
+        <!-- Bloco 6 (mockups brtreinadorbloco6base.html/
+             brtreinadorbloco6pendentes.html) — olheiros contratáveis que
+             saem em missão por região e trazem promissores pra base (ver
+             openScoutingScreen/carreira.js). -->
+        <button class="mt-topbar-menu-item" id="btnOpenScouting">🧭 Base e Olheiros</button>
       </div>
 
       <!-- Progresso: Retenção/Engajamento (BRDataRetencaoEspecificacao)
@@ -4347,6 +4368,106 @@
         <div id="commissionCards"></div>
         <button class="mt-btn-danger-outline" id="btnFireCommission" style="width:100%; margin-top:6px;">Demitir comissão técnica</button>
       </div>
+    </div>
+  </div>
+</div>
+
+<!-- Bloco 6 (mockups brtreinadorbloco6base.html/
+     brtreinadorbloco6pendentes.html) — "Base e Olheiros": olheiros
+     contratáveis (ver SCOUT_MARKET/hireScout em carreira.js) que saem
+     em missão por região (startScoutMission/tickScoutMissions) e
+     trazem promissores novos pra sua base (recruitProspectToBase).
+     Aberta pelo menu "≡ Equipe & Treinos" (ver openScoutingScreen). -->
+<div class="ct-modal-overlay ct-modal-fullscreen" id="scoutingOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header mt-fullheader">
+      <span class="ct-modal-icon">🔭</span>
+      <div class="ct-modal-header-text">
+        <h3>Base e Olheiros</h3>
+        <div class="ct-modal-sub">Prospecção e relatório de olheiro</div>
+      </div>
+      <button class="ct-modal-close" id="btnOpenScoutMarket" title="Contratar olheiro" aria-label="Contratar olheiro">🗺️</button>
+      <button class="ct-modal-close" id="scoutingClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <div class="m3-filter-row" id="scoutingRegionRow"></div>
+      <div class="mt-card-title">Olheiros em campo</div>
+      <div id="scoutingFieldList"></div>
+      <div class="mt-card-title" style="margin-top:14px;">Promissores encontrados</div>
+      <div id="scoutingProspectList"></div>
+      <button class="m3-btn-ghost" id="btnOpenBaseCategories" style="margin-top:6px;">📋 Ver categorias de base</button>
+    </div>
+    <button class="m3-fab" id="btnNewMission">🧭 Nova missão</button>
+  </div>
+</div>
+
+<!-- Escolha de olheiro livre + região pra iniciar uma missão (ver
+     openMissionSheet/renderMissionSheet). -->
+<div class="ct-modal-overlay mt-sheet-overlay" id="scoutMissionSheet">
+  <div class="ct-modal">
+    <div class="ct-modal-header">
+      <span class="ct-modal-icon">🧭</span>
+      <div class="ct-modal-header-text"><h3>Nova missão</h3><div class="ct-modal-sub">Escolha o olheiro e a região</div></div>
+      <button class="ct-modal-close" id="scoutMissionClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <div id="missionScoutList"></div>
+      <div class="m3-filter-row" id="missionRegionRow" style="margin-top:10px;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Ficha de um promissor encontrado — atributos como barras curtas
+     (ver openProspectSheet/carreira.js), nota do olheiro, e a decisão
+     Continuar observando / Promover pra base. -->
+<div class="ct-modal-overlay mt-sheet-overlay" id="scoutProspectSheet">
+  <div class="ct-modal">
+    <div class="ct-modal-header">
+      <span class="ct-modal-icon" id="prospectSheetAvatar"></span>
+      <div class="ct-modal-header-text"><h3 id="prospectSheetName"></h3><div class="ct-modal-sub" id="prospectSheetSub"></div></div>
+      <button class="ct-modal-close" id="prospectSheetClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <div id="prospectSheetAttrs"></div>
+      <p class="scout-note" id="prospectSheetNote"></p>
+    </div>
+    <div class="ct-modal-footer">
+      <button class="mt-btn-ghost" id="btnProspectContinue">Continuar observando</button>
+      <button class="mt-btn-primary-gold" id="btnProspectPromote">Promover pra base</button>
+    </div>
+  </div>
+</div>
+
+<!-- Mercado de olheiros contratáveis (ver renderScoutMarketScreen/
+     hireScout). -->
+<div class="ct-modal-overlay ct-modal-fullscreen" id="scoutMarketOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header mt-fullheader">
+      <span class="ct-modal-icon">🔎</span>
+      <div class="ct-modal-header-text"><h3>Contratar olheiro</h3><div class="ct-modal-sub">Disponíveis no mercado</div></div>
+      <button class="ct-modal-close" id="scoutMarketClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <div id="scoutMarketList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Categorias de base (Sub-15/17/20) — mesmo pool de sempre
+     (CAREER.squad.filter(origin==="base")), só agrupado por idade (ver
+     renderBaseCategoriesScreen). Tocar numa linha abre o mesmo
+     openDetail de sempre. -->
+<div class="ct-modal-overlay ct-modal-fullscreen" id="baseCategoriesOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header mt-fullheader">
+      <span class="ct-modal-icon">📋</span>
+      <div class="ct-modal-header-text"><h3>Categorias de base</h3></div>
+      <button class="ct-modal-close" id="baseCategoriesClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <div class="m3-filter-row" id="baseCatTabs"></div>
+      <div class="mt-card-sub" id="baseCatCount" style="margin-bottom:8px;"></div>
+      <div id="baseCatList"></div>
     </div>
   </div>
 </div>

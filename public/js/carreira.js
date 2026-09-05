@@ -1252,7 +1252,12 @@ function buildRealPlayer(raw, club, rng) {
 const BASE_COMPOSITION = ["G", "G", "D", "D", "D", "D", "D", "M", "M", "M", "M", "M", "F", "F", "F", "F"];
 function buildBasePlayer(club, idx, rng) {
   const group = BASE_COMPOSITION[idx % BASE_COMPOSITION.length];
-  const age = 16 + Math.floor(rng() * 5);
+  // Bloco 6 (mockups brtreinadorbloco6base.html/brtreinadorbloco6pendentes.html
+  // — "Categorias de base") — ampliado de 16-20 pra 15-20 pra a aba
+  // Sub-15 da nova tela ter gente de verdade (era sempre vazia antes).
+  // Só afeta jogadores gerados daqui pra frente — saves antigos mantêm
+  // a idade já salva.
+  const age = 15 + Math.floor(rng() * 6);
   const potential = Math.round(clamp(42 + rng() * 48 + (club.atk - 1) * 10, 35, 92));
   const overall = Math.round(clamp(potential * (0.42 + rng() * 0.28), 26, 60));
   const atk = clamp(overall + (group === "F" ? 5 : group === "M" ? 2 : -8) + Math.round(rng() * 6 - 3), 18, 78);
@@ -1402,6 +1407,12 @@ function initialFinances(squad) {
 const TECHNICAL_STAFF_WAGE_PCT = 0.05;
 function technicalStaffMonthlyCost() {
   return Math.round(wageBillOf(CAREER.squad) * TECHNICAL_STAFF_WAGE_PCT / 1000) * 1000;
+}
+// Bloco 6 — soma do salário mensal de cada olheiro contratado (ver
+// SCOUT_MARKET/hireScout); custo fixo por olheiro (não escala com o
+// clube como a Comissão Técnica, cada um já tem seu preço no catálogo).
+function scoutsMonthlyCost() {
+  return (CAREER.scouts || []).reduce((sum, s) => sum + s.monthlyCost, 0);
 }
 
 /* ---------- FASE 4 (item 5 da especificação "BR Data Treinador") —
@@ -3521,6 +3532,13 @@ async function startCareer(clubId) {
       // Bloco 4 — melhorias de estádio (mecânica nova, ver
       // STADIUM_UPGRADES/startStadiumUpgrade/tickStadiumUpgrade).
       stadium: initialStadium(),
+      // Bloco 6 (mockups brtreinadorbloco6base.html/
+      // brtreinadorbloco6pendentes.html) — olheiros contratados (ver
+      // SCOUT_MARKET/hireScout) e promissores encontrados em missão
+      // ainda não decididos (ver tickScoutMissions/
+      // recruitProspectToBase): nascem vazios, sem staff nenhum de
+      // cara — carreira só ganha isso se o técnico contratar.
+      scouts: [], scoutMissionProspects: [],
       // FASE 3 (c) — multitemporadas (ver advanceSeason). seasonYear
       // começa em LIVE_SEASON (a temporada real dos dados) e só sobe
       // quando VOCÊ avança de temporada — LIVE_SEASON em si é fixo.
@@ -5775,6 +5793,15 @@ function finishRoundTail(round, allResults, humanMatch, standingsBefore) {
     CAREER.finances.cash -= staffCost;
     if (staffCost) pushLedger("salario", "Custo da Comissão Técnica", -staffCost, round);
   }
+  // Bloco 6 (mockups brtreinadorbloco6base.html/brtreinadorbloco6pendentes.html
+  // — "Base e Olheiros") — mesmo ritmo de sempre (1/4 do custo mensal por
+  // rodada) pro salário de cada olheiro contratado (ver
+  // hireScout/SCOUT_MARKET).
+  const scoutsCost = Math.round(scoutsMonthlyCost() / 4);
+  if (scoutsCost) {
+    CAREER.finances.cash -= scoutsCost;
+    pushLedger("salario", "Salário dos olheiros", -scoutsCost, round);
+  }
   // FASE 4 (item 5) — patrocínio paga em parcelas ao longo da
   // temporada (1/38 do valor anual por rodada), mesmo ritmo de
   // "dinheiro chega aos poucos" que já existe pra ingresso (por
@@ -5804,6 +5831,7 @@ function finishRoundTail(round, allResults, humanMatch, standingsBefore) {
     pushLedger("bilheteria", "Renda de bilheteria (jogo em casa)", humanMatch.ticketRevenue.revenue, round);
   }
   tickStadiumUpgrade();
+  tickScoutMissions(round);
   pushCashSnapshot(round);
   // FASE 2 (c) — mercado de transferências: os outros 19 times também
   // negociam entre si (ver simulateAiTransfers) e, de vez em quando,
@@ -9289,6 +9317,375 @@ function closeMySalesScreen() {
   document.getElementById("mySalesOverlay").classList.remove("open");
 }
 
+/* ---------- Bloco 6 — "Base e Olheiros" ----------
+   Pedido do usuário (mockups brtreinadorbloco6base.html/
+   brtreinadorbloco6pendentes.html): olheiros como STAFF contratável
+   (nome, especialidade regional, custo mensal) que saem em missão por
+   região e, ao voltar, trazem promissores novos pra SUA base — bem
+   diferente da "Indicações dos olheiros" logo abaixo (Bloco 3, que
+   busca jogadores de OUTROS clubes pro mercado de transferências, sob
+   demanda, sem staff nem missão nenhuma). Os dois só compartilham o
+   vocabulário "olheiro" por coincidência de tema, não de mecânica. */
+
+// Região deriva da UF de cada clube (já existe em data.js) — sem dado
+// novo por clube, só uma tabela estática de UF → região.
+const UF_TO_REGION = {
+  AC: "norte", AP: "norte", AM: "norte", PA: "norte", RO: "norte", RR: "norte", TO: "norte",
+  AL: "nordeste", BA: "nordeste", CE: "nordeste", MA: "nordeste", PB: "nordeste", PE: "nordeste", PI: "nordeste", RN: "nordeste", SE: "nordeste",
+  DF: "centro-oeste", GO: "centro-oeste", MT: "centro-oeste", MS: "centro-oeste",
+  ES: "sudeste", MG: "sudeste", RJ: "sudeste", SP: "sudeste",
+  PR: "sul", RS: "sul", SC: "sul",
+};
+const REGION_LABEL = { norte: "Norte", nordeste: "Nordeste", "centro-oeste": "Centro-Oeste", sudeste: "Sudeste", sul: "Sul" };
+// Só as regiões que têm clube de verdade na liga carregada (deriva, não
+// hardcoda) — mesmo raciocínio de outras listas filtradas por dado real
+// do host.
+function scoutingAvailableRegions() {
+  const set = new Set((ALL_TEAMS_FLAT || []).map((t) => UF_TO_REGION[t.uf]).filter(Boolean));
+  return Array.from(set);
+}
+function initials(name) {
+  return name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+}
+function starsHTML(n) {
+  const full = clamp(Math.round(n), 0, 5);
+  return "★".repeat(full) + "☆".repeat(5 - full);
+}
+
+// Catálogo fixo de olheiros contratáveis (mesmo espírito de
+// STADIUM_UPGRADES, Bloco 4: preço/atributo fixos no código, sem
+// geração procedural nem mercado que "refresca"). regionScope "any" =
+// pode ir pra qualquer região que a liga tiver.
+const SCOUT_MARKET = [
+  { id: "p_andrade", name: "P. Andrade", specialty: "Especialista em Nordeste", regionScope: ["nordeste"], stars: 4, monthlyCost: 8000 },
+  { id: "t_lacerda", name: "T. Lacerda", specialty: "Especialista em base internacional", regionScope: "any", stars: 5, monthlyCost: 22000 },
+  { id: "c_nascimento", name: "C. Nascimento", specialty: "Generalista · Sul e Sudeste", regionScope: ["sul", "sudeste"], stars: 3, monthlyCost: 5000 },
+];
+function scoutAllowedRegions(scout) {
+  return scout.regionScope === "any" ? scoutingAvailableRegions() : scout.regionScope;
+}
+function hireScout(marketId) {
+  if ((CAREER.scouts || []).some((s) => s.marketId === marketId)) {
+    toast("Esse olheiro já faz parte do seu staff.", { type: "warn" });
+    return;
+  }
+  const cand = SCOUT_MARKET.find((s) => s.id === marketId);
+  if (!cand) return;
+  CAREER.scouts = CAREER.scouts || [];
+  CAREER.scouts.push({
+    id: `scout_${cand.id}`, marketId: cand.id, name: cand.name, specialty: cand.specialty,
+    regionScope: cand.regionScope, stars: cand.stars, monthlyCost: cand.monthlyCost, mission: null,
+  });
+  persistCareer();
+  renderScoutMarketScreen();
+  renderScoutingScreen();
+  toast(`${cand.name} contratado!`, { type: "pos" });
+}
+// Só dá pra dispensar sem missão em andamento — mesmo espírito de
+// "não pode mexer no que já foi comprometido" que outras ações do jogo
+// (obra de estádio, empréstimo) já seguem.
+async function fireScout(scoutId) {
+  const scout = (CAREER.scouts || []).find((s) => s.id === scoutId);
+  if (!scout) return;
+  if (scout.mission) {
+    toast("Esse olheiro está em missão — espere ele voltar antes de dispensar.", { type: "warn" });
+    return;
+  }
+  if (!(await confirmModal(`Dispensar ${scout.name}?`, "Dispensar"))) return;
+  CAREER.scouts = CAREER.scouts.filter((s) => s.id !== scoutId);
+  persistCareer();
+  renderScoutingScreen();
+  toast(`${scout.name} dispensado.`, { type: "warn" });
+}
+
+// Duração da missão: faixa curta (3 a 7 rodadas), seed por olheiro +
+// rodada de início pra não repetir sempre o mesmo número.
+function startScoutMission(scoutId, region) {
+  const scout = (CAREER.scouts || []).find((s) => s.id === scoutId);
+  if (!scout) return;
+  if (scout.mission) { toast("Esse olheiro já está em missão.", { type: "warn" }); return; }
+  if (!scoutAllowedRegions(scout).includes(region)) { toast("Esse olheiro não atua nessa região.", { type: "warn" }); return; }
+  const rng = seededRngFromKey(`scoutmission:${scoutId}:${CAREER.currentRound}`);
+  const roundsNeeded = 3 + Math.floor(rng() * 5);
+  scout.mission = { regionUf: region, roundsLeft: roundsNeeded, roundsTotal: roundsNeeded };
+  persistCareer();
+  renderScoutingScreen();
+  toast(`${scout.name} partiu em missão pelo ${REGION_LABEL[region]} — retorna em ${roundsNeeded} rodada${roundsNeeded === 1 ? "" : "s"}.`, { type: "pos" });
+}
+const SCOUT_PROSPECTS_MAX = 12;
+const SCOUT_NOTE_POOL = [
+  "Jogador com leitura de jogo acima da idade. Recomendo acompanhar de perto.",
+  "Fisicamente ainda precisa desenvolver, mas a técnica já chama atenção.",
+  "Categoria diferenciada — pode virar referência do elenco principal em poucas temporadas.",
+  "Ainda irregular, mas o potencial de crescimento é real.",
+  "Discreto em campo, mas decisivo nos momentos certos.",
+];
+// Mesma fórmula de buildBasePlayer (ver acima), ajustada pelas
+// estrelas do olheiro (melhor olheiro tende a achar potencial mais
+// alto) — reaproveita os mesmos pools de nome/computeContractFields em
+// vez de inventar geração nova. Técnica/Físico/Visão de jogo na ficha
+// (ver renderProspectSheet) são leituras de atk/phys/def — este jogo
+// não tem esses 3 atributos como stats separados, são aproximações
+// sobre o trio que já existe (mesmo espírito "ilustrativo" de outras
+// fórmulas deste arquivo).
+function generateScoutProspect(scout, region, round, idx) {
+  const rng = seededRngFromKey(`scoutprospect:${scout.id}:${round}:${idx}`);
+  const group = BASE_COMPOSITION[Math.floor(rng() * BASE_COMPOSITION.length)];
+  const age = 15 + Math.floor(rng() * 6);
+  const starBoost = (scout.stars - 3) * 4;
+  const potential = Math.round(clamp(45 + rng() * 42 + starBoost, 40, 96));
+  const overall = Math.round(clamp(potential * (0.35 + rng() * 0.25), 22, 55));
+  const atk = clamp(overall + (group === "F" ? 5 : group === "M" ? 2 : -8) + Math.round(rng() * 6 - 3), 15, 78);
+  const def = clamp(overall + (group === "D" || group === "G" ? 5 : -8) + Math.round(rng() * 6 - 3), 15, 78);
+  const phys = clamp(Math.round(50 + rng() * 32), 30, 88);
+  const first = DEMO_FIRST_NAMES[Math.floor(rng() * DEMO_FIRST_NAMES.length)];
+  const last = DEMO_LAST_NAMES[Math.floor(rng() * DEMO_LAST_NAMES.length)];
+  const note = SCOUT_NOTE_POOL[Math.floor(rng() * SCOUT_NOTE_POOL.length)];
+  return {
+    id: `prospect_${scout.id}_${round}_${idx}`, name: `${first} ${last}`,
+    group, age, overall, atk, def, phys, potential,
+    ...computeContractFields(overall, age, potential, rng),
+    foundRegion: region, scoutName: scout.name, scoutNote: note,
+  };
+}
+function pushScoutProspects(list) {
+  CAREER.scoutMissionProspects = list.concat(CAREER.scoutMissionProspects || []);
+  if (CAREER.scoutMissionProspects.length > SCOUT_PROSPECTS_MAX) CAREER.scoutMissionProspects.length = SCOUT_PROSPECTS_MAX;
+}
+// Chamada 1x por rodada simulada (ver finishRoundTail), mesmo ponto de
+// tickStadiumUpgrade (Bloco 4).
+function tickScoutMissions(round) {
+  (CAREER.scouts || []).forEach((scout) => {
+    if (!scout.mission) return;
+    scout.mission.roundsLeft -= 1;
+    if (scout.mission.roundsLeft > 0) return;
+    const region = scout.mission.regionUf;
+    scout.mission = null;
+    const rng = seededRngFromKey(`scoutfind:${scout.id}:${round}`);
+    const specialtyMatch = scout.regionScope !== "any" && scout.regionScope.includes(region);
+    const chance = clamp(0.35 + scout.stars * 0.08 + (specialtyMatch ? 0.15 : 0), 0.2, 0.9);
+    const found = [];
+    for (let i = 0; i < 2; i++) {
+      if (rng() < chance) found.push(generateScoutProspect(scout, region, round, i));
+    }
+    if (found.length) {
+      pushScoutProspects(found);
+      pushTransferLog(`${scout.name} voltou da missão em ${REGION_LABEL[region]} com ${found.length} promissor${found.length > 1 ? "es" : ""}.`, round);
+    } else {
+      pushTransferLog(`${scout.name} voltou da missão em ${REGION_LABEL[region]} sem achar ninguém dessa vez.`, round);
+    }
+  });
+}
+// Diferente de "promote" em handlePlayerAction (que só sobe origin de
+// "base" pra "principal" de alguém já no elenco) — aqui o jogador ainda
+// nem existe em CAREER.squad, é um promissor solto na lista de achados.
+function recruitProspectToBase(id) {
+  const idx = (CAREER.scoutMissionProspects || []).findIndex((p) => p.id === id);
+  if (idx === -1) return;
+  const prospect = CAREER.scoutMissionProspects[idx];
+  CAREER.scoutMissionProspects.splice(idx, 1);
+  const player = {
+    id: `scouted_${CAREER.clubId}_${Date.now()}`, name: prospect.name, photo: null,
+    group: prospect.group, age: prospect.age, overall: prospect.overall, atk: prospect.atk, def: prospect.def, phys: prospect.phys, potential: prospect.potential,
+    origin: "base", real: false,
+    status: "ok", outUntilRound: null, yellowCards: 0, condition: 100, morale: 70,
+    benchStreak: 0, moraleReason: "Neutro no clube", moraleTrend: "estavel",
+    wantsTransfer: false, lastTalkRound: null,
+    goalsCareer: 0, assistsCareer: 0, apps: 0,
+    wage: prospect.wage, value: prospect.value, contractUntil: prospect.contractUntil,
+  };
+  CAREER.squad.push(player);
+  closeProspectSheet();
+  persistCareer();
+  renderScoutingScreen();
+  toast(`${player.name} promovido pra categoria de base!`, { type: "pos" });
+}
+
+/* ---------- telas ---------- */
+let SCOUTING_REGION_FILTER = "todas";
+function renderScoutingScreen() {
+  const regions = scoutingAvailableRegions();
+  document.getElementById("scoutingRegionRow").innerHTML = ["todas", ...regions].map((r) =>
+    `<button class="m3-filter-chip${SCOUTING_REGION_FILTER === r ? " on" : ""}" data-region="${r}">${r === "todas" ? "Todas as regiões" : REGION_LABEL[r]}</button>`).join("");
+  document.querySelectorAll("#scoutingRegionRow .m3-filter-chip").forEach((btn) => {
+    btn.addEventListener("click", () => { SCOUTING_REGION_FILTER = btn.dataset.region; renderScoutingScreen(); });
+  });
+
+  const scouts = CAREER.scouts || [];
+  document.getElementById("scoutingFieldList").innerHTML = scouts.length
+    ? scouts.map((s) => {
+      if (!s.mission) {
+        return `<div class="m3-list-item" data-scout="${s.id}">
+          <div class="m3-li-avatar">${initials(s.name)}</div>
+          <div class="m3-li-body">
+            <div class="m3-li-name">${escapeHtml(s.name)}</div>
+            <div class="m3-li-meta"><span class="m3-mini-chip">Livre · ${escapeHtml(s.specialty)}</span></div>
+          </div>
+          <div class="m3-li-side">›</div>
+        </div>`;
+      }
+      const pct = clamp(Math.round(((s.mission.roundsTotal - s.mission.roundsLeft) / s.mission.roundsTotal) * 100), 0, 100);
+      return `<div class="m3-list-item" data-scout="${s.id}" style="cursor:default;">
+        <div class="m3-li-avatar">${initials(s.name)}</div>
+        <div class="m3-li-body">
+          <div class="m3-li-name">${escapeHtml(s.name)}</div>
+          <div class="m3-li-meta"><span class="m3-mini-chip">Missão em ${REGION_LABEL[s.mission.regionUf]} · retorna em ${s.mission.roundsLeft} rodada${s.mission.roundsLeft === 1 ? "" : "s"}</span></div>
+        </div>
+        <div class="m3-prog-bar"><div class="m3-prog-fill" style="width:${pct}%"></div></div>
+      </div>`;
+    }).join("")
+    : `<p class="m3-empty">Nenhum olheiro contratado ainda — toque no mapa pra ver o mercado.</p>`;
+  document.querySelectorAll("#scoutingFieldList [data-scout]").forEach((row) => {
+    row.addEventListener("click", () => fireScout(row.dataset.scout));
+  });
+
+  const prospects = (CAREER.scoutMissionProspects || []).filter((p) => SCOUTING_REGION_FILTER === "todas" || p.foundRegion === SCOUTING_REGION_FILTER);
+  document.getElementById("scoutingProspectList").innerHTML = prospects.length
+    ? prospects.map((p) => `
+      <div class="m3-list-item" data-prospect="${p.id}">
+        <div class="m3-li-avatar">${initials(p.name)}</div>
+        <div class="m3-li-body">
+          <div class="m3-li-name">${escapeHtml(abbreviateName(p.name))}</div>
+          <div class="m3-li-meta"><span class="m3-mini-chip">${subPositionOf(p)}</span><span class="m3-mini-chip">${p.age} anos</span></div>
+        </div>
+        <div class="m3-potential-badge">${starsHTML(Math.ceil(p.potential / 20))}</div>
+      </div>`).join("")
+    : `<p class="m3-empty">Nenhum promissor encontrado ainda${SCOUTING_REGION_FILTER !== "todas" ? " nessa região" : ""}.</p>`;
+  document.querySelectorAll("#scoutingProspectList [data-prospect]").forEach((row) => {
+    row.addEventListener("click", () => openProspectSheet(row.dataset.prospect));
+  });
+}
+function openScoutingScreen() {
+  renderScoutingScreen();
+  document.getElementById("scoutingOverlay").classList.add("open");
+}
+function closeScoutingScreen() {
+  document.getElementById("scoutingOverlay").classList.remove("open");
+}
+
+let MISSION_PICKED_SCOUT = null;
+function openMissionSheet() {
+  if (!(CAREER.scouts || []).length) {
+    toast("Contrate um olheiro no mercado antes de mandar em missão.", { type: "warn" });
+    return;
+  }
+  if (!(CAREER.scouts || []).some((s) => !s.mission)) {
+    toast("Todos os seus olheiros já estão em missão agora.", { type: "warn" });
+    return;
+  }
+  MISSION_PICKED_SCOUT = null;
+  renderMissionSheet();
+  document.getElementById("scoutMissionSheet").classList.add("open");
+}
+function closeMissionSheet() {
+  document.getElementById("scoutMissionSheet").classList.remove("open");
+}
+function renderMissionSheet() {
+  const idle = (CAREER.scouts || []).filter((s) => !s.mission);
+  document.getElementById("missionScoutList").innerHTML = idle.map((s) => `
+    <div class="m3-list-item${MISSION_PICKED_SCOUT === s.id ? " active" : ""}" data-pickscout="${s.id}">
+      <div class="m3-li-avatar">${initials(s.name)}</div>
+      <div class="m3-li-body">
+        <div class="m3-li-name">${escapeHtml(s.name)}</div>
+        <div class="m3-li-meta"><span class="m3-mini-chip">${escapeHtml(s.specialty)}</span></div>
+      </div>
+    </div>`).join("");
+  document.querySelectorAll("#missionScoutList [data-pickscout]").forEach((row) => {
+    row.addEventListener("click", () => { MISSION_PICKED_SCOUT = row.dataset.pickscout; renderMissionSheet(); });
+  });
+  const regionRow = document.getElementById("missionRegionRow");
+  const picked = idle.find((s) => s.id === MISSION_PICKED_SCOUT);
+  if (!picked) { regionRow.innerHTML = ""; return; }
+  regionRow.innerHTML = scoutAllowedRegions(picked).map((r) =>
+    `<button class="m3-filter-chip" data-startregion="${r}">${REGION_LABEL[r]}</button>`).join("");
+  regionRow.querySelectorAll("[data-startregion]").forEach((btn) => {
+    btn.addEventListener("click", () => { startScoutMission(picked.id, btn.dataset.startregion); closeMissionSheet(); });
+  });
+}
+
+let PROSPECT_SHEET_ID = null;
+function openProspectSheet(id) {
+  const p = (CAREER.scoutMissionProspects || []).find((x) => x.id === id);
+  if (!p) return;
+  PROSPECT_SHEET_ID = id;
+  document.getElementById("prospectSheetAvatar").textContent = initials(p.name);
+  document.getElementById("prospectSheetName").textContent = p.name;
+  document.getElementById("prospectSheetSub").textContent = `${SUBPOS_LABEL[subPositionOf(p)]} · ${p.age} anos · achado no ${REGION_LABEL[p.foundRegion]}`;
+  const attrs = [["Técnica", p.atk], ["Físico", p.phys], ["Visão de jogo", p.def], ["Potencial", p.potential]];
+  document.getElementById("prospectSheetAttrs").innerHTML = attrs.map(([label, val]) => `
+    <div class="m3-attr-row">
+      <div class="m3-attr-label">${label}</div>
+      <div class="m3-attr-bar"><div class="m3-attr-fill${label === "Potencial" ? " gold" : ""}" style="width:${val}%"></div></div>
+      <div class="m3-attr-num">${val}</div>
+    </div>`).join("");
+  document.getElementById("prospectSheetNote").textContent = `"${p.scoutNote}" — ${p.scoutName}`;
+  document.getElementById("scoutProspectSheet").classList.add("open");
+}
+function closeProspectSheet() {
+  document.getElementById("scoutProspectSheet").classList.remove("open");
+  PROSPECT_SHEET_ID = null;
+}
+
+function renderScoutMarketScreen() {
+  const hiredIds = new Set((CAREER.scouts || []).map((s) => s.marketId));
+  document.getElementById("scoutMarketList").innerHTML = SCOUT_MARKET.map((c) => {
+    const hired = hiredIds.has(c.id);
+    return `<div class="m3-list-item" style="cursor:default;">
+      <div class="m3-li-avatar">${initials(c.name)}</div>
+      <div class="m3-li-body">
+        <div class="m3-li-name">${escapeHtml(c.name)}</div>
+        <div class="m3-li-meta"><span class="m3-mini-chip">${escapeHtml(c.specialty)}</span></div>
+        <div class="m3-recruit-stars">${starsHTML(c.stars)}</div>
+      </div>
+      ${hired ? `<span class="m3-mini-chip">Contratado</span>` : `<button class="m3-upgrade-buy" data-hire="${c.id}">${fmtBRLShort(c.monthlyCost)}/mês</button>`}
+    </div>`;
+  }).join("");
+  document.getElementById("scoutMarketList").querySelectorAll("[data-hire]").forEach((btn) => {
+    btn.addEventListener("click", () => hireScout(btn.dataset.hire));
+  });
+}
+function openScoutMarketScreen() {
+  renderScoutMarketScreen();
+  document.getElementById("scoutMarketOverlay").classList.add("open");
+}
+function closeScoutMarketScreen() {
+  document.getElementById("scoutMarketOverlay").classList.remove("open");
+}
+
+// Categorias de base — tela só leitura sobre o MESMO pool
+// CAREER.squad.filter(origin==="base") (não duplica dado nenhum);
+// tocar numa linha abre o mesmo openDetail de sempre (promover/
+// dispensar já funcionam lá).
+let BASE_CAT_TAB = "sub17";
+const BASE_CAT_LABEL = { sub15: "Sub-15", sub17: "Sub-17", sub20: "Sub-20" };
+function baseCategoryOf(p) {
+  if (p.age <= 15) return "sub15";
+  if (p.age <= 17) return "sub17";
+  return "sub20";
+}
+function renderBaseCategoriesScreen() {
+  document.getElementById("baseCatTabs").innerHTML = ["sub15", "sub17", "sub20"].map((cat) =>
+    `<button class="m3-filter-chip${BASE_CAT_TAB === cat ? " on" : ""}" data-cat="${cat}">${BASE_CAT_LABEL[cat]}</button>`).join("");
+  document.querySelectorAll("#baseCatTabs [data-cat]").forEach((btn) => {
+    btn.addEventListener("click", () => { BASE_CAT_TAB = btn.dataset.cat; renderBaseCategoriesScreen(); });
+  });
+  const list = CAREER.squad.filter((p) => p.origin === "base" && baseCategoryOf(p) === BASE_CAT_TAB).sort((a, b) => squadSortKey(a) - squadSortKey(b));
+  document.getElementById("baseCatCount").textContent = `${list.length} atleta${list.length === 1 ? "" : "s"} na categoria`;
+  document.getElementById("baseCatList").innerHTML = list.length
+    ? list.map((p) => baseRow(p)).join("")
+    : `<p class="m3-empty">Nenhum atleta nessa categoria ainda.</p>`;
+  document.querySelectorAll("#baseCatList [data-id]").forEach((row) => {
+    row.addEventListener("click", () => openDetail(row.dataset.id));
+  });
+}
+function openBaseCategoriesScreen() {
+  renderBaseCategoriesScreen();
+  document.getElementById("baseCategoriesOverlay").classList.add("open");
+}
+function closeBaseCategoriesScreen() {
+  document.getElementById("baseCategoriesOverlay").classList.remove("open");
+}
+
 /* ---------- "Indicações dos olheiros" (pedido do usuário: "mostrar a
    posição do atleta e incluir um botão recusar sugestão para que a
    janela feche e o atleta seja excluído da lista de olheiros") ----------
@@ -10555,6 +10952,27 @@ function wireStaticListeners() {
     document.getElementById("topbarMenu").classList.remove("open");
     switchToPanel("treinos");
   });
+  // Bloco 6 — "Base e Olheiros", aberto pelo menu "≡" (mesma categoria
+  // da Comissão Técnica: "Equipe & Treinos").
+  document.getElementById("btnOpenScouting").addEventListener("click", () => {
+    document.getElementById("topbarMenu").classList.remove("open");
+    openScoutingScreen();
+  });
+  document.getElementById("scoutingClose").addEventListener("click", closeScoutingScreen);
+  document.getElementById("scoutingOverlay").addEventListener("click", (e) => { if (e.target.id === "scoutingOverlay") closeScoutingScreen(); });
+  document.getElementById("btnNewMission").addEventListener("click", openMissionSheet);
+  document.getElementById("scoutMissionClose").addEventListener("click", closeMissionSheet);
+  document.getElementById("scoutMissionSheet").addEventListener("click", (e) => { if (e.target.id === "scoutMissionSheet") closeMissionSheet(); });
+  document.getElementById("btnOpenScoutMarket").addEventListener("click", openScoutMarketScreen);
+  document.getElementById("scoutMarketClose").addEventListener("click", closeScoutMarketScreen);
+  document.getElementById("scoutMarketOverlay").addEventListener("click", (e) => { if (e.target.id === "scoutMarketOverlay") closeScoutMarketScreen(); });
+  document.getElementById("btnOpenBaseCategories").addEventListener("click", openBaseCategoriesScreen);
+  document.getElementById("baseCategoriesClose").addEventListener("click", closeBaseCategoriesScreen);
+  document.getElementById("baseCategoriesOverlay").addEventListener("click", (e) => { if (e.target.id === "baseCategoriesOverlay") closeBaseCategoriesScreen(); });
+  document.getElementById("prospectSheetClose").addEventListener("click", closeProspectSheet);
+  document.getElementById("scoutProspectSheet").addEventListener("click", (e) => { if (e.target.id === "scoutProspectSheet") closeProspectSheet(); });
+  document.getElementById("btnProspectContinue").addEventListener("click", closeProspectSheet);
+  document.getElementById("btnProspectPromote").addEventListener("click", () => { if (PROSPECT_SHEET_ID) recruitProspectToBase(PROSPECT_SHEET_ID); });
   document.getElementById("btnOpenEstatisticas").addEventListener("click", () => {
     document.getElementById("topbarMenu").classList.remove("open");
     switchToPanel("estatisticas");
@@ -11035,6 +11453,11 @@ function migrateCareerDefaults() {
   if (!CAREER.cashHistory) CAREER.cashHistory = [];
   if (!CAREER.financeLedger) CAREER.financeLedger = [];
   if (!CAREER.stadium) CAREER.stadium = initialStadium();
+  // Bloco 6 — carreira criada antes de "Base e Olheiros" existir nasce
+  // sem nenhum olheiro contratado e sem promissor nenhum encontrado —
+  // mesmo motivo de sempre, sem retroativo pra reconstruir.
+  if (!CAREER.scouts) CAREER.scouts = [];
+  if (!CAREER.scoutMissionProspects) CAREER.scoutMissionProspects = [];
   evaluateAlwaysCheckableAchievements();
 }
 // AJUSTE (pedido do usuário: "acrescentar a Série B, C [ao Modo
