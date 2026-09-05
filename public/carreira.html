@@ -2956,6 +2956,17 @@
              flutuante) pra não empilhar em cima da nav fixa, mesmo
              padrão de "Pedir mais orçamento à diretoria" no Clube. -->
         <button class="mt-btn-ghost" id="btnOpenMyOffers" style="width:100%;">📈 Minhas propostas <span class="mt-badge-gold hidden" id="myOffersBadge" style="margin-left:6px;"></span></button>
+        <!-- Nova feature (Bloco 3, 3/4 — pedido do usuário, mockups
+             brtreinadorbloco3mercado.html/brtreinadorbloco3pendentes.html)
+             — "Colocar à venda": mesmo espírito de "Minhas propostas"
+             acima, só que do lado de quem vende (ver openMySalesScreen). -->
+        <button class="mt-btn-ghost" id="btnOpenMySales" style="width:100%; margin-top:8px;">🏷️ Minhas vendas <span class="mt-badge-gold hidden" id="mySalesBadge" style="margin-left:6px;"></span></button>
+        <!-- Nova feature (pedido do usuário: "mostrar a posição do
+             atleta e incluir um botão recusar sugestão") — "Indicações
+             dos olheiros": mesmo espírito de "Minhas vendas"/"Minhas
+             propostas" acima, só que pra jogadores de outros clubes
+             com espaço real de crescimento (ver openScoutSuggestionsScreen). -->
+        <button class="mt-btn-ghost" id="btnOpenScoutSuggestions" style="width:100%; margin-top:8px;">🔭 Indicações dos olheiros <span class="mt-badge-gold hidden" id="scoutSuggestionsBadge" style="margin-left:6px;"></span></button>
       </section>
 
       <!-- ---------- Retenção/Engajamento (BRDataRetencaoEspecificacao)
@@ -3329,6 +3340,88 @@
     </div>
     <div class="ct-modal-footer">
       <button class="mt-btn-primary-gold" id="btnOfferCompareIncrease">Aumentar proposta</button>
+    </div>
+  </div>
+</div>
+
+<!-- Nova feature (Bloco 3, 3/4 — pedido do usuário, mockups
+     brtreinadorbloco3mercado.html/brtreinadorbloco3pendentes.html) —
+     "Colocar à venda": substitui a venda instantânea (sellPlayer) por
+     um anúncio de verdade (CAREER.pendingListings, ver openListModal/
+     confirmListFromModal em carreira.js) — valor pedido editável, sem
+     comprador certo na hora; as propostas chegam ao longo das rodadas
+     (ver "Minhas vendas" abaixo). -->
+<div class="ct-modal-overlay" id="listOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header">
+      <span class="ct-modal-icon">🏷️</span>
+      <div class="ct-modal-header-text">
+        <h3>Colocar à venda</h3>
+        <div class="ct-modal-sub" id="listSub"></div>
+      </div>
+      <button class="ct-modal-close" id="listClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <div class="ct-field" style="margin-bottom:12px;">
+        <label>Valor pedido</label>
+        <input type="number" class="ct-search" id="listValueInput" style="margin-bottom:0;" min="0" step="1000">
+      </div>
+      <p class="mt-card-sub" style="margin-top:10px;">Pedir mais que o valor de mercado é possível, mas atrai menos interessados. Você acompanha as propostas que chegarem em "Minhas vendas" — aceitar, recusar cada uma ou cancelar o anúncio a qualquer momento.</p>
+    </div>
+    <div class="ct-modal-footer">
+      <button class="mt-btn-primary-gold" id="btnListConfirm">Anunciar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Nova feature (Bloco 3, 3/4) — "Minhas vendas": acompanha os
+     anúncios ativos e as propostas recebidas por cada um (ver
+     renderMySalesScreen em carreira.js) — aceitar/recusar cada
+     proposta ou cancelar o anúncio inteiro. -->
+<div class="ct-modal-overlay ct-modal-fullscreen" id="mySalesOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header mt-fullheader">
+      <span class="ct-modal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41 11 3.83A2 2 0 0 0 9.59 3.2L4 3a1 1 0 0 0-1 1l.2 5.59a2 2 0 0 0 .58 1.41l9.6 9.6a2 2 0 0 0 2.82 0l4.4-4.4a2 2 0 0 0 0-2.82Z"/><circle cx="7.5" cy="7.5" r="1.2" fill="currentColor" stroke="none"/></svg></span>
+      <div class="ct-modal-header-text">
+        <h3>Minhas vendas</h3>
+        <div class="ct-modal-sub" id="mySalesCountLabel"></div>
+      </div>
+      <button class="ct-modal-close" id="mySalesClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <div id="mySalesList"></div>
+      <p class="ct-empty hidden" id="mySalesEmpty">Nenhum jogador à venda agora — coloque alguém à venda no Mercado.</p>
+    </div>
+    <div class="ct-modal-footer">
+      <button class="mt-btn-ghost" id="btnMySalesCloseFooter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Nova feature (pedido do usuário: "mostrar a posição do atleta e
+     incluir um botão recusar sugestão para que a janela feche e o
+     atleta seja excluído da lista de olheiros") — "Indicações dos
+     olheiros": lista de jogadores de outros clubes com espaço real de
+     crescimento (ver searchScoutSuggestions em carreira.js), buscada
+     sob demanda pelo botão "Buscar indicações" — aceitar abre a mesma
+     proposta real do Mercado, recusar só tira da lista. -->
+<div class="ct-modal-overlay ct-modal-fullscreen" id="scoutSuggestionsOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header mt-fullheader">
+      <span class="ct-modal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="15" r="4"/><circle cx="17" cy="15" r="4"/><path d="M11 15h2M5 11 7 3l2 5M19 11l-2-8-2 5"/></svg></span>
+      <div class="ct-modal-header-text">
+        <h3>Indicações dos olheiros</h3>
+        <div class="ct-modal-sub" id="scoutSuggestionsCountLabel"></div>
+      </div>
+      <button class="ct-modal-close" id="scoutSuggestionsClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <button class="mt-btn-primary-gold" id="btnScoutSearch" style="width:100%; margin-bottom:12px;">Buscar indicações</button>
+      <div id="scoutSuggestionsList"></div>
+      <p class="ct-empty hidden" id="scoutSuggestionsEmpty">Nenhuma indicação ainda — clique em "Buscar indicações".</p>
+    </div>
+    <div class="ct-modal-footer">
+      <button class="mt-btn-ghost" id="btnScoutSuggestionsCloseFooter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Fechar</button>
     </div>
   </div>
 </div>
