@@ -2052,6 +2052,14 @@ function setupCup(fastForwardFromRound) {
     championIsHuman: false,
     ties: { r16, qf: [], sf: [], final: [] },
   };
+  // Módulo de Estatísticas completo — conta mais uma edição disputada
+  // (histórico do clube), tanto numa virada de temporada normal quanto
+  // na migração de um save antigo que nunca teve Copa (a participação
+  // NESTA temporada é real nos dois casos).
+  if (humanIn) {
+    if (!CAREER.careerTotals) CAREER.careerTotals = freshCareerTotals();
+    CAREER.careerTotals.copaEditions = (CAREER.careerTotals.copaEditions || 0) + 1;
+  }
   // Migração de save no meio de uma temporada em andamento (ver
   // migrateCareerDefaults): fases cujo round já passou não podem ser
   // "jogadas de verdade" retroativamente — resolve elas por trás
@@ -2116,6 +2124,27 @@ function resolveCupPhase(round, { silent = false } = {}) {
     const humanInvolved = String(tie.home) === String(CAREER.clubId) || String(tie.away) === String(CAREER.clubId);
     if (!humanInvolved) return;
     const humanWon = String(r.winner) === String(CAREER.clubId);
+    // Módulo de Estatísticas completo — J/V/E/D/gols da Copa somam no
+    // histórico do clube (careerTotals), separado do campeonato de
+    // pontos corridos (decisão do usuário). Empate no tempo normal
+    // decidido nos pênaltis ainda conta como "empate" pro V/E/D (mesma
+    // convenção de estatística de futebol de sempre — o placar
+    // normal decide o resultado do jogo, os pênaltis só decidem quem
+    // avança). Fast-forward de migração (silent) não conta pra
+    // estatística nenhuma, mesmo critério já usado pra titlesWonCopa.
+    if (!silent) {
+      if (!CAREER.careerTotals) CAREER.careerTotals = freshCareerTotals();
+      const isHomeTie = String(tie.home) === String(CAREER.clubId);
+      const myGoals = isHomeTie ? r.gh : r.ga, oppGoals = isHomeTie ? r.ga : r.gh;
+      CAREER.careerTotals.copaJ++;
+      CAREER.careerTotals.copaGp += myGoals;
+      CAREER.careerTotals.copaGc += oppGoals;
+      if (myGoals > oppGoals) CAREER.careerTotals.copaV++;
+      else if (myGoals === oppGoals) CAREER.careerTotals.copaE++;
+      else CAREER.careerTotals.copaD++;
+      if (phase === "sf") CAREER.careerTotals.copaSemisReached = (CAREER.careerTotals.copaSemisReached || 0) + 1;
+      if (phase === "final") CAREER.careerTotals.copaFinalsReached = (CAREER.careerTotals.copaFinalsReached || 0) + 1;
+    }
     if (humanWon) {
       if (!silent) {
         const prize = phase === "final" ? CUP_PRIZE.champion : CUP_PRIZE[CUP_PHASES[CUP_PHASES.indexOf(phase) + 1]];
@@ -2584,6 +2613,28 @@ async function advanceSeason() {
   // (também pedido do usuário: "com transferência para o próximo ano").
   CAREER.finances.wageCap = Math.round(wageBillOf(CAREER.squad) * 1.35 / 1000) * 1000;
 
+  // Módulo de Estatísticas completo (pedido do usuário) — histórico de
+  // campeões do campeonato: sabemos a tabela final de TODOS os clubes
+  // (não só a sua), então dá pra registrar quem foi campeão/vice a
+  // cada temporada — grava ANTES da tabela resetar pra próxima
+  // temporada logo abaixo. seasonsPlayed conta TODA temporada
+  // encerrada neste clube (mesmo além do teto de MAX_SEASON_HISTORY
+  // que seasonHistory/leagueChampions guardam em detalhe).
+  if (!CAREER.careerTotals) CAREER.careerTotals = freshCareerTotals();
+  CAREER.careerTotals.seasonsPlayed = (CAREER.careerTotals.seasonsPlayed || 0) + 1;
+  const finishedTable = sortedStandings();
+  const championRow = finishedTable[0], viceRow = finishedTable[1];
+  if (championRow) {
+    CAREER.leagueChampions = CAREER.leagueChampions || [];
+    CAREER.leagueChampions.unshift({
+      year: finishedYear,
+      championId: championRow.id, championName: teamById(championRow.id).name,
+      viceId: viceRow ? viceRow.id : null, viceName: viceRow ? teamById(viceRow.id).name : null,
+      myPosition: finishedPos,
+    });
+    if (CAREER.leagueChampions.length > MAX_SEASON_HISTORY) CAREER.leagueChampions.length = MAX_SEASON_HISTORY;
+  }
+
   CAREER.schedule = generateAllRounds(LEAGUE_TEAMS.map((t) => t.id)); // global de js/data.js
   const standings = {};
   LEAGUE_TEAMS.forEach((t) => { standings[t.id] = { id: t.id, j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, sg: 0, pts: 0 }; });
@@ -2594,7 +2645,7 @@ async function advanceSeason() {
   // FASE 4 (item 3) — jejum de vitória zera junto com a tabela (é "da
   // temporada", mesmo critério de CAREER.teamStats logo abaixo).
   CAREER.teamWinlessStreak = {};
-  CAREER.teamStats = { assists: 0, yellow: 0, red: 0 }; // estatísticas da Estatísticas são "da temporada", zeram junto com a tabela
+  CAREER.teamStats = freshTeamStats(); // estatísticas da Estatísticas são "da temporada", zeram junto com a tabela
   // Retenção/Engajamento — contadores "desta temporada" (ver
   // evaluateSeasonEndAchievements acima) e objetivos de temporada,
   // mesmo espírito de reset dos outros campos "por temporada" logo
@@ -3702,7 +3753,12 @@ async function startCareer(clubId) {
       schedule, currentRound: 1, standings, resultsByRound: {},
       // Agregado da temporada pra aba Estatísticas (gols já vêm de
       // standings[clubId].gp, não precisa duplicar aqui).
-      teamStats: { assists: 0, yellow: 0, red: 0 },
+      teamStats: freshTeamStats(),
+      // Módulo de Estatísticas completo — soma de TODAS as temporadas
+      // nesta passagem pelo clube (nunca zera, ver tallyMatchOutcomeStats/
+      // advanceSeason), sequências vivas e histórico de campeões do
+      // campeonato.
+      careerTotals: freshCareerTotals(), currentWinStreak: 0, currentUnbeatenStreak: 0, leagueChampions: [],
       // FASE 2 (b) — pedido do usuário: contrato/salário/valor com
       // orçamento real limitando ação (ver initialFinances/wageBillOf).
       finances: initialFinances(squad),
@@ -5398,19 +5454,113 @@ function simulatePlayerEvents(starters, goals, round) {
   const wear = applyMatchWearChunk(starters, round, 1, appeared);
   return [...attributeGoals(starters, goals), ...wear.events];
 }
+/* ---------- Módulo de Estatísticas completo (pedido do usuário: "com
+   todas as informações possíveis sobre o meu time e as principais
+   informações do campeonato... sempre divididas em Histórico (soma de
+   todas as temporadas) e a Temporada Atual") ----------
+   Decisão de arquitetura: CAREER.teamStats já era "da temporada" (zera
+   em advanceSeason) — só ganhou campos novos (clean sheets, mandante x
+   visitante, maior goleada/derrota). CAREER.careerTotals é o espelho
+   que NUNCA zera (soma de todas as temporadas NESTE clube, mesmo
+   espírito de p.goalsCareer/CAREER.titlesWonCopa, que também já
+   acumulavam pra sempre antes desta mudança) — os dois são
+   incrementados juntos, no mesmo lugar, pra nunca ficarem
+   dessincronizados. "Histórico" é sempre por PASSAGEM no clube (reseta
+   junto com seasonHistory/clubHistory ao trocar de clube — ver
+   endCurrentClubStint/startCareer), não da carreira do técnico inteira.
+   Save de ANTES desta mudança nasce com os dois contadores zerados
+   (ver migrateCareerDefaults) — mesmo critério já usado pra todo
+   contador novo desta sessão (ex.: baseRevealedCount): sem como
+   reconstruir retroativamente temporadas já jogadas, conta só daqui
+   pra frente. */
+function freshMatchBucket() { return { j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0 }; }
+function freshTeamStats() {
+  return {
+    assists: 0, yellow: 0, red: 0, cleanSheets: 0,
+    home: freshMatchBucket(), away: freshMatchBucket(),
+    biggestWin: null, biggestLoss: null,
+  };
+}
+function freshCareerTotals() {
+  return {
+    j: 0, v: 0, e: 0, d: 0, gp: 0, gc: 0, cleanSheets: 0, yellow: 0, red: 0, assists: 0,
+    home: freshMatchBucket(), away: freshMatchBucket(),
+    biggestWin: null, biggestLoss: null,
+    longestWinStreak: 0, longestUnbeatenStreak: 0,
+    seasonsPlayed: 0,
+    // Copa do Brasil — separada do campeonato de pontos corridos (jogo
+    // único eliminatório, decisão do usuário: "incluir, separado dos
+    // números do Brasileirão").
+    copaEditions: 0, copaJ: 0, copaV: 0, copaE: 0, copaD: 0, copaGp: 0, copaGc: 0,
+    copaSemisReached: 0, copaFinalsReached: 0,
+  };
+}
+// Bumpa um "balde" de resultado (registro geral, ou o de mandante/
+// visitante) com o desfecho de UMA partida — mesma função usada tanto
+// pro balde "da temporada" (CAREER.teamStats) quanto pro "de sempre"
+// (CAREER.careerTotals), sempre em pares, pra nunca divergir.
+function bumpMatchBucket(bucket, myGoals, oppGoals) {
+  bucket.j++;
+  if (myGoals > oppGoals) bucket.v++;
+  else if (myGoals === oppGoals) bucket.e++;
+  else bucket.d++;
+  bucket.gp += myGoals;
+  bucket.gc += oppGoals;
+}
+// Chamada 1x por partida do SEU clube (ver finishLiveMatch), depois do
+// placar decidido — atualiza junto o balde da temporada e o de sempre:
+// V/E/D, gols, clean sheet, mandante/visitante, maior goleada/derrota e
+// sequências (vitórias seguidas / jogos de invencibilidade).
+function tallyMatchOutcomeStats(myGoals, oppGoals, isHome, opponentId, round) {
+  if (!CAREER.teamStats) CAREER.teamStats = freshTeamStats();
+  if (!CAREER.careerTotals) CAREER.careerTotals = freshCareerTotals();
+  const season = CAREER.teamStats, total = CAREER.careerTotals;
+  // O retrospecto GERAL da temporada já mora em CAREER.standings[clubId]
+  // (fonte única, ver applyResultToStandings/statsRecordBucket) —
+  // teamStats só precisa do recorte mandante/visitante e do que
+  // standings não tem (clean sheet, maior goleada/derrota). careerTotals
+  // SIM precisa do geral próprio (nunca reseta, sem outra fonte de
+  // verdade pra "soma de todas as temporadas").
+  bumpMatchBucket(total, myGoals, oppGoals);
+  const sideKey = isHome ? "home" : "away";
+  if (!season[sideKey]) season[sideKey] = freshMatchBucket();
+  if (!total[sideKey]) total[sideKey] = freshMatchBucket();
+  bumpMatchBucket(season[sideKey], myGoals, oppGoals);
+  bumpMatchBucket(total[sideKey], myGoals, oppGoals);
+  if (oppGoals === 0) { season.cleanSheets = (season.cleanSheets || 0) + 1; total.cleanSheets = (total.cleanSheets || 0) + 1; }
+  const diff = myGoals - oppGoals;
+  const opponent = teamById(opponentId);
+  const matchInfo = { gf: myGoals, ga: oppGoals, opponentId, opponentName: opponent.short || opponent.name, round, seasonYear: CAREER.seasonYear, home: isHome };
+  if (diff > 0) {
+    if (!season.biggestWin || diff > (season.biggestWin.gf - season.biggestWin.ga)) season.biggestWin = matchInfo;
+    if (!total.biggestWin || diff > (total.biggestWin.gf - total.biggestWin.ga)) total.biggestWin = matchInfo;
+  } else if (diff < 0) {
+    if (!season.biggestLoss || diff < (season.biggestLoss.gf - season.biggestLoss.ga)) season.biggestLoss = matchInfo;
+    if (!total.biggestLoss || diff < (total.biggestLoss.gf - total.biggestLoss.ga)) total.biggestLoss = matchInfo;
+  }
+  // Sequências: rodam por PASSAGEM no clube, sem reset na virada de
+  // temporada (uma sequência de vitórias que atravessa 2 temporadas é
+  // real) — só o RECORDE (longestX) mora em careerTotals; o "atual" é
+  // um contador vivo à parte (ver CAREER.currentWinStreak).
+  CAREER.currentWinStreak = diff > 0 ? (CAREER.currentWinStreak || 0) + 1 : 0;
+  CAREER.currentUnbeatenStreak = diff >= 0 ? (CAREER.currentUnbeatenStreak || 0) + 1 : 0;
+  total.longestWinStreak = Math.max(total.longestWinStreak || 0, CAREER.currentWinStreak);
+  total.longestUnbeatenStreak = Math.max(total.longestUnbeatenStreak || 0, CAREER.currentUnbeatenStreak);
+}
 // Soma os eventos do jogo do clube pros KPIs da aba Estatísticas —
 // gols de "minha equipe" já vêm de standings[clubId].gp (fonte única),
 // então só assistência/cartão precisam de contador próprio aqui.
 function tallyTeamStats(events) {
   if (!events || !events.length) return;
-  if (!CAREER.teamStats) CAREER.teamStats = { assists: 0, yellow: 0, red: 0 };
+  if (!CAREER.teamStats) CAREER.teamStats = freshTeamStats();
+  if (!CAREER.careerTotals) CAREER.careerTotals = freshCareerTotals();
   events.forEach((e) => {
     // AJUSTE (Play-by-Play v1) — assistência não é mais um evento
     // separado ("assistencia"), virou o campo assistPlayer do próprio
     // evento "gol" (ver attributeGoals) — conta daqui agora.
-    if (e.type === "gol" && e.assistPlayer) CAREER.teamStats.assists++;
-    else if (e.type === "amarelo") CAREER.teamStats.yellow++;
-    else if (e.type === "vermelho") CAREER.teamStats.red++;
+    if (e.type === "gol" && e.assistPlayer) { CAREER.teamStats.assists++; CAREER.careerTotals.assists++; }
+    else if (e.type === "amarelo") { CAREER.teamStats.yellow++; CAREER.careerTotals.yellow++; }
+    else if (e.type === "vermelho") { CAREER.teamStats.red++; CAREER.careerTotals.red++; }
   });
 }
 // AJUSTE (pedido do usuário: "vamos evoluir o método de treinos") — o
@@ -6684,6 +6834,10 @@ async function finishLiveMatch() {
   });
   if (CAREER.matchLog.length > MAX_MATCH_LOG) CAREER.matchLog.length = MAX_MATCH_LOG;
   const myGoals = lm.isHome ? lm.gh : lm.ga, oppGoals = lm.isHome ? lm.ga : lm.gh;
+  // Módulo de Estatísticas completo — V/E/D, clean sheet, mandante x
+  // visitante, maior goleada/derrota e sequências (temporada + de
+  // sempre, ver tallyMatchOutcomeStats).
+  tallyMatchOutcomeStats(myGoals, oppGoals, lm.isHome, lm.isHome ? lm.humanFx.away : lm.humanFx.home, lm.round);
   pushRecentForm(myGoals > oppGoals ? 3 : myGoals === oppGoals ? 1 : 0);
   applyMoraleAfterMatch(myGoals, oppGoals);
   // Retenção/Engajamento — objetivos ligados ao resultado da SUA
@@ -9080,7 +9234,173 @@ function kpiHTML(label, value, variant, block) {
   const cls = block === "fin" ? "mt-fin-block" : "mt-stat-block";
   return `<div class="${cls}"><div class="num${variant ? ` ${variant}` : ""}">${value}</div><div class="lbl">${label}</div></div>`;
 }
-function renderEstatisticas() {
+/* ---------- Estatísticas completo (pedido do usuário: "com todas as
+   informações possíveis sobre o meu time e as principais informações
+   do campeonato... sempre divididas em Histórico (soma de todas as
+   temporadas) e a Temporada Atual") ----------
+   2 seletores independentes (mesmo padrão de abas sublinhadas de
+   Objetivos/Loja): escopo (Meu Time / Campeonato) x período (Temporada
+   Atual / Histórico). "Histórico" é sempre por PASSAGEM neste clube
+   (ver CAREER.careerTotals/leagueChampions, que nascem do zero a cada
+   startCareer — mesmo critério de seasonHistory/clubHistory), não a
+   carreira do técnico inteira através de vários clubes. */
+let STATS_ACTIVE_SCOPE = "time"; // "time" | "campeonato" — só estado de UI, não é salvo
+let STATS_ACTIVE_PERIOD = "temporada"; // "temporada" | "historico"
+// Retrospecto (J/V/E/D/gols) — "temporada" lê CAREER.standings[clubId]
+// (fonte única já usada em toda a Tabela), "histórico" lê
+// CAREER.careerTotals (nunca reseta, ver tallyMatchOutcomeStats).
+function statsRecordBucket(period) {
+  if (period === "historico") {
+    const t = CAREER.careerTotals || freshCareerTotals();
+    return { j: t.j || 0, v: t.v || 0, e: t.e || 0, d: t.d || 0, gp: t.gp || 0, gc: t.gc || 0 };
+  }
+  const r = CAREER.standings[CAREER.clubId] || {};
+  return { j: r.j || 0, v: r.v || 0, e: r.e || 0, d: r.d || 0, gp: r.gp || 0, gc: r.gc || 0 };
+}
+// Disciplina/clean sheets/mandante-visitante/maior goleada — as duas
+// fontes (CAREER.teamStats "da temporada" e CAREER.careerTotals "de
+// sempre") têm o MESMO formato de propósito (ver freshTeamStats/
+// freshCareerTotals), pra essa função servir os dois períodos igual.
+function statsDisciplineSource(period) {
+  return period === "historico" ? (CAREER.careerTotals || freshCareerTotals()) : (CAREER.teamStats || freshTeamStats());
+}
+function renderStatsRecordKpis(bucket) {
+  const aprov = bucket.j ? Math.round(((bucket.v * 3 + bucket.e) / (bucket.j * 3)) * 100) : 0;
+  document.getElementById("statsRecordKpis").innerHTML = [
+    ["Jogos", bucket.j], ["Vitórias", bucket.v], ["Empates", bucket.e], ["Derrotas", bucket.d],
+  ].map(([l, v]) => kpiHTML(l, v)).join("") + kpiHTML("Aproveitamento", `${aprov}%`, "gold");
+}
+function renderStatsGoalsKpis(bucket) {
+  const sg = bucket.gp - bucket.gc;
+  const media = bucket.j ? (bucket.gp / bucket.j).toFixed(2) : "0.00";
+  document.getElementById("statsGoalsKpis").innerHTML = [
+    ["Gols marcados", bucket.gp], ["Gols sofridos", bucket.gc],
+    ["Saldo de gols", sg > 0 ? `+${sg}` : sg], ["Média de gols/jogo", media],
+  ].map(([l, v]) => kpiHTML(l, v)).join("");
+}
+function renderStatsDisciplineKpis(src) {
+  document.getElementById("statsDisciplineKpis").innerHTML = [
+    ["Clean sheets", src.cleanSheets || 0], ["Assistências", src.assists || 0],
+    ["Cartões amarelos", src.yellow || 0], ["Cartões vermelhos", src.red || 0],
+  ].map(([l, v]) => kpiHTML(l, v)).join("");
+}
+function renderStatsHomeAway(src) {
+  const rows = [["Como mandante", src.home || freshMatchBucket()], ["Como visitante", src.away || freshMatchBucket()]];
+  document.getElementById("statsHomeAwayTable").innerHTML = rows.map(([label, b]) => `<div class="mt-mini-row">
+    <div class="mt-mini-col name">${label}</div>
+    <div class="mt-mini-col">${b.v}</div><div class="mt-mini-col">${b.e}</div><div class="mt-mini-col">${b.d}</div>
+    <div class="mt-mini-col">${b.gp}</div><div class="mt-mini-col">${b.gc}</div>
+  </div>`).join("");
+}
+function renderStatsStreaksRecords(period) {
+  const src = statsDisciplineSource(period); // mesmo objeto guarda biggestWin/biggestLoss
+  const kpis = [
+    ["Sequência de vitórias", CAREER.currentWinStreak || 0],
+    ["Jogos sem perder", CAREER.currentUnbeatenStreak || 0],
+  ];
+  if (period === "historico") {
+    const t = CAREER.careerTotals || freshCareerTotals();
+    kpis.push(["Recorde de vitórias seguidas", t.longestWinStreak || 0]);
+    kpis.push(["Recorde de invencibilidade", t.longestUnbeatenStreak || 0]);
+  }
+  document.getElementById("statsStreakKpis").innerHTML = kpis.map(([l, v]) => kpiHTML(l, v)).join("");
+  const fmtMatch = (m, label) => !m ? "" : `<div class="mt-mini-row">
+    <div class="mt-mini-col name">${label}</div>
+    <div class="mt-mini-col" style="flex:2.4; text-align:right;">${m.gf}x${m.ga} ${m.home ? "vs" : "@"} ${escapeHtml(m.opponentName)} (${m.seasonYear})</div>
+  </div>`;
+  const list = fmtMatch(src.biggestWin, "Maior goleada") + fmtMatch(src.biggestLoss, "Maior derrota");
+  document.getElementById("statsBiggestList").innerHTML = list || `<p class="ct-empty">Ainda sem dados suficientes.</p>`;
+}
+function renderStatsCopaContent(period) {
+  const el = document.getElementById("statsCopaContent");
+  if (period === "temporada") {
+    const cup = CAREER.cup;
+    let statusText, variant;
+    if (!cup || !cup.active) { statusText = "Seu clube não se classificou pra Copa do Brasil esta temporada."; }
+    else if (cup.championIsHuman) { statusText = "🏆 Campeão da Copa do Brasil!"; variant = "gold"; }
+    else if (cup.phase === "done") { statusText = "Vice-campeão — perdeu a final."; }
+    else if (!cup.humanAlive) { statusText = `Eliminado nas ${CUP_PHASE_LABEL[cup.humanEliminatedStage] || cup.humanEliminatedStage}.`; }
+    else { statusText = `Ainda vivo — próxima fase: ${CUP_PHASE_LABEL[cup.phase] || cup.phase}.`; variant = "gold"; }
+    el.innerHTML = `<div class="mt-stat-grid">${kpiHTML("Situação nesta Copa", statusText, variant)}</div>`;
+  } else {
+    const t = CAREER.careerTotals || freshCareerTotals();
+    el.innerHTML = `<div class="mt-stat-grid">` + [
+      ["Edições disputadas", t.copaEditions || 0],
+      ["Títulos", CAREER.titlesWonCopa || 0],
+      ["Semifinais alcançadas", t.copaSemisReached || 0],
+      ["Finais alcançadas", t.copaFinalsReached || 0],
+      ["Retrospecto (V-E-D)", `${t.copaV || 0}-${t.copaE || 0}-${t.copaD || 0}`],
+      ["Gols na Copa (pró/contra)", `${t.copaGp || 0} / ${t.copaGc || 0}`],
+    ].map(([l, v]) => kpiHTML(l, v)).join("") + `</div>`;
+  }
+}
+// AJUSTE (refatoração completa, Tela 9 — ver 09-estatisticas-restyled.html
+// do designer) — .mt-mini-row no lugar de <tr> nas mini-tabelas
+// (cabeçalho fixo já vem do HTML, ver panel-estatisticas).
+function renderStatsTeamTopScorers(period) {
+  const useSeason = period === "temporada";
+  const goalsKey = useSeason ? "goalsSeason" : "goalsCareer";
+  const assistsKey = useSeason ? "assistsSeason" : "assistsCareer";
+  document.getElementById("statsScorersTeamTitle").textContent = useSeason ? "Artilheiros e garçons da temporada" : "Artilheiros e garçons históricos do time";
+  const topPlayers = CAREER.squad.slice()
+    .filter((p) => (p[goalsKey] || 0) > 0 || (p[assistsKey] || 0) > 0)
+    .sort((a, b) => (b[goalsKey] || 0) - (a[goalsKey] || 0) || (b[assistsKey] || 0) - (a[assistsKey] || 0))
+    .slice(0, 10);
+  const teamTopRows = topPlayers.map((p) => `<div class="mt-mini-row">
+    <div class="mt-mini-col name" data-openplayer="${p.id}">${escapeHtml(abbreviateName(p.name))}</div><div class="mt-mini-col">${subPositionOf(p)}</div>
+    <div class="mt-mini-col">${p[goalsKey] || 0}</div><div class="mt-mini-col">${p[assistsKey] || 0}</div>
+  </div>`).join("");
+  document.getElementById("teamTopPlayersTable").innerHTML =
+    teamTopRows || `<p class="ct-empty">Ninguém marcou gol ou deu assistência ainda.</p>`;
+  document.getElementById("teamTopPlayersTable").querySelectorAll("[data-openplayer]").forEach((el) => {
+    el.addEventListener("click", () => openPlayerCard(el.dataset.openplayer, CAREER.clubId));
+  });
+}
+// FASE 2 (a) — pedido do usuário: "estatísticas reais de todos os
+// times". Artilheiros/garçons da LIGA INTEIRA (seu elenco +
+// CAREER.leagueSquads dos outros 19 — ver buildLeagueSquads), possível
+// agora que todo clube tem elenco individual de verdade.
+//
+// AJUSTE (pedido do usuário: "o mercado deve trazer jogadores das 3
+// ligas") — numa carreira "multi", CAREER.leagueSquads passa a ter
+// elenco de OUTRAS 2 divisões também (ver buildLeagueSquads em
+// startCareer) — mas "a liga" aqui é sempre a competição/tabela da
+// PRÓPRIA carreira, não as 3 juntas. Filtrado por CAREER.standings (só
+// tem as chaves dos 20 times da própria divisão, sempre — ver
+// startCareer/generateAllRounds) pra nunca misturar artilheiro de
+// outra série nesse ranking, mesmo com o mercado agora cobrindo as 3.
+function renderStatsLeagueTopScorers(period) {
+  const useSeason = period === "temporada";
+  const goalsKey = useSeason ? "goalsSeason" : "goalsCareer";
+  const assistsKey = useSeason ? "assistsSeason" : "assistsCareer";
+  document.getElementById("statsScorersLeagueTitle").textContent = useSeason ? "Artilheiros da temporada" : "Artilheiros históricos da competição";
+  const allLeaguePlayers = [
+    ...CAREER.squad.map((p) => ({ p, teamId: CAREER.clubId })),
+    ...Object.entries(CAREER.leagueSquads || {})
+      .filter(([teamId]) => Object.prototype.hasOwnProperty.call(CAREER.standings, teamId))
+      .flatMap(([teamId, squad]) => squad.map((p) => ({ p, teamId }))),
+  ];
+  const topLeague = allLeaguePlayers
+    .filter(({ p }) => (p[goalsKey] || 0) > 0 || (p[assistsKey] || 0) > 0)
+    .sort((a, b) => (b.p[goalsKey] || 0) - (a.p[goalsKey] || 0) || (b.p[assistsKey] || 0) - (a.p[assistsKey] || 0))
+    .slice(0, 15);
+  const leagueTopRows = topLeague.map(({ p, teamId }) => {
+    const t = teamById(teamId);
+    return `<div class="mt-mini-row">
+      <div class="mt-mini-col name" data-openplayer="${p.id}" data-club="${escapeHtml(String(teamId))}">${escapeHtml(abbreviateName(p.name))}</div><div class="mt-mini-col" data-openclub="${escapeHtml(String(teamId))}">${escapeHtml(t.short || t.name)}</div>
+      <div class="mt-mini-col">${p[goalsKey] || 0}</div><div class="mt-mini-col">${p[assistsKey] || 0}</div>
+    </div>`;
+  }).join("");
+  document.getElementById("leagueTopScorersTable").innerHTML =
+    leagueTopRows || `<p class="ct-empty">Ninguém marcou gol ou deu assistência ainda.</p>`;
+  document.getElementById("leagueTopScorersTable").querySelectorAll("[data-openplayer]").forEach((el) => {
+    el.addEventListener("click", () => openPlayerCard(el.dataset.openplayer, el.dataset.club));
+  });
+  document.getElementById("leagueTopScorersTable").querySelectorAll("[data-openclub]").forEach((el) => {
+    el.addEventListener("click", () => openClubRoster(el.dataset.openclub));
+  });
+}
+function renderStatsLeagueKpis() {
   const rows = Object.values(CAREER.standings);
   const withGames = rows.filter((r) => r.j > 0);
   const totalGoals = rows.reduce((s, r) => s + r.gp, 0);
@@ -9094,79 +9414,14 @@ function renderEstatisticas() {
     ["Melhor ataque", bestAtk ? `${teamById(bestAtk.id).short || teamById(bestAtk.id).name} (${bestAtk.gp})` : "—"],
     ["Melhor defesa", bestDef ? `${teamById(bestDef.id).short || teamById(bestDef.id).name} (${bestDef.gc})` : "—"],
   ].map(([l, v]) => kpiHTML(l, v)).join("");
-
+}
+// Times da competição — ranking por gols/cartões usando os dados já
+// reais de CAREER.standings (isso já vinha da API antes da Fase 2, só
+// não tinha uma tabela dedicada mostrando os 20 times). Só "da
+// temporada" — a tabela reseta a cada virada de ano, não tem um
+// equivalente de "histórico" pra mostrar aqui (ver Campeões, abaixo).
+function renderStatsTeamsTable() {
   const sorted = sortedStandings();
-  const myPos = myLeaguePosition();
-  const myRow = CAREER.standings[CAREER.clubId] || { gp: 0 };
-  const stats = CAREER.teamStats || { assists: 0, yellow: 0, red: 0 };
-  document.getElementById("teamStatsKpis").innerHTML =
-    kpiHTML("Posição atual", myPos ? `${myPos}º` : "—", "gold") +
-    [
-      ["Gols marcados", myRow.gp],
-      ["Assistências", stats.assists],
-      ["Cartões (A+V)", stats.yellow + stats.red],
-    ].map(([l, v]) => kpiHTML(l, v)).join("");
-
-  // AJUSTE (refatoração completa, Tela 9 — ver 09-estatisticas-restyled.html
-  // do designer) — .mt-mini-row no lugar de <tr> nas 3 mini-tabelas
-  // (cabeçalho fixo já vem do HTML, ver panel-estatisticas).
-  const topPlayers = CAREER.squad.slice()
-    .filter((p) => (p.goalsCareer || 0) > 0 || (p.assistsCareer || 0) > 0)
-    .sort((a, b) => (b.goalsCareer || 0) - (a.goalsCareer || 0) || (b.assistsCareer || 0) - (a.assistsCareer || 0))
-    .slice(0, 10);
-  const teamTopRows = topPlayers.map((p) => `<div class="mt-mini-row">
-    <div class="mt-mini-col name" data-openplayer="${p.id}">${escapeHtml(abbreviateName(p.name))}</div><div class="mt-mini-col">${subPositionOf(p)}</div>
-    <div class="mt-mini-col">${p.goalsCareer || 0}</div><div class="mt-mini-col">${p.assistsCareer || 0}</div>
-  </div>`).join("");
-  document.getElementById("teamTopPlayersTable").innerHTML =
-    teamTopRows || `<p class="ct-empty">Ninguém marcou gol ou deu assistência ainda.</p>`;
-  document.getElementById("teamTopPlayersTable").querySelectorAll("[data-openplayer]").forEach((el) => {
-    el.addEventListener("click", () => openPlayerCard(el.dataset.openplayer, CAREER.clubId));
-  });
-
-  // FASE 2 (a) — pedido do usuário: "estatísticas reais de todos os
-  // times". Artilheiros/garçons da LIGA INTEIRA (seu elenco +
-  // CAREER.leagueSquads dos outros 19 — ver buildLeagueSquads),
-  // possível agora que todo clube tem elenco individual de verdade.
-  //
-  // AJUSTE (pedido do usuário: "o mercado deve trazer jogadores das 3
-  // ligas") — numa carreira "multi", CAREER.leagueSquads passa a ter
-  // elenco de OUTRAS 2 divisões também (ver buildLeagueSquads em
-  // startCareer) — mas "a liga" aqui é sempre a competição/tabela da
-  // PRÓPRIA carreira, não as 3 juntas. Filtrado por CAREER.standings
-  // (só tem as chaves dos 20 times da própria divisão, sempre — ver
-  // startCareer/generateAllRounds) pra nunca misturar artilheiro de
-  // outra série nesse ranking, mesmo com o mercado agora cobrindo as
-  // 3.
-  const allLeaguePlayers = [
-    ...CAREER.squad.map((p) => ({ p, teamId: CAREER.clubId })),
-    ...Object.entries(CAREER.leagueSquads || {})
-      .filter(([teamId]) => Object.prototype.hasOwnProperty.call(CAREER.standings, teamId))
-      .flatMap(([teamId, squad]) => squad.map((p) => ({ p, teamId }))),
-  ];
-  const topLeague = allLeaguePlayers
-    .filter(({ p }) => (p.goalsCareer || 0) > 0 || (p.assistsCareer || 0) > 0)
-    .sort((a, b) => (b.p.goalsCareer || 0) - (a.p.goalsCareer || 0) || (b.p.assistsCareer || 0) - (a.p.assistsCareer || 0))
-    .slice(0, 15);
-  const leagueTopRows = topLeague.map(({ p, teamId }) => {
-    const t = teamById(teamId);
-    return `<div class="mt-mini-row">
-      <div class="mt-mini-col name" data-openplayer="${p.id}" data-club="${escapeHtml(String(teamId))}">${escapeHtml(abbreviateName(p.name))}</div><div class="mt-mini-col" data-openclub="${escapeHtml(String(teamId))}">${escapeHtml(t.short || t.name)}</div>
-      <div class="mt-mini-col">${p.goalsCareer || 0}</div><div class="mt-mini-col">${p.assistsCareer || 0}</div>
-    </div>`;
-  }).join("");
-  document.getElementById("leagueTopScorersTable").innerHTML =
-    leagueTopRows || `<p class="ct-empty">Ninguém marcou gol ou deu assistência ainda.</p>`;
-  document.getElementById("leagueTopScorersTable").querySelectorAll("[data-openplayer]").forEach((el) => {
-    el.addEventListener("click", () => openPlayerCard(el.dataset.openplayer, el.dataset.club));
-  });
-  document.getElementById("leagueTopScorersTable").querySelectorAll("[data-openclub]").forEach((el) => {
-    el.addEventListener("click", () => openClubRoster(el.dataset.openclub));
-  });
-
-  // Times da competição — ranking por gols/cartões usando os dados já
-  // reais de CAREER.standings (isso já vinha da API antes da Fase 2,
-  // só não tinha uma tabela dedicada mostrando os 20 times).
   const teamRows = sorted.map((r) => {
     const t = teamById(r.id);
     const aprov = r.j ? Math.round((r.pts / (r.j * 3)) * 100) : 0;
@@ -9176,6 +9431,58 @@ function renderEstatisticas() {
     </div>`;
   }).join("");
   document.getElementById("leagueTeamStatsTable").innerHTML = teamRows;
+}
+// Histórico de campeões (pedido do usuário) — só dá pra saber a tabela
+// final de TODOS os clubes a partir do momento em que você virou
+// técnico (ver CAREER.leagueChampions/advanceSeason) — sem como
+// reconstruir campeões de temporadas anteriores a essa mudança.
+function renderStatsChampions() {
+  const list = CAREER.leagueChampions || [];
+  document.getElementById("statsChampionsEmpty").hidden = list.length > 0;
+  document.getElementById("statsChampionsHead").style.display = list.length ? "" : "none";
+  document.getElementById("leagueChampionsTable").innerHTML = list.map((c) => `<div class="mt-mini-row${String(c.championId) === String(CAREER.clubId) ? " highlight" : ""}">
+    <div class="mt-mini-col name">${c.year}</div>
+    <div class="mt-mini-col">${escapeHtml(c.championName)}</div>
+    <div class="mt-mini-col">${c.viceName ? escapeHtml(c.viceName) : "—"}</div>
+    <div class="mt-mini-col">${c.myPosition ? c.myPosition + "º" : "—"}</div>
+  </div>`).join("");
+  const tally = {};
+  list.forEach((c) => { tally[c.championId] = (tally[c.championId] || 0) + 1; });
+  const tallyEntries = Object.entries(tally).sort((a, b) => b[1] - a[1]);
+  document.getElementById("statsTitlesEmpty").hidden = tallyEntries.length > 0;
+  document.getElementById("titlesByClubTable").innerHTML = tallyEntries.map(([clubId, n]) => {
+    const t = teamById(clubId);
+    return `<div class="mt-mini-row${String(clubId) === String(CAREER.clubId) ? " highlight" : ""}">
+      <div class="mt-mini-col name">${escapeHtml(t.short || t.name)}</div><div class="mt-mini-col">${n}x</div>
+    </div>`;
+  }).join("");
+}
+function renderEstatisticas() {
+  document.querySelectorAll("#statsScopeTabs .mt-obj-tab").forEach((btn) => btn.classList.toggle("active", btn.dataset.scope === STATS_ACTIVE_SCOPE));
+  document.querySelectorAll("#statsPeriodTabs .mt-obj-tab").forEach((btn) => btn.classList.toggle("active", btn.dataset.period === STATS_ACTIVE_PERIOD));
+  document.getElementById("statsScopeTime").classList.toggle("hidden", STATS_ACTIVE_SCOPE !== "time");
+  document.getElementById("statsScopeCampeonato").classList.toggle("hidden", STATS_ACTIVE_SCOPE !== "campeonato");
+
+  if (STATS_ACTIVE_SCOPE === "time") {
+    const bucket = statsRecordBucket(STATS_ACTIVE_PERIOD);
+    renderStatsRecordKpis(bucket);
+    renderStatsGoalsKpis(bucket);
+    const disc = statsDisciplineSource(STATS_ACTIVE_PERIOD);
+    renderStatsDisciplineKpis(disc);
+    renderStatsHomeAway(disc);
+    renderStatsStreaksRecords(STATS_ACTIVE_PERIOD);
+    renderStatsCopaContent(STATS_ACTIVE_PERIOD);
+    renderStatsTeamTopScorers(STATS_ACTIVE_PERIOD);
+  } else {
+    const isTemporada = STATS_ACTIVE_PERIOD === "temporada";
+    document.getElementById("statsLeagueKpisCard").classList.toggle("hidden", !isTemporada);
+    document.getElementById("statsTeamsTableCard").classList.toggle("hidden", !isTemporada);
+    document.getElementById("statsChampionsCard").classList.toggle("hidden", isTemporada);
+    document.getElementById("statsTitlesByClubCard").classList.toggle("hidden", isTemporada);
+    if (isTemporada) { renderStatsLeagueKpis(); renderStatsTeamsTable(); }
+    else { renderStatsChampions(); }
+    renderStatsLeagueTopScorers(STATS_ACTIVE_PERIOD);
+  }
 }
 
 /* ---------- FASE 2 (c) — Mercado de transferências ---------- */
@@ -11479,6 +11786,14 @@ function wireStaticListeners() {
   document.querySelectorAll("#lojaTabs .mt-obj-tab").forEach((btn) => {
     btn.addEventListener("click", () => { LOJA_ACTIVE_TAB = btn.dataset.tab; renderLoja(); });
   });
+  // Estatísticas completo — 2 seletores independentes (escopo x
+  // período), mesmo padrão de Objetivos/Loja acima.
+  document.querySelectorAll("#statsScopeTabs .mt-obj-tab").forEach((btn) => {
+    btn.addEventListener("click", () => { STATS_ACTIVE_SCOPE = btn.dataset.scope; renderEstatisticas(); });
+  });
+  document.querySelectorAll("#statsPeriodTabs .mt-obj-tab").forEach((btn) => {
+    btn.addEventListener("click", () => { STATS_ACTIVE_PERIOD = btn.dataset.period; renderEstatisticas(); });
+  });
   document.getElementById("purchaseConfirmClose").addEventListener("click", () => document.getElementById("purchaseConfirmOverlay").classList.remove("open"));
   document.getElementById("btnCancelPurchase").addEventListener("click", () => document.getElementById("purchaseConfirmOverlay").classList.remove("open"));
   document.getElementById("btnConfirmPurchase").addEventListener("click", confirmPurchaseNow);
@@ -11856,7 +12171,22 @@ function migrateCareerDefaults() {
   CAREER.squad.forEach(backfillContract);
   Object.values(CAREER.leagueSquads).forEach((squad) => squad.forEach(backfillContract));
   if (!CAREER.finances) CAREER.finances = initialFinances(CAREER.squad);
-  if (!CAREER.teamStats) CAREER.teamStats = { assists: 0, yellow: 0, red: 0 };
+  // Módulo de Estatísticas completo — save de ANTES desta mudança já
+  // tinha teamStats (assists/yellow/red, "da temporada"), mas sem os
+  // campos novos (clean sheets, mandante/visitante, maior goleada/
+  // derrota) — preenche só o que falta, sem zerar o que já existia.
+  // careerTotals/leagueChampions/sequências nascem do zero (sem como
+  // reconstruir retroativamente temporadas já jogadas, mesmo critério
+  // de todo contador novo desta sessão).
+  if (!CAREER.teamStats) CAREER.teamStats = freshTeamStats();
+  else {
+    const fresh = freshTeamStats();
+    Object.keys(fresh).forEach((k) => { if (CAREER.teamStats[k] === undefined) CAREER.teamStats[k] = fresh[k]; });
+  }
+  if (!CAREER.careerTotals) CAREER.careerTotals = freshCareerTotals();
+  if (CAREER.currentWinStreak == null) CAREER.currentWinStreak = 0;
+  if (CAREER.currentUnbeatenStreak == null) CAREER.currentUnbeatenStreak = 0;
+  if (!CAREER.leagueChampions) CAREER.leagueChampions = [];
   if (!CAREER.transferLog) CAREER.transferLog = [];
   if (CAREER.pendingOffer === undefined) CAREER.pendingOffer = null;
   if (CAREER.lastBoardRequestRound === undefined) CAREER.lastBoardRequestRound = null;
