@@ -326,6 +326,10 @@
   }
 
   .mt-stat-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  /* Bloco 5 — resumo semanal de Treinos (3 cards numa linha só: fadiga
+     média/moral/folga protegida), mesmo componente de kpiHTML só com
+     mais uma coluna. */
+  .mt-stat-grid.cols-3{ grid-template-columns:1fr 1fr 1fr; margin-bottom:14px; }
   .mt-stat-block{ background:var(--m3-surface-container-high); border:1px solid var(--m3-outline-variant); border-radius:var(--m3-shape-md); padding:14px 10px; text-align:center; }
   .mt-stat-block .num{ font-family:var(--m3-display); font-weight:700; font-size:24px; color:var(--m3-on-surface); }
   .mt-stat-block .num.gold{ color:var(--m3-primary); }
@@ -1214,6 +1218,7 @@
   .mt-scheme-preview .dot.tecnico{ background:var(--mt-sky-400); opacity:1; }
   .mt-scheme-preview .dot.fisico{ background:var(--mt-crimson-400); opacity:1; }
   .mt-scheme-preview .dot.jogo{ background:var(--m3-primary); opacity:1; }
+  .mt-scheme-preview .dot.tatico{ background:var(--mt-violet-400); opacity:1; }
   .mt-week-label-custom{ color:var(--m3-on-surface-variant); }
 
   /* ---- Treinos: calendário semanal (7 células, ver seção 5.3 do
@@ -1230,6 +1235,7 @@
   .mt-day-cell.foco-tecnico .dind{ background:var(--mt-sky-400); box-shadow:0 0 5px rgba(91,155,217,.5); }
   .mt-day-cell.foco-fisico .dind{ background:var(--mt-crimson-400); box-shadow:0 0 5px rgba(214,69,69,.5); }
   .mt-day-cell.foco-jogo .dind{ background:var(--m3-primary); }
+  .mt-day-cell.foco-tatico .dind{ background:var(--mt-violet-400); box-shadow:0 0 5px rgba(167,139,218,.5); }
 
   .mt-day-cell .dshield{ font-size:10px; line-height:1; }
 
@@ -1244,7 +1250,15 @@
   .mt-seg-btn.active{ background:var(--m3-surface-container-highest); color:var(--m3-on-surface); }
   .mt-seg-btn[data-seg="foco"].active[data-value="tecnico"]{ color:var(--mt-sky-400); }
   .mt-seg-btn[data-seg="foco"].active[data-value="fisico"]{ color:var(--mt-crimson-400); }
+  .mt-seg-btn[data-seg="foco"].active[data-value="tatico"]{ color:var(--mt-violet-400); }
   .mt-seg-group.disabled{ opacity:.4; pointer-events:none; }
+
+  /* Bloco 5 — duração do treino do dia (só informativa, ver aviso em
+     TRAINING_DURATION_DEFAULT/carreira.js), mesmo espírito visual do
+     stepper de "Duração" do mockup brtreinadorbloco5pendentes.html. */
+  .mt-dur-stepper{ display:flex; align-items:center; justify-content:center; gap:14px; background:var(--m3-surface-container); border:1px solid var(--m3-outline-variant); border-radius:var(--m3-shape-sm); padding:10px; margin-bottom:14px; }
+  .mt-dur-step-btn{ width:26px; height:26px; border-radius:8px; background:var(--m3-surface-container-highest); border:none; color:var(--m3-on-surface); font-size:15px; font-weight:700; cursor:pointer; display:flex; align-items:center; justify-content:center; }
+  .mt-dur-val{ font-family:var(--m3-display); font-weight:700; font-size:13px; min-width:52px; text-align:center; color:var(--m3-on-surface); }
 
   .mt-training-warning{
     display:flex; gap:8px; align-items:flex-start; background:rgba(214,69,69,.12); border:1px solid rgba(214,69,69,.4);
@@ -1659,6 +1673,21 @@
   .mt-transfer-dot.info{ background:var(--mt-navy-700); border-color:var(--mt-ink-muted); color:var(--mt-ink-muted); }
   .mt-transfer-round{ font-family:var(--font); font-weight:700; font-size:11.5px; color:var(--m3-primary); margin-bottom:2px; }
   .mt-transfer-text{ font-size:13px; color:var(--mt-ivory-100); }
+
+  /* Nova feature (Bloco 5, "pendentes") — "Histórico de fadiga": barras
+     semanais (mesmo espírito visual do mockup brtreinadorbloco5pendentes.html,
+     tokens do design system no lugar da cor chapada dele) + lista de
+     lesões do período. */
+  .mt-fatigue-chart{ display:flex; align-items:flex-end; gap:5px; height:90px; margin-bottom:6px; }
+  .mt-fatigue-bar{ flex:1; border-radius:4px 4px 0 0; background:var(--m3-surface-container-highest); min-height:3px; }
+  .mt-fatigue-bar.high{ background:var(--mt-crimson-400); }
+  .mt-fatigue-labels{ display:flex; gap:5px; margin-bottom:16px; }
+  .mt-fatigue-labels span{ flex:1; text-align:center; font-size:9px; color:var(--m3-on-surface-variant); font-family:var(--font); font-weight:600; }
+  .mt-injury-row{ display:flex; align-items:center; gap:11px; background:var(--m3-surface-container); border-radius:14px; padding:11px 12px; margin-bottom:8px; }
+  .mt-injury-icon{ font-size:15px; flex-shrink:0; }
+  .mt-injury-body{ flex:1; min-width:0; }
+  .mt-injury-name{ font-size:11.5px; font-weight:600; color:var(--m3-on-surface); }
+  .mt-injury-meta{ font-size:9.5px; color:var(--m3-on-surface-variant); margin-top:2px; }
 
   .mt-live-action-row{ display:flex; gap:10px; }
   .mt-btn-secondary{
@@ -2842,12 +2871,25 @@
 
         <div class="mt-card">
           <div class="mt-card-title" id="trainingWeekLabel">Semana</div>
+          <!-- Bloco 5 (mockup brtreinadorbloco5treino.html) — resumo
+               semanal (fadiga média/moral do elenco/folga protegida) e
+               aviso do jogador em maior risco ao fim da semana
+               projetada (ver renderTreinos/projectWeekEndFatigue). -->
+          <div class="mt-stat-grid cols-3" id="trainingWeekSummary"></div>
+          <div id="trainingRiskWarning"></div>
           <div class="mt-week-strip" id="trainingWeekStrip"></div>
           <div id="trainingDayPanel"></div>
         </div>
 
         <div class="mt-card">
-          <div class="mt-card-title">Elenco — condição física</div>
+          <div class="mt-card-head">
+            <div class="mt-card-title">Elenco — condição física</div>
+            <!-- Nova feature (Bloco 5, "pendentes" — mockup
+                 brtreinadorbloco5pendentes.html) — "Histórico de
+                 fadiga": gráfico semanal por jogador + lesões do
+                 período (ver renderFatigueHistoryScreen). -->
+            <button class="ct-help-btn" id="btnOpenFatigueHistory" aria-label="Histórico de fadiga" title="Histórico de fadiga">📊</button>
+          </div>
           <div id="trainingRosterList"></div>
         </div>
 
@@ -3471,6 +3513,41 @@
     </div>
     <div class="ct-modal-footer">
       <button class="mt-btn-ghost" id="btnTransferHistoryCloseFooter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Nova feature (Bloco 5, "pendentes" — mockup
+     brtreinadorbloco5pendentes.html) — "Histórico de fadiga": gráfico
+     de barras da fadiga semanal de um jogador cruzado com as lesões do
+     mesmo período (ver renderFatigueHistoryScreen em carreira.js).
+     Aberta pelo botão "📊" no card "Elenco — condição física" da aba
+     Treinos. -->
+<div class="ct-modal-overlay ct-modal-fullscreen" id="fatigueHistoryOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header mt-fullheader">
+      <span class="ct-modal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg></span>
+      <div class="ct-modal-header-text">
+        <h3>Histórico de fadiga</h3>
+        <div class="ct-modal-sub">Fadiga semanal e lesões do período</div>
+      </div>
+      <button class="ct-modal-close" id="fatigueHistoryClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <p class="ct-empty hidden" id="fatigueHistoryEmpty">Sem jogadores no elenco.</p>
+      <div id="fatigueHistoryBody">
+        <select id="fatigueHistoryPlayerSelect" class="mt-select-box" style="margin-bottom:14px;"></select>
+        <div class="mt-card-title">Fadiga semanal</div>
+        <div class="mt-fatigue-chart" id="fatigueHistoryChart"></div>
+        <div class="mt-fatigue-labels" id="fatigueHistoryLabels"></div>
+        <p class="ct-empty hidden" id="fatigueHistoryChartEmpty">Ainda não há histórico de fadiga — aplique o treino da semana algumas rodadas pra ele aparecer aqui.</p>
+        <div class="mt-card-title">Lesões no período</div>
+        <div id="fatigueHistoryInjuries"></div>
+        <p class="ct-empty hidden" id="fatigueHistoryInjuriesEmpty">Nenhuma lesão registrada nesse período.</p>
+      </div>
+    </div>
+    <div class="ct-modal-footer">
+      <button class="mt-btn-ghost" id="btnFatigueHistoryCloseFooter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Fechar</button>
     </div>
   </div>
 </div>
