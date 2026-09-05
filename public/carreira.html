@@ -867,9 +867,23 @@
   .ct-modal-overlay.ct-modal-fullscreen{ padding:0; }
   .ct-modal-overlay.ct-modal-fullscreen .ct-modal{ max-width:none; width:100%; height:100%; max-height:100%; border-radius:0; }
   .ct-modal-overlay.ct-modal-fullscreen .ct-modal-body{ flex:1; }
+  /* BUG CORRIGIDO (2ª rodada do relato do usuário, com print: "as
+     modais estão sem respiro" — a correção anterior só cobriu os
+     topbars das telas de baixo de .mt-topbar/.m3-topbar/.mt-live-topbar,
+     não o cabeçalho GENÉRICO das modais em tela cheia, .ct-modal-header,
+     que TAMBÉM encosta na borda física quando a modal ocupa a tela
+     inteira sem respiro nenhum — ver ".ct-modal-fullscreen{padding:0}"
+     acima). Mesmo mecanismo (env(safe-area-inset-top)) — só aqui, não
+     na regra base .ct-modal-header (usada também por bottom sheets e
+     diálogos centralizados, que nunca encostam na borda física). */
+  .ct-modal-overlay.ct-modal-fullscreen .ct-modal-header{ padding-top:calc(16px + env(safe-area-inset-top, 0px)); }
   @media (min-width:720px){
     .ct-modal-overlay.ct-modal-fullscreen{ padding:24px; }
     .ct-modal-overlay.ct-modal-fullscreen .ct-modal{ max-width:640px; height:92vh; max-height:92vh; border-radius:var(--radius-lg); }
+    /* Acima de 720px a modal já fica com respiro de verdade ao redor
+       (24px de padding no overlay) — não encosta mais na borda física,
+       então o cabeçalho volta ao padding-top normal. */
+    .ct-modal-overlay.ct-modal-fullscreen .ct-modal-header{ padding-top:16px; }
   }
   .ct-modal-header{ display:flex; align-items:center; gap:10px; padding:16px; background:var(--m3-surface-container-high); border-bottom:1px solid var(--m3-outline-variant); flex-shrink:0; }
   .ct-modal-icon{ font-size:20px; line-height:1; flex-shrink:0; }
