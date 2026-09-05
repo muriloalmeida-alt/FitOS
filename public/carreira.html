@@ -1689,6 +1689,72 @@
   .mt-injury-name{ font-size:11.5px; font-weight:600; color:var(--m3-on-surface); }
   .mt-injury-meta{ font-size:9.5px; color:var(--m3-on-surface-variant); margin-top:2px; }
 
+  /* Bloco 7 pendentes — "Histórico de compras": mesmo esqueleto visual
+     de .mt-injury-row acima (ícone + corpo + valor à direita), com um
+     valor destacado no lado direito (crédito em verde, uso neutro). */
+  .mt-tx-row{ display:flex; align-items:center; gap:11px; background:var(--m3-surface-container); border-radius:14px; padding:11px 12px; margin-bottom:8px; }
+  .mt-tx-icon{ width:30px; height:30px; border-radius:9px; background:var(--m3-surface-container-highest); display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
+  .mt-tx-body{ flex:1; min-width:0; }
+  .mt-tx-name{ font-size:12px; font-weight:600; color:var(--m3-on-surface); }
+  .mt-tx-date{ font-size:9.5px; color:var(--m3-on-surface-variant); margin-top:2px; }
+  .mt-tx-val{ font-family:var(--font); font-weight:700; font-size:11.5px; color:var(--m3-on-surface-variant); white-space:nowrap; }
+  .mt-tx-val.credit{ color:var(--mt-pitch-400); }
+
+  /* Bloco 8 pendentes — Central de notificações (bottom sheet, ver
+     .mt-sheet-overlay) e "Editar perfil" (avatar/forms). */
+  .mt-notif-item{ display:flex; gap:11px; padding:10px 2px; border-bottom:1px solid var(--m3-outline-variant); }
+  .mt-notif-item:last-child{ border-bottom:none; }
+  .mt-notif-icon{ width:30px; height:30px; border-radius:10px; background:var(--m3-surface-container); display:flex; align-items:center; justify-content:center; font-size:13px; flex-shrink:0; }
+  .mt-notif-text{ font-size:12px; line-height:1.4; color:var(--m3-on-surface); }
+  .mt-notif-time{ font-size:9.5px; color:var(--m3-on-surface-variant); margin-top:3px; }
+  .mt-bell-badge{ position:absolute; top:-3px; right:-3px; min-width:16px; height:16px; padding:0 3px; border-radius:999px; background:var(--mt-crimson-400); color:#fff; font-size:9px; font-weight:700; display:flex; align-items:center; justify-content:center; }
+
+  .mt-avatar-picker{ text-align:center; margin-bottom:18px; }
+  .mt-big-avatar{ width:76px; height:76px; border-radius:24px; background:var(--m3-primary-container); color:var(--m3-on-primary-container); display:flex; align-items:center; justify-content:center; font-family:var(--m3-display); font-weight:700; font-size:26px; margin:0 auto; }
+  .mt-form-row{ background:var(--m3-surface-container); border-radius:14px; padding:12px 14px; margin-bottom:9px; }
+  .mt-form-label{ font-size:9.5px; color:var(--m3-on-surface-variant); margin-bottom:4px; text-transform:uppercase; letter-spacing:.5px; font-family:var(--font); font-weight:600; }
+  .mt-form-val{ font-size:13px; font-weight:600; color:var(--m3-on-surface); }
+  .mt-form-row input.mt-friend-input{ padding:2px 0; background:none; border:none; font-size:13px; font-weight:600; color:var(--m3-on-surface); width:100%; }
+  .mt-form-row input.mt-friend-input:focus{ outline:none; }
+
+  /* Configurações (Bloco 8 sistema): card de perfil + seções com
+     rows/toggle — mesmos tokens do resto do M3. */
+  .mt-settings-profile{ display:flex; align-items:center; gap:13px; background:var(--m3-primary-container); color:var(--m3-on-primary-container); border-radius:22px; padding:16px; margin-bottom:16px; }
+  .mt-settings-avatar{ width:52px; height:52px; border-radius:16px; background:rgba(255,255,255,.18); display:flex; align-items:center; justify-content:center; font-family:var(--m3-display); font-weight:700; font-size:18px; flex-shrink:0; }
+  .mt-settings-name{ font-family:var(--m3-display); font-weight:700; font-size:15px; }
+  .mt-settings-meta{ font-size:10.5px; opacity:.85; margin-top:2px; }
+  .mt-setting-row{ display:flex; align-items:center; gap:12px; background:var(--m3-surface-container); border-radius:14px; padding:12px 13px; margin-bottom:8px; cursor:pointer; }
+  .mt-setting-row.static{ cursor:default; }
+  .mt-setting-icon{ width:32px; height:32px; border-radius:10px; background:var(--m3-surface-container-highest); display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
+  .mt-setting-label{ font-size:12px; font-weight:600; flex:1; color:var(--m3-on-surface); }
+  .mt-setting-meta{ font-size:10px; color:var(--m3-on-surface-variant); margin-top:2px; }
+  .mt-setting-chev{ color:var(--m3-on-surface-variant); font-size:14px; }
+  .mt-setting-toggle{ width:36px; height:20px; border-radius:999px; background:var(--m3-surface-container-highest); position:relative; flex-shrink:0; border:none; padding:0; cursor:pointer; }
+  .mt-setting-toggle.on{ background:var(--m3-primary); }
+  .mt-setting-toggle-dot{ width:16px; height:16px; border-radius:50%; background:#fff; position:absolute; top:2px; left:2px; transition:left .15s; }
+  .mt-setting-toggle.on .mt-setting-toggle-dot{ left:18px; background:var(--m3-on-primary); }
+
+  /* Central de ajuda (Bloco 8 pendentes): FAQ acordeão + card de
+     contato. */
+  .mt-help-search{ display:flex; align-items:center; gap:8px; background:var(--m3-surface-container); border-radius:999px; padding:11px 14px; margin-bottom:16px; font-size:12px; color:var(--m3-on-surface-variant); }
+  .mt-faq-row{ background:var(--m3-surface-container); border-radius:14px; padding:12px 14px; margin-bottom:8px; cursor:pointer; }
+  .mt-faq-q{ font-size:12px; font-weight:600; color:var(--m3-on-surface); display:flex; justify-content:space-between; align-items:center; gap:8px; }
+  .mt-faq-a{ font-size:11px; color:var(--m3-on-surface-variant); margin-top:8px; line-height:1.5; display:none; }
+  .mt-faq-row.open .mt-faq-a{ display:block; }
+  .mt-faq-row.open .mt-faq-chev{ transform:rotate(180deg); }
+  .mt-faq-chev{ transition:transform .15s; flex-shrink:0; }
+  .mt-help-contact{ display:flex; align-items:center; gap:11px; background:var(--m3-primary-container); color:var(--m3-on-primary-container); border-radius:16px; padding:13px 14px; margin-top:16px; font-size:12px; font-weight:600; }
+
+  /* Sistema — splash/loading com marca (crest do app) e tela de erro
+     de rede (ambos reaproveitam #screenLoading já existente, ver
+     splashLoadingHTML/splashErrorHTML em carreira.js). */
+  .mt-splash-crest{ width:56px; height:56px; border-radius:18px; background:linear-gradient(160deg, var(--mt-navy-700), var(--mt-navy-950)); display:flex; align-items:center; justify-content:center; margin-bottom:4px; box-shadow:0 8px 22px rgba(0,0,0,.35); }
+  .mt-splash-crest img{ width:34px; height:34px; object-fit:contain; }
+  .mt-error-screen{ display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:32px; height:100%; }
+  .mt-error-icon{ width:56px; height:56px; border-radius:16px; background:rgba(255,84,73,.16); color:var(--mt-crimson-400); display:flex; align-items:center; justify-content:center; margin-bottom:16px; }
+  .mt-error-title{ font-family:var(--m3-display); font-weight:700; font-size:16px; color:var(--m3-on-surface); margin-bottom:6px; }
+  .mt-error-sub{ font-size:12px; color:var(--m3-on-surface-variant); line-height:1.5; max-width:280px; }
+
   .mt-live-action-row{ display:flex; gap:10px; }
   .mt-btn-secondary{
     flex:1; display:flex; align-items:center; justify-content:center; gap:7px;
@@ -2293,6 +2359,7 @@
 
   <!-- ================= Loading ================= -->
   <div class="ct-full" id="screenLoading">
+    <div class="mt-splash-crest"><img src="img/brand-icon.png" alt=""></div>
     <div class="ct-spinner"></div>
     <p>Carregando o Modo Técnico...</p>
   </div>
@@ -2503,6 +2570,11 @@
              (não é "categoria" de mais nada) — mesmo critério de
              Reiniciar/Sair abaixo. -->
         <button class="mt-topbar-menu-item" id="btnOpenLoja">🛒 Loja</button>
+        <!-- Bloco 8 (brtreinadorbloco8sistema.html) — Configurações:
+             hub de perfil/jogo/notificações/conta — mesmo critério de
+             item solto na raiz de Loja/Histórico/Reiniciar/Sair (não é
+             "categoria" de mais nada). -->
+        <button class="mt-topbar-menu-item" id="btnOpenSettings">⚙️ Configurações</button>
         <!-- AJUSTE (pedido do usuário: "página estática que controle
              o histórico de mudanças do jogo") — página própria,
              fora do SPA (ver historico.html), por isso é um <a>
@@ -4634,6 +4706,134 @@
       <button class="mt-btn-primary-gold" id="btnNewsContinue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>Continuar</button>
       <button class="mt-btn-ghost" id="btnNewsCloseFooter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Fechar</button>
     </div>
+  </div>
+</div>
+
+<!-- Bloco 8 (brtreinadorbloco8sistema.html) — Configurações: card de
+     perfil (nome + Reputação como "Nível", ver renderSettingsScreen em
+     carreira.js), seção Jogo (só Clube atual — "Dificuldade" saiu do
+     escopo, não existe mecânica de dificuldade neste jogo), seção
+     Notificações (toggles reais — ver CAREER.notificationSettings,
+     controlam o que entra na Central de notificações) e Conta (Editar
+     perfil/Histórico de compras/Central de ajuda/Privacidade/Sair). O
+     sino no cabeçalho abre a Central de notificações (mesmo mockup). -->
+<div class="ct-modal-overlay ct-modal-fullscreen" id="settingsOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header mt-fullheader">
+      <span class="ct-modal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></span>
+      <div class="ct-modal-header-text"><h3>Configurações</h3></div>
+      <button class="ct-modal-close" id="settingsBell" style="position:relative;" aria-label="Notificações">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" width="18" height="18"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span class="mt-bell-badge hidden" id="settingsBellBadge">0</span>
+      </button>
+      <button class="ct-modal-close" id="settingsClose">✕</button>
+    </div>
+    <div class="ct-modal-body" id="settingsBody"></div>
+  </div>
+</div>
+
+<!-- Bloco 8 pendentes (brtreinadorbloco8pendentes.html) — Editar
+     perfil: só o NOME é editável (decisão do usuário via
+     AskUserQuestion) — e-mail mascarado/fixo, "Nível" reaproveita a
+     Reputação real (ver reputationLabel em carreira.js, não uma stat
+     nova), "Idioma" é informativo (sem seletor funcional). -->
+<div class="ct-modal-overlay ct-modal-fullscreen" id="editProfileOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header mt-fullheader">
+      <span class="ct-modal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a8 8 0 0 1 16 0v1"/></svg></span>
+      <div class="ct-modal-header-text"><h3>Editar perfil</h3></div>
+      <button class="ct-modal-close" id="editProfileClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <div class="mt-avatar-picker"><div class="mt-big-avatar" id="editProfileAvatar"></div></div>
+      <div class="mt-form-row">
+        <div class="mt-form-label">Nome de treinador</div>
+        <input id="editProfileNameInput" class="mt-friend-input" maxlength="80">
+      </div>
+      <div class="mt-form-row">
+        <div class="mt-form-label">E-mail</div>
+        <div class="mt-form-val" id="editProfileEmail"></div>
+      </div>
+      <div class="mt-form-row">
+        <div class="mt-form-label">Nível</div>
+        <div class="mt-form-val" id="editProfileLevel"></div>
+      </div>
+      <div class="mt-form-row">
+        <div class="mt-form-label">Idioma</div>
+        <div class="mt-form-val">Português (Brasil)</div>
+      </div>
+    </div>
+    <div class="ct-modal-footer">
+      <button class="mt-btn-primary-gold" id="btnSaveProfileName"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2Z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Bloco 7 pendentes (brtreinadorbloco7loja.html) — Histórico de
+     compras: mostra USO real de item/recompensa (ver
+     pushPurchaseHistory/applyDailyLoginReward em carreira.js), não uma
+     compra de verdade — a Loja ainda não cobra nada (ver aviso em
+     renderLoja). -->
+<div class="ct-modal-overlay ct-modal-fullscreen" id="purchaseHistoryOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header mt-fullheader">
+      <span class="ct-modal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2H10a2 2 0 0 0-2 2v16"/></svg></span>
+      <div class="ct-modal-header-text">
+        <h3>Histórico de compras</h3>
+        <div class="ct-modal-sub">Uso real de itens e recompensas — a Loja ainda não cobra nada</div>
+      </div>
+      <button class="ct-modal-close" id="purchaseHistoryClose">✕</button>
+    </div>
+    <div class="ct-modal-body" id="purchaseHistoryBody"></div>
+  </div>
+</div>
+
+<!-- Bloco 8 pendentes (brtreinadorbloco8pendentes.html) — Central de
+     ajuda: FAQ estática (busca decorativa) + card de contato. Conteúdo
+     escrito a partir de dúvidas reais do próprio jogo (fadiga, gasto
+     real, cor dinâmica de clube, perda de progresso). -->
+<div class="ct-modal-overlay ct-modal-fullscreen" id="helpCenterOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header mt-fullheader">
+      <span class="ct-modal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></span>
+      <div class="ct-modal-header-text"><h3>Central de ajuda</h3></div>
+      <button class="ct-modal-close" id="helpCenterClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <div class="mt-help-search">🔎 Buscar dúvida ou palavra-chave</div>
+      <div class="mt-card-title">Perguntas frequentes</div>
+      <div class="mt-faq-row open">
+        <div class="mt-faq-q">Como funciona a fadiga do elenco? <svg class="mt-faq-chev" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg></div>
+        <div class="mt-faq-a">A fadiga sobe com treinos e partidas e desce com descanso. Acima de 80% aumenta bastante o risco de lesão — veja o "Histórico de fadiga" de cada jogador no Elenco.</div>
+      </div>
+      <div class="mt-faq-row">
+        <div class="mt-faq-q">Preciso gastar dinheiro real pra jogar? <svg class="mt-faq-chev" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg></div>
+        <div class="mt-faq-a">Não. A Loja ainda está em prévia — nenhum pacote ou boost cobra nada de verdade por enquanto.</div>
+      </div>
+      <div class="mt-faq-row">
+        <div class="mt-faq-q">Como funciona a cor dinâmica do clube? <svg class="mt-faq-chev" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg></div>
+        <div class="mt-faq-a">O app usa a cor oficial do seu clube pra pintar botões e destaques em toda tela — muda sozinho quando você troca de time.</div>
+      </div>
+      <div class="mt-faq-row">
+        <div class="mt-faq-q">Perdi meu progresso, o que fazer? <svg class="mt-faq-chev" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg></div>
+        <div class="mt-faq-a">Seu progresso é salvo automaticamente na sua conta a cada ação — se sumiu, confira se entrou com o mesmo e-mail de sempre.</div>
+      </div>
+      <div class="mt-help-contact">💬 Não encontrou? Fale com o suporte pelo site.</div>
+    </div>
+  </div>
+</div>
+
+<!-- Bloco 8 (brtreinadorbloco8sistema.html) — Central de notificações:
+     bottom sheet reaproveitando .mt-sheet-overlay (mesmo padrão de
+     pressOverlay/renewOverlay). Aberta pelo sino de Configurações. -->
+<div class="ct-modal-overlay mt-sheet-overlay" id="notificationsSheetOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header">
+      <span class="ct-modal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>
+      <div class="ct-modal-header-text"><h3>Notificações</h3></div>
+      <button class="ct-modal-close" id="notificationsSheetClose">✕</button>
+    </div>
+    <div class="ct-modal-body" id="notificationsSheetBody"></div>
   </div>
 </div>
 

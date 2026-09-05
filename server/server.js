@@ -1745,7 +1745,7 @@ const server = http.createServer(async (req, res) => {
     // mesmo sem fornecedor configurado, senão a carreira fica
     // impossível de jogar em qualquer host sem chave.
     const LIVE_ONLY = pathname.startsWith("/api/") && pathname !== "/api/broadcast" && pathname !== "/api/news"
-      && pathname !== "/api/competitions" && pathname !== "/api/account/favorite-club"
+      && pathname !== "/api/competitions" && pathname !== "/api/account/favorite-club" && pathname !== "/api/account/name"
       && !pathname.startsWith("/api/support/") && !pathname.startsWith("/api/auth/")
       && !pathname.startsWith("/api/admin/") && !pathname.startsWith("/api/adminpanel/")
       && !pathname.startsWith("/api/career")
@@ -2169,6 +2169,20 @@ const server = http.createServer(async (req, res) => {
       if (!competitions.getCompetition(competitionId)) return sendJSON(res, 400, { error: "Competição inválida." });
       const updated = users.setFavoriteClub(req.authUser.id, competitionId, teamId);
       return sendJSON(res, 200, { favoriteClubs: updated.favoriteClubs || {} });
+    }
+
+    // "Editar perfil" (Modo Técnico, Bloco 8 pendentes) — decisão do
+    // usuário via AskUserQuestion: só o NOME é editável por agora
+    // (e-mail continua fixo, mostrado mascarado no cliente). Mesmo
+    // padrão de validação de tamanho já usado no cadastro
+    // (POST /api/auth/signup, ver mais abaixo) — nunca vazio, nunca
+    // gigantesco.
+    if (pathname === "/api/account/name" && req.method === "PUT") {
+      const body = await readBody(req);
+      const name = String(body.name || "").trim().slice(0, 80);
+      if (!name) return sendJSON(res, 400, { error: "Nome não pode ficar vazio." });
+      const updated = users.updateUser(req.authUser.id, { name });
+      return sendJSON(res, 200, { user: users.publicUser(updated) });
     }
 
     // ================= Modo Técnico (carreira estilo Elifoot) =================

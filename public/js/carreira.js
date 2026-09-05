@@ -562,6 +562,25 @@ function toast(input, opts = {}) {
     clearInterval(toastRepositionTimer);
   }, durationMs);
 }
+// Sistema (Bloco 8) — splash/loading com marca (crest do app, nunca a
+// cor do clube — identidade do JOGO, não de um clube "dono", mesmo
+// princípio já usado nas 4 telas sem clube em show() logo abaixo) +
+// tela de erro/retry pra falha de boot (rede caiu antes de carregar
+// o Modo Técnico). "Tentar novamente" recarrega a página — mais
+// confiável que tentar re-executar boot() no meio de um estado de
+// erro desconhecido.
+function splashLoadingHTML(text) {
+  return `<div class="mt-splash-crest"><img src="img/brand-icon.png" alt=""></div><div class="ct-spinner"></div><p>${escapeHtml(text)}</p>`;
+}
+function splashErrorHTML(detail) {
+  return `<div class="mt-error-screen">
+    <div class="mt-error-icon"><svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg></div>
+    <div class="mt-error-title">Sem conexão</div>
+    <div class="mt-error-sub">Não foi possível carregar o Modo Técnico. Verifique sua internet e tente de novo.</div>
+    <p class="ct-sub" style="max-width:340px; word-break:break-word; margin-top:8px;">${escapeHtml(detail)}</p>
+    <button type="button" class="mt-btn-primary-gold" style="margin-top:16px;" onclick="location.reload()">Tentar novamente</button>
+  </div>`;
+}
 function show(name) {
   ["screenLoading", "screenLoginRequired", "screenCompetitionPicker", "screenPicker", "screenGame"].forEach((id) => {
     document.getElementById(id).classList.toggle("hidden", id !== name);
@@ -1857,6 +1876,106 @@ function closeCoachProfileScreen() {
   document.getElementById("coachProfileOverlay").classList.remove("open");
 }
 
+/* ---------- Configurações + Editar perfil (Bloco 8, sistema/pendentes)
+   ----------
+   Decisões confirmadas com o usuário via AskUserQuestion antes de
+   implementar: (1) "Editar perfil" só deixa o NOME editável por
+   agora — e-mail fica fixo/mascarado; (2) "Nível" reaproveita a
+   Reputação real do técnico (ver reputationLabel), não inventa uma
+   stat nova; (3) "Dificuldade" saiu do escopo — não existe mecânica de
+   dificuldade neste jogo. */
+function initialsFor(name) {
+  const parts = String(name || "").trim().split(/\s+/).filter(Boolean);
+  if (!parts.length) return "?";
+  return parts.length === 1 ? parts[0].slice(0, 2).toUpperCase() : (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+function maskEmail(email) {
+  const [user, domain] = String(email || "").split("@");
+  if (!domain) return email || "";
+  return `${(user || "").slice(0, 3)}••••@••••.${domain.split(".").pop()}`;
+}
+function renderSettingsScreen() {
+  const rep = CAREER.reputation == null ? 50 : CAREER.reputation;
+  const createdYear = ME.createdAt ? new Date(ME.createdAt).getFullYear() : new Date().getFullYear();
+  const settings = CAREER.notificationSettings || { partida: true, loja: false, lesao: true };
+  document.getElementById("settingsBody").innerHTML = `
+    <div class="mt-settings-profile">
+      <div class="mt-settings-avatar">${escapeHtml(initialsFor(ME.name))}</div>
+      <div><div class="mt-settings-name">${escapeHtml(ME.name)}</div><div class="mt-settings-meta">Treinador desde ${createdYear} · Reputação ${rep}</div></div>
+    </div>
+    <div class="m3-card-title">Jogo</div>
+    <div class="mt-setting-row" id="settingsRowClub"><div class="mt-setting-icon">🏟️</div><div><div class="mt-setting-label">Clube atual</div><div class="mt-setting-meta">${escapeHtml(CAREER.clubName)}</div></div><span class="mt-setting-chev">›</span></div>
+    <div class="m3-card-title">Notificações</div>
+    ${settingsToggleRowHTML("partida", "📅", "Lembrete de partida", settings.partida)}
+    ${settingsToggleRowHTML("loja", "🎁", "Recompensas/ofertas", settings.loja)}
+    ${settingsToggleRowHTML("lesao", "🩹", "Alertas de lesão", settings.lesao)}
+    <div class="m3-card-title">Conta</div>
+    <div class="mt-setting-row" id="settingsRowEditProfile"><div class="mt-setting-icon">✎</div><div class="mt-setting-label">Editar perfil</div><span class="mt-setting-chev">›</span></div>
+    <div class="mt-setting-row" id="settingsRowPurchaseHistory"><div class="mt-setting-icon">🧾</div><div class="mt-setting-label">Histórico de compras</div><span class="mt-setting-chev">›</span></div>
+    <div class="mt-setting-row" id="settingsRowHelp"><div class="mt-setting-icon">❓</div><div class="mt-setting-label">Central de ajuda</div><span class="mt-setting-chev">›</span></div>
+    <a class="mt-setting-row" href="privacidade.html" target="_blank" rel="noopener" style="text-decoration:none;"><div class="mt-setting-icon">🔐</div><div class="mt-setting-label">Privacidade e dados</div><span class="mt-setting-chev">›</span></a>
+    <div class="mt-setting-row" id="settingsRowLogout"><div class="mt-setting-icon">🚪</div><div class="mt-setting-label">Sair da conta</div><span class="mt-setting-chev">›</span></div>`;
+  document.getElementById("settingsRowClub").addEventListener("click", () => { closeSettingsScreen(); switchToPanel("clube"); });
+  document.getElementById("settingsRowEditProfile").addEventListener("click", openEditProfileScreen);
+  document.getElementById("settingsRowPurchaseHistory").addEventListener("click", openPurchaseHistoryScreen);
+  document.getElementById("settingsRowHelp").addEventListener("click", openHelpCenterScreen);
+  document.getElementById("settingsRowLogout").addEventListener("click", () => document.getElementById("btnLogout").click());
+  document.querySelectorAll("#settingsBody [data-toggle-key]").forEach((row) => {
+    row.addEventListener("click", () => {
+      const key = row.dataset.toggleKey;
+      CAREER.notificationSettings[key] = !CAREER.notificationSettings[key];
+      persistCareer();
+      renderSettingsScreen();
+    });
+  });
+  updateNotificationBadge();
+}
+function settingsToggleRowHTML(key, icon, label, on) {
+  return `<div class="mt-setting-row" data-toggle-key="${key}"><div class="mt-setting-icon">${icon}</div><div class="mt-setting-label">${escapeHtml(label)}</div><button type="button" class="mt-setting-toggle${on ? " on" : ""}"><span class="mt-setting-toggle-dot"></span></button></div>`;
+}
+function openSettingsScreen() {
+  renderSettingsScreen();
+  document.getElementById("settingsOverlay").classList.add("open");
+}
+function closeSettingsScreen() {
+  document.getElementById("settingsOverlay").classList.remove("open");
+}
+function openEditProfileScreen() {
+  document.getElementById("editProfileAvatar").textContent = initialsFor(ME.name);
+  document.getElementById("editProfileNameInput").value = ME.name || "";
+  document.getElementById("editProfileEmail").textContent = maskEmail(ME.email);
+  const rep = CAREER.reputation == null ? 50 : CAREER.reputation;
+  document.getElementById("editProfileLevel").textContent = `${rep} · ${reputationLabel(rep)}`;
+  document.getElementById("editProfileOverlay").classList.add("open");
+}
+function closeEditProfileScreen() {
+  document.getElementById("editProfileOverlay").classList.remove("open");
+}
+async function saveProfileName() {
+  const name = document.getElementById("editProfileNameInput").value.trim();
+  if (!name) { toast("O nome não pode ficar vazio.", { type: "warn" }); return; }
+  const btn = document.getElementById("btnSaveProfileName");
+  btn.disabled = true;
+  try {
+    const result = await fetchJSON("/api/account/name", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name }) });
+    ME.name = result.user.name;
+    renderSettingsScreen();
+    renderAll();
+    toast({ title: "Perfil atualizado", detail: `Nome salvo como "${ME.name}"` }, { type: "pos" });
+    closeEditProfileScreen();
+  } catch (err) {
+    toast(err.message || "Não deu pra salvar o nome agora.", { type: "warn" });
+  } finally {
+    btn.disabled = false;
+  }
+}
+function openHelpCenterScreen() {
+  document.getElementById("helpCenterOverlay").classList.add("open");
+}
+function closeHelpCenterScreen() {
+  document.getElementById("helpCenterOverlay").classList.remove("open");
+}
+
 /* ---------- FASE 2 (a) — Copa do Brasil ----------
    Pedido do usuário (Fase 2 do Modo Carreira, item que a própria
    especificação da Fase 1 já tinha deixado reservado pra "fase
@@ -2788,6 +2907,63 @@ function pushTransferLog(text, round) {
   CAREER.transferLog.unshift({ round, text });
   if (CAREER.transferLog.length > TRANSFER_LOG_MAX) CAREER.transferLog.length = TRANSFER_LOG_MAX;
 }
+
+/* ---------- Central de notificações (Bloco 8 pendentes,
+   brtreinadorbloco8sistema.html) ----------
+   Decisão do usuário via AskUserQuestion: feed DENTRO do app, sem
+   push (o app não tem infraestrutura de push nenhuma — ver decisão
+   já registrada na Retenção/Engajamento). Mesmo espírito de
+   pushTransferLog/pushLedger acima — array simples no save,
+   alimentado nos pontos onde o evento REAL acontece, capado pra não
+   pesar o save. 3 dos 4 tipos do mockup têm toggle correspondente em
+   Configurações (ver CAREER.notificationSettings); "posicao" e
+   "olheiro" não têm toggle no mockup — sempre entram. */
+const NOTIFICATION_MAX = 30;
+const NOTIFICATION_ICON = { lesao: "🩹", proposta: "💰", posicao: "🏆", olheiro: "🔭", loja: "🎁", partida: "📅" };
+function pushNotification(type, text, opts = {}) {
+  CAREER.notificationSettings = CAREER.notificationSettings || { partida: true, loja: false, lesao: true };
+  const gate = opts.gateBy || null; // "partida" | "loja" | "lesao" | null (sem toggle correspondente)
+  if (gate && CAREER.notificationSettings[gate] === false) return;
+  CAREER.notifications = CAREER.notifications || [];
+  CAREER.notifications.unshift({ id: `ntf_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`, type, icon: NOTIFICATION_ICON[type] || "🔔", text, ts: Date.now(), read: false });
+  if (CAREER.notifications.length > NOTIFICATION_MAX) CAREER.notifications.length = NOTIFICATION_MAX;
+}
+function unreadNotificationCount() {
+  return ((CAREER && CAREER.notifications) || []).filter((n) => !n.read).length;
+}
+function timeAgoLabel(ts) {
+  const diffMin = Math.max(0, Math.round((Date.now() - ts) / 60000));
+  if (diffMin < 1) return "agora";
+  if (diffMin < 60) return `há ${diffMin} min`;
+  const diffH = Math.round(diffMin / 60);
+  if (diffH < 24) return `há ${diffH} h`;
+  const diffD = Math.round(diffH / 24);
+  return diffD === 1 ? "ontem" : `há ${diffD} dias`;
+}
+function renderNotificationsSheet() {
+  const list = CAREER.notifications || [];
+  const body = document.getElementById("notificationsSheetBody");
+  body.innerHTML = list.length
+    ? list.map((n) => `<div class="mt-notif-item"><div class="mt-notif-icon">${n.icon}</div><div><div class="mt-notif-text">${escapeHtml(n.text)}</div><div class="mt-notif-time">${timeAgoLabel(n.ts)}</div></div></div>`).join("")
+    : `<p class="ct-empty">Nenhuma notificação ainda — avisos de lesão, propostas, posição na tabela e olheiros aparecem aqui conforme acontecem.</p>`;
+}
+function openNotificationsSheet() {
+  (CAREER.notifications || []).forEach((n) => { n.read = true; });
+  renderNotificationsSheet();
+  updateNotificationBadge();
+  document.getElementById("notificationsSheetOverlay").classList.add("open");
+  persistCareer();
+}
+function closeNotificationsSheet() {
+  document.getElementById("notificationsSheetOverlay").classList.remove("open");
+}
+function updateNotificationBadge() {
+  const badge = document.getElementById("settingsBellBadge");
+  if (!badge) return;
+  const n = unreadNotificationCount();
+  badge.textContent = n > 9 ? "9+" : String(n);
+  badge.classList.toggle("hidden", n === 0);
+}
 // Bloco 4 (mockup brtreinadorbloco4pendentes.html — Extrato financeiro)
 // — pushTransferLog acima é só texto solto pro feed de notícias, sem
 // tipo/valor pra filtrar ou somar. financeLedger é um registro paralelo,
@@ -3378,7 +3554,7 @@ function renderCompetitionPicker() {
 // Escolha do Clube, agora restrita aos times DESSA divisão.
 async function chooseCompetition(competitionId) {
   show("screenLoading");
-  document.getElementById("screenLoading").innerHTML = `<div class="ct-spinner"></div><p>Carregando o Modo Técnico...</p>`;
+  document.getElementById("screenLoading").innerHTML = splashLoadingHTML("Carregando o Modo Técnico...");
   await loadLeague(competitionId);
   renderClubPicker();
   show("screenPicker");
@@ -3619,6 +3795,15 @@ async function startCareer(clubId) {
       objectives: freshObjectivesState(), achievements: freshAchievementsState(),
       baseRevealedCount: 0, titlesWonNacional: 0, titlesWonCopa: 0,
       seasonTeamGoals: 0, seasonTeamFouls: 0,
+      // Bloco 8 pendentes — Central de notificações (feed real, ver
+      // pushNotification) + Configurações (toggles que decidem o que
+      // entra nele, mesmos defaults do mockup).
+      notifications: [],
+      notificationSettings: { partida: true, loja: false, lesao: true },
+      // Bloco 7 pendentes — Histórico de compras: registra USO real de
+      // item/recompensa (ver applyDailyLoginReward), não uma compra de
+      // verdade (a Loja ainda não cobra nada — ver aviso em renderLoja).
+      purchaseHistory: [],
     };
     TECHNICIAN_CARRY = null;
     // Nova feature (pedido do usuário: "reinicie o tema do
@@ -4704,10 +4889,13 @@ const DAILY_LOGIN_REWARD_LABEL = { coins: "moedas do clube", boost: "moral do el
 function applyDailyLoginReward(reward) {
   if (reward.type === "coins") {
     CAREER.finances.cash += reward.amount;
+    pushPurchaseHistory(DAILY_LOGIN_REWARD_ICON.coins, "Recompensa diária: moedas do clube", "Login diário", `+${fmtBRL(reward.amount)}`, "credit");
     return { icon: DAILY_LOGIN_REWARD_ICON.coins, detail: `+${fmtBRL(reward.amount)}` };
   }
   if (reward.type === "boost") {
     CAREER.squad.forEach((p) => { p.morale = clamp((p.morale == null ? 70 : p.morale) + 8, 0, 100); });
+    pushPurchaseHistory(DAILY_LOGIN_REWARD_ICON.boost, "Boost de moral usado", "Recompensa do login diário", "USADO");
+    pushNotification("loja", "Boost de moral do elenco usado (recompensa do login diário).", { gateBy: "loja" });
     return { icon: DAILY_LOGIN_REWARD_ICON.boost, detail: "Moral do elenco em alta" };
   }
   if (reward.type === "scout_token") {
@@ -4717,9 +4905,11 @@ function applyDailyLoginReward(reward) {
     if (base.length) {
       const p = base[Math.floor(Math.random() * base.length)];
       p.scoutRevealed = true;
+      pushPurchaseHistory(DAILY_LOGIN_REWARD_ICON.scout_token, "Olheiro extra usado", `Potencial de ${abbreviateName(p.name)} revelado`, "USADO");
       return { icon: DAILY_LOGIN_REWARD_ICON.scout_token, detail: `Potencial de ${abbreviateName(p.name)} revelado` };
     }
     CAREER.finances.cash += 500; // sem ninguém da base pra revelar, cai pra um pequeno bônus em dinheiro
+    pushPurchaseHistory(DAILY_LOGIN_REWARD_ICON.scout_token, "Recompensa diária: bônus em dinheiro", "Sem jogador da base pra revelar", "+R$ 500", "credit");
     return { icon: DAILY_LOGIN_REWARD_ICON.scout_token, detail: "+R$ 500 (sem jogador da base pra revelar)" };
   }
   // premium_pack
@@ -4728,6 +4918,8 @@ function applyDailyLoginReward(reward) {
     p.morale = clamp((p.morale == null ? 70 : p.morale) + 8, 0, 100);
     p.condition = clamp((p.condition == null ? 100 : p.condition) + 15, 0, 100);
   });
+  pushPurchaseHistory(DAILY_LOGIN_REWARD_ICON.premium_pack, "Pacote de elite usado", "Moral e condição recuperadas", `+${fmtBRL(reward.amount)}`, "credit");
+  pushNotification("loja", "Pacote de elite usado (recompensa do login diário).", { gateBy: "loja" });
   return { icon: DAILY_LOGIN_REWARD_ICON.premium_pack, detail: `+${fmtBRL(reward.amount)} · moral e condição recuperadas` };
 }
 function dailyLoginDayCellHTML(dayInfo, currentDay) {
@@ -4894,6 +5086,39 @@ function openPurchaseConfirm(kind, id) {
 function confirmPurchaseNow() {
   document.getElementById("purchaseConfirmOverlay").classList.remove("open");
   toast({ title: "Loja em prévia", detail: "Pagamentos chegam em breve — nada foi cobrado." }, { type: "info" });
+}
+
+/* ---------- Histórico de compras (Bloco 7 pendentes,
+   brtreinadorbloco7loja.html) ----------
+   Decisão do usuário via AskUserQuestion: como a Loja ainda não cobra
+   nada de verdade (ver aviso grande acima), esta tela não finge um
+   histórico de PAGAMENTO — ela registra USO real de item/recompensa,
+   populada pelas recompensas do login diário (ver
+   applyDailyLoginReward), que já aplicam efeito de verdade no jogo.
+   Mesmo espírito de pushTransferLog/pushNotification: array simples no
+   save, capado pra não pesar. */
+const PURCHASE_HISTORY_MAX = 30;
+function pushPurchaseHistory(icon, name, detail, valueLabel, valueType) {
+  CAREER.purchaseHistory = CAREER.purchaseHistory || [];
+  CAREER.purchaseHistory.unshift({ icon, name, detail, valueLabel, valueType, ts: Date.now() });
+  if (CAREER.purchaseHistory.length > PURCHASE_HISTORY_MAX) CAREER.purchaseHistory.length = PURCHASE_HISTORY_MAX;
+}
+function dateLabelFor(ts) {
+  return new Date(ts).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+}
+function renderPurchaseHistory() {
+  const list = CAREER.purchaseHistory || [];
+  const body = document.getElementById("purchaseHistoryBody");
+  body.innerHTML = list.length
+    ? list.map((tx) => `<div class="mt-tx-row"><div class="mt-tx-icon">${tx.icon}</div><div class="mt-tx-body"><div class="mt-tx-name">${escapeHtml(tx.name)}</div><div class="mt-tx-date">${dateLabelFor(tx.ts)}${tx.detail ? ` · ${escapeHtml(tx.detail)}` : ""}</div></div><div class="mt-tx-val${tx.valueType === "credit" ? " credit" : ""}">${escapeHtml(tx.valueLabel || "")}</div></div>`).join("")
+    : `<p class="ct-empty">Nenhum uso registrado ainda — itens e recompensas usados de verdade no jogo (como as recompensas do login diário) aparecem aqui.</p>`;
+}
+function openPurchaseHistoryScreen() {
+  renderPurchaseHistory();
+  document.getElementById("purchaseHistoryOverlay").classList.add("open");
+}
+function closePurchaseHistoryScreen() {
+  document.getElementById("purchaseHistoryOverlay").classList.remove("open");
 }
 
 /* ---------- FASE 1 (item 4 da especificação "BR Data Treinador") —
@@ -5086,6 +5311,15 @@ function applyMatchWearChunk(starters, round, chunkShare, appearedSet) {
       p.injuryHistory = p.injuryHistory || [];
       p.injuryHistory.push({ round, severity: severity.type, durationRounds: dur, fadigaAtInjury: fadigaAntes });
       if (p.injuryHistory.length > INJURY_HISTORY_MAX) p.injuryHistory.shift();
+      // Central de notificações (Bloco 8 pendentes) — só o SEU clube
+      // (applyMatchWearChunk também roda pros outros 19 times, ver
+      // resolveCpuFixture; CAREER.squad contém as MESMAS referências de
+      // jogador do seu elenco, então .includes() por identidade basta,
+      // sem precisar de um parâmetro extra só pra isso). Gate pelo
+      // toggle "Alertas de lesão" de Configurações.
+      if (CAREER.squad && CAREER.squad.includes(p)) {
+        pushNotification("lesao", `${abbreviateName(p.name)} sofreu uma lesão (${injurySeverityLabel(severity.type)}) — fora por ${dur} rodada(s).`, { gateBy: "lesao" });
+      }
       // AJUSTE (Play-by-Play v2, pedido do usuário — documento "BR Data
       // Play-by-Play", catálogo INJURY) — a lesão já existia (a
       // mecânica em si é de antes desta sessão), só era silenciosa: não
@@ -5186,6 +5420,16 @@ function sortedStandings() {
 }
 function myLeaguePosition() {
   return sortedStandings().findIndex((r) => String(r.id) === String(CAREER.clubId)) + 1;
+}
+// Central de notificações (Bloco 8 pendentes) — mesma ordenação de
+// sortedStandings(), mas aceita um snapshot ARBITRÁRIO (ver
+// standingsBefore em finishRoundTail) pra comparar sua posição ANTES
+// da rodada com a de AGORA, sem precisar guardar a posição num campo
+// à parte.
+function positionInStandings(standings) {
+  return Object.values(standings).slice()
+    .sort((a, b) => (b.pts - a.pts) || (b.v - a.v) || (b.sg - a.sg) || (b.gp - a.gp))
+    .findIndex((r) => String(r.id) === String(CAREER.clubId)) + 1;
 }
 // AJUSTE (pedido do usuário: "reinicie o tema do rebaixamento") —
 // `standings` agora é parâmetro opcional (era sempre CAREER.standings)
@@ -5888,6 +6132,23 @@ function finishRoundTail(round, allResults, humanMatch, standingsBefore) {
   const roundEntries = news.map((n) => ({ ...n, round, seasonYear: CAREER.seasonYear }));
   CAREER.newsFeed = roundEntries.concat(CAREER.newsFeed || []);
   if (CAREER.newsFeed.length > NEWS_FEED_MAX) CAREER.newsFeed.length = NEWS_FEED_MAX;
+  // Central de notificações (Bloco 8 pendentes) — "posicao" não tem
+  // toggle no mockup (sempre entra); "partida" (lembrete do próximo
+  // jogo) tem toggle em Configurações. Comparado contra standingsBefore
+  // (capturado ANTES desta rodada em simulateRound), não um campo à
+  // parte — evita divergir se algo mudar a tabela no meio do caminho.
+  const posBefore = positionInStandings(standingsBefore);
+  const posAfter = myLeaguePosition();
+  if (posBefore && posAfter && posBefore !== posAfter) {
+    const verbo = posAfter < posBefore ? "subiu para" : "caiu para";
+    pushNotification("posicao", `${CAREER.clubName} ${verbo} o ${posAfter}º lugar após a rodada.`);
+  }
+  const nextFixture = (CAREER.schedule[nextRound] || []).find((m) => String(m.home) === String(CAREER.clubId) || String(m.away) === String(CAREER.clubId));
+  if (nextFixture) {
+    const oppId = String(nextFixture.home) === String(CAREER.clubId) ? nextFixture.away : nextFixture.home;
+    const opp = teamById(oppId);
+    if (opp) pushNotification("partida", `Seu próximo jogo é contra o ${opp.name}.`, { gateBy: "partida" });
+  }
   return { round, humanMatch, allResults, lineupChanges, wagePaid, sponsorIncome, installmentsPaid, installmentsReceived, newOffer: CAREER.pendingOffer, cup };
 }
 // Fallback pra uma rodada em que o SEU clube não jogue (não deveria
@@ -9063,6 +9324,7 @@ function resolvePendingOffersOutRound(round) {
     }
     toast(`${o.clubName} recusou sua proposta de ${fmtBRL(o.offerValue)} por ${abbreviateName(o.playerName)}.`, { type: "warn" });
     pushTransferLog(`${o.clubName} recusou sua proposta de ${fmtBRL(o.offerValue)} por ${o.playerName}.`, round);
+    pushNotification("proposta", `${o.clubName} recusou sua proposta por ${abbreviateName(o.playerName)}.`);
   });
   CAREER.pendingOffersOut = stillPending;
 }
@@ -9728,6 +9990,9 @@ function searchScoutSuggestions() {
       playerId: p.id, playerName: p.name, clubId: String(club.id), clubName: club.name,
       subpos: subPositionOf(p), overall: p.overall, potential: p.potential, value: p.value,
     });
+    // Central de notificações (Bloco 8 pendentes) — "olheiro" não tem
+    // toggle no mockup, sempre entra no feed.
+    pushNotification("olheiro", `Os olheiros encontraram um novo promissor: ${abbreviateName(p.name)} (${club.name}).`);
   });
   persistCareer();
   renderScoutSuggestionsScreen();
@@ -10791,6 +11056,23 @@ function wireStaticListeners() {
     openCoachProfileScreen();
   });
   document.getElementById("coachProfileClose").addEventListener("click", closeCoachProfileScreen);
+  // Bloco 8 (sistema/pendentes) — Configurações + telas dependentes
+  // (Editar perfil/Histórico de compras/Central de ajuda) + Central de
+  // notificações (sino no cabeçalho de Configurações).
+  document.getElementById("btnOpenSettings").addEventListener("click", () => {
+    document.getElementById("topbarMenu").classList.remove("open");
+    openSettingsScreen();
+  });
+  document.getElementById("settingsClose").addEventListener("click", closeSettingsScreen);
+  document.getElementById("settingsBell").addEventListener("click", openNotificationsSheet);
+  document.getElementById("notificationsSheetClose").addEventListener("click", closeNotificationsSheet);
+  document.getElementById("editProfileClose").addEventListener("click", closeEditProfileScreen);
+  document.getElementById("btnSaveProfileName").addEventListener("click", saveProfileName);
+  document.getElementById("purchaseHistoryClose").addEventListener("click", closePurchaseHistoryScreen);
+  document.getElementById("helpCenterClose").addEventListener("click", closeHelpCenterScreen);
+  document.querySelectorAll("#helpCenterOverlay .mt-faq-row").forEach((row) => {
+    row.addEventListener("click", () => row.classList.toggle("open"));
+  });
   // Nova feature — Histórico de confrontos (H2H): card do próximo jogo
   // (ver renderCentral()) abre o retrospecto do adversário certo dessa
   // rodada; sem jogo marcado (folga/fim de temporada) o clique não faz
@@ -11458,6 +11740,18 @@ function migrateCareerDefaults() {
   // mesmo motivo de sempre, sem retroativo pra reconstruir.
   if (!CAREER.scouts) CAREER.scouts = [];
   if (!CAREER.scoutMissionProspects) CAREER.scoutMissionProspects = [];
+  // Bloco 8 pendentes — Central de notificações/Configurações: carreira
+  // criada antes disso existir nasce sem feed nenhum (mesmo motivo de
+  // sempre — não dá pra reconstruir eventos já passados) e com os 3
+  // toggles de notificação nos MESMOS defaults do mockup (Lembrete de
+  // partida e Alertas de lesão ligados, Ofertas da loja desligado).
+  if (!CAREER.notifications) CAREER.notifications = [];
+  if (!CAREER.notificationSettings) CAREER.notificationSettings = { partida: true, loja: false, lesao: true };
+  // Bloco 7 pendentes — Histórico de compras: mostra USO real de
+  // itens/recompensas (ver applyDailyLoginReward), não uma compra de
+  // verdade — a Loja ainda não cobra nada (ver aviso grande em
+  // renderLoja). Nasce vazio, sem reconstrução retroativa.
+  if (!CAREER.purchaseHistory) CAREER.purchaseHistory = [];
   evaluateAlwaysCheckableAchievements();
 }
 // AJUSTE (pedido do usuário: "acrescentar a Série B, C [ao Modo
@@ -11469,7 +11763,7 @@ function migrateCareerDefaults() {
 // loadLeague só roda depois que ele escolher.
 async function enterAfterAuth() {
   show("screenLoading");
-  document.getElementById("screenLoading").innerHTML = `<div class="ct-spinner"></div><p>Carregando o Modo Técnico...</p>`;
+  document.getElementById("screenLoading").innerHTML = splashLoadingHTML("Carregando o Modo Técnico...");
   const saved = await fetchJSON("/api/career").catch(() => ({ career: null }));
   if (saved && saved.career) {
     // forceDemo só quando a carreira JÁ GRAVOU explicitamente que nasceu
@@ -11528,11 +11822,11 @@ async function boot() {
     // BUG CORRIGIDO (relato do usuário: "não deu pra carregar" sem
     // detalhe nenhum, sem acesso ao console do celular pra saber o
     // motivo real): mostra a mensagem/stack do erro na própria tela,
-    // igual já fizemos antes pro toast de "não deu pra salvar".
-    document.getElementById("screenLoading").innerHTML =
-      `<p>Não deu pra carregar o Modo Técnico agora.</p>
-       <p class="ct-sub" style="max-width:340px; word-break:break-word;">${escapeHtml(err && (err.stack || err.message) || String(err))}</p>
-       <p><a href="/carreira">Tentar de novo</a></p>`;
+    // igual já fizemos antes pro toast de "não deu pra salvar". AJUSTE
+    // (Bloco 8 sistema) — vira o mesmo estado de erro/retry do mockup
+    // (ícone + título + botão "Tentar novamente"), com o detalhe
+    // técnico ainda visível abaixo (ver splashErrorHTML).
+    document.getElementById("screenLoading").innerHTML = splashErrorHTML(err && (err.stack || err.message) || String(err));
   }
 }
 
