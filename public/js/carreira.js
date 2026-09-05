@@ -2680,8 +2680,13 @@ async function applyPromotionRelegation() {
    propósito), virando uma notícia no feed (ver pushTransferLog). Fica
    de olho no controle de tamanho do save: mover jogador entre elencos
    não muda o total de jogadores na liga, então não cresce o save.
-   pushTransferLog mantém só as últimas TRANSFER_LOG_MAX notícias. */
-const TRANSFER_LOG_MAX = 12;
+   pushTransferLog mantém só as últimas TRANSFER_LOG_MAX notícias.
+   AJUSTE (Bloco 3, 4/4 — pedido do usuário: tela "Histórico de
+   negociações") — subido de 12 pra 60: o valor antigo bastava só pro
+   resumo compacto do Mercado, mas era curto demais pra uma tela
+   dedicada de histórico (cada entrada é minúscula, {round,text}, então
+   o impacto no tamanho do save é desprezível). */
+const TRANSFER_LOG_MAX = 60;
 function pushTransferLog(text, round) {
   CAREER.transferLog = CAREER.transferLog || [];
   CAREER.transferLog.unshift({ round, text });
@@ -8839,6 +8844,56 @@ function closeScoutSuggestionsScreen() {
   document.getElementById("scoutSuggestionsOverlay").classList.remove("open");
 }
 
+/* ---------- Bloco 3 (4/4) — "Histórico de negociações" ----------
+   Mesma fonte de dado do card "Transferências recentes" já existente
+   no Mercado (CAREER.transferLog, ver pushTransferLog) — essa tela
+   nova só mostra o histórico INTEIRO (até TRANSFER_LOG_MAX, subido de
+   12 pra 60 nesta mudança) numa timeline dedicada, em vez do recorte
+   curto que cabe direto na aba. O card do Mercado continua mostrando
+   só as mais recentes, com um link "Ver histórico completo" pra abrir
+   esta tela quando há mais do que cabe ali. */
+// Classifica cada linha do log por tipo (mesmo espírito de
+// liveEventDot, Ao Vivo) só pra dar um ícone/cor diferente por
+// natureza do evento — não muda o texto nem o dado guardado.
+function transferLogIcon(text) {
+  if (/^Você contratou\b|^Você acionou a cláusula e comprou\b/.test(text)) {
+    return { cls: "buy", svg: MARKET_ICON.entrada };
+  }
+  if (/^Você vendeu\b|acionou a cláusula de compra e ficou definitivamente com/.test(text)) {
+    return { cls: "sell", svg: MARKET_ICON.saida };
+  }
+  if (/^Você emprestou\b|^Você pegou\b.*emprestado|voltou (do|pro) /.test(text)) {
+    return { cls: "loan", svg: MARKET_ICON.emprestimo };
+  }
+  if (/^Você retirou sua proposta|venceu a disputa por|recusou sua proposta/.test(text)) {
+    return { cls: "lost", svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>` };
+  }
+  // Sobra: prêmio de Copa, início de temporada, negociação entre 2
+  // times CPU — não afeta seu caixa/elenco, mas fica no mesmo feed.
+  return { cls: "info", svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>` };
+}
+function transferLogItemHTML(e) {
+  const icon = transferLogIcon(e.text);
+  return `<div class="mt-transfer-item">
+    <div class="mt-transfer-dot ${icon.cls}">${icon.svg}</div>
+    <div class="mt-transfer-round">Rodada ${e.round}</div>
+    <div class="mt-transfer-text">${escapeHtml(e.text)}</div>
+  </div>`;
+}
+function renderTransferHistoryScreen() {
+  const list = CAREER.transferLog || [];
+  document.getElementById("transferHistoryCountLabel").textContent = list.length ? `${list.length} registro(s)` : "Nenhuma negociação ainda";
+  document.getElementById("transferHistoryEmpty").classList.toggle("hidden", list.length > 0);
+  document.getElementById("transferHistoryList").innerHTML = list.map(transferLogItemHTML).join("");
+}
+function openTransferHistoryScreen() {
+  renderTransferHistoryScreen();
+  document.getElementById("transferHistoryOverlay").classList.add("open");
+}
+function closeTransferHistoryScreen() {
+  document.getElementById("transferHistoryOverlay").classList.remove("open");
+}
+
 function myOffersRowHTML(o) {
   if (o.status === "countered") {
     return `<div class="mt-sponsor-proposal-row">
@@ -9113,10 +9168,19 @@ function renderMercado() {
     btn.addEventListener("click", () => openLoanInModal(btn.dataset.club, btn.dataset.loanin));
   });
 
+  // AJUSTE (Bloco 3, 4/4 — pedido do usuário: tela "Histórico de
+  // negociações") — este card só mostra as 5 mais recentes agora (o
+  // histórico completo, até TRANSFER_LOG_MAX, mora na tela dedicada —
+  // ver btnOpenTransferHistory/renderTransferHistoryScreen — mesmo
+  // raciocínio já usado antes pra não repetir a mesma lista comprida
+  // em 2 lugares da mesma aba).
   const feed = CAREER.transferLog || [];
   document.getElementById("transferFeed").innerHTML = feed.length
-    ? feed.map((e) => `<div class="ct-transfer-feed-item"><b>Rodada ${e.round}:</b> ${escapeHtml(e.text)}</div>`).join("")
+    ? feed.slice(0, 5).map((e) => `<div class="ct-transfer-feed-item"><b>Rodada ${e.round}:</b> ${escapeHtml(e.text)}</div>`).join("")
     : `<p class="ct-empty">Nenhuma transferência ainda.</p>`;
+  const historyBadge = document.getElementById("transferHistoryBadge");
+  historyBadge.classList.toggle("hidden", feed.length === 0);
+  if (feed.length) historyBadge.textContent = String(feed.length);
 }
 // AJUSTE (pedido do usuário: "no Mercado deu certo mas precisa
 // funcionar também na Comissão Técnica") — buyPlayer() (compra à
@@ -10109,6 +10173,12 @@ function wireStaticListeners() {
   document.getElementById("btnScoutSuggestionsCloseFooter").addEventListener("click", closeScoutSuggestionsScreen);
   document.getElementById("scoutSuggestionsOverlay").addEventListener("click", (e) => { if (e.target.id === "scoutSuggestionsOverlay") closeScoutSuggestionsScreen(); });
   document.getElementById("btnScoutSearch").addEventListener("click", searchScoutSuggestions);
+  // Nova feature (Bloco 3, 4/4) — "Histórico de negociações", mesmo
+  // padrão de fechamento das outras telas cheias do Mercado.
+  document.getElementById("btnOpenTransferHistory").addEventListener("click", openTransferHistoryScreen);
+  document.getElementById("transferHistoryClose").addEventListener("click", closeTransferHistoryScreen);
+  document.getElementById("btnTransferHistoryCloseFooter").addEventListener("click", closeTransferHistoryScreen);
+  document.getElementById("transferHistoryOverlay").addEventListener("click", (e) => { if (e.target.id === "transferHistoryOverlay") closeTransferHistoryScreen(); });
   // Pedido do usuário: X também nas modais de detalhe do jogo e de
   // resultados da rodada (só fecha, igual às outras 2 — quem quiser ver
   // o próximo passo do fluxo clica em "Continuar" mesmo). AJUSTE
