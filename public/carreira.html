@@ -3090,39 +3090,110 @@
            designer) — .mt-stat-grid/kpiHTML (Tela 3) reaproveitados
            direto pros KPIs; mini-tabelas viram lista flex (mesma
            técnica da Tela 8). -->
+      <!-- ---------- Estatísticas completo (pedido do usuário: "com
+           todas as informações possíveis sobre o meu time e as
+           principais informações do campeonato... sempre divididas em
+           Histórico (soma de todas as temporadas) e a Temporada
+           Atual") — 2 seletores independentes (escopo x período), ver
+           STATS_ACTIVE_SCOPE/STATS_ACTIVE_PERIOD e renderEstatisticas()
+           em carreira.js. Mesmo padrão de abas sublinhadas já usado em
+           Objetivos/Loja (.mt-obj-tabs/.mt-obj-tab). -->
       <section class="ct-panel" id="panel-estatisticas">
-        <div class="mt-card">
-          <div class="mt-card-title">Campeonato</div>
-          <div class="mt-stat-grid" id="leagueStatsKpis"></div>
+        <div class="mt-obj-tabs" id="statsScopeTabs">
+          <button type="button" class="mt-obj-tab" data-scope="time">Meu Time</button>
+          <button type="button" class="mt-obj-tab" data-scope="campeonato">Campeonato</button>
         </div>
-        <div class="mt-card">
-          <div class="mt-card-title">Minha equipe</div>
-          <div class="mt-stat-grid" id="teamStatsKpis" style="margin-bottom:18px;"></div>
-          <span class="mt-field-label">Artilheiros e garçons do time</span>
-          <div class="mt-mini-head">
-            <div class="mt-mini-col name">NOME</div>
-            <div class="mt-mini-col head">POS</div><div class="mt-mini-col head">GOLS</div><div class="mt-mini-col head">ASSIST.</div>
-          </div>
-          <div id="teamTopPlayersTable"></div>
+        <div class="mt-obj-tabs" id="statsPeriodTabs" style="margin-top:-6px;">
+          <button type="button" class="mt-obj-tab" data-period="temporada">Temporada Atual</button>
+          <button type="button" class="mt-obj-tab" data-period="historico">Histórico</button>
         </div>
-        <!-- FASE 2 (a) — pedido do usuário: "estatísticas reais de todos
-             os times" com elenco individual pra liga inteira (não só o
-             seu time) — ver CAREER.leagueSquads em carreira.js. -->
-        <div class="mt-card">
-          <div class="mt-card-title">Artilheiros da competição</div>
-          <div class="mt-mini-head">
-            <div class="mt-mini-col name">NOME</div>
-            <div class="mt-mini-col head">TIME</div><div class="mt-mini-col head">GOLS</div><div class="mt-mini-col head">ASSIST.</div>
+
+        <!-- ===== Meu Time ===== -->
+        <div id="statsScopeTime">
+          <div class="mt-card">
+            <div class="mt-card-title">Retrospecto</div>
+            <div class="mt-stat-grid" id="statsRecordKpis"></div>
           </div>
-          <div id="leagueTopScorersTable"></div>
+          <div class="mt-card">
+            <div class="mt-card-title">Gols</div>
+            <div class="mt-stat-grid" id="statsGoalsKpis"></div>
+          </div>
+          <div class="mt-card">
+            <div class="mt-card-title">Disciplina e defesa</div>
+            <div class="mt-stat-grid" id="statsDisciplineKpis"></div>
+          </div>
+          <div class="mt-card">
+            <div class="mt-card-title">Mandante x visitante</div>
+            <div class="mt-mini-head">
+              <div class="mt-mini-col name">&nbsp;</div>
+              <div class="mt-mini-col head">V</div><div class="mt-mini-col head">E</div><div class="mt-mini-col head">D</div><div class="mt-mini-col head">GP</div><div class="mt-mini-col head">GC</div>
+            </div>
+            <div id="statsHomeAwayTable"></div>
+          </div>
+          <div class="mt-card">
+            <div class="mt-card-title">Sequências e recordes</div>
+            <div class="mt-stat-grid" id="statsStreakKpis" style="margin-bottom:10px;"></div>
+            <div id="statsBiggestList"></div>
+          </div>
+          <div class="mt-card">
+            <div class="mt-card-title">Copa do Brasil</div>
+            <div id="statsCopaContent"></div>
+          </div>
+          <div class="mt-card">
+            <div class="mt-card-title" id="statsScorersTeamTitle">Artilheiros e garçons do time</div>
+            <div class="mt-mini-head">
+              <div class="mt-mini-col name">NOME</div>
+              <div class="mt-mini-col head">POS</div><div class="mt-mini-col head">GOLS</div><div class="mt-mini-col head">ASSIST.</div>
+            </div>
+            <div id="teamTopPlayersTable"></div>
+          </div>
         </div>
-        <div class="mt-card">
-          <div class="mt-card-title">Times da competição</div>
-          <div class="mt-mini-head">
-            <div class="mt-mini-col name">TIME</div>
-            <div class="mt-mini-col head">J</div><div class="mt-mini-col head">GP</div><div class="mt-mini-col head">GC</div><div class="mt-mini-col head">SG</div><div class="mt-mini-col head">APROV.</div>
+
+        <!-- ===== Campeonato ===== -->
+        <div id="statsScopeCampeonato">
+          <!-- FASE 2 (a) — pedido do usuário: "estatísticas reais de
+               todos os times" com elenco individual pra liga inteira
+               (não só o seu time) — ver CAREER.leagueSquads em
+               carreira.js. Só faz sentido "da temporada" (melhor
+               ataque/defesa AGORA) — escondido no Histórico. -->
+          <div class="mt-card" id="statsLeagueKpisCard">
+            <div class="mt-card-title">Campeonato</div>
+            <div class="mt-stat-grid" id="leagueStatsKpis"></div>
           </div>
-          <div id="leagueTeamStatsTable"></div>
+          <div class="mt-card">
+            <div class="mt-card-title" id="statsScorersLeagueTitle">Artilheiros da competição</div>
+            <div class="mt-mini-head">
+              <div class="mt-mini-col name">NOME</div>
+              <div class="mt-mini-col head">TIME</div><div class="mt-mini-col head">GOLS</div><div class="mt-mini-col head">ASSIST.</div>
+            </div>
+            <div id="leagueTopScorersTable"></div>
+          </div>
+          <div class="mt-card" id="statsTeamsTableCard">
+            <div class="mt-card-title">Times da competição</div>
+            <div class="mt-mini-head">
+              <div class="mt-mini-col name">TIME</div>
+              <div class="mt-mini-col head">J</div><div class="mt-mini-col head">GP</div><div class="mt-mini-col head">GC</div><div class="mt-mini-col head">SG</div><div class="mt-mini-col head">APROV.</div>
+            </div>
+            <div id="leagueTeamStatsTable"></div>
+          </div>
+          <!-- Histórico de campeões — só dá pra saber a tabela final de
+               TODOS os clubes a partir de que você virou técnico (ver
+               CAREER.leagueChampions/advanceSeason), então só aparece
+               no Histórico. -->
+          <div class="mt-card" id="statsChampionsCard">
+            <div class="mt-card-title">Campeões desde que você chegou</div>
+            <p class="ct-empty" id="statsChampionsEmpty" hidden>Nenhuma temporada completa ainda.</p>
+            <div class="mt-mini-head" id="statsChampionsHead">
+              <div class="mt-mini-col name">TEMP.</div>
+              <div class="mt-mini-col head">CAMPEÃO</div><div class="mt-mini-col head">VICE</div><div class="mt-mini-col head">VOCÊ</div>
+            </div>
+            <div id="leagueChampionsTable"></div>
+          </div>
+          <div class="mt-card" id="statsTitlesByClubCard">
+            <div class="mt-card-title">Títulos por clube</div>
+            <p class="ct-empty" id="statsTitlesEmpty" hidden>Nenhum título distribuído ainda.</p>
+            <div id="titlesByClubTable"></div>
+          </div>
         </div>
       </section>
 
