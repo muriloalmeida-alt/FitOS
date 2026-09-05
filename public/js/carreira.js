@@ -2765,8 +2765,13 @@ async function applyPromotionRelegation() {
    propósito), virando uma notícia no feed (ver pushTransferLog). Fica
    de olho no controle de tamanho do save: mover jogador entre elencos
    não muda o total de jogadores na liga, então não cresce o save.
-   pushTransferLog mantém só as últimas TRANSFER_LOG_MAX notícias. */
-const TRANSFER_LOG_MAX = 12;
+   pushTransferLog mantém só as últimas TRANSFER_LOG_MAX notícias.
+   AJUSTE (Bloco 3, 4/4 — pedido do usuário: tela "Histórico de
+   negociações") — subido de 12 pra 60: o valor antigo bastava só pro
+   resumo compacto do Mercado, mas era curto demais pra uma tela
+   dedicada de histórico (cada entrada é minúscula, {round,text}, então
+   o impacto no tamanho do save é desprezível). */
+const TRANSFER_LOG_MAX = 60;
 function pushTransferLog(text, round) {
   CAREER.transferLog = CAREER.transferLog || [];
   CAREER.transferLog.unshift({ round, text });
@@ -3550,6 +3555,24 @@ async function startCareer(clubId) {
       // fechadas (ver finalizeIncomingPurchase/processPendingInstallments).
       pendingOffersOut: [],
       pendingInstallments: [],
+      // Nova feature (Bloco 3, 3/4 — pedido do usuário: "colocar à
+      // venda") — anúncios de venda ativos (ver openListModal/
+      // resolvePendingListingsRound) e parcelas de vendas já fechadas
+      // que ainda faltam RECEBER (ver acceptListingOffer/
+      // processPendingReceivables — mesmo espírito de
+      // pendingInstallments acima, só que o dinheiro entra em vez de
+      // sair).
+      pendingListings: [],
+      pendingReceivables: [],
+      // Nova feature (pedido do usuário: "mostrar a posição do atleta
+      // e incluir um botão recusar sugestão") — "Indicações dos
+      // olheiros": lista de jogadores de outros clubes com espaço real
+      // de crescimento (ver searchScoutSuggestions/potential), buscada
+      // sob demanda (botão "Buscar indicações", com cooldown de 1x por
+      // rodada — ver lastScoutSearchRound) — aceitar abre a mesma
+      // proposta real do Mercado, recusar só tira da lista.
+      scoutSuggestions: [],
+      lastScoutSearchRound: null,
       // FASE 4 (item 3) — jejum de vitória por time, pra manchete
       // "encerra jejum de X jogos" (ver updateWinlessStreaks).
       teamWinlessStreak: {},
@@ -5115,7 +5138,7 @@ function renderNewsScreen(currentRoundOnly) {
   const financeEl = document.getElementById("newsFinanceRow");
   const finance = currentRoundOnly && PENDING_ROUND_SUMMARY;
   financeEl.innerHTML = (finance && finance.wagePaid)
-    ? `<div class="mt-news-summary-row"><div class="t">Salários pagos: ${fmtBRL(finance.wagePaid)}${finance.sponsorIncome ? ` · Patrocínio: +${fmtBRL(finance.sponsorIncome)}` : ""}${finance.installmentsPaid ? ` · Parcelas de contratação: -${fmtBRL(finance.installmentsPaid)}` : ""} · Caixa: ${fmtBRL(CAREER.finances.cash)}</div></div>`
+    ? `<div class="mt-news-summary-row"><div class="t">Salários pagos: ${fmtBRL(finance.wagePaid)}${finance.sponsorIncome ? ` · Patrocínio: +${fmtBRL(finance.sponsorIncome)}` : ""}${finance.installmentsPaid ? ` · Parcelas de contratação: -${fmtBRL(finance.installmentsPaid)}` : ""}${finance.installmentsReceived ? ` · Parcelas de venda: +${fmtBRL(finance.installmentsReceived)}` : ""} · Caixa: ${fmtBRL(CAREER.finances.cash)}</div></div>`
     : "";
   renderTeamStatusNews();
 }
@@ -5555,6 +5578,12 @@ function finishRoundTail(round, allResults, humanMatch, standingsBefore) {
   // assumida, não uma negociação nova) — ver processPendingInstallments.
   const installmentsPaid = processPendingInstallments();
   if (installmentsPaid) pushLedger("parcela", "Parcela de contratação", -installmentsPaid, round);
+  // Nova feature (Bloco 3, 3/4) — parcelas de vendas já FECHADAS (ver
+  // acceptListingOffer) entram no caixa a cada rodada, mesmo espírito
+  // de installmentsPaid acima, só que dinheiro chegando em vez de
+  // saindo (ver processPendingReceivables).
+  const installmentsReceived = processPendingReceivables();
+  if (installmentsReceived) pushLedger("transferencia", "Parcela de venda", installmentsReceived, round);
   // Bloco 4 — extrato/mini-gráfico de caixa (ver pushCashSnapshot/
   // pushLedger) e andamento de obra do estádio (ver
   // tickStadiumUpgrade): 1x por rodada simulada, igual ao resto do
@@ -5583,6 +5612,11 @@ function finishRoundTail(round, allResults, humanMatch, standingsBefore) {
   // proposta já foi enviada legitimamente dentro dela, só a resposta
   // do clube que pode cair um pouco depois do fechamento.
   resolvePendingOffersOutRound(round);
+  // Nova feature (Bloco 3, 3/4) — sorteia propostas novas pros anúncios
+  // de venda ativos (ver resolvePendingListingsRound) — mesmo raciocínio
+  // de rodar fora da janela também (vender sempre foi liberado o ano
+  // inteiro, ver transferWindowStatus).
+  resolvePendingListingsRound();
   // Nova feature (pedido do usuário: "reinicie o tema do
   // rebaixamento") — a tabela das 2 divisões que o técnico não joga
   // avança 1 rodada em segundo plano, junto com a sua (ver
@@ -5615,7 +5649,7 @@ function finishRoundTail(round, allResults, humanMatch, standingsBefore) {
   const roundEntries = news.map((n) => ({ ...n, round, seasonYear: CAREER.seasonYear }));
   CAREER.newsFeed = roundEntries.concat(CAREER.newsFeed || []);
   if (CAREER.newsFeed.length > NEWS_FEED_MAX) CAREER.newsFeed.length = NEWS_FEED_MAX;
-  return { round, humanMatch, allResults, lineupChanges, wagePaid, sponsorIncome, installmentsPaid, newOffer: CAREER.pendingOffer, cup };
+  return { round, humanMatch, allResults, lineupChanges, wagePaid, sponsorIncome, installmentsPaid, installmentsReceived, newOffer: CAREER.pendingOffer, cup };
 }
 // Fallback pra uma rodada em que o SEU clube não jogue (não deveria
 // acontecer no returno completo de pontos corridos, mas o calendário é
@@ -7169,7 +7203,7 @@ function openDetail(id) {
       ${p.origin === "loan" ? "" : p.origin === "base"
         ? `<button class="mt-btn-primary-gold" data-act="promote" ${promoteBlocked ? "disabled" : ""} ${promoteBlocked ? `title="Estouraria o teto salarial (${fmtBRL(CAREER.finances.wageCap)}) — libere espaço dispensando ou enviando alguém pra base antes."` : ""}>Promover ao elenco principal</button>`
         : `<button class="mt-btn-ghost" data-act="demote">Enviar pra base</button>`}
-      ${p.origin === "principal" ? `<button class="mt-btn-primary-gold" data-act="sell">Vender por ${fmtBRL(p.value)}</button>
+      ${p.origin === "principal" ? `<button class="mt-btn-primary-gold" data-act="sell">${listingFor(p.id) ? "Ver anúncio de venda" : "Colocar à venda"}</button>
       <button class="mt-btn-ghost" data-act="loanout" ${isLoanOutRefused(p) ? `disabled title="Jogador de destaque demais — não aceita ser emprestado"` : ""}>Emprestar</button>` : ""}
       <!-- Empréstimo: sem vender/dispensar/renovar — o jogador não é
            seu, só está temporariamente no elenco (ver comentário na
@@ -7203,6 +7237,11 @@ async function handlePlayerAction(id, act) {
   // de configuração do empréstimo POR CIMA do detalhe, sem mexer em
   // nada ainda — quem decide o que muda é confirmLoanFromModal().
   if (act === "loanout") { openLoanOutModal(id); return; }
+  // Nova feature (Bloco 3, 3/4) — "Colocar à venda", mesmo padrão do
+  // "loanout" acima: abre o sheet de anúncio POR CIMA do detalhe, sem
+  // mexer em nada ainda — quem decide é confirmListFromModal() (ou,
+  // se já tiver anúncio ativo, abre "Minhas vendas" direto).
+  if (act === "sell") { openListModal(id); return; }
   // Nova feature — Comparar jogadores (ver openComparePicker).
   if (act === "compare") { openComparePicker(id); return; }
   if (act === "removeStarter") {
@@ -7238,8 +7277,6 @@ async function handlePlayerAction(id, act) {
     CAREER.squad = CAREER.squad.filter((x) => x.id !== id);
     CAREER.lineup.starters = CAREER.lineup.starters.map((x) => (x === id ? null : x));
     CAREER.lineup.bench = CAREER.lineup.bench.filter((x) => x !== id);
-  } else if (act === "sell") {
-    if (!(await sellPlayer(id))) return; // cancelado ou bloqueado — mantém o modal aberto
   }
   // Meus esquemas — qualquer uma dessas ações pode mexer na escalação
   // (titular/banco), então desvincula do esquema salvo igual as outras
@@ -8807,6 +8844,394 @@ function processPendingInstallments() {
   CAREER.pendingInstallments = stillPending;
   return totalDue;
 }
+
+/* ---------- Bloco 3 (3/4) — Mercado: "Colocar à venda" (pedido do
+   usuário, mockups brtreinadorbloco3mercado.html/
+   brtreinadorbloco3pendentes.html) ----------
+   Antes, "Vender" achava um comprador aleatório e fechava na hora pelo
+   valor de mercado (ver sellPlayer, continua existindo pra outros
+   fluxos — "Dispensar"/liberação de vaga não passa por aqui). Agora
+   vira um ANÚNCIO de verdade (CAREER.pendingListings): valor pedido
+   editável (pode pedir mais que o de mercado — atrai menos gente) e
+   SEM comprador certo na hora. A cada rodada simulada (ver
+   resolvePendingListingsRound, chamada em finishRoundTail — roda
+   mesmo fora da janela de contratações, já que vender sempre foi
+   liberado o ano inteiro, ver transferWindowStatus), cada anúncio
+   ativo tem uma chance de receber uma proposta nova de um clube com
+   vaga no elenco — até LISTING_MAX_OFFERS por anúncio, pra não virar
+   uma lista infinita. Diferente da compra (que expira sozinha depois
+   de OFFER_WAIT_ROUNDS), o anúncio NUNCA decide sozinho: cada proposta
+   fica esperando o técnico aceitar, recusar (só aquela, o anúncio
+   continua ativo) ou cancelar o anúncio inteiro, sem prazo — decisão
+   nossa, dá controle total de quando vender de verdade.
+   Parcelamento (o clube compra a prazo) funciona espelhado do lado da
+   compra: a 1ª parcela entra no caixa na hora de aceitar, o resto vai
+   pra CAREER.pendingReceivables (ver processPendingReceivables,
+   também chamada em finishRoundTail) — dinheiro entrando aos poucos,
+   em vez de saindo (pendingInstallments). */
+const LISTING_OFFER_CHANCE_PER_ROUND = 0.4;
+const LISTING_MAX_OFFERS = 3;
+function listingFor(playerId) {
+  return (CAREER.pendingListings || []).find((l) => String(l.playerId) === String(playerId));
+}
+// Sorteia, no máximo, 1 proposta nova por rodada por anúncio — mesmo
+// pool de clubes elegíveis do lado da compra (marketTeamsPool, com
+// vaga real no elenco), nunca repete um clube que já tem proposta
+// ativa nesse mesmo anúncio. Faixa de valor mais larga que a
+// concorrência do lado da compra (55%-110% do valor PEDIDO, não do de
+// mercado) — de propósito: pedir mais que o valor de mercado é
+// legítimo, mas atrai propostas relativamente mais baixas.
+function maybeSpawnListingOffer(listing) {
+  if (listing.offers.length >= LISTING_MAX_OFFERS) return;
+  if (Math.random() >= LISTING_OFFER_CHANCE_PER_ROUND) return;
+  const p = CAREER.squad.find((x) => x.id === listing.playerId);
+  if (!p) return;
+  const alreadyOffered = new Set(listing.offers.map((o) => String(o.clubId)));
+  const eligible = marketTeamsPool().filter((t) =>
+    String(t.id) !== String(CAREER.clubId) && !alreadyOffered.has(String(t.id)) && leagueSquadFor(t.id).length < maxSquadSizeFor(t.id)
+  );
+  if (!eligible.length) return;
+  const club = eligible[Math.floor(Math.random() * eligible.length)];
+  const factor = 0.55 + Math.random() * 0.55; // entre 55% e 110% do valor PEDIDO
+  const value = Math.max(1000, Math.round((listing.askingValue * factor) / 1000) * 1000);
+  const installments = Math.random() < 0.6 ? 1 : Math.random() < 0.7 ? 2 : 3; // clube CPU às vezes parcela também
+  listing.offers.unshift({
+    id: `listingoffer_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+    clubId: String(club.id), clubName: club.name, value, installments, round: CAREER.currentRound,
+  });
+  toast({ title: "Proposta recebida", detail: `${club.name} ofereceu ${fmtBRL(value)} por ${abbreviateName(p.name)} — veja em Minhas vendas.` }, { type: "info" });
+}
+// Roda 1x por rodada simulada (ver finishRoundTail) — só sorteia
+// propostas novas; quem decide o destino de cada uma é sempre o
+// técnico (ver acceptListingOffer/rejectListingOffer/cancelListing).
+function resolvePendingListingsRound() {
+  (CAREER.pendingListings || []).forEach(maybeSpawnListingOffer);
+}
+// Espelho de processPendingInstallments — só que o dinheiro ENTRA
+// (venda a prazo já fechada, ver acceptListingOffer) em vez de sair.
+function processPendingReceivables() {
+  const list = CAREER.pendingReceivables || [];
+  let totalDue = 0;
+  const stillPending = [];
+  list.forEach((r) => {
+    totalDue += r.perRoundAmount;
+    r.roundsLeft -= 1;
+    if (r.roundsLeft > 0) stillPending.push(r);
+  });
+  CAREER.finances.cash += totalDue;
+  CAREER.pendingReceivables = stillPending;
+  return totalDue;
+}
+let LIST_CTX = null; // { playerId } enquanto o sheet de novo anúncio está aberto
+function openListModal(playerId) {
+  // Já está anunciado — leva direto pra "Minhas vendas" em vez de
+  // deixar anunciar 2x o mesmo jogador (mesmo padrão de
+  // pendingOfferOutFor no lado da compra).
+  if (listingFor(playerId)) { openMySalesScreen(); return; }
+  const p = CAREER.squad.find((x) => x.id === playerId);
+  if (!p) return;
+  const principalCount = CAREER.squad.filter((x) => x.origin === "principal").length;
+  if (p.origin === "principal" && principalCount <= 14) {
+    toast("O elenco principal não pode ficar com menos de 14 jogadores.", { type: "warn" });
+    return;
+  }
+  LIST_CTX = { playerId };
+  document.getElementById("listSub").textContent = `${abbreviateName(p.name)} · valor de mercado ${fmtBRL(p.value)}`;
+  document.getElementById("listValueInput").value = p.value;
+  document.getElementById("listOverlay").classList.add("open");
+}
+function closeListModal() {
+  document.getElementById("listOverlay").classList.remove("open");
+  LIST_CTX = null;
+}
+function confirmListFromModal() {
+  if (!LIST_CTX) return;
+  const p = CAREER.squad.find((x) => x.id === LIST_CTX.playerId);
+  if (!p) { closeListModal(); toast("Esse jogador não está mais no seu elenco.", { type: "warn" }); return; }
+  const askingValue = Math.max(1000, Math.round(Number(document.getElementById("listValueInput").value) || 0));
+  CAREER.pendingListings = CAREER.pendingListings || [];
+  CAREER.pendingListings.push({
+    id: `listing_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+    playerId: p.id, playerName: p.name, askingValue, marketValue: p.value,
+    listedRound: CAREER.currentRound, offers: [],
+  });
+  closeListModal();
+  persistCareer();
+  renderMercado();
+  toast({ title: "Jogador anunciado", detail: `${abbreviateName(p.name)} colocado à venda por ${fmtBRL(askingValue)} — acompanhe em Minhas vendas.` }, { type: "info" });
+}
+// Recusa só ESSA proposta (o anúncio continua ativo, pode chegar outra
+// depois) — diferente de cancelar o anúncio inteiro (ver cancelListing).
+function rejectListingOffer(listingId, offerId) {
+  const listing = (CAREER.pendingListings || []).find((l) => l.id === listingId);
+  if (!listing) return;
+  listing.offers = listing.offers.filter((o) => o.id !== offerId);
+  persistCareer();
+  renderMySalesScreen();
+  renderMercado();
+}
+// Tira o jogador da vitrine sem vender nada — ele continua no elenco
+// normal, só deixa de estar "à venda" (qualquer proposta que já tinha
+// chegado é descartada junto).
+function cancelListing(listingId) {
+  const listing = (CAREER.pendingListings || []).find((l) => l.id === listingId);
+  CAREER.pendingListings = (CAREER.pendingListings || []).filter((l) => l.id !== listingId);
+  persistCareer();
+  renderMySalesScreen();
+  renderMercado();
+  toast(listing ? `${abbreviateName(listing.playerName)} não está mais à venda.` : "Anúncio cancelado.", { type: "info" });
+}
+// Fecha a venda de verdade — mesmo espírito de finalizeIncomingPurchase
+// do lado da compra: paga a 1ª parcela na hora (ou tudo, à vista), o
+// resto vira CAREER.pendingReceivables (ver processPendingReceivables).
+// Qualquer OUTRA proposta pendente pro mesmo anúncio é descartada
+// junto — o jogador já foi, não dá mais pra escolher outra.
+function acceptListingOffer(listingId, offerId) {
+  const listing = (CAREER.pendingListings || []).find((l) => l.id === listingId);
+  if (!listing) return;
+  const offer = listing.offers.find((o) => o.id === offerId);
+  if (!offer) return;
+  const p = CAREER.squad.find((x) => x.id === listing.playerId);
+  if (!p) {
+    toast(`${abbreviateName(listing.playerName)} não está mais no seu elenco — anúncio cancelado.`, { type: "warn" });
+    CAREER.pendingListings = (CAREER.pendingListings || []).filter((l) => l.id !== listingId);
+    persistCareer(); renderMySalesScreen(); renderMercado();
+    return;
+  }
+  const principalCount = CAREER.squad.filter((x) => x.origin === "principal").length;
+  if (p.origin === "principal" && principalCount <= 14) {
+    toast("O elenco principal não pode ficar com menos de 14 jogadores — não dá pra fechar essa venda agora.", { type: "warn" });
+    return;
+  }
+  const perInstallment = Math.round(offer.value / offer.installments / 1000) * 1000;
+  const firstPayment = offer.installments === 1 ? offer.value : perInstallment;
+  CAREER.squad = CAREER.squad.filter((x) => x.id !== p.id);
+  CAREER.lineup.starters = CAREER.lineup.starters.map((x) => (x === p.id ? null : x));
+  CAREER.lineup.bench = CAREER.lineup.bench.filter((x) => x !== p.id);
+  CAREER.finances.cash += firstPayment;
+  if (offer.installments > 1) {
+    CAREER.pendingReceivables = CAREER.pendingReceivables || [];
+    CAREER.pendingReceivables.push({ roundsLeft: offer.installments - 1, perRoundAmount: perInstallment, label: `Parcela da venda de ${p.name}` });
+  }
+  (CAREER.leagueSquads[String(offer.clubId)] = CAREER.leagueSquads[String(offer.clubId)] || []).push(p);
+  pushTransferLog(`Você vendeu ${p.name} pro ${offer.clubName} por ${fmtBRL(offer.value)}${offer.installments > 1 ? ` (${offer.installments}x)` : ""}.`, CAREER.currentRound);
+  pushLedger("transferencia", `Venda — ${p.name} (${offer.clubName})${offer.installments > 1 ? ` — 1ª de ${offer.installments} parcelas` : ""}`, firstPayment, CAREER.currentRound);
+  toast(`${abbreviateName(p.name)} vendido! O ${offer.clubName} pagou ${fmtBRL(offer.value)}.`, { type: "pos" });
+  ensureObjectivesFresh(); bumpObjective("daily", "obj_market_1_move", 1);
+  CAREER.pendingListings = (CAREER.pendingListings || []).filter((l) => l.id !== listingId);
+  // FASE 4 (item 2) — mesmo proxy de "venda de jogador querido pela
+  // torcida" já usado em sellPlayer.
+  if (p.overall >= 80) { firePressConference("16", CAREER.currentRound, false); openPressConferenceModal(); }
+  markLineupDirty();
+  persistCareer();
+  renderMySalesScreen();
+  renderMercado(); renderElenco(); renderEscalacao(); renderCentral();
+}
+function mySalesOfferRowHTML(listing, offer) {
+  return `<div class="mt-sponsor-proposal-row">
+    <div>
+      <div class="mt-sponsor-proposal-name">${escapeHtml(offer.clubName)}</div>
+      <div class="mt-sponsor-proposal-detail">${fmtBRL(offer.value)}${offer.installments > 1 ? ` em ${offer.installments}x` : " à vista"}</div>
+    </div>
+    <div style="display:flex; gap:6px; flex-shrink:0;">
+      <button class="mt-btn-ghost" data-rejectlisting="${listing.id}" data-offer="${offer.id}" style="padding:9px 12px;">Recusar</button>
+      <button class="mt-btn-sign" data-acceptlisting="${listing.id}" data-offer="${offer.id}">Aceitar</button>
+    </div>
+  </div>`;
+}
+function mySalesListingHTML(listing) {
+  const offersHTML = listing.offers.length
+    ? listing.offers.map((o) => mySalesOfferRowHTML(listing, o)).join("")
+    : `<p class="ct-empty" style="margin:0;">Nenhuma proposta ainda — aguardando interessados.</p>`;
+  return `<div class="mt-card">
+    <div class="mt-card-head">
+      <div class="mt-card-title">${escapeHtml(abbreviateName(listing.playerName))}</div>
+      <button class="mt-btn-ghost" data-cancellisting="${listing.id}" style="padding:6px 10px; font-size:12px;">Cancelar anúncio</button>
+    </div>
+    <p class="mt-card-sub" style="margin:0 0 8px;">Pedindo ${fmtBRL(listing.askingValue)} · anunciado na rodada ${listing.listedRound}${listing.offers.length ? ` · ${listing.offers.length} proposta(s)` : ""}</p>
+    ${offersHTML}
+  </div>`;
+}
+function renderMySalesScreen() {
+  const list = CAREER.pendingListings || [];
+  document.getElementById("mySalesCountLabel").textContent = list.length ? `${list.length} anunciado(s)` : "Nenhum anúncio ativo";
+  document.getElementById("mySalesEmpty").classList.toggle("hidden", list.length > 0);
+  document.getElementById("mySalesList").innerHTML = list.map(mySalesListingHTML).join("");
+  document.getElementById("mySalesList").querySelectorAll("[data-acceptlisting]").forEach((btn) => {
+    btn.addEventListener("click", () => acceptListingOffer(btn.dataset.acceptlisting, btn.dataset.offer));
+  });
+  document.getElementById("mySalesList").querySelectorAll("[data-rejectlisting]").forEach((btn) => {
+    btn.addEventListener("click", () => rejectListingOffer(btn.dataset.rejectlisting, btn.dataset.offer));
+  });
+  document.getElementById("mySalesList").querySelectorAll("[data-cancellisting]").forEach((btn) => {
+    btn.addEventListener("click", () => cancelListing(btn.dataset.cancellisting));
+  });
+  const badge = document.getElementById("mySalesBadge");
+  badge.classList.toggle("hidden", list.length === 0);
+  if (list.length) badge.textContent = String(list.length);
+}
+function openMySalesScreen() {
+  renderMySalesScreen();
+  document.getElementById("mySalesOverlay").classList.add("open");
+}
+function closeMySalesScreen() {
+  document.getElementById("mySalesOverlay").classList.remove("open");
+}
+
+/* ---------- "Indicações dos olheiros" (pedido do usuário: "mostrar a
+   posição do atleta e incluir um botão recusar sugestão para que a
+   janela feche e o atleta seja excluído da lista de olheiros") ----------
+   Diferente da sugestão de Mercado da Comissão Técnica (suggestMarket,
+   reativa, sempre olha só pro titular mais fraco), os olheiros
+   procuram JOIAS — jogadores de OUTROS clubes com espaço real de
+   crescimento (mesmo p.potential usado em toda a evolução de
+   atributos, ver derivePotentialForAdult) — sob demanda: só quando o
+   técnico clica em "Buscar indicações" (com cooldown de 1x por
+   rodada, mesmo espírito de BOARD_REQUEST_COOLDOWN, pra não virar
+   spam de clique). Cada indicação fica na lista até o técnico decidir:
+   "Aceitar" abre a MESMA proposta real do Mercado (ver openOfferModal),
+   "Recusar" só tira da lista, sem afetar nada mais. */
+const SCOUT_MAX_SUGGESTIONS = 6; // teto da lista, pra não virar bagunça
+const SCOUT_MIN_POTENTIAL_GAP = 5; // espaço mínimo (potencial - overall) pra contar como "joia"
+const SCOUT_PICK_PER_SEARCH = 2; // no máximo 2 indicações novas por busca
+function searchScoutSuggestions() {
+  if (CAREER.lastScoutSearchRound === CAREER.currentRound) {
+    toast("Os olheiros já trouxeram indicações nesta rodada — volte na próxima.", { type: "warn" });
+    return;
+  }
+  CAREER.lastScoutSearchRound = CAREER.currentRound;
+  const alreadyListed = new Set((CAREER.scoutSuggestions || []).map((s) => String(s.playerId)));
+  const slotsLeft = Math.max(0, SCOUT_MAX_SUGGESTIONS - (CAREER.scoutSuggestions || []).length);
+  const candidates = allMarketPlayers()
+    .filter(({ p, mine }) => !mine && !alreadyListed.has(String(p.id)) && !pendingOfferOutFor(p.id)
+      && p.potential != null && (p.potential - p.overall) >= SCOUT_MIN_POTENTIAL_GAP)
+    .sort(() => Math.random() - 0.5)
+    .slice(0, Math.min(SCOUT_PICK_PER_SEARCH, slotsLeft));
+  if (!candidates.length) {
+    toast("Os olheiros não encontraram nenhuma joia nova dessa vez — tente de novo mais pra frente.", { type: "info" });
+    persistCareer();
+    renderScoutSuggestionsScreen();
+    return;
+  }
+  CAREER.scoutSuggestions = CAREER.scoutSuggestions || [];
+  candidates.forEach(({ p, club }) => {
+    CAREER.scoutSuggestions.push({
+      id: `scout_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
+      playerId: p.id, playerName: p.name, clubId: String(club.id), clubName: club.name,
+      subpos: subPositionOf(p), overall: p.overall, potential: p.potential, value: p.value,
+    });
+  });
+  persistCareer();
+  renderScoutSuggestionsScreen();
+  toast({ title: "Novas indicações!", detail: `Os olheiros encontraram ${candidates.length} jogador${candidates.length > 1 ? "es" : ""} com potencial de sobra.` }, { type: "pos" });
+}
+function rejectScoutSuggestion(id) {
+  CAREER.scoutSuggestions = (CAREER.scoutSuggestions || []).filter((s) => s.id !== id);
+  persistCareer();
+  renderScoutSuggestionsScreen();
+}
+// Aceitar não fecha negócio na hora — abre a proposta real do Mercado
+// (mesmo openOfferModal do resto do app), já com o jogador/clube
+// certos. Fecha esta tela ANTES de abrir a proposta (as 2 são
+// .ct-modal-overlay de mesmo z-index — fechar evita depender de ordem
+// no HTML pra decidir quem fica por cima).
+function acceptScoutSuggestion(id) {
+  const s = (CAREER.scoutSuggestions || []).find((x) => x.id === id);
+  if (!s) return;
+  CAREER.scoutSuggestions = CAREER.scoutSuggestions.filter((x) => x.id !== id);
+  persistCareer();
+  closeScoutSuggestionsScreen();
+  openOfferModal(s.clubId, s.playerId);
+}
+function scoutSuggestionRowHTML(s) {
+  return `<div class="mt-sponsor-proposal-row">
+    <div>
+      <div class="mt-sponsor-proposal-name">${escapeHtml(abbreviateName(s.playerName))} <span class="mt-pos-chip ${SUBPOS_DIVCLASS[s.subpos]}">${s.subpos}</span></div>
+      <div class="mt-sponsor-proposal-detail">${escapeHtml(s.clubName)} · overall ${s.overall} (potencial ${s.potential}) · ${fmtBRL(s.value)}</div>
+    </div>
+    <div style="display:flex; gap:6px; flex-shrink:0;">
+      <button class="mt-btn-ghost" data-rejectscout="${s.id}" style="padding:9px 12px;">Recusar</button>
+      <button class="mt-btn-sign" data-acceptscout="${s.id}">Aceitar</button>
+    </div>
+  </div>`;
+}
+function renderScoutSuggestionsScreen() {
+  const list = CAREER.scoutSuggestions || [];
+  document.getElementById("scoutSuggestionsCountLabel").textContent = list.length ? `${list.length} indicação(ões)` : "Nenhuma indicação ainda";
+  document.getElementById("scoutSuggestionsEmpty").classList.toggle("hidden", list.length > 0);
+  document.getElementById("scoutSuggestionsList").innerHTML = list.map(scoutSuggestionRowHTML).join("");
+  document.getElementById("scoutSuggestionsList").querySelectorAll("[data-acceptscout]").forEach((btn) => {
+    btn.addEventListener("click", () => acceptScoutSuggestion(btn.dataset.acceptscout));
+  });
+  document.getElementById("scoutSuggestionsList").querySelectorAll("[data-rejectscout]").forEach((btn) => {
+    btn.addEventListener("click", () => rejectScoutSuggestion(btn.dataset.rejectscout));
+  });
+  const btnSearch = document.getElementById("btnScoutSearch");
+  const onCooldown = CAREER.lastScoutSearchRound === CAREER.currentRound;
+  btnSearch.disabled = onCooldown;
+  btnSearch.title = onCooldown ? "Os olheiros já trouxeram indicações nesta rodada — volte na próxima." : "";
+  const badge = document.getElementById("scoutSuggestionsBadge");
+  badge.classList.toggle("hidden", list.length === 0);
+  if (list.length) badge.textContent = String(list.length);
+}
+function openScoutSuggestionsScreen() {
+  renderScoutSuggestionsScreen();
+  document.getElementById("scoutSuggestionsOverlay").classList.add("open");
+}
+function closeScoutSuggestionsScreen() {
+  document.getElementById("scoutSuggestionsOverlay").classList.remove("open");
+}
+
+/* ---------- Bloco 3 (4/4) — "Histórico de negociações" ----------
+   Mesma fonte de dado do card "Transferências recentes" já existente
+   no Mercado (CAREER.transferLog, ver pushTransferLog) — essa tela
+   nova só mostra o histórico INTEIRO (até TRANSFER_LOG_MAX, subido de
+   12 pra 60 nesta mudança) numa timeline dedicada, em vez do recorte
+   curto que cabe direto na aba. O card do Mercado continua mostrando
+   só as mais recentes, com um link "Ver histórico completo" pra abrir
+   esta tela quando há mais do que cabe ali. */
+// Classifica cada linha do log por tipo (mesmo espírito de
+// liveEventDot, Ao Vivo) só pra dar um ícone/cor diferente por
+// natureza do evento — não muda o texto nem o dado guardado.
+function transferLogIcon(text) {
+  if (/^Você contratou\b|^Você acionou a cláusula e comprou\b/.test(text)) {
+    return { cls: "buy", svg: MARKET_ICON.entrada };
+  }
+  if (/^Você vendeu\b|acionou a cláusula de compra e ficou definitivamente com/.test(text)) {
+    return { cls: "sell", svg: MARKET_ICON.saida };
+  }
+  if (/^Você emprestou\b|^Você pegou\b.*emprestado|voltou (do|pro) /.test(text)) {
+    return { cls: "loan", svg: MARKET_ICON.emprestimo };
+  }
+  if (/^Você retirou sua proposta|venceu a disputa por|recusou sua proposta/.test(text)) {
+    return { cls: "lost", svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>` };
+  }
+  // Sobra: prêmio de Copa, início de temporada, negociação entre 2
+  // times CPU — não afeta seu caixa/elenco, mas fica no mesmo feed.
+  return { cls: "info", svg: `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>` };
+}
+function transferLogItemHTML(e) {
+  const icon = transferLogIcon(e.text);
+  return `<div class="mt-transfer-item">
+    <div class="mt-transfer-dot ${icon.cls}">${icon.svg}</div>
+    <div class="mt-transfer-round">Rodada ${e.round}</div>
+    <div class="mt-transfer-text">${escapeHtml(e.text)}</div>
+  </div>`;
+}
+function renderTransferHistoryScreen() {
+  const list = CAREER.transferLog || [];
+  document.getElementById("transferHistoryCountLabel").textContent = list.length ? `${list.length} registro(s)` : "Nenhuma negociação ainda";
+  document.getElementById("transferHistoryEmpty").classList.toggle("hidden", list.length > 0);
+  document.getElementById("transferHistoryList").innerHTML = list.map(transferLogItemHTML).join("");
+}
+function openTransferHistoryScreen() {
+  renderTransferHistoryScreen();
+  document.getElementById("transferHistoryOverlay").classList.add("open");
+}
+function closeTransferHistoryScreen() {
+  document.getElementById("transferHistoryOverlay").classList.remove("open");
+}
+
 function myOffersRowHTML(o) {
   if (o.status === "countered") {
     return `<div class="mt-sponsor-proposal-row">
@@ -8948,6 +9373,20 @@ function renderMercado() {
   const myOffersBadge = document.getElementById("myOffersBadge");
   myOffersBadge.classList.toggle("hidden", myOffersCount === 0);
   if (myOffersCount) myOffersBadge.textContent = String(myOffersCount);
+  // Nova feature (Bloco 3, 3/4) — mesmo contador acima, agora pro
+  // botão "Minhas vendas" (ver renderMySalesScreen, que faz o mesmo
+  // pro contador de lá).
+  const mySalesCount = (CAREER.pendingListings || []).length;
+  const mySalesBadge = document.getElementById("mySalesBadge");
+  mySalesBadge.classList.toggle("hidden", mySalesCount === 0);
+  if (mySalesCount) mySalesBadge.textContent = String(mySalesCount);
+  // Nova feature — mesmo contador acima, agora pro botão "Indicações
+  // dos olheiros" (ver renderScoutSuggestionsScreen, que faz o mesmo
+  // pro contador de lá).
+  const scoutCount = (CAREER.scoutSuggestions || []).length;
+  const scoutBadge = document.getElementById("scoutSuggestionsBadge");
+  scoutBadge.classList.toggle("hidden", scoutCount === 0);
+  if (scoutCount) scoutBadge.textContent = String(scoutCount);
 
   // FASE 1 (item 2) — banner só aparece com a janela FECHADA (ver
   // .mt-badge-gold em carreira.html, Tela 10); "Comprar" fica desabilitado
@@ -9027,8 +9466,11 @@ function renderMercado() {
       </div>
       <div class="mt-market-actions-corner">
         ${mine
-          ? `<button class="mt-btn-sell" data-sell="${p.id}" aria-label="Vender" title="Vender">${MARKET_ICON.saida}</button>
-             <button class="mt-btn-loan" data-loanout="${p.id}" aria-label="Emprestar" ${loanOutBtnAttrs(p, mktWindow) || `title="Emprestar"`}>${MARKET_ICON.emprestimo}</button>`
+          ? (listingFor(p.id)
+              ? `<button class="mt-btn-loan" data-viewlisting="${p.id}" aria-label="Anúncio em andamento" title="À venda — ver em Minhas vendas">${MARKET_ICON.pendente}</button>
+                 <button class="mt-btn-loan" data-loanout="${p.id}" aria-label="Emprestar" ${loanOutBtnAttrs(p, mktWindow) || `title="Emprestar"`}>${MARKET_ICON.emprestimo}</button>`
+              : `<button class="mt-btn-sell" data-list="${p.id}" aria-label="Colocar à venda" title="Colocar à venda">${MARKET_ICON.saida}</button>
+                 <button class="mt-btn-loan" data-loanout="${p.id}" aria-label="Emprestar" ${loanOutBtnAttrs(p, mktWindow) || `title="Emprestar"`}>${MARKET_ICON.emprestimo}</button>`)
           : pendingOfferOutFor(p.id)
             ? `<button class="mt-btn-loan" data-viewoffer="${p.id}" aria-label="Proposta enviada" title="Proposta enviada — ver em Minhas propostas">${MARKET_ICON.pendente}</button>`
             : `<button class="mt-btn-buy" data-buy="${p.id}" data-club="${escapeHtml(String(club.id))}" aria-label="Propor" ${mktWindow.open ? `title="Fazer proposta"` : `disabled title="Janela de contratações encerrada"`}>${MARKET_ICON.entrada}</button>
@@ -9048,8 +9490,14 @@ function renderMercado() {
   document.getElementById("marketList").querySelectorAll("[data-viewoffer]").forEach((btn) => {
     btn.addEventListener("click", () => openMyOffersScreen());
   });
-  document.getElementById("marketList").querySelectorAll("[data-sell]").forEach((btn) => {
-    btn.addEventListener("click", () => sellFromMarket(btn.dataset.sell));
+  // Nova feature (Bloco 3, 3/4) — "Vender" virou "Colocar à venda"
+  // (ver openListModal); botão de quem já tem anúncio ativo pra esse
+  // jogador leva direto pra "Minhas vendas".
+  document.getElementById("marketList").querySelectorAll("[data-list]").forEach((btn) => {
+    btn.addEventListener("click", () => openListModal(btn.dataset.list));
+  });
+  document.getElementById("marketList").querySelectorAll("[data-viewlisting]").forEach((btn) => {
+    btn.addEventListener("click", () => openMySalesScreen());
   });
   document.getElementById("marketList").querySelectorAll("[data-loanout]").forEach((btn) => {
     btn.addEventListener("click", () => openLoanOutModal(btn.dataset.loanout));
@@ -9058,10 +9506,19 @@ function renderMercado() {
     btn.addEventListener("click", () => openLoanInModal(btn.dataset.club, btn.dataset.loanin));
   });
 
+  // AJUSTE (Bloco 3, 4/4 — pedido do usuário: tela "Histórico de
+  // negociações") — este card só mostra as 5 mais recentes agora (o
+  // histórico completo, até TRANSFER_LOG_MAX, mora na tela dedicada —
+  // ver btnOpenTransferHistory/renderTransferHistoryScreen — mesmo
+  // raciocínio já usado antes pra não repetir a mesma lista comprida
+  // em 2 lugares da mesma aba).
   const feed = CAREER.transferLog || [];
   document.getElementById("transferFeed").innerHTML = feed.length
-    ? feed.map((e) => `<div class="ct-transfer-feed-item"><b>Rodada ${e.round}:</b> ${escapeHtml(e.text)}</div>`).join("")
+    ? feed.slice(0, 5).map((e) => `<div class="ct-transfer-feed-item"><b>Rodada ${e.round}:</b> ${escapeHtml(e.text)}</div>`).join("")
     : `<p class="ct-empty">Nenhuma transferência ainda.</p>`;
+  const historyBadge = document.getElementById("transferHistoryBadge");
+  historyBadge.classList.toggle("hidden", feed.length === 0);
+  if (feed.length) historyBadge.textContent = String(feed.length);
 }
 // AJUSTE (pedido do usuário: "no Mercado deu certo mas precisa
 // funcionar também na Comissão Técnica") — buyPlayer() (compra à
@@ -9070,60 +9527,13 @@ function renderMercado() {
 // sugestão de Mercado da Comissão Técnica (ver suggestMarket, que
 // agora abre a mesma proposta real de sempre, ver openOfferModal) —
 // removida (histórico completo no git, se precisar consultar de novo).
-// Vende um jogador SEU pelo valor de mercado (mesma trava de mínimo do
-// elenco principal do "release", só que aqui você RECEBE o dinheiro —
-// ver "release" pra dispensa de graça). Usado tanto pelo botão
-// "Vender" do detalhe do jogador (ver handlePlayerAction) quanto pela
-// aba Mercado (ver sellFromMarket) — devolve false sem mexer em nada
-// se cancelado ou bloqueado, pra quem chamou saber se deve continuar.
-async function sellPlayer(id) {
-  const p = CAREER.squad.find((x) => x.id === id);
-  if (!p) return false;
-  const principalCount = CAREER.squad.filter((x) => x.origin === "principal").length;
-  if (principalCount <= 14) { toast("O elenco principal não pode ficar com menos de 14 jogadores.", { type: "warn" }); return false; }
-  // AJUSTE (pedido do usuário: "toda confirmação de empréstimo e venda
-  // deve ter o clube para onde o jogador vai") — resolve o comprador
-  // ANTES de perguntar, não depois: assim o técnico já vê pra quem tá
-  // vendendo no próprio texto de confirmação, em vez de descobrir só
-  // depois de já ter confirmado. Sem interessado, nem chega a abrir o
-  // diálogo — já era o comportamento de sempre (ver comentário de
-  // findInterestedBuyer), só que agora sem a etapa de confirmação
-  // inútil no meio.
-  const buyer = findInterestedBuyer(CAREER.clubId);
-  if (!buyer) {
-    // AJUSTE (pedido do usuário: "todos os textos devem ser bem
-    // escritos") — "interesse em {nome}" ficava ambíguo fora de
-    // contexto; "interesse em comprar {nome}" deixa claro o que
-    // ninguém quis fazer, igual já era pro texto equivalente do
-    // empréstimo ("interesse em pegar {nome} emprestado").
-    toast(`Nenhum time demonstrou interesse em comprar ${abbreviateName(p.name)} agora — ele continua no seu elenco.`, { type: "info" });
-    return false;
-  }
-  if (!(await confirmModal(`Vender ${p.name} pro ${buyer.name} por ${fmtBRL(p.value)}?`, "Vender"))) return false;
-  CAREER.finances.cash += p.value;
-  CAREER.squad = CAREER.squad.filter((x) => x.id !== id);
-  CAREER.lineup.starters = CAREER.lineup.starters.map((x) => (x === id ? null : x));
-  CAREER.lineup.bench = CAREER.lineup.bench.filter((x) => x !== id);
-  (CAREER.leagueSquads[String(buyer.id)] = CAREER.leagueSquads[String(buyer.id)] || []).push(p);
-  pushTransferLog(`Você vendeu ${p.name} pro ${buyer.name} por ${fmtBRL(p.value)}.`, CAREER.currentRound);
-  pushLedger("transferencia", `Venda — ${p.name} (${buyer.name})`, p.value, CAREER.currentRound);
-  toast(`${abbreviateName(p.name)} vendido por ${fmtBRL(p.value)}.`, { type: "pos" });
-  ensureObjectivesFresh(); bumpObjective("daily", "obj_market_1_move", 1);
-  // FASE 4 (item 2) — "venda de jogador querido pela torcida"
-  // (PRESS_LIBRARY id 16): mesmo proxy de overall alto (craque/titular
-  // de peso) usado na contratação polêmica acima — quem rende bastante
-  // em campo é quem a torcida sente falta de verdade.
-  if (p.overall >= 80) { firePressConference("16", CAREER.currentRound, false); openPressConferenceModal(); }
-  return true;
-}
-// Botão "Vender" direto na aba Mercado (fora do detalhe do jogador,
-// que já fecha/persiste/re-renderiza sozinho no fluxo de
-// handlePlayerAction) — precisa persistir e re-renderizar aqui.
-async function sellFromMarket(id) {
-  if (!(await sellPlayer(id))) return;
-  persistCareer();
-  renderMercado(); renderElenco(); renderCentral();
-}
+// AJUSTE (Bloco 3, 3/4 — pedido do usuário: "colocar à venda") —
+// sellPlayer()/sellFromMarket() (venda instantânea pro 1º interessado
+// aleatório, sem escolha de valor nem espera) ficaram sem nenhum
+// chamador depois desta mudança: "Vender" (detalhe do jogador e aba
+// Mercado) virou "Colocar à venda" em todo lugar (ver openListModal/
+// acceptListingOffer) — removidas (histórico completo no git, se
+// precisar consultar de novo).
 // FASE 2 (c) — aceitar/recusar proposta recebida por um jogador seu
 // (gerada em maybeGenerateOffer, ver simulateRound).
 function acceptOffer() {
@@ -10098,6 +10508,30 @@ function wireStaticListeners() {
   document.getElementById("offerCompareClose").addEventListener("click", closeOfferCompareScreen);
   document.getElementById("offerCompareOverlay").addEventListener("click", (e) => { if (e.target.id === "offerCompareOverlay") closeOfferCompareScreen(); });
   document.getElementById("btnOfferCompareIncrease").addEventListener("click", increaseOfferFromCompare);
+  // Nova feature (Bloco 3, 3/4) — sheet de "Colocar à venda" e tela
+  // "Minhas vendas", mesmo padrão de fechamento das outras (X e clique
+  // fora fecham sem anunciar/mudar nada).
+  document.getElementById("listClose").addEventListener("click", closeListModal);
+  document.getElementById("listOverlay").addEventListener("click", (e) => { if (e.target.id === "listOverlay") closeListModal(); });
+  document.getElementById("btnListConfirm").addEventListener("click", confirmListFromModal);
+  document.getElementById("btnOpenMySales").addEventListener("click", openMySalesScreen);
+  document.getElementById("mySalesClose").addEventListener("click", closeMySalesScreen);
+  document.getElementById("btnMySalesCloseFooter").addEventListener("click", closeMySalesScreen);
+  document.getElementById("mySalesOverlay").addEventListener("click", (e) => { if (e.target.id === "mySalesOverlay") closeMySalesScreen(); });
+  // Nova feature (pedido do usuário: "mostrar a posição do atleta e
+  // incluir um botão recusar sugestão") — "Indicações dos olheiros",
+  // mesmo padrão de fechamento das outras telas cheias do Mercado.
+  document.getElementById("btnOpenScoutSuggestions").addEventListener("click", openScoutSuggestionsScreen);
+  document.getElementById("scoutSuggestionsClose").addEventListener("click", closeScoutSuggestionsScreen);
+  document.getElementById("btnScoutSuggestionsCloseFooter").addEventListener("click", closeScoutSuggestionsScreen);
+  document.getElementById("scoutSuggestionsOverlay").addEventListener("click", (e) => { if (e.target.id === "scoutSuggestionsOverlay") closeScoutSuggestionsScreen(); });
+  document.getElementById("btnScoutSearch").addEventListener("click", searchScoutSuggestions);
+  // Nova feature (Bloco 3, 4/4) — "Histórico de negociações", mesmo
+  // padrão de fechamento das outras telas cheias do Mercado.
+  document.getElementById("btnOpenTransferHistory").addEventListener("click", openTransferHistoryScreen);
+  document.getElementById("transferHistoryClose").addEventListener("click", closeTransferHistoryScreen);
+  document.getElementById("btnTransferHistoryCloseFooter").addEventListener("click", closeTransferHistoryScreen);
+  document.getElementById("transferHistoryOverlay").addEventListener("click", (e) => { if (e.target.id === "transferHistoryOverlay") closeTransferHistoryScreen(); });
   // Pedido do usuário: X também nas modais de detalhe do jogo e de
   // resultados da rodada (só fecha, igual às outras 2 — quem quiser ver
   // o próximo passo do fluxo clica em "Continuar" mesmo). AJUSTE
@@ -10218,6 +10652,16 @@ function migrateCareerDefaults() {
   // contratação nenhuma — nasce vazia, igual carreira nova.
   if (!CAREER.pendingOffersOut) CAREER.pendingOffersOut = [];
   if (!CAREER.pendingInstallments) CAREER.pendingInstallments = [];
+  // Nova feature (Bloco 3, 3/4) — "colocar à venda": carreira criada
+  // ANTES desta mudança nunca teve anúncio nem parcela de venda a
+  // receber — nasce vazia, igual carreira nova.
+  if (!CAREER.pendingListings) CAREER.pendingListings = [];
+  if (!CAREER.pendingReceivables) CAREER.pendingReceivables = [];
+  // Nova feature — "Indicações dos olheiros": carreira criada ANTES
+  // desta mudança nunca teve indicação nenhuma — nasce vazia, igual
+  // carreira nova.
+  if (!CAREER.scoutSuggestions) CAREER.scoutSuggestions = [];
+  if (CAREER.lastScoutSearchRound === undefined) CAREER.lastScoutSearchRound = null;
   // AJUSTE (Bloco 2 M3, brtreinadorbloco2tatica.html) — tactics tinha 3
   // campos NOMEADOS (mentality/marking/tempo); vira 4 eixos NUMÉRICOS
   // 1-5 (ver TACTIC_AXES). Migra o que dá pra aproximar (tradução nossa
