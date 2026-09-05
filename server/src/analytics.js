@@ -54,6 +54,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const { scheduleWrite } = require("./debouncedPersist");
 
 const DATA_DIR = path.join(__dirname, "..", "data");
 const FILE = path.join(DATA_DIR, "analytics.json");
@@ -69,13 +70,11 @@ function load() {
   }
 }
 
+// Performance (pedido do usuário: "o jogo está lento") — recordEvent()
+// roda a cada troca de página do site principal (page_view), então é
+// um dos caminhos mais frequentes do backend. Ver debouncedPersist.js.
 function persist() {
-  try {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-    fs.writeFileSync(FILE, JSON.stringify(events));
-  } catch (err) {
-    console.error("[analytics] falha ao salvar arquivo local:", err.message);
-  }
+  scheduleWrite(FILE, DATA_DIR, () => JSON.stringify(events));
 }
 
 load();

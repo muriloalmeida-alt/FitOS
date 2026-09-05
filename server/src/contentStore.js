@@ -34,6 +34,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const { scheduleWrite } = require("./debouncedPersist");
 
 const DATA_DIR = path.join(__dirname, "..", "data");
 const FILE = path.join(DATA_DIR, "content.json");
@@ -51,13 +52,13 @@ function load() {
   }
 }
 
+// Performance (pedido do usuário: "o jogo está lento") — mesmo
+// tratamento do resto do backend, ver debouncedPersist.js (aqui o
+// ganho é mais defensivo que urgente — este arquivo é pequeno e só
+// muda quando o admin edita conteúdo — mas mantém o padrão consistente
+// em todo o backend).
 function persist() {
-  try {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-    fs.writeFileSync(FILE, JSON.stringify(store, null, 2));
-  } catch (err) {
-    console.error("[contentStore] falha ao salvar arquivo local:", err.message);
-  }
+  scheduleWrite(FILE, DATA_DIR, () => JSON.stringify(store));
 }
 
 load();

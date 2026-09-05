@@ -15,6 +15,7 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 const { promisify } = require("util");
+const { scheduleWrite } = require("./debouncedPersist");
 
 const scryptAsync = promisify(crypto.scrypt);
 
@@ -34,13 +35,12 @@ function load() {
   }
 }
 
+// Performance (pedido do usuário: "o jogo está lento") — mesmo
+// tratamento do resto do backend (ver debouncedPersist.js): escrita
+// assíncrona e debounced em vez de bloquear o event loop a cada
+// cadastro/login/coleta de recompensa diária.
 function persist() {
-  try {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-    fs.writeFileSync(FILE, JSON.stringify(Object.fromEntries(store), null, 2));
-  } catch (err) {
-    console.error("[users] falha ao salvar arquivo local:", err.message);
-  }
+  scheduleWrite(FILE, DATA_DIR, () => JSON.stringify(Object.fromEntries(store)));
 }
 
 load();

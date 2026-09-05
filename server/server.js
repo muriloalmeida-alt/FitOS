@@ -59,6 +59,7 @@ const contentStore = require("./src/contentStore");
 const careerStore = require("./src/careerStore");
 const captureSnapshot = require("./src/captureSnapshot");
 const leaderboard = require("./src/leaderboard");
+const { flushAllSync } = require("./src/debouncedPersist");
 const publicRateLimit = require("./src/publicRateLimit");
 const { slugify, matchSlug } = require("./src/slug");
 
@@ -2620,6 +2621,26 @@ const server = http.createServer(async (req, res) => {
     return handleError(res, err);
   }
 });
+
+// Performance (pedido do usuário: "o jogo está lento") — careerStore/
+// sessions/users/analytics/leaderboard/contentStore agora escrevem em
+// disco de forma assíncrona e DEBOUNCED (ver debouncedPersist.js), em
+// vez de bloquear cada requisição com um fs.writeFileSync síncrono do
+// arquivo inteiro. Isso abre uma janela pequena (até DEBOUNCE_MS) onde
+// uma mudança já confirmada pro cliente ainda não foi de fato gravada
+// no disco — nos 2 sinais de desligamento normal (deploy, restart
+// manual), descarrega tudo que ainda está pendente ANTES de soltar a
+// porta, então um desligamento gracioso nunca perde a última mudança.
+function gracefulShutdown(signal) {
+  console.log(`\n[server] ${signal} recebido — descarregando saves pendentes antes de sair...`);
+  flushAllSync();
+  server.close(() => process.exit(0));
+  // Se algo travar o close (conexão pendurada), não fica esperando pra
+  // sempre — o flush já rodou, é o que importa de verdade.
+  setTimeout(() => process.exit(0), 3000).unref();
+}
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 
 bootstrapDefaultAdmin()
   .catch((err) => console.error("[bootstrap] falha ao criar/promover admin padrão:", err.message))
