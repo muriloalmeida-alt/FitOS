@@ -1489,11 +1489,13 @@ const SPONSOR_KIND_LABEL = { master: "Patrocinador Master", material: "Material 
 // Card dentro do Financeiro (ver renderCentral) — 2 linhas (master e
 // material), cada uma com o contrato atual ou um botão "Ver propostas"
 // quando o contrato venceu (ver advanceSponsorshipSeason).
+// Bloco 4 (mockup brtreinadorbloco4clube.html — Patrocinadores) —
+// .m3-list-item no lugar do antigo .mt-sponsor-row (mesmo componente já
+// usado em Elenco/H2H/etc.): ícone à esquerda, nome+detalhe no meio,
+// "N temp." (ou botão "Ver propostas") à direita. Mesmos ids/wiring de
+// sempre — só a marcação interna mudou.
+const SPONSOR_KIND_ICON = { master: "🏦", material: "👕" };
 function renderSponsorship() {
-  // AJUSTE (redesign, Tela 3) — .mt-sponsor-row no lugar de
-  // .ct-sponsor-row (ver 03-central-restyled.html do designer): nome
-  // + detalhe em 2 linhas à esquerda, "N temp." em destaque à
-  // direita (ou "Ver propostas" quando não tem contrato ainda).
   const rows = ["master", "material"].map((kind) => {
     const deal = CAREER.sponsorship[kind];
     const detail = deal
@@ -1502,8 +1504,12 @@ function renderSponsorship() {
     const right = deal
       ? `<span class="mt-sponsor-tag">${deal.temporadasRestantes} temp.</span>`
       : `<button class="mt-sponsor-btn" data-sponsor-choose="${kind}">Ver propostas</button>`;
-    return `<div class="mt-sponsor-row">
-      <div><div class="mt-sponsor-name">${SPONSOR_KIND_LABEL[kind]}</div><div class="mt-sponsor-detail">${detail}</div></div>
+    return `<div class="m3-list-item" style="cursor:default;">
+      <div class="m3-li-avatar">${SPONSOR_KIND_ICON[kind]}</div>
+      <div class="m3-li-body">
+        <div class="m3-li-name">${SPONSOR_KIND_LABEL[kind]}</div>
+        <div class="m3-li-meta"><span class="m3-mini-chip">${detail}</span></div>
+      </div>
       ${right}
     </div>`;
   }).join("");
@@ -1524,11 +1530,20 @@ function openSponsorProposalsModal(kind) {
   // valor/duração à esquerda, botão dourado à direita), no lugar do
   // .ct-market-row de 2 linhas (que ainda serve o Mercado, Tela 10, com
   // badge/chip que essa lista mais simples não precisa).
+  // Bloco 4 (mockup: tela "Proposta de patrocínio" do bottom sheet) —
+  // logo com iniciais da empresa antes do nome/valor, mesmo espírito do
+  // .sponsor-logo do mockup (aqui reaproveitando .m3-li-avatar em vez de
+  // criar uma classe nova). Sem "multa por rescisão": esse termo não
+  // existe no contrato de patrocínio deste jogo (ver
+  // CAREER.sponsorship) — inventar um valor aqui seria enganoso.
   document.getElementById("sponsorProposalsList").innerHTML = proposals.map((p, i) => `
     <div class="mt-sponsor-proposal-row">
-      <div>
-        <div class="mt-sponsor-proposal-name">${escapeHtml(p.empresa)}</div>
-        <div class="mt-sponsor-proposal-detail">${fmtBRL(p.valorTemporada)}/temporada · ${p.duracao} temporada${p.duracao === 1 ? "" : "s"}</div>
+      <div style="display:flex; align-items:center; gap:12px; min-width:0;">
+        <div class="m3-li-avatar">${escapeHtml(p.empresa.slice(0, 2).toUpperCase())}</div>
+        <div>
+          <div class="mt-sponsor-proposal-name">${escapeHtml(p.empresa)}</div>
+          <div class="mt-sponsor-proposal-detail">${fmtBRL(p.valorTemporada)}/temporada · ${p.duracao} temporada${p.duracao === 1 ? "" : "s"}</div>
+        </div>
       </div>
       <button class="mt-btn-sign" data-sponsor-sign="${i}">Assinar</button>
     </div>`).join("");
@@ -1601,6 +1616,7 @@ function askBoard() {
   if (result.approved) {
     CAREER.finances.wageCap += result.raise;
     CAREER.finances.cash += result.cashBoost;
+    if (result.cashBoost) pushLedger("diretoria", "Reforço de orçamento da diretoria", result.cashBoost, CAREER.currentRound);
     CAREER.boardDecision = `✅ ${result.reason} Teto salarial +${fmtBRLShort(result.raise)}, caixa +${fmtBRLShort(result.cashBoost)}.`;
     toast("A diretoria aprovou o pedido!", { type: "pos" });
   } else {
@@ -1960,6 +1976,7 @@ function resolveCupPhase(round, { silent = false } = {}) {
         if (prize) {
           CAREER.finances.cash += prize;
           pushTransferLog(`Copa do Brasil: classificação${phase === "final" ? " como campeão" : ""} rendeu ${fmtBRL(prize)} aos cofres do clube.`, round);
+          pushLedger("premiacao", `Copa do Brasil — premiação${phase === "final" ? " de campeão" : ""}`, prize, round);
         }
       }
     } else {
@@ -1969,6 +1986,7 @@ function resolveCupPhase(round, { silent = false } = {}) {
       if (phase === "final" && !silent) {
         CAREER.finances.cash += CUP_PRIZE.runnerUp;
         pushTransferLog(`Copa do Brasil: vice-campeão rendeu ${fmtBRL(CUP_PRIZE.runnerUp)} aos cofres do clube.`, round);
+        pushLedger("premiacao", "Copa do Brasil — premiação de vice-campeão", CUP_PRIZE.runnerUp, round);
       }
     }
   });
@@ -2013,7 +2031,11 @@ function stadiumCapacityFor(club) {
   const rng = seededRngFromKey(`stadium:${club.id}`);
   const base = 15000 + rng() * 20000; // 15 a 35 mil de base
   const bonus = clamp((club.atk || 1.3) - 1, 0, 1) * 45000; // clube forte chega a +45 mil
-  return Math.round((base + bonus) / 1000) * 1000;
+  // Bloco 4 — melhorias de estádio (ver STADIUM_UPGRADES) só existem pro
+  // SEU clube (os outros 19 continuam puramente procedurais, sem
+  // CAREER.stadium) — soma o bônus de capacidade já concluído.
+  const upgradeBonus = CAREER && String(club.id) === String(CAREER.clubId) ? (CAREER.stadium?.capacityBonus || 0) : 0;
+  return Math.round((base + bonus) / 1000) * 1000 + upgradeBonus;
 }
 function avgTicketPriceFor(club) {
   return Math.round(25 + clamp((club.atk || 1.3) - 1, 0, 1) * 65);
@@ -2042,6 +2064,69 @@ function computeTicketRevenue(club) {
   const attendance = Math.round(capacity * pct);
   const revenue = attendance * price;
   return { capacity, attendance, pct, price, revenue };
+}
+
+/* ---------- Bloco 4 — melhorias de estádio ----------
+   Mockup brtreinadorbloco4pendentes.html ("Upgrade de estádio") pedia
+   melhorias compráveis com custo e prazo de obra — mecânica nova (antes
+   capacidade era só calculada na hora, sem nada persistido). Gasta caixa
+   na hora, obra leva `roundsNeeded` RODADAS SIMULADAS (não "meses" como
+   no mockup — o jogo só entende rodada) pra ficar pronta, só 1 obra por
+   vez, e "camarotes" exige "setor_norte" já concluído. roundsLeft
+   (contagem regressiva, decrementada em finishRoundTail/
+   tickStadiumUpgrade) em vez de guardar a rodada absoluta de conclusão
+   porque CAREER.currentRound volta a 1 a cada temporada nova (ver
+   advanceSeason) — uma rodada-alvo absoluta contaria errado atravessando
+   a virada de temporada. */
+const STADIUM_UPGRADES = [
+  { id: "setor_norte", name: "Setor Norte +3.000 lugares", icon: "🪑", capacityGain: 3000, cost: 4200000, roundsNeeded: 10, requires: null },
+  { id: "iluminacao", name: "Iluminação LED completa", icon: "💡", capacityGain: 0, cost: 900000, roundsNeeded: 4, requires: null },
+  { id: "camarotes", name: "Camarotes premium", icon: "🏟️", capacityGain: 0, cost: 6800000, roundsNeeded: 14, requires: "setor_norte" },
+];
+function initialStadium() {
+  return { capacityBonus: 0, pendingUpgrade: null, completed: [] };
+}
+function startStadiumUpgrade(id) {
+  const upgrade = STADIUM_UPGRADES.find((u) => u.id === id);
+  if (!upgrade) return;
+  const st = CAREER.stadium;
+  if (st.pendingUpgrade) {
+    toast("Já existe uma obra em andamento — espere terminar antes de iniciar outra.", { type: "warn" });
+    return;
+  }
+  if (st.completed.includes(id)) {
+    toast("Essa melhoria já foi concluída.", { type: "warn" });
+    return;
+  }
+  if (upgrade.requires && !st.completed.includes(upgrade.requires)) {
+    toast("Essa melhoria depende de outra ainda não concluída.", { type: "warn" });
+    return;
+  }
+  if (CAREER.finances.cash < upgrade.cost) {
+    toast(`Caixa insuficiente — a obra custa ${fmtBRL(upgrade.cost)}.`, { type: "warn" });
+    return;
+  }
+  CAREER.finances.cash -= upgrade.cost;
+  pushLedger("estadio", `Obra iniciada: ${upgrade.name}`, -upgrade.cost, CAREER.currentRound);
+  st.pendingUpgrade = { id: upgrade.id, name: upgrade.name, capacityGain: upgrade.capacityGain, roundsLeft: upgrade.roundsNeeded };
+  persistCareer();
+  renderStadiumScreen();
+  renderCentral();
+  toast(`Obra iniciada: ${upgrade.name}.`, { type: "pos" });
+}
+// Chamado 1x por rodada simulada (ver finishRoundTail) — decrementa a
+// obra em andamento e conclui quando chega a 0.
+function tickStadiumUpgrade() {
+  const st = CAREER.stadium;
+  if (!st || !st.pendingUpgrade) return;
+  st.pendingUpgrade.roundsLeft -= 1;
+  if (st.pendingUpgrade.roundsLeft <= 0) {
+    const done = st.pendingUpgrade;
+    st.capacityBonus += done.capacityGain;
+    st.completed.push(done.id);
+    st.pendingUpgrade = null;
+    pushTransferLog(`Obra concluída no estádio: ${done.name}.`, CAREER.currentRound);
+  }
 }
 
 /* ---------- FASE 3 (c) — multitemporadas ----------
@@ -2692,6 +2777,30 @@ function pushTransferLog(text, round) {
   CAREER.transferLog.unshift({ round, text });
   if (CAREER.transferLog.length > TRANSFER_LOG_MAX) CAREER.transferLog.length = TRANSFER_LOG_MAX;
 }
+// Bloco 4 (mockup brtreinadorbloco4pendentes.html — Extrato financeiro)
+// — pushTransferLog acima é só texto solto pro feed de notícias, sem
+// tipo/valor pra filtrar ou somar. financeLedger é um registro paralelo,
+// estruturado, alimentado nos MESMOS pontos onde CAREER.finances.cash já
+// muda (folha salarial/comissão técnica, patrocínio, parcelas de
+// contratação, bilheteria, transferências, premiação de copa, obra de
+// estádio) — ver finishRoundTail e cada chamada de pushLedger espalhada
+// pelo arquivo. type serve tanto de rótulo quanto de filtro na tela.
+const FINANCE_LEDGER_MAX = 60;
+function pushLedger(type, label, amount, round) {
+  CAREER.financeLedger = CAREER.financeLedger || [];
+  CAREER.financeLedger.unshift({ round, type, label, amount });
+  if (CAREER.financeLedger.length > FINANCE_LEDGER_MAX) CAREER.financeLedger.length = FINANCE_LEDGER_MAX;
+}
+// Mini-gráfico de caixa do card Financeiro (tela Clube) — 1 snapshot por
+// rodada simulada (ver finishRoundTail), guarda só as últimas
+// CASH_HISTORY_MAX pra não pesar o save (mesmo espírito de
+// MAX_SEASON_HISTORY/TRANSFER_LOG_MAX).
+const CASH_HISTORY_MAX = 8;
+function pushCashSnapshot(round) {
+  CAREER.cashHistory = CAREER.cashHistory || [];
+  CAREER.cashHistory.push({ round, cash: CAREER.finances.cash });
+  if (CAREER.cashHistory.length > CASH_HISTORY_MAX) CAREER.cashHistory.shift();
+}
 // FASE 1 (item 2 da especificação "BR Data Treinador") — pedido do
 // usuário: janela de transferências com prazo (2 por temporada, ex.:
 // rodadas 1–3 e 20–22, valores sugeridos no próprio documento) — sem
@@ -2866,6 +2975,7 @@ function settleLoanOut(clubId, p) {
     CAREER.finances.cash += option.value;
     delete p.onLoanFromClubId; delete p.loanReturnRound; delete p.loanBuyOption;
     pushTransferLog(`${club.name} acionou a cláusula de compra e ficou definitivamente com ${p.name} por ${fmtBRL(option.value)}.`, CAREER.currentRound);
+    pushLedger("transferencia", `Cláusula de compra — ${p.name} (${club.name})`, option.value, CAREER.currentRound);
     toast(`${abbreviateName(p.name)} foi comprado em definitivo pelo ${club.name}!`);
     return;
   }
@@ -2896,6 +3006,7 @@ function settleLoanIn(p) {
     p.origin = "principal";
     delete p.loanFromClubId; delete p.loanOriginalWage; delete p.loanReturnRound; delete p.loanBuyOption;
     pushTransferLog(`Você acionou a cláusula e comprou ${p.name} em definitivo por ${fmtBRL(option.value)}.`, CAREER.currentRound);
+    pushLedger("transferencia", `Cláusula de compra — ${p.name}`, -option.value, CAREER.currentRound);
     toast(`${abbreviateName(p.name)} contratado em definitivo!`, { type: "pos" });
     return;
   }
@@ -3043,6 +3154,7 @@ async function finalizeLoanOut(id, { returnRound, buyOption, buyer: passedBuyer 
   const durationLabel = returnRound ? "por 6 meses" : "até o fim da temporada";
   const clauseLabel = buyOption ? (buyOption.mandatory ? ` (compra obrigatória de ${fmtBRL(buyOption.value)} ao fim)` : ` (opção de compra de ${fmtBRL(buyOption.value)} ao fim)`) : "";
   pushTransferLog(`Você emprestou ${p.name} pro ${buyer.name} ${durationLabel} por ${fmtBRL(fee)}${clauseLabel}.`, CAREER.currentRound);
+  pushLedger("transferencia", `Empréstimo — ${p.name} (${buyer.name})`, fee, CAREER.currentRound);
   toast(`${abbreviateName(p.name)} emprestado por ${fmtBRL(fee)}.`, { type: "pos" });
   ensureObjectivesFresh(); bumpObjective("daily", "obj_market_1_move", 1);
   return true;
@@ -3391,6 +3503,13 @@ async function startCareer(clubId) {
       // FASE 2 (b) — pedido do usuário: contrato/salário/valor com
       // orçamento real limitando ação (ver initialFinances/wageBillOf).
       finances: initialFinances(squad),
+      // Bloco 4 (mockups brtreinadorbloco4clube.html/
+      // brtreinadorbloco4pendentes.html) — mini-gráfico de caixa (tela
+      // Clube) e extrato financeiro estruturado (ver pushCashSnapshot/
+      // pushLedger, chamados de finishRoundTail): nascem vazios, vão se
+      // populando rodada a rodada — sem histórico retroativo pra
+      // reconstruir.
+      cashHistory: [], financeLedger: [],
       // FASE 2 (c) — mercado de transferências (ver simulateAiTransfers/
       // maybeGenerateOffer/pushTransferLog).
       transferLog: [], pendingOffer: null,
@@ -3399,6 +3518,9 @@ async function startCareer(clubId) {
       // FASE 3 (b) — forma recente pro público do estádio (ver
       // pushRecentForm/currentAttendancePct).
       recentForm: [],
+      // Bloco 4 — melhorias de estádio (mecânica nova, ver
+      // STADIUM_UPGRADES/startStadiumUpgrade/tickStadiumUpgrade).
+      stadium: initialStadium(),
       // FASE 3 (c) — multitemporadas (ver advanceSeason). seasonYear
       // começa em LIVE_SEASON (a temporada real dos dados) e só sobe
       // quando VOCÊ avança de temporada — LIVE_SEASON em si é fixo.
@@ -5434,10 +5556,13 @@ function finishRoundTail(round, allResults, humanMatch, standingsBefore) {
   // mercado de transferências (fase seguinte) pra gastar nele.
   const wagePaid = Math.round(wageBillOf(CAREER.squad) / 4);
   CAREER.finances.cash -= wagePaid;
+  if (wagePaid) pushLedger("salario", "Folha salarial do elenco", -wagePaid, round);
   // Nova feature — Comissão Técnica: mesmo ritmo de pagamento do
   // elenco (1/4 do custo mensal por rodada), só quando contratada.
   if (CAREER.technicalStaff && CAREER.technicalStaff.hired) {
-    CAREER.finances.cash -= Math.round(technicalStaffMonthlyCost() / 4);
+    const staffCost = Math.round(technicalStaffMonthlyCost() / 4);
+    CAREER.finances.cash -= staffCost;
+    if (staffCost) pushLedger("salario", "Custo da Comissão Técnica", -staffCost, round);
   }
   // FASE 4 (item 5) — patrocínio paga em parcelas ao longo da
   // temporada (1/38 do valor anual por rodada), mesmo ritmo de
@@ -5446,16 +5571,29 @@ function finishRoundTail(round, allResults, humanMatch, standingsBefore) {
   // na virada de temporada, que seria um pulo brusco de caixa.
   const sponsorIncome = Math.round(sponsorshipSeasonTotal() / 38);
   CAREER.finances.cash += sponsorIncome;
+  if (sponsorIncome) pushLedger("patrocinio", "Parcela de patrocínio", sponsorIncome, round);
   // Nova feature (Bloco 3) — parcelas de contratações já FECHADAS
   // (ver finalizeIncomingPurchase) continuam descontando o caixa a
   // cada rodada MESMO fora da janela de contratações (é dívida já
   // assumida, não uma negociação nova) — ver processPendingInstallments.
   const installmentsPaid = processPendingInstallments();
+  if (installmentsPaid) pushLedger("parcela", "Parcela de contratação", -installmentsPaid, round);
   // Nova feature (Bloco 3, 3/4) — parcelas de vendas já FECHADAS (ver
   // acceptListingOffer) entram no caixa a cada rodada, mesmo espírito
   // de installmentsPaid acima, só que dinheiro chegando em vez de
   // saindo (ver processPendingReceivables).
   const installmentsReceived = processPendingReceivables();
+  if (installmentsReceived) pushLedger("transferencia", "Parcela de venda", installmentsReceived, round);
+  // Bloco 4 — extrato/mini-gráfico de caixa (ver pushCashSnapshot/
+  // pushLedger) e andamento de obra do estádio (ver
+  // tickStadiumUpgrade): 1x por rodada simulada, igual ao resto do
+  // pagamento acima. ticketRevenue (bilheteria) já foi somado ao caixa
+  // antes, em finishLiveMatch — só falta registrar no extrato aqui.
+  if (humanMatch && humanMatch.ticketRevenue) {
+    pushLedger("bilheteria", "Renda de bilheteria (jogo em casa)", humanMatch.ticketRevenue.revenue, round);
+  }
+  tickStadiumUpgrade();
+  pushCashSnapshot(round);
   // FASE 2 (c) — mercado de transferências: os outros 19 times também
   // negociam entre si (ver simulateAiTransfers) e, de vez em quando,
   // um deles propõe comprar um jogador SEU (ver maybeGenerateOffer,
@@ -6389,9 +6527,14 @@ function renderCentral() {
   // elenco PRINCIPAL conta pro teto, ver wageBillOf).
   const wageBill = wageBillOf(squad);
   const { cash, wageCap } = CAREER.finances;
+  // Bloco 4 (mockup brtreinadorbloco4clube.html) — caixa virou hero
+  // próprio (m3-hero-card) com mini-gráfico das últimas rodadas (ver
+  // pushCashSnapshot/financeCashBarsHTML); financeKpis agora só tem a
+  // folha salarial (m3-stat-card, kpiHTML block "m3").
+  document.getElementById("financeCashNum").textContent = fmtBRL(cash);
+  document.getElementById("financeCashBars").innerHTML = financeCashBarsHTML();
   document.getElementById("financeKpis").innerHTML =
-    kpiHTML("Caixa", fmtBRLShort(cash), "gold", "fin") +
-    kpiHTML("Folha salarial", fmtBRLShort(wageBill), wageBill >= wageCap ? "red" : null, "fin");
+    kpiHTML("Folha salarial", fmtBRLShort(wageBill), wageBill >= wageCap ? "red" : null, "m3");
   const wagePct = wageCap ? clamp(Math.round((wageBill / wageCap) * 100), 0, 100) : 0;
   const wageFill = document.getElementById("wageCapFill");
   wageFill.style.width = `${wagePct}%`;
@@ -6411,6 +6554,33 @@ function renderCentral() {
   // FASE 4 (item 5) — patrocínio/material esportivo (ver
   // renderSponsorship).
   renderSponsorship();
+  // Bloco 4 — resumo do Estádio (tap abre a tela cheia, ver
+  // openStadiumScreen) e da meta da diretoria (tap abre openBoardGoalsScreen)
+  // dentro do mesmo painel Clube. Capacidade/ocupação sempre calculadas
+  // na hora (mesma fonte de sempre, ver stadiumCapacityFor/
+  // currentAttendancePct — FASE 3b), não guardadas.
+  const myClub = teamById(CAREER.clubId);
+  const capacity = stadiumCapacityFor(myClub);
+  const occPct = Math.round(currentAttendancePct() * 100);
+  const pending = CAREER.stadium.pendingUpgrade;
+  const buildingNote = pending
+    ? ` · 🏗️ ${escapeHtml(pending.name)} (${pending.roundsLeft} rodada${pending.roundsLeft === 1 ? "" : "s"})`
+    : "";
+  document.getElementById("stadiumSummaryRow").innerHTML = `
+    <div class="m3-li-avatar">🏟️</div>
+    <div class="m3-li-body">
+      <div class="m3-li-name">${escapeHtml(myClub?.venue?.name || "Estádio")}</div>
+      <div class="m3-li-meta"><span class="m3-mini-chip">${capacity.toLocaleString("pt-BR")} lugares · ${occPct}% de ocupação${buildingNote}</span></div>
+    </div>
+    <div class="m3-li-side">›</div>`;
+  const myPos = myLeaguePosition();
+  document.getElementById("boardGoalSummaryRow").innerHTML = `
+    <div class="m3-li-avatar">👔</div>
+    <div class="m3-li-body">
+      <div class="m3-li-name">${escapeHtml(CAREER.boardGoal.label)}</div>
+      <div class="m3-li-meta"><span class="m3-mini-chip">${myPos > 0 ? `${myPos}º lugar atual` : "Aguardando 1ª rodada"}</span></div>
+    </div>
+    <div class="m3-li-side">›</div>`;
   // Nova feature — resumo da Comissão Técnica (ver
   // renderCommissionSummaryCard/COMMISSION_AREAS) direto no Início —
   // substitui o antigo carrossel "Elenco em destaque" nesse lugar do
@@ -6435,6 +6605,172 @@ function renderCentral() {
   } else {
     lastCard.style.display = "none";
   }
+}
+// Bloco 4 — mini-gráfico de barras do card Financeiro (ver
+// CAREER.cashHistory/pushCashSnapshot). Altura relativa ao maior valor
+// da janela guardada (não ao caixa histórico inteiro da carreira — só
+// as últimas CASH_HISTORY_MAX rodadas cabem, mesmo espírito ilustrativo
+// de sempre neste arquivo, ver comentário em stadiumCapacityFor). Sem
+// histórico ainda (carreira nova/recém-migrada) devolve vazio — o hero
+// mostra só o número do caixa, sem gráfico embaixo.
+function financeCashBarsHTML() {
+  const hist = CAREER.cashHistory || [];
+  if (!hist.length) return "";
+  const max = Math.max(...hist.map((h) => h.cash), 1);
+  return hist.map((h, i) => {
+    const pct = clamp(Math.round((h.cash / max) * 100), 6, 100);
+    return `<div class="m3-fin-bar${i === hist.length - 1 ? " now" : ""}" style="height:${pct}%;"></div>`;
+  }).join("");
+}
+/* ---------- Bloco 4 — tela "Upgrade de estádio" ----------
+   Mockup brtreinadorbloco4pendentes.html: hero com capacidade atual +
+   lista de melhorias (concluída/em obra/disponível/bloqueada por
+   pré-requisito), ver STADIUM_UPGRADES/startStadiumUpgrade. */
+function renderStadiumScreen() {
+  const myClub = teamById(CAREER.clubId);
+  const capacity = stadiumCapacityFor(myClub);
+  document.getElementById("stadiumScreenCapacity").textContent = capacity.toLocaleString("pt-BR");
+  document.getElementById("stadiumScreenName").textContent = (myClub?.venue?.name || "Estádio").toUpperCase();
+  const st = CAREER.stadium;
+  document.getElementById("stadiumUpgradeList").innerHTML = STADIUM_UPGRADES.map((u) => {
+    const done = st.completed.includes(u.id);
+    const pending = st.pendingUpgrade && st.pendingUpgrade.id === u.id;
+    const lockedByPrereq = u.requires && !st.completed.includes(u.requires);
+    const locked = !done && !pending && (lockedByPrereq || (st.pendingUpgrade && !pending));
+    let metaText;
+    let sideHTML;
+    if (done) {
+      metaText = u.capacityGain ? `Concluída · +${u.capacityGain.toLocaleString("pt-BR")} lugares` : "Concluída";
+      sideHTML = `<span class="m3-mini-chip">✅ Pronta</span>`;
+    } else if (pending) {
+      metaText = `Em obra · ${st.pendingUpgrade.roundsLeft} rodada${st.pendingUpgrade.roundsLeft === 1 ? "" : "s"} restante${st.pendingUpgrade.roundsLeft === 1 ? "" : "s"}`;
+      sideHTML = `<span class="m3-mini-chip">🏗️ Em obra</span>`;
+    } else if (lockedByPrereq) {
+      const reqName = STADIUM_UPGRADES.find((x) => x.id === u.requires)?.name || u.requires;
+      metaText = `Requer "${reqName}" concluída`;
+      sideHTML = `<span class="m3-mini-chip alert">${fmtBRLShort(u.cost)}</span>`;
+    } else {
+      metaText = `Conclusão em ${u.roundsNeeded} rodada${u.roundsNeeded === 1 ? "" : "s"}`;
+      sideHTML = `<button class="m3-upgrade-buy" data-upgrade="${u.id}"${locked ? " disabled" : ""}>${fmtBRLShort(u.cost)}</button>`;
+    }
+    return `<div class="m3-list-item${(done || pending || lockedByPrereq) ? " locked" : ""}" style="cursor:default;">
+      <div class="m3-li-avatar">${u.icon}</div>
+      <div class="m3-li-body">
+        <div class="m3-li-name">${escapeHtml(u.name)}</div>
+        <div class="m3-li-meta"><span class="m3-mini-chip">${metaText}</span></div>
+      </div>
+      ${sideHTML}
+    </div>`;
+  }).join("");
+  document.getElementById("stadiumUpgradeList").querySelectorAll("[data-upgrade]").forEach((btn) => {
+    btn.addEventListener("click", () => startStadiumUpgrade(btn.dataset.upgrade));
+  });
+}
+function openStadiumScreen() {
+  renderStadiumScreen();
+  document.getElementById("stadiumOverlay").classList.add("open");
+}
+function closeStadiumScreen() {
+  document.getElementById("stadiumOverlay").classList.remove("open");
+}
+/* ---------- Bloco 4 — tela "Metas da diretoria" ----------
+   Mockup brtreinadorbloco4pendentes.html: hero da meta atual (com barra
+   de progresso, heurística ilustrativa — não vem de nenhuma calibração
+   estatística real, mesmo espírito de outras barras deste arquivo) +
+   histórico de temporadas já gravado em CAREER.seasonHistory (ver
+   advanceSeason) — nenhum dado novo, só renderização. */
+function boardGoalProgressPct(goal, position) {
+  if (!goal || !position || position <= 0) return 0;
+  return clamp((20 - position) / (20 - goal.target), 0, 1);
+}
+function renderBoardGoalsScreen() {
+  const pos = myLeaguePosition();
+  const pct = Math.round(boardGoalProgressPct(CAREER.boardGoal, pos) * 100);
+  document.getElementById("boardGoalsHeroLabel").textContent = `META DA TEMPORADA ${CAREER.seasonYear}`;
+  document.getElementById("boardGoalsHeroTitle").textContent = CAREER.boardGoal.label;
+  document.getElementById("boardGoalsHeroFill").style.width = `${pct}%`;
+  document.getElementById("boardGoalsHeroSub").textContent = pos > 0
+    ? `${pos}º lugar atual${boardGoalMet(pos, CAREER.boardGoal) ? " · meta em dia" : ""}`
+    : "Temporada ainda não começou";
+  const history = CAREER.seasonHistory || [];
+  document.getElementById("boardGoalsHistoryList").innerHTML = history.length
+    ? history.map((h) => `
+      <div class="m3-list-item" style="cursor:default;">
+        <div class="m3-li-avatar">${h.goalWasMet ? "✅" : "❌"}</div>
+        <div class="m3-li-body">
+          <div class="m3-li-name">${h.year}</div>
+          <div class="m3-li-meta"><span class="m3-mini-chip">${escapeHtml(h.goalLabel)} · ${h.position}º lugar</span></div>
+        </div>
+      </div>`).join("")
+    : `<p class="m3-empty">Nenhuma temporada concluída ainda.</p>`;
+}
+function openBoardGoalsScreen() {
+  renderBoardGoalsScreen();
+  document.getElementById("boardGoalsOverlay").classList.add("open");
+}
+function closeBoardGoalsScreen() {
+  document.getElementById("boardGoalsOverlay").classList.remove("open");
+}
+/* ---------- Bloco 4 — tela "Extrato financeiro" ----------
+   Mockup brtreinadorbloco4pendentes.html: filtro por tipo + lista de
+   CAREER.financeLedger (ver pushLedger). Agrupado por RODADA (não por
+   mês como no mockup — este jogo não tem calendário real, só número de
+   rodada, mesmo raciocínio já usado na Tabela/Notícias). */
+const EXTRATO_FILTERS = [
+  { id: "todos", label: "Tudo" },
+  { id: "salario", label: "Salários" },
+  { id: "transferencia", label: "Transferências" },
+  { id: "patrocinio", label: "Patrocínio" },
+  { id: "bilheteria", label: "Bilheteria" },
+];
+const LEDGER_ICON = { salario: "👥", patrocinio: "🏦", parcela: "📄", bilheteria: "🎟️", transferencia: "💰", premiacao: "🏆", estadio: "🏗️", diretoria: "🏛️" };
+let EXTRATO_FILTER = "todos";
+function renderExtratoScreen() {
+  document.getElementById("extratoFilterRow").innerHTML = EXTRATO_FILTERS.map((f) =>
+    `<button class="m3-filter-chip${EXTRATO_FILTER === f.id ? " on" : ""}" data-filter="${f.id}">${f.label}</button>`).join("");
+  document.querySelectorAll("#extratoFilterRow .m3-filter-chip").forEach((btn) => {
+    btn.addEventListener("click", () => { EXTRATO_FILTER = btn.dataset.filter; renderExtratoScreen(); });
+  });
+  const all = CAREER.financeLedger || [];
+  const filtered = EXTRATO_FILTER === "todos" ? all : all.filter((tx) => tx.type === EXTRATO_FILTER);
+  if (!filtered.length) {
+    document.getElementById("extratoList").innerHTML = `<p class="m3-empty">Nenhum lançamento ainda${EXTRATO_FILTER !== "todos" ? " nesse filtro" : ""}.</p>`;
+    return;
+  }
+  let lastRound = null;
+  const rows = filtered.map((tx) => {
+    const roundHeader = tx.round !== lastRound
+      ? (lastRound = tx.round, `<div class="mt-card-sub" style="margin:14px 0 8px;">Rodada ${tx.round}</div>`)
+      : "";
+    const positive = tx.amount >= 0;
+    return `${roundHeader}<div class="m3-list-item" style="cursor:default;">
+      <div class="m3-li-avatar">${LEDGER_ICON[tx.type] || "💵"}</div>
+      <div class="m3-li-body"><div class="m3-li-name">${escapeHtml(tx.label)}</div></div>
+      <div class="m3-li-side" style="color:${positive ? "var(--m3-primary)" : "var(--m3-error)"};"><b>${positive ? "+" : "−"}${fmtBRLShort(Math.abs(tx.amount))}</b></div>
+    </div>`;
+  }).join("");
+  document.getElementById("extratoList").innerHTML = rows;
+}
+function openExtratoScreen() {
+  renderExtratoScreen();
+  document.getElementById("extratoOverlay").classList.add("open");
+}
+function closeExtratoScreen() {
+  document.getElementById("extratoOverlay").classList.remove("open");
+}
+// FAB "Novo patrocínio" (mockup brtreinadorbloco4clube.html) — abre
+// direto a proposta pendente (master ou material, o que tiver); sem
+// nenhuma pendente, avisa em vez de abrir um modal vazio.
+function openAnySponsorProposal() {
+  // Sem contrato ativo == propostas esperando escolha (ver
+  // advanceSponsorshipSeason, que só gera CAREER.sponsorProposals[kind]
+  // quando o contrato anterior vence).
+  const pending = ["master", "material"].find((kind) => !CAREER.sponsorship[kind]);
+  if (!pending) {
+    toast("Nenhuma proposta de patrocínio pendente no momento.");
+    return;
+  }
+  openSponsorProposalsModal(pending);
 }
 // Lista gols/assistências/cartões de um jogo (ver estrutura de
 // "events" em simulateRound/simulatePlayerEvents) — usado na Central
@@ -8411,6 +8747,7 @@ function finalizeIncomingPurchase(o) {
   p.origin = "principal";
   CAREER.squad.push(p);
   pushTransferLog(`Você contratou ${p.name} do ${o.clubName} por ${fmtBRL(o.offerValue)}${o.installments > 1 ? ` (${o.installments}x)` : ""}.`, CAREER.currentRound);
+  pushLedger("transferencia", `Contratação — ${p.name} (${o.clubName})${o.installments > 1 ? ` — 1ª de ${o.installments} parcelas` : ""}`, -firstPayment, CAREER.currentRound);
   toast(`${abbreviateName(p.name)} contratado! O ${o.clubName} aceitou sua proposta.`, { type: "pos" });
   ensureObjectivesFresh(); bumpObjective("daily", "obj_market_1_move", 1);
   if (p.overall >= 82) { firePressConference("15", CAREER.currentRound, false); openPressConferenceModal(); }
@@ -8678,6 +9015,7 @@ function acceptListingOffer(listingId, offerId) {
   }
   (CAREER.leagueSquads[String(offer.clubId)] = CAREER.leagueSquads[String(offer.clubId)] || []).push(p);
   pushTransferLog(`Você vendeu ${p.name} pro ${offer.clubName} por ${fmtBRL(offer.value)}${offer.installments > 1 ? ` (${offer.installments}x)` : ""}.`, CAREER.currentRound);
+  pushLedger("transferencia", `Venda — ${p.name} (${offer.clubName})${offer.installments > 1 ? ` — 1ª de ${offer.installments} parcelas` : ""}`, firstPayment, CAREER.currentRound);
   toast(`${abbreviateName(p.name)} vendido! O ${offer.clubName} pagou ${fmtBRL(offer.value)}.`, { type: "pos" });
   ensureObjectivesFresh(); bumpObjective("daily", "obj_market_1_move", 1);
   CAREER.pendingListings = (CAREER.pendingListings || []).filter((l) => l.id !== listingId);
@@ -9209,6 +9547,7 @@ function acceptOffer() {
   CAREER.lineup.bench = CAREER.lineup.bench.filter((x) => x !== p.id);
   (CAREER.leagueSquads[offer.clubId] = CAREER.leagueSquads[offer.clubId] || []).push(p);
   pushTransferLog(`Você vendeu ${p.name} pro ${offer.clubName} por ${fmtBRL(offer.fee)}.`, CAREER.currentRound);
+  pushLedger("transferencia", `Venda — ${p.name} (${offer.clubName})`, offer.fee, CAREER.currentRound);
   toast(`Proposta aceita — ${fmtBRL(offer.fee)} no caixa.`, { type: "pos" });
   ensureObjectivesFresh(); bumpObjective("daily", "obj_market_1_move", 1);
   CAREER.pendingOffer = null;
@@ -9839,6 +10178,20 @@ function wireStaticListeners() {
   // nada (dataset.opponentId nunca foi setado).
   document.getElementById("nextMatchBox").addEventListener("click", () => openH2H(document.getElementById("nextMatchBox").dataset.opponentId));
   document.getElementById("h2hClose").addEventListener("click", closeH2H);
+  // Bloco 4 (mockups brtreinadorbloco4clube.html/
+  // brtreinadorbloco4pendentes.html) — tela Clube: cards de Estádio e
+  // Diretoria abrem tela cheia, FAB abre a proposta de patrocínio
+  // pendente, botão do card Financeiro abre o extrato.
+  document.getElementById("stadiumSummaryRow").addEventListener("click", openStadiumScreen);
+  document.getElementById("stadiumClose").addEventListener("click", closeStadiumScreen);
+  document.getElementById("stadiumOverlay").addEventListener("click", (e) => { if (e.target.id === "stadiumOverlay") closeStadiumScreen(); });
+  document.getElementById("boardGoalSummaryRow").addEventListener("click", openBoardGoalsScreen);
+  document.getElementById("boardGoalsClose").addEventListener("click", closeBoardGoalsScreen);
+  document.getElementById("boardGoalsOverlay").addEventListener("click", (e) => { if (e.target.id === "boardGoalsOverlay") closeBoardGoalsScreen(); });
+  document.getElementById("btnOpenExtrato").addEventListener("click", openExtratoScreen);
+  document.getElementById("extratoClose").addEventListener("click", closeExtratoScreen);
+  document.getElementById("extratoOverlay").addEventListener("click", (e) => { if (e.target.id === "extratoOverlay") closeExtratoScreen(); });
+  document.getElementById("btnNewSponsorFab").addEventListener("click", openAnySponsorProposal);
   // Nova feature — Comparar jogadores (ver openComparePicker/handlePlayerAction).
   document.getElementById("compareClose").addEventListener("click", closeCompareScreen);
   document.getElementById("compareOverlay").addEventListener("click", (e) => { if (e.target.id === "compareOverlay") closeCompareScreen(); });
@@ -10453,6 +10806,13 @@ function migrateCareerDefaults() {
   if (CAREER.titlesWonCopa == null) CAREER.titlesWonCopa = 0;
   if (CAREER.seasonTeamGoals == null) CAREER.seasonTeamGoals = 0;
   if (CAREER.seasonTeamFouls == null) CAREER.seasonTeamFouls = 0;
+  // Bloco 4 — carreira criada antes do reskin da tela Clube nasce sem
+  // mini-gráfico de caixa, extrato e melhorias de estádio: mesmo motivo
+  // de sempre pra não reconstruir retroativo, começam do zero a partir
+  // daqui (ver cashHistory/financeLedger/stadium em startCareer).
+  if (!CAREER.cashHistory) CAREER.cashHistory = [];
+  if (!CAREER.financeLedger) CAREER.financeLedger = [];
+  if (!CAREER.stadium) CAREER.stadium = initialStadium();
   evaluateAlwaysCheckableAchievements();
 }
 // AJUSTE (pedido do usuário: "acrescentar a Série B, C [ao Modo
