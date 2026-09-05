@@ -3816,6 +3816,30 @@ function isProtectedTrainingDay(i) { return i === TRAINING_PRE_GAME_DAY || i ===
 const TRAINING_INTENSITY_MULT = { leve: 0.5, moderada: 1, intensa: 1.8 };
 const TRAINING_INTENSITY_LABEL = { leve: "Leve", moderada: "Moderada", intensa: "Intensa" };
 const TRAINING_GROUP_LABEL = { principal: "Elenco", misto: "Misto c/ Sub-20", individual: "Individual" };
+// Bloco 5 (mockups brtreinadorbloco5treino.html/brtreinadorbloco5pendentes.html)
+// — pedido do usuário: "Editor de exercício" (Área/Intensidade/Duração/
+// Grupo). Decisão confirmada com o usuário (AskUserQuestion): manter 1
+// configuração por dia (não virar lista de exercícios) — só entram 2
+// campos novos: "Tático" como 3º foco (evolui ataque E defesa, já que
+// tático mistura os dois — únicos 2 atributos que treino ainda não
+// tocava, ver mapeamento em applyWeeklyTraining) e duração em minutos
+// (só informativo: não entra nas fórmulas de fadiga/ganho do documento,
+// que continuam intocadas — combina com a "prévia de fadiga" já mostrada
+// noutro lugar da tela, sem duplicar cálculo).
+const TRAINING_DURATION_DEFAULT = { leve: 45, moderada: 60, intensa: 75 };
+const TRAINING_DURATION_MIN = 15, TRAINING_DURATION_MAX = 120, TRAINING_DURATION_STEP = 15;
+// Histórico por jogador (Bloco 5, "pendentes" — tela "Histórico de
+// fadiga"): fatigueHistory alimentado 1x por rodada em
+// applyWeeklyTraining (1 rodada = 1 semana, mesma equivalência já usada
+// no resto do módulo); injuryHistory alimentado no momento da lesão de
+// verdade (applyMatchWearChunk) — cruza fadiga x lesão sem inventar dado
+// (injuryChanceFor já pesa a condição do jogador na chance de lesão,
+// então a correlação mostrada na tela é real, não só cosmética). Ambos
+// começam vazios em carreiras já em andamento — sem como reconstruir
+// histórico que não foi guardado — e crescem a partir de agora; cap no
+// tamanho pra não inchar o save numa carreira de várias temporadas.
+const FATIGUE_HISTORY_MAX = 16;
+const INJURY_HISTORY_MAX = 10;
 // 5 esquemas prontos (seção 3 do documento, portados 1:1 — sexta e
 // domingo nunca precisam ser escritos como "descanso" explicitamente
 // aqui: são sempre protegidos por posição, ver isProtectedTrainingDay,
@@ -3882,7 +3906,12 @@ function defaultTrainingPlan(schemeId) {
   for (let i = 0; i < 7; i++) {
     if (i === TRAINING_GAME_DAY) plan[i] = { foco: "jogo" };
     else if (isProtectedTrainingDay(i)) plan[i] = { foco: "descanso" };
-    else plan[i] = { ...scheme.days[di++] };
+    else {
+      plan[i] = { ...scheme.days[di++] };
+      // Bloco 5 — duração default por intensidade (só informativo, ver
+      // aviso no topo desta seção sobre TRAINING_DURATION_DEFAULT).
+      plan[i].duracao = TRAINING_DURATION_DEFAULT[plan[i].intensidade] || 60;
+    }
   }
   return plan;
 }
@@ -3919,24 +3948,31 @@ function applyWeeklyTraining() {
     const mult = TRAINING_INTENSITY_MULT[entry.intensidade] || 1;
     const baseGain = Math.round(2 * mult);   // fórmula exata do documento (2.2) — teto POSSÍVEL, não garantido, ver attributeTrainingGain
     const fatigueCost = Math.round(6 * mult);
-    const attr = entry.foco === "tecnico" ? "overall" : "phys"; // ver aviso de mapeamento no topo
+    // "Tático" (Bloco 5) mistura os 2 lados do jogo — evolui ATAQUE E
+    // DEFESA junto, cada um com metade do baseGain (mantém o total de
+    // evolução por semana comparável ao foco único de técnico/físico,
+    // em vez de dobrar de graça só por afetar 2 atributos).
+    const attrs = entry.foco === "tecnico" ? ["overall"] : entry.foco === "fisico" ? ["phys"] : ["atk", "def"];
     trainingTargets(entry).forEach((p) => {
       p.condition = clamp((p.condition == null ? 100 : p.condition) - fatigueCost, 0, 100);
-      // Nova feature (pedido do usuário: "atributos precisam ser mais
-      // reais... evolução menos agressiva") — ganho respeita o teto
-      // de cada jogador (p.potential), com retorno decrescente perto
-      // dele (ver attributeTrainingGain) — fadiga sempre é cobrada
-      // (o esforço aconteceu), mas o ganho de verdade pode vir menor
-      // que baseGain, ou zero, se o jogador já estiver perto/no teto.
-      const ceiling = p.potential != null ? p.potential : 99;
-      const gain = attributeTrainingGain(p[attr], ceiling, baseGain);
-      if (gain > 0) {
-        p[attr] = clamp(p[attr] + gain, 20, ceiling);
-        const trend = p.attrTrend || { overall: 0, atk: 0, def: 0, phys: 0 };
-        trend[attr] += gain;
-        p.attrTrend = trend;
-        gains.set(p.id, (gains.get(p.id) || 0) + gain);
-      }
+      attrs.forEach((attr) => {
+        const attrGain = attrs.length > 1 ? Math.max(1, Math.round(baseGain / 2)) : baseGain;
+        // Nova feature (pedido do usuário: "atributos precisam ser mais
+        // reais... evolução menos agressiva") — ganho respeita o teto
+        // de cada jogador (p.potential), com retorno decrescente perto
+        // dele (ver attributeTrainingGain) — fadiga sempre é cobrada
+        // (o esforço aconteceu), mas o ganho de verdade pode vir menor
+        // que attrGain, ou zero, se o jogador já estiver perto/no teto.
+        const ceiling = p.potential != null ? p.potential : 99;
+        const gain = attributeTrainingGain(p[attr], ceiling, attrGain);
+        if (gain > 0) {
+          p[attr] = clamp(p[attr] + gain, 20, ceiling);
+          const trend = p.attrTrend || { overall: 0, atk: 0, def: 0, phys: 0 };
+          trend[attr] += gain;
+          p.attrTrend = trend;
+          gains.set(p.id, (gains.get(p.id) || 0) + gain);
+        }
+      });
       // Regra do documento (2.5): Sub-20 treinando no grupo Misto com
       // o elenco principal ganha moral "feliz" — na escala numérica
       // já existente, isso é um empurrão positivo + motivo explícito
@@ -3963,6 +3999,12 @@ function applyWeeklyTraining() {
       p.morale = clamp((p.morale == null ? 70 : p.morale) + 4, 0, 100);
       p.moraleReason = "Neutro no clube";
     }
+    // Bloco 5 ("pendentes" — tela "Histórico de fadiga") — 1 ponto por
+    // rodada pra TODO o elenco, treinando ou não nesta semana (ver
+    // aviso grande sobre FATIGUE_HISTORY_MAX no topo desta seção).
+    p.fatigueHistory = p.fatigueHistory || [];
+    p.fatigueHistory.push({ round: CAREER.currentRound, fadiga: Math.round(100 - cond) });
+    if (p.fatigueHistory.length > FATIGUE_HISTORY_MAX) p.fatigueHistory.shift();
   });
   CAREER.trainingAppliedForRound = CAREER.currentRound;
   // Retenção/Engajamento — "Treine 1 jogador" (objetivo diário) conta
@@ -3979,7 +4021,10 @@ function applyWeeklyTraining() {
    (PICKER_CTX, ver openPicker/renderPickerList/pickerChoose) pro
    treino "Individual", sem duplicar nenhum desses componentes. */
 const TRAINING_SEG_OPTIONS = {
-  foco: [["tecnico", "Técnico"], ["fisico", "Físico"], ["descanso", "Descanso"]],
+  // Bloco 5 — "Tático" é o 3º foco (evolui ataque+defesa, ver
+  // applyWeeklyTraining); entra no meio pra não deslocar "Descanso",
+  // que fica sempre por último nos 3 esquemas.
+  foco: [["tecnico", "Técnico"], ["fisico", "Físico"], ["tatico", "Tático"], ["descanso", "Descanso"]],
   intensidade: [["leve", "Leve"], ["moderada", "Moderada"], ["intensa", "Intensa"]],
   grupo: [["principal", "Elenco"], ["misto", "Misto"], ["individual", "Individual"]],
 };
@@ -3995,7 +4040,7 @@ function segGroupHTML(seg, current, disabled) {
 function trainingSchemeCardHTML(scheme) {
   const plan = defaultTrainingPlan(scheme.id);
   const dots = plan.map((entry, i) => {
-    const cls = entry.foco === "jogo" ? "jogo" : entry.foco === "tecnico" ? "tecnico" : entry.foco === "fisico" ? "fisico" : "";
+    const cls = entry.foco === "jogo" ? "jogo" : entry.foco === "tecnico" ? "tecnico" : entry.foco === "fisico" ? "fisico" : entry.foco === "tatico" ? "tatico" : "";
     const prot = isProtectedTrainingDay(i) ? " protected" : "";
     return `<span class="dot ${cls}${prot}"></span>`;
   }).join("");
@@ -4028,6 +4073,18 @@ function renderTrainingDayPanel() {
   }
   html += `<span class="mt-field-label">Foco</span>${segGroupHTML("foco", entry.foco || "descanso", false)}`;
   html += `<span class="mt-field-label">Intensidade</span>${segGroupHTML("intensidade", entry.intensidade || "moderada", isRest)}`;
+  // Bloco 5 — duração, só informativa (não entra nas fórmulas de fadiga/
+  // ganho, ver aviso no topo da seção de constantes); escondida em
+  // Descanso, que não tem duração configurável (igual Intensidade/Grupo).
+  if (!isRest) {
+    const dur = entry.duracao || TRAINING_DURATION_DEFAULT[entry.intensidade] || 60;
+    html += `<span class="mt-field-label">Duração</span>
+      <div class="mt-dur-stepper">
+        <button type="button" class="mt-dur-step-btn" id="btnTrainingDurMinus" aria-label="Diminuir duração">−</button>
+        <span class="mt-dur-val">${dur} min</span>
+        <button type="button" class="mt-dur-step-btn" id="btnTrainingDurPlus" aria-label="Aumentar duração">+</button>
+      </div>`;
+  }
   html += `<span class="mt-field-label">Grupo</span>${segGroupHTML("grupo", entry.grupo || "principal", isRest)}`;
   if (!isRest && entry.grupo === "individual") {
     const p = entry.individualPlayerId && CAREER.squad.find((x) => x.id === entry.individualPlayerId);
@@ -4037,11 +4094,19 @@ function renderTrainingDayPanel() {
   panel.querySelectorAll(".mt-seg-btn").forEach((btn) => btn.addEventListener("click", () => {
     const seg = btn.dataset.seg, value = btn.dataset.value;
     if (seg === "foco") {
-      // Trocar de foco reinicia intensidade/grupo pro default (exceto
-      // saindo de descanso->descanso, que não existe aqui) — vindo de
-      // um foco já ativo, preserva a intensidade/grupo escolhidos.
+      // Trocar de foco reinicia intensidade/grupo/duração pro default
+      // (exceto saindo de descanso->descanso, que não existe aqui) —
+      // vindo de um foco já ativo, preserva o que já estava escolhido.
+      const keptIntensidade = (!isRest && entry.intensidade) || "moderada";
       CAREER.trainingPlan[day] = value === "descanso" ? { foco: "descanso" }
-        : { foco: value, intensidade: (!isRest && entry.intensidade) || "moderada", grupo: (!isRest && entry.grupo) || "principal" };
+        : { foco: value, intensidade: keptIntensidade, grupo: (!isRest && entry.grupo) || "principal",
+            duracao: (!isRest && entry.duracao) || TRAINING_DURATION_DEFAULT[keptIntensidade] };
+    } else if (seg === "intensidade") {
+      // Bloco 5 — duração acompanha o default da intensidade nova (o
+      // técnico ainda pode ajustar no stepper depois, ver
+      // stepTrainingDuration).
+      CAREER.trainingPlan[day][seg] = value;
+      CAREER.trainingPlan[day].duracao = TRAINING_DURATION_DEFAULT[value] || 60;
     } else {
       CAREER.trainingPlan[day][seg] = value;
     }
@@ -4054,6 +4119,21 @@ function renderTrainingDayPanel() {
   }));
   const pickBtn = document.getElementById("btnPickTrainingPlayer");
   if (pickBtn) pickBtn.addEventListener("click", () => openPicker({ type: "training", day }, "Treino individual — escolher jogador"));
+  const durMinus = document.getElementById("btnTrainingDurMinus");
+  const durPlus = document.getElementById("btnTrainingDurPlus");
+  if (durMinus) durMinus.addEventListener("click", () => stepTrainingDuration(day, -TRAINING_DURATION_STEP));
+  if (durPlus) durPlus.addEventListener("click", () => stepTrainingDuration(day, TRAINING_DURATION_STEP));
+}
+// Bloco 5 — ajusta só a duração informativa de um dia (não desvincula
+// do esquema de origem: é um detalhe de exibição, não muda foco/
+// intensidade/grupo, que são os campos que a fórmula de fadiga/ganho
+// realmente usa).
+function stepTrainingDuration(day, delta) {
+  const entry = CAREER.trainingPlan[day];
+  const current = entry.duracao || TRAINING_DURATION_DEFAULT[entry.intensidade] || 60;
+  entry.duracao = clamp(current + delta, TRAINING_DURATION_MIN, TRAINING_DURATION_MAX);
+  persistCareer();
+  renderTrainingDayPanel();
 }
 // Extraída (era só o corpo do clique no card, ver abaixo) pra também
 // ser chamada pela Comissão Técnica (ver suggestTraining) sem duplicar
@@ -4062,6 +4142,33 @@ function applyTrainingScheme(id) {
   CAREER.trainingSchemeId = id;
   CAREER.trainingPlan = defaultTrainingPlan(id);
   persistCareer();
+}
+// Bloco 5 (mockup brtreinadorbloco5treino.html) — projeta a semana
+// inteira (dry run, NUNCA toca CAREER.squad de verdade) só pra
+// alimentar o aviso de jogador em risco em renderTreinos — mesma
+// fórmula de fadiga de applyWeeklyTraining, sem os efeitos colaterais
+// (ganho de atributo/moral, que só fazem sentido ao aplicar de
+// verdade). Devolve o PIOR ponto (condição mais baixa) alcançado
+// durante a semana, não o valor final — as 2 folgas protegidas ficam
+// sempre por último na ordem dos dias (sexta e domingo), então o
+// valor final sozinho SEMPRE fica mascarado pela recuperação dessas 2
+// folgas (mesmo espírito do mockup: "fadiga acima de 80% PRA QUINTA",
+// o pico antes da folga de sexta — não a média da semana inteira).
+function projectWeekPeakFatigue() {
+  const cond = new Map(CAREER.squad.map((p) => [p.id, p.condition == null ? 100 : p.condition]));
+  const worst = new Map(cond);
+  CAREER.trainingPlan.forEach((entry, i) => {
+    if (i === TRAINING_GAME_DAY || !entry || !entry.foco) return;
+    if (entry.foco === "descanso") {
+      CAREER.squad.forEach((p) => cond.set(p.id, clamp(cond.get(p.id) + 12, 0, 100)));
+    } else {
+      const mult = TRAINING_INTENSITY_MULT[entry.intensidade] || 1;
+      const fatigueCost = Math.round(6 * mult);
+      trainingTargets(entry).forEach((p) => cond.set(p.id, clamp(cond.get(p.id) - fatigueCost, 0, 100)));
+    }
+    cond.forEach((v, id) => { if (v < worst.get(id)) worst.set(id, v); });
+  });
+  return worst;
 }
 function renderTreinos() {
   const strip = document.getElementById("trainingSchemeStrip");
@@ -4092,6 +4199,34 @@ function renderTreinos() {
     renderTreinos();
   }));
 
+  // Bloco 5 — resumo semanal (fadiga média/moral do elenco/folga
+  // protegida) + aviso do jogador em maior risco ao fim da semana
+  // projetada. "Relevante" = mesmo critério de trainingTargets("principal")
+  // — titulares+emprestados, não a base inteira (que só entra quando o
+  // técnico escolhe "Misto").
+  const relevant = CAREER.squad.filter((p) => p.origin === "principal" || p.origin === "loan");
+  const avgFadigaAtual = relevant.length ? Math.round(relevant.reduce((s, p) => s + (100 - (p.condition == null ? 100 : p.condition)), 0) / relevant.length) : 0;
+  const avgMoral = relevant.length ? Math.round(relevant.reduce((s, p) => s + (p.morale == null ? 70 : p.morale), 0) / relevant.length) : 0;
+  const protectedRespected = [TRAINING_PRE_GAME_DAY, TRAINING_POST_GAME_DAY].filter((d) => {
+    const e = CAREER.trainingPlan[d];
+    return !e || !e.foco || e.foco === "descanso";
+  }).length;
+  document.getElementById("trainingWeekSummary").innerHTML = [
+    kpiHTML("Fadiga média", `${avgFadigaAtual}%`, avgFadigaAtual >= 70 ? "red" : null),
+    kpiHTML("Moral do elenco", `${avgMoral}%`, avgMoral < 50 ? "red" : null),
+    kpiHTML("Folga protegida", `${protectedRespected}/2`, protectedRespected < 2 ? "red" : null),
+  ].join("");
+
+  const projected = projectWeekPeakFatigue();
+  let worst = null;
+  relevant.forEach((p) => {
+    const fadiga = Math.round(100 - (projected.get(p.id) ?? (p.condition == null ? 100 : p.condition)));
+    if (fadiga >= 80 && (!worst || fadiga > worst.fadiga)) worst = { p, fadiga };
+  });
+  document.getElementById("trainingRiskWarning").innerHTML = worst
+    ? `<div class="mt-training-warning"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg><span><b>${escapeHtml(abbreviateName(worst.p.name))}</b> vai chegar a ${worst.fadiga}% de fadiga nesta semana — considere reduzir a carga ou poupar do treino.</span></div>`
+    : "";
+
   renderTrainingDayPanel();
 
   // Elenco inteiro (principal+base+emprestado), mesma ordenação de
@@ -4106,6 +4241,73 @@ function renderTreinos() {
   const already = CAREER.trainingAppliedForRound === CAREER.currentRound;
   document.getElementById("btnApplyTraining").disabled = already;
   document.getElementById("btnApplyTrainingLabel").textContent = already ? "Treino já aplicado nesta rodada" : "Aplicar treino da semana";
+}
+
+/* ---------- Bloco 5 ("pendentes" — mockup brtreinadorbloco5pendentes.html)
+   — "Histórico de fadiga" ----------
+   Tela nova, aberta de dentro de Treinos (ver botão "📊" no card "Elenco
+   — condição física"): seletor de jogador + gráfico de barras da fadiga
+   semanal (p.fatigueHistory, alimentado 1x por rodada em
+   applyWeeklyTraining) cruzado com as lesões do mesmo período
+   (p.injuryHistory, alimentado em applyMatchWearChunk) — ver aviso
+   grande sobre FATIGUE_HISTORY_MAX/INJURY_HISTORY_MAX no topo da seção
+   de Treinos: os dois começam vazios numa carreira já em andamento e
+   crescem a partir de agora, sem como reconstruir o passado. */
+let FATIGUE_HISTORY_SELECTED_ID = null;
+function fatigueHistoryPlayerOptionsHTML() {
+  const roster = CAREER.squad.slice().sort((a, b) => squadSortKey(a) - squadSortKey(b));
+  return roster.map((p) => `<option value="${p.id}">${escapeHtml(abbreviateName(p.name))} · ${SUBPOS_LABEL[subPositionOf(p)] || ""}</option>`).join("");
+}
+function renderFatigueHistoryScreen() {
+  const roster = CAREER.squad.slice().sort((a, b) => squadSortKey(a) - squadSortKey(b));
+  if (!roster.length) {
+    document.getElementById("fatigueHistoryEmpty").classList.remove("hidden");
+    document.getElementById("fatigueHistoryBody").classList.add("hidden");
+    return;
+  }
+  if (!FATIGUE_HISTORY_SELECTED_ID || !roster.some((p) => p.id === FATIGUE_HISTORY_SELECTED_ID)) {
+    FATIGUE_HISTORY_SELECTED_ID = roster[0].id;
+  }
+  const select = document.getElementById("fatigueHistoryPlayerSelect");
+  select.innerHTML = fatigueHistoryPlayerOptionsHTML();
+  select.value = FATIGUE_HISTORY_SELECTED_ID;
+  document.getElementById("fatigueHistoryEmpty").classList.add("hidden");
+  document.getElementById("fatigueHistoryBody").classList.remove("hidden");
+
+  const p = roster.find((x) => x.id === FATIGUE_HISTORY_SELECTED_ID);
+  const history = (p.fatigueHistory || []).slice(-8); // últimas 8 semanas (mesma janela do mockup)
+  const chartEl = document.getElementById("fatigueHistoryChart");
+  const labelsEl = document.getElementById("fatigueHistoryLabels");
+  if (!history.length) {
+    chartEl.innerHTML = "";
+    labelsEl.innerHTML = "";
+    document.getElementById("fatigueHistoryChartEmpty").classList.remove("hidden");
+  } else {
+    document.getElementById("fatigueHistoryChartEmpty").classList.add("hidden");
+    chartEl.innerHTML = history.map((h) => `<div class="mt-fatigue-bar${h.fadiga >= 80 ? " high" : ""}" style="height:${Math.max(h.fadiga, 3)}%;" title="Rodada ${h.round} · fadiga ${h.fadiga}%"></div>`).join("");
+    labelsEl.innerHTML = history.map((h) => `<span>R${h.round}</span>`).join("");
+  }
+
+  // Lesões só dentro da MESMA janela de rodadas mostrada no gráfico —
+  // uma lesão de 20 rodadas atrás não tem relação com o gráfico visível.
+  const minRound = history.length ? history[0].round : -Infinity;
+  const injuries = (p.injuryHistory || []).filter((inj) => inj.round >= minRound);
+  const injuriesEl = document.getElementById("fatigueHistoryInjuries");
+  document.getElementById("fatigueHistoryInjuriesEmpty").classList.toggle("hidden", injuries.length > 0);
+  injuriesEl.innerHTML = injuries.slice().reverse().map((inj) => `<div class="mt-injury-row">
+    <div class="mt-injury-icon">🩹</div>
+    <div class="mt-injury-body">
+      <div class="mt-injury-name">Lesão ${injurySeverityLabel(inj.severity)}</div>
+      <div class="mt-injury-meta">Rodada ${inj.round} · afastado por ${inj.durationRounds} rodada(s) · fadiga estava em ${inj.fadigaAtInjury}%</div>
+    </div>
+  </div>`).join("");
+}
+function openFatigueHistoryScreen() {
+  renderFatigueHistoryScreen();
+  document.getElementById("fatigueHistoryOverlay").classList.add("open");
+}
+function closeFatigueHistoryScreen() {
+  document.getElementById("fatigueHistoryOverlay").classList.remove("open");
 }
 
 /* ---------- Retenção/Engajamento (BRDataRetencaoEspecificacao) —
@@ -4856,7 +5058,16 @@ function applyMatchWearChunk(starters, round, chunkShare, appearedSet) {
     if (p.status === "ok" && Math.random() < injuryChanceFor(p) * chunkShare) {
       const severity = rollInjurySeverity();
       const dur = severity.minRounds + Math.floor(Math.random() * (severity.maxRounds - severity.minRounds + 1));
+      // Bloco 5 ("pendentes" — tela "Histórico de fadiga") — snapshot da
+      // fadiga ANTES desta lesão (a linha de baixo ainda vai atualizar
+      // p.condition pelo desgaste deste chunk) — injuryChanceFor já pesa
+      // condição/físico na chance de lesão, então essa correlação é
+      // real, não só decorativa.
+      const fadigaAntes = Math.round(100 - (p.condition == null ? 100 : p.condition));
       p.status = "contundido"; p.outUntilRound = round + dur; p.injurySeverity = severity.type;
+      p.injuryHistory = p.injuryHistory || [];
+      p.injuryHistory.push({ round, severity: severity.type, durationRounds: dur, fadigaAtInjury: fadigaAntes });
+      if (p.injuryHistory.length > INJURY_HISTORY_MAX) p.injuryHistory.shift();
       // AJUSTE (Play-by-Play v2, pedido do usuário — documento "BR Data
       // Play-by-Play", catálogo INJURY) — a lesão já existia (a
       // mecânica em si é de antes desta sessão), só era silenciosa: não
@@ -10027,6 +10238,17 @@ function wireStaticListeners() {
       ? { title: "Treino da semana aplicado", detail: `${gains.size} jogador${gains.size > 1 ? "es" : ""} evoluíram atributos.` }
       : { title: "Treino da semana aplicado", detail: "Semana de descanso — sem ganho de atributo, condição recuperada." },
       { type: "pos" });
+  });
+
+  // Bloco 5 ("pendentes") — "Histórico de fadiga", mesmo padrão de
+  // fechamento das outras telas cheias (X, rodapé, clique fora).
+  document.getElementById("btnOpenFatigueHistory").addEventListener("click", openFatigueHistoryScreen);
+  document.getElementById("fatigueHistoryClose").addEventListener("click", closeFatigueHistoryScreen);
+  document.getElementById("btnFatigueHistoryCloseFooter").addEventListener("click", closeFatigueHistoryScreen);
+  document.getElementById("fatigueHistoryOverlay").addEventListener("click", (e) => { if (e.target.id === "fatigueHistoryOverlay") closeFatigueHistoryScreen(); });
+  document.getElementById("fatigueHistoryPlayerSelect").addEventListener("change", (e) => {
+    FATIGUE_HISTORY_SELECTED_ID = e.target.value;
+    renderFatigueHistoryScreen();
   });
 
   // Fluxo de "Simular rodada" (pedido do usuário): confirmar escalação
