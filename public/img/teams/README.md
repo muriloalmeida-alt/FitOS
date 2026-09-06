@@ -63,3 +63,38 @@ Salve um SVG (ou PNG) em `public/img/teams/<id>.svg`, usando o mesmo `id`
 da tabela em `public/js/data.js` (`DEMO_TEAMS`). Nenhuma outra mudança de
 código é necessária — `localCrestFor()` detecta o arquivo automaticamente
 pelo id (modo de exemplo) ou pelo nome do time (modo ao vivo).
+
+## Escudos da Série B (Modo Técnico)
+
+11 dos 20 clubes de `DEMO_TEAMS_SERIE_B` (`public/js/data.js`) têm brasão
+real, salvo aqui como `<id>_b.png` (sufixo `_b` só pra deixar claro que é
+um escudo da Série B, mesmo já não havendo colisão de `id` com a Série A) —
+diferente do restante da pasta, esses NÃO são detectados automaticamente
+por `localCrestFor()`/`crestFallbackHandler()` (esse par é só do site
+principal, `app.js`); em vez disso, cada entrada de `DEMO_TEAMS_SERIE_B`
+que tem escudo aponta pro arquivo direto no campo `logo`, lido por
+`crestImg()` em `public/js/carreira.js` (Modo Técnico).
+
+| id  | clube                | arquivo         |
+|-----|------------------------|-----------------|
+| goi | Goiás                  | `goi_b.png` |
+| ava | Avaí                   | `ava_b.png` |
+| cri | Criciúma               | `cri_b.png` |
+| vno | Vila Nova              | `vno_b.png` |
+| cub | Cuiabá                 | `cub_b.png` |
+| acg | Atlético Goianiense    | `acg_b.png` |
+| crb | CRB                    | `crb_b.png` |
+| nvz | Novorizontino          | `nvz_b.png` |
+| ope | Operário-PR            | `ope_b.png` |
+| bsp | Botafogo-SP            | `bsp_b.png` |
+| atc | Athletic Club          | `atc_b.png` |
+
+Os outros 9 clubes de `DEMO_TEAMS_SERIE_B` (Athletico Paranaense, Coritiba,
+Chapecoense, Remo, América Mineiro, Amazonas, Paysandu, Volta Redonda,
+Ferroviária) ficaram sem escudo real — o documento fornecido pelo usuário
+(`BRDataSerieBClubes.docx`, fonte: football-logos.cc) trazia escudo de 19
+clubes da Série B 2026, mas só esses 11 batem com o elenco fictício daqui
+(que é da Série B 2025); por decisão do usuário, o elenco não foi trocado
+pra bater com o documento — só os que já coincidem ganharam escudo real.
+Esses 9 continuam caindo pro fallback de monograma (sigla) que
+`crestImg()` já usa quando não há `logo`.

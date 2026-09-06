@@ -73,10 +73,39 @@ function realTeamColor(name, competitionId) {
   // de dado real vs "Athletico Paranaense" aqui, mesmo bug de fundo
   // que já rendeu o card do Athletico aparecendo VERDE em modo ao
   // vivo, sem relação nenhuma com a cor real do clube).
-  const match = demoTeams.find(t =>
+  let match = demoTeams.find(t =>
     normalizeNameForColor(t.name) === norm ||
     (t.aliases || []).some(a => normalizeNameForColor(a) === norm)
   );
+  // AJUSTE (pedido do usuário: "cores de fundo sem relação com o
+  // degradê proposto") — variação de nome ainda não reportada/somada a
+  // `aliases` caía direto pro hash genérico (colorForId), sem relação
+  // nenhuma com o clube de verdade. Antes de desistir, tenta um 2º
+  // match por "contém" nos dois sentidos — seguro aqui porque
+  // demoTeams só cobre os clubes fixos desta competição.
+  if (!match) {
+    match = demoTeams.find(t => {
+      const candidates = [t.name, ...(t.aliases || [])].map(normalizeNameForColor).filter(c => c.length > 3);
+      return candidates.some(c => norm.includes(c) || c.includes(norm));
+    });
+  }
+  // BUG CORRIGIDO (pedido do usuário: "Coritiba com fundo diferente da
+  // logo") -- DEMO_TEAMS (Série A) foi curada numa temporada em que
+  // Coritiba estava na Série B; o fornecedor de dado real reflete a
+  // temporada ATUAL, com o time de volta à Série A -- acesso/queda sem
+  // ninguém atualizar a lista. Só faz sentido pro Brasileirão (única
+  // competição com Série A/B ligadas aqui) -- busca por último também
+  // no catálogo da Série B, mesma técnica de match exato + "contém".
+  if (!match && competitionId === "brasileirao") {
+    const serieB = DEMO_DATA_BY_COMPETITION.serie_b?.teams || [];
+    match = serieB.find(t => normalizeNameForColor(t.name) === norm || (t.aliases || []).some(a => normalizeNameForColor(a) === norm));
+    if (!match) {
+      match = serieB.find(t => {
+        const candidates = [t.name, ...(t.aliases || [])].map(normalizeNameForColor).filter(c => c.length > 3);
+        return candidates.some(c => norm.includes(c) || c.includes(norm));
+      });
+    }
+  }
   // c3 é OPCIONAL (só clube tricolor de verdade tem, ver AJUSTE em
   // data.js) -- sem incluir aqui, o degradê de 3 cores do modo
   // Exemplo virava 2 cores de novo assim que passava pro modo ao
