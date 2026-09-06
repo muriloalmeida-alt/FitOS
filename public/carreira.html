@@ -3299,7 +3299,27 @@
             <option value="serie_b">Série B</option>
             <option value="serie_c">Série C</option>
           </select>
+          <!-- AJUSTE (pedido do usuário: "a tela de mercado me impede de
+               procurar mais jogadores, ampliem os filtros") — 2 filtros
+               novos (clube específico e nível mínimo, além de
+               posição/divisão/busca por nome que já existiam) pra achar
+               um jogador puntual sem depender só do texto de busca. -->
+          <select id="marketClubFilter" class="mt-select-box" style="margin-bottom:4px;">
+            <option value="">Todos os clubes</option>
+          </select>
+          <select id="marketOvrFilter" class="mt-select-box" style="margin-bottom:4px;">
+            <option value="">Qualquer nível</option>
+            <option value="80">Elite (80+)</option>
+            <option value="70">Bom (70+)</option>
+            <option value="60">Regular (60+)</option>
+          </select>
           <div id="marketList"></div>
+          <p class="mt-card-sub" id="marketResultCount" style="margin-top:8px;"></p>
+          <!-- Antes o Mercado travava numa lista de até 40/60 jogadores
+               sem jeito nenhum de ver o resto — agora "Carregar mais"
+               revela o pool inteiro que bate o filtro, 60 de cada vez
+               (ver MARKET_SHOW_COUNT em carreira.js). -->
+          <button class="mt-btn-ghost hidden" id="btnMarketLoadMore" style="width:100%;">Carregar mais jogadores</button>
         </div>
         <div class="mt-card">
           <div class="mt-card-title">Transferências recentes</div>
