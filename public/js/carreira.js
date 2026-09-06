@@ -9493,6 +9493,17 @@ function renderEstatisticas() {
 // (base não tem presença de mercado, mesmo critério do botão "Vender"
 // no detalhe do jogador). Reconstruída a cada render — a lista muda a
 // cada transferência AI ou ação sua, não vale a pena cachear.
+// AJUSTE (pedido do usuário: "a tela de mercado me impede de procurar
+// mais jogadores, ampliem os filtros") — antes a lista vinha sempre
+// cortada em 40 (sem filtro) ou 60 (com filtro) jogadores, sem
+// nenhum jeito de ver o resto do pool que batia o critério. Agora é
+// paginação de verdade: começa em 40, "Carregar mais" (ver
+// wireEvents) soma +60 por clique; qualquer mudança de filtro/busca
+// volta pro início (resetMarketPaging), senão o usuário ficaria
+// vendo 300 jogadores do filtro ERRADO depois de trocar de posição.
+let MARKET_SHOW_COUNT = 40;
+function resetMarketPaging() { MARKET_SHOW_COUNT = 40; renderMercado(); }
+
 function allMarketPlayers() {
   const mine = CAREER.squad.filter((p) => p.origin === "principal")
     .map((p) => ({ p, club: teamById(CAREER.clubId), mine: true }));
@@ -10726,20 +10737,44 @@ function renderMercado() {
   const search = (document.getElementById("marketSearch").value || "").trim().toLowerCase();
   const posFilter = document.getElementById("marketPosFilter").value;
   const compFilter = isMulti ? document.getElementById("marketCompFilter").value : "";
+  const clubFilterEl = document.getElementById("marketClubFilter");
+  const ovrFilter = Number(document.getElementById("marketOvrFilter").value) || 0;
   let list = allMarketPlayers();
-  if (posFilter) list = list.filter(({ p }) => p.group === posFilter);
+  // AJUSTE (pedido do usuário: "ampliem os filtros") — clube específico
+  // (útil pra ir direto no elenco de um time só, em vez de depender só
+  // do texto de busca) e nível mínimo (OVR — mesma faixa elite/bom/
+  // regular do badge de OVR já usado no Elenco/Detalhe).
   if (compFilter) list = list.filter(({ club }) => (club.competitionId || CURRENT_COMPETITION_ID) === compFilter);
+  // Opções do filtro de clube reconstruídas a cada render (a lista de
+  // times visíveis muda com a divisão escolhida acima) — preserva a
+  // seleção atual quando ela ainda existe entre as novas opções.
+  const clubsForFilter = [...new Map(list.map(({ club }) => [String(club.id), club])).values()]
+    .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+  const prevClubValue = clubFilterEl.value;
+  clubFilterEl.innerHTML = `<option value="">Todos os clubes</option>` +
+    clubsForFilter.map((c) => `<option value="${escapeHtml(String(c.id))}">${escapeHtml(c.name || c.short)}</option>`).join("");
+  if (clubsForFilter.some((c) => String(c.id) === prevClubValue)) clubFilterEl.value = prevClubValue;
+  const clubFilter = clubFilterEl.value;
+  if (clubFilter) list = list.filter(({ club }) => String(club.id) === clubFilter);
+  if (posFilter) list = list.filter(({ p }) => p.group === posFilter);
+  if (ovrFilter) list = list.filter(({ p }) => p.overall >= ovrFilter);
   if (search) {
     list = list.filter(({ p, club }) =>
       p.name.toLowerCase().includes(search) || (club.name || "").toLowerCase().includes(search) || (club.short || "").toLowerCase().includes(search)
     );
   }
   list.sort((a, b) => b.p.value - a.p.value);
-  // Sem busca/filtro, mostra só os 40 mais valiosos (evita renderizar
-  // uma lista enorme à toa, ainda mais agora com até 3x mais times
-  // numa carreira "multi") — buscando ou filtrando, mostra até 60
-  // resultados batendo o critério.
-  const capped = list.slice(0, search || posFilter || compFilter ? 60 : 40);
+  // AJUSTE (pedido do usuário: "a tela de mercado me impede de procurar
+  // mais jogadores") — antes travava num teto fixo (40/60) sem jeito
+  // de ver o resto do pool. Agora é paginação de verdade: MARKET_SHOW_COUNT
+  // (40 de início, +60 a cada "Carregar mais") — nunca esconde um
+  // resultado que bate o filtro sem dar um jeito de chegar nele.
+  const capped = list.slice(0, MARKET_SHOW_COUNT);
+  const loadMoreBtn = document.getElementById("btnMarketLoadMore");
+  loadMoreBtn.classList.toggle("hidden", capped.length >= list.length);
+  document.getElementById("marketResultCount").textContent = list.length
+    ? `Mostrando ${capped.length} de ${list.length} jogador${list.length === 1 ? "" : "es"}.`
+    : "";
   // AJUSTE (refatoração completa, Tela 10 — ver
   // 10-mercado-de-transferencias-restyled.html do designer) — badge de
   // OVR (mesma faixa de cor do Elenco/Detalhe) + chip de posição
@@ -11826,9 +11861,17 @@ function wireStaticListeners() {
 
   // FASE 2 (c) — Mercado: busca/filtro re-renderizam a lista na hora
   // (sem debounce — a lista é local, filtrar de novo é instantâneo).
-  document.getElementById("marketSearch").addEventListener("input", renderMercado);
-  document.getElementById("marketPosFilter").addEventListener("change", renderMercado);
-  document.getElementById("marketCompFilter").addEventListener("change", renderMercado);
+  // AJUSTE (pedido do usuário: "ampliem os filtros") — qualquer troca de
+  // filtro/busca volta a paginação pro início (resetMarketPaging), senão
+  // sobraria "Carregar mais" cliques de um filtro anterior aplicados a um
+  // pool novo, sem sentido nenhum pro usuário; só o próprio "Carregar
+  // mais" (abaixo) avança a paginação sem resetar.
+  document.getElementById("marketSearch").addEventListener("input", resetMarketPaging);
+  document.getElementById("marketPosFilter").addEventListener("change", resetMarketPaging);
+  document.getElementById("marketCompFilter").addEventListener("change", resetMarketPaging);
+  document.getElementById("marketClubFilter").addEventListener("change", resetMarketPaging);
+  document.getElementById("marketOvrFilter").addEventListener("change", resetMarketPaging);
+  document.getElementById("btnMarketLoadMore").addEventListener("click", () => { MARKET_SHOW_COUNT += 60; renderMercado(); });
   // Pedido do usuário: "ao encerrar uma operação, voltar pra Início" —
   // só aqui, no card de proposta recebida DENTRO da aba Mercado (ação
   // isolada). O MESMO aceitar/recusar disparado de dentro do modal
