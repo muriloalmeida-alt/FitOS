@@ -23,36 +23,33 @@ const { chromium } = require("playwright-core");
   await page.click("#btnClaimDailyLogin", { timeout: 3000 }).catch(() => {});
   await page.waitForTimeout(500);
 
-  // 1) Largura fixa == largura do botão "Ir para o jogo" na Central.
+  // 1) Largura de TELA CHEIA + altura FIXA (pedido do usuário: "placar
+  // de LED com altura fixa, largura de tela cheia"), ver Opção C do
+  // mockup toast-opcoes.html — sem margem nenhuma, encosta nas 2
+  // bordas, mesmo tratamento full-bleed que .m3-bottom-nav já usa.
   await page.click(".m3-nav-item[data-panel='central']");
   await page.waitForTimeout(200);
   await page.evaluate(() => toast("Escalação e táticas salvas.", { type: "pos" }));
   await page.waitForTimeout(100);
-  // AJUSTE (pedido do usuário: "seguir as orientações visuais do M3
-  // sem exceção") — snackbar M3 tem largura/margem PRÓPRIAS (full
-  // width em compact width class, margem simétrica da tela), nunca
-  // amarradas ao tamanho de nenhum botão específico (o antigo botão
-  // de largura cheia virou FAB compacto, e o toast não devia mais
-  // acompanhar). Checa a margem de 16px real (mesma régua de
-  // .m3-body) dos dois lados, não mais paridade com #btnSimulate.
   const widths = await page.evaluate(() => {
     const toastEl = document.getElementById("toast");
     const r = toastEl.getBoundingClientRect();
-    return { left: r.left, rightGap: window.innerWidth - r.right, vw: window.innerWidth, toastWidth: r.width };
+    return { left: r.left, rightGap: window.innerWidth - r.right, vw: window.innerWidth, height: r.height };
   });
-  console.log("1) Toast com margem de 16px simétrica (M3 compact width, não amarrado a nenhum botão):", Math.abs(widths.left - 16) < 1 && Math.abs(widths.rightGap - 16) < 1, JSON.stringify(widths));
+  console.log("1) Toast em largura de tela cheia (sem margem) e altura fixa (60px):", widths.left === 0 && widths.rightGap === 0 && widths.height === 60, JSON.stringify(widths));
 
-  // 2) Estrutura: ícone + título, classe de tipo certa.
+  // 2) Estrutura: ponto colorido (no lugar do ícone-quadrado antigo) +
+  // título, classe de tipo certa.
   const s2 = await page.evaluate(() => {
     const el = document.getElementById("toast");
     return {
       hasIconClass: el.classList.contains("pos"),
-      hasIcon: !!el.querySelector(".ct-toast-icon svg"),
+      hasDot: !!el.querySelector(".ct-toast-dot"),
       title: el.querySelector(".ct-toast-title")?.textContent,
       hasDetail: !!el.querySelector(".ct-toast-detail"),
     };
   });
-  console.log("2) Ícone renderizado, classe 'pos' aplicada, título correto, sem detalhe (mensagem simples):", s2.hasIconClass && s2.hasIcon && s2.title === "Escalação e táticas salvas." && !s2.hasDetail);
+  console.log("2) Ponto renderizado, classe 'pos' aplicada, título correto, sem detalhe (mensagem simples):", s2.hasIconClass && s2.hasDot && s2.title === "Escalação e táticas salvas." && !s2.hasDetail);
 
   // 3) Mensagem com " — " quebra sozinha em título + detalhe.
   await page.evaluate(() => toast("Y. Rocha recusou o empréstimo — quer continuar brigando por espaço no elenco principal.", { type: "warn" }));
@@ -72,7 +69,7 @@ const { chromium } = require("playwright-core");
     const stats = [...el.querySelectorAll(".ct-toast-stat")].map((s) => s.textContent);
     return { stats, allPos: [...el.querySelectorAll(".ct-toast-stat")].every((s) => s.classList.contains("pos")) };
   });
-  console.log("4) Reputação/moral viram 2 pílulas separadas (não mais uma frase só):", s4.stats.length === 2 && s4.stats[0] === "Reputação +1" && s4.stats[1] === "Moral do elenco +3" && s4.allPos, JSON.stringify(s4.stats));
+  console.log("4) Reputação/moral viram 2 pílulas separadas (não mais uma frase só):", s4.stats.length === 2 && s4.stats[0] === "Reputação+1" && s4.stats[1] === "Moral do elenco+3" && s4.allPos, JSON.stringify(s4.stats));
 
   // 5) Continua acima do chrome fixo (nav/FAB, não regrediu o fix
   // anterior) -- Início não usa mais .mt-action-bar desde a Fundação

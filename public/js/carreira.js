@@ -514,15 +514,24 @@ let toastRepositionTimer = null;
 // números viram pílulas próprias (ver CSS de .ct-toast em
 // carreira.html). Um ícone svg por linha de raciocínio (não emoji) —
 // mesmo padrão do resto do app.
-const TOAST_ICON = {
-  pos: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>',
-  warn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>',
-  info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="7.6" r=".6" fill="currentColor" stroke="currentColor"/></svg>',
-};
+// AJUSTE (pedido do usuário: "quero seguir pelo placar de LED, com
+// altura fixa, largura de tela cheia e que feche ao clicar em cima")
+// — o ícone-quadrado por tipo (TOAST_ICON) saiu de vez, substituído
+// pelo ponto colorido/pulsante do novo visual (ver .ct-toast-dot em
+// carreira.html); a cor por tipo agora é 100% CSS (--toast-c, setada
+// por .pos/.warn/.info), não precisa mais de um mapa de ícone aqui.
 function toastStatHTML(stat) {
   const cls = stat.value > 0 ? "pos" : stat.value < 0 ? "neg" : "zero";
   const sign = stat.value > 0 ? "+" : "";
-  return `<span class="ct-toast-stat ${cls}">${escapeHtml(stat.label)} ${sign}${stat.value}</span>`;
+  return `<span class="ct-toast-stat ${cls}"><span class="l">${escapeHtml(stat.label)}</span>${sign}${stat.value}</span>`;
+}
+// AJUSTE (mesmo pedido acima) — extraída de dentro do setTimeout do
+// toast() pra ser reaproveitada também pelo clique de fechar (ver
+// wireEvents), sem duplicar a lógica de limpar o timer/reposicionador.
+function hideToast() {
+  document.getElementById("toast").style.display = "none";
+  clearTimeout(toastTimer);
+  clearInterval(toastRepositionTimer);
 }
 // `input` aceita uma string simples (vira só o título) ou um objeto
 // {title, detail, stats} pra mensagens com mais de uma informação
@@ -546,21 +555,15 @@ function toast(input, opts = {}) {
   }
   el.className = `ct-toast ${type}`;
   el.innerHTML = `
-    <div class="ct-toast-icon">${TOAST_ICON[type] || TOAST_ICON.info}</div>
-    <div class="ct-toast-body">
-      <div class="ct-toast-title">${escapeHtml(title)}</div>
-      ${detail ? `<div class="ct-toast-detail">${escapeHtml(detail)}</div>` : ""}
-      ${stats && stats.length ? `<div class="ct-toast-stats">${stats.map(toastStatHTML).join("")}</div>` : ""}
-    </div>`;
+    <div class="ct-toast-row1"><span class="ct-toast-dot"></span><span class="ct-toast-title">${escapeHtml(title)}</span></div>
+    ${detail ? `<div class="ct-toast-row2"><span class="ct-toast-detail">${escapeHtml(detail)}</span></div>` : ""}
+    ${stats && stats.length ? `<div class="ct-toast-row2"><div class="ct-toast-stats">${stats.map(toastStatHTML).join("")}</div></div>` : ""}`;
   el.style.bottom = toastBottomOffset() + "px";
   el.style.display = "flex";
   clearTimeout(toastTimer);
   clearInterval(toastRepositionTimer);
   toastRepositionTimer = setInterval(() => { el.style.bottom = toastBottomOffset() + "px"; }, 150);
-  toastTimer = setTimeout(() => {
-    el.style.display = "none";
-    clearInterval(toastRepositionTimer);
-  }, durationMs);
+  toastTimer = setTimeout(hideToast, durationMs);
 }
 // Sistema (Bloco 8) — splash/loading com marca (crest do app, nunca a
 // cor do clube — identidade do JOGO, não de um clube "dono", mesmo
@@ -11360,6 +11363,13 @@ function populateSelect(id, options) {
   document.getElementById(id).innerHTML = options.map(([v, l]) => `<option value="${v}">${l}</option>`).join("");
 }
 function wireStaticListeners() {
+  // AJUSTE (pedido do usuário: "quero seguir pelo placar de LED... e
+  // que feche ao clicar em cima") — listener único no próprio elemento
+  // #toast (nunca recriado — toast() só troca innerHTML/className a
+  // cada chamada), então wired uma vez só aqui no boot, não a cada
+  // toast() disparado (evitaria empilhar um listener novo por chamada).
+  document.getElementById("toast").addEventListener("click", hideToast);
+
   // AJUSTE (Bloco 2 M3) — formationSelect (Escalação) e tacticMentality/
   // Marking/Tempo (<select>) saíram: formação vira chip row
   // (ver renderFormationChips), instruções de jogo viram os 4 eixos em
