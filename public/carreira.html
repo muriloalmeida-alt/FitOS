@@ -319,7 +319,19 @@
      mock-up original (nav ~74px + barra de ação ~76px). */
   .mt-body{ flex:1; background:linear-gradient(180deg, var(--mt-navy-900) 0%, var(--mt-navy-950) 60%, #030811 100%); padding:20px 18px 150px; }
   .ct-panel{ display:none; max-width:1080px; margin:0 auto; }
-  .ct-panel.active{ display:block; }
+  /* AJUSTE (relato do usuário: "a transição das telas está muito
+     dura") — trocar de aba (Início/Elenco/Tática/Mercado/Clube) era um
+     corte seco (display:none -> block na hora). Só CSS, sem tocar em
+     switchToPanel(): a troca continua instantânea por baixo (o painel
+     de saída já some no mesmo instante, igual antes — só o de ENTRADA
+     ganha uma animação de fade+leve subida, que já dispara sozinha
+     porque a classe .active é removida e recolocada a cada troca, ver
+     switchToPanel em carreira.js). */
+  @keyframes ctPanelIn{ from{ opacity:0; transform:translateY(8px); } to{ opacity:1; transform:translateY(0); } }
+  .ct-panel.active{ display:block; animation:ctPanelIn .22s ease-out; }
+  @media (prefers-reduced-motion: reduce){
+    .ct-panel.active{ animation:none; }
+  }
 
   /* ---- painel chanfrado (Central e demais telas que forem refeitas) ---- */
   /* Redesign M3 — bridge do cartão genérico (usado por dezenas de
@@ -833,7 +845,23 @@
      nasciam centralizadas. .ct-modal-fullscreen sobrescreve isso
      mais abaixo (ocupa a tela inteira, alinhamento não importa). */
   .ct-modal-overlay{ position:fixed; inset:0; background:rgba(0,0,0,.55); display:none; align-items:flex-end; justify-content:center; z-index:200; padding:0; }
-  .ct-modal-overlay.open{ display:flex; }
+  /* AJUSTE (relato do usuário: "a transição das telas está muito
+     dura") — abrir QUALQUER modal (bottom sheet, tela cheia, diálogo)
+     era um corte seco (display:none -> flex na hora). Só CSS: o fundo
+     escurecido entra com um fade rápido, e a folha em si sobe com
+     fade+leve deslize de baixo pra cima (mesma animação serve pra
+     tela cheia — a distância maior só reforça a sensação de "entrar
+     na tela"). Fechar continua instantâneo (display:none direto) —
+     dar o mesmo tratamento de saída exigiria atrasar a troca de
+     classe em cada um dos ~40 pontos que fecham modal no código,
+     risco desproporcional ao ganho (a entrada é o que mais se sente). */
+  .ct-modal-overlay.open{ display:flex; animation:ctOverlayIn .16s ease-out; }
+  @keyframes ctOverlayIn{ from{ background-color:rgba(0,0,0,0); } to{ background-color:rgba(0,0,0,.55); } }
+  .ct-modal-overlay.open .ct-modal{ animation:ctSheetIn .26s cubic-bezier(.16,1,.3,1); }
+  @keyframes ctSheetIn{ from{ opacity:.3; transform:translateY(28px); } to{ opacity:1; transform:translateY(0); } }
+  @media (prefers-reduced-motion: reduce){
+    .ct-modal-overlay.open, .ct-modal-overlay.open .ct-modal{ animation:none; }
+  }
   /* AJUSTE — tabelaModalOverlay é aberto de dentro de VÁRIOS outros
      lugares (Central, Resultados da rodada, e agora a tela de
      Notícias, ver btnNewsOpenTabela) — sem z-index próprio, empataria
