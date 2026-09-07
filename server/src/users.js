@@ -126,6 +126,13 @@ async function createUser({ name, email, phone, password, plan, planStatus }) {
     // PushSubscription.toJSON() do navegador — só 1 por conta (não por
     // dispositivo), ativar em outro aparelho substitui a anterior.
     pushSubscription: null,
+    // Onboarding (pedido do usuário: "tutorial curtinho na primeira
+    // carreira") — true assim que o tutorial de boas-vindas é
+    // fechado/pulado uma vez (ver renderOnboardingSlide/
+    // closeOnboardingOverlay em carreira.js); ligado à CONTA (não à
+    // carreira) — nunca reaparece de novo, nem depois de "Reiniciar"/
+    // "Escolher outro clube".
+    onboardingSeen: false,
     // ---- Loja (BR_Data_Treinador_Monetizacao.xlsx) — saldo de
     // "Créditos BR" (moeda dura, comprada com dinheiro real). Ao
     // contrário de TUDO no resto do Modo Técnico (onde o cliente é
@@ -323,6 +330,7 @@ function publicUser(u) {
     // ao reabrir o app); nunca devolve o objeto de assinatura em si
     // (endpoint/chaves), que não tem uso nenhum no front-end.
     pushEnabled: !!u.pushSubscription,
+    onboardingSeen: !!u.onboardingSeen,
   };
 }
 

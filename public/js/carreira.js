@@ -5108,6 +5108,60 @@ function renderDailyLoginModal(currentStreakDay) {
 // Chamado 1x no boot (ver enterAfterAuth) — só mostra a modal se ainda
 // não coletou hoje (localDate, ver claimDailyLogin em users.js: o
 // servidor decide streak continua/quebra a partir dessa mesma data).
+// ---------- Onboarding — tutorial de boas-vindas (pedido do usuário:
+// "onboarding pro primeiro acesso... tutorial curtinho na primeira
+// carreira") ---------- 4 telas fixas, sem dado dinâmico nenhum (não
+// depende de CAREER/clube — só explica os conceitos do jogo em si),
+// ícones SVG reaproveitando o mesmo estilo stroke-based do resto do
+// app (nenhum emoji, mesmo padrão de sempre).
+const ONBOARDING_SLIDES = [
+  {
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 3 7v6c0 5 4 8.5 9 9 5-.5 9-4 9-9V7l-9-5Z"/><path d="M9 12l2 2 4-4"/></svg>',
+    title: "Bem-vindo ao Modo Técnico",
+    text: "Você assume o comando de um clube do futebol brasileiro. Monte o elenco, defina a tática e simule cada rodada — as decisões são suas, o resultado também.",
+  },
+  {
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>',
+    title: "Sua central de comando",
+    text: "Início traz o resumo da rodada. Elenco, Tática, Mercado e Clube ficam a um toque na barra debaixo. O Menu guarda o resto: Tabela, Treinos, Objetivos, Loja e Ranking.",
+  },
+  {
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><polygon points="10 8 16 12 10 16 10 8"/></svg>',
+    title: "Como funciona uma rodada",
+    text: "Toque em \"Ir para o jogo\", confirme a escalação e acompanhe a partida ao vivo — dá pra ajustar tática e substituições no meio do jogo, o resultado muda de verdade.",
+  },
+  {
+    icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4Z"/><path d="M17 5h3a2 2 0 0 1-2 4M7 5H4a2 2 0 0 0 2 4"/></svg>',
+    title: "Construa seu legado",
+    text: "Cumpra objetivos, desbloqueie conquistas e suba no ranking dos técnicos. Boa sorte — o vestiário já está te esperando.",
+  },
+];
+let ONBOARD_INDEX = 0;
+function renderOnboardingSlide() {
+  const s = ONBOARDING_SLIDES[ONBOARD_INDEX];
+  document.getElementById("onboardingBody").innerHTML = `
+    <div class="mt-onboard-icon">${s.icon}</div>
+    <h2 class="mt-onboard-title">${escapeHtml(s.title)}</h2>
+    <p class="mt-onboard-text">${escapeHtml(s.text)}</p>`;
+  document.getElementById("onboardingDots").innerHTML = ONBOARDING_SLIDES
+    .map((_, i) => `<span class="mt-onboard-dot${i === ONBOARD_INDEX ? " active" : ""}"></span>`).join("");
+  document.getElementById("btnOnboardNext").textContent = ONBOARD_INDEX === ONBOARDING_SLIDES.length - 1 ? "Começar" : "Avançar";
+}
+function openOnboardingOverlay() {
+  ONBOARD_INDEX = 0;
+  renderOnboardingSlide();
+  document.getElementById("onboardingOverlay").classList.add("open");
+}
+// Fecha o tutorial (pular ou terminar dão no mesmo) — marca a CONTA
+// como já tendo visto (nunca mais reaparece) e só ENTÃO libera o
+// modal de login diário, que fica logo atrás na fila de "telas que
+// abrem sozinhas ao entrar no jogo" (ver showGameScreen).
+async function closeOnboardingOverlay() {
+  document.getElementById("onboardingOverlay").classList.remove("open");
+  ME.onboardingSeen = true;
+  try { await fetchJSON("/api/account/onboarding-seen", { method: "POST" }); } catch { /* mesmo se falhar, não trava a experiência — só reapareceria de novo na próxima entrada */ }
+  checkDailyLoginOnBoot();
+}
 async function checkDailyLoginOnBoot() {
   const today = localDateStr();
   if (ME.dailyLogin && ME.dailyLogin.lastClaimDate === today) return;
@@ -11063,6 +11117,15 @@ function showGameScreen() {
   // renderAll() (que já monta HTML lendo os tokens --m3-* via CSS).
   applyClubPalette(teamById(CAREER.clubId));
   renderAll();
+  // Onboarding (pedido do usuário: "tutorial curtinho na primeira
+  // carreira") — só na 1ª vez que a CONTA entra numa carreira; o
+  // login diário (linha de baixo) fica na fila logo atrás, só abre
+  // depois do tutorial fechar (ver closeOnboardingOverlay) — nunca os
+  // dois sobrepostos.
+  if (!ME.onboardingSeen) {
+    openOnboardingOverlay();
+    return;
+  }
   // Retenção/Engajamento — login diário só faz sentido com uma
   // carreira em andamento pra aplicar a recompensa (ver
   // applyDailyLoginReward); picker de competição/clube (sem carreira
@@ -11459,6 +11522,15 @@ function wireStaticListeners() {
   // cada chamada), então wired uma vez só aqui no boot, não a cada
   // toast() disparado (evitaria empilhar um listener novo por chamada).
   document.getElementById("toast").addEventListener("click", hideToast);
+
+  // Onboarding — "Pular" fecha direto; "Avançar" passa pro próximo
+  // slide (ou fecha, se já for o último — ver renderOnboardingSlide,
+  // que troca o texto do botão pra "Começar" nesse caso).
+  document.getElementById("btnOnboardSkip").addEventListener("click", closeOnboardingOverlay);
+  document.getElementById("btnOnboardNext").addEventListener("click", () => {
+    if (ONBOARD_INDEX < ONBOARDING_SLIDES.length - 1) { ONBOARD_INDEX++; renderOnboardingSlide(); }
+    else closeOnboardingOverlay();
+  });
 
   // AJUSTE (Bloco 2 M3) — formationSelect (Escalação) e tacticMentality/
   // Marking/Tempo (<select>) saíram: formação vira chip row

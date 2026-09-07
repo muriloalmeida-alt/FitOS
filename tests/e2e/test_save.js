@@ -44,6 +44,7 @@ const { chromium } = require("playwright-core");
   await page.click(".m3-club-row");
   await page.waitForTimeout(150);
   await page.click("#btnConfirmClub");
+  await page.click("#btnOnboardSkip", { timeout: 2000 }).catch(() => {});
   await page.click("#btnClaimDailyLogin", { timeout: 3000 }).catch(() => {});
   await page.waitForSelector("#panel-elenco, .m3-nav-item", { timeout: 10000 }).catch(() => {});
   await page.waitForTimeout(500);
