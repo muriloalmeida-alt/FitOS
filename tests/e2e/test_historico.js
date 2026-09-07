@@ -34,9 +34,9 @@ const { chromium } = require("playwright-core");
   await page.waitForLoadState('domcontentloaded');
   await page.waitForTimeout(300);
 
-  // 2) Página carrega com as 19 versões, mais recente primeiro.
+  // 2) Página carrega com as 21 versões, mais recente primeiro.
   const cards = await page.evaluate(() => [...document.querySelectorAll(".version-card .version-tag")].map((el) => el.textContent));
-  console.log("2) 19 versões listadas, mais recente primeiro (v2.8):", cards.length === 19 && cards[0] === "v2.8", JSON.stringify(cards));
+  console.log("2) 21 versões listadas, mais recente primeiro (v2.10):", cards.length === 21 && cards[0] === "v2.10", JSON.stringify(cards));
 
   // 3) Clicar numa versão abre a modal com os itens certos.
   await page.click(".version-card:nth-child(1)");
@@ -47,7 +47,7 @@ const { chromium } = require("playwright-core");
     title: document.getElementById("modalTitle").textContent,
     itemCount: document.querySelectorAll("#modalItems li").length,
   }));
-  console.log("3) Modal abre com versão/título/itens certos:", modalOpen && modalInfo.tag === "v2.8" && modalInfo.itemCount === 6, JSON.stringify(modalInfo));
+  console.log("3) Modal abre com versão/título/itens certos:", modalOpen && modalInfo.tag === "v2.10" && modalInfo.itemCount === 3, JSON.stringify(modalInfo));
 
   // 4) Fechar a modal (botão rodapé) funciona.
   await page.click("#modalCloseFooter");
@@ -56,7 +56,7 @@ const { chromium } = require("playwright-core");
   console.log("4) Modal fecha ao clicar em 'Fechar':", modalClosed);
 
   // 5) Clicar numa versão diferente mostra os itens certos dessa versão.
-  await page.click(".version-card:nth-child(19)"); // v1.0
+  await page.click(".version-card:nth-child(21)"); // v1.0
   await page.waitForTimeout(150);
   const v10 = await page.evaluate(() => ({
     tag: document.getElementById("modalVersionTag").textContent,
