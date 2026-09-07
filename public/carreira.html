@@ -4077,17 +4077,12 @@
 <!-- Loja — confirmação de compra (BR_Data_Treinador_Confirmacao_
      Compra_Mockup.html) — mesmo bottom sheet .mt-sheet-overlay de
      sempre, corpo customizado (cartão-resumo + aviso de pagamento) no
-     lugar da lista de .mt-sheet-option genérica. AVISO IMPORTANTE (ver
-     também comentário grande em renderLoja()/confirmPurchaseNow(),
-     carreira.js): o mockup original mostrava "Google Play" como forma
-     de pagamento e um aviso de cobrança real — este app roda como
-     PWA/site, sem billing de loja de app nenhum pra reaproveitar, e
-     esta entrega é só a TELA (decisão do usuário: "Só a UI por
-     enquanto"). Por isso a linha de pagamento e o aviso abaixo foram
-     reescritos pra deixar claro que é uma prévia — nada é cobrado,
-     nenhum Crédito BR é creditado — em vez de reproduzir literalmente
-     um texto de cobrança real que não corresponde ao que o botão
-     realmente faz hoje. -->
+     lugar da lista de .mt-sheet-option genérica. Item 7 da lista de
+     melhorias ("Loja com pagamento de verdade") — linha de pagamento e
+     aviso agora são preenchidos dinamicamente por openPurchaseConfirm()
+     (carreira.js): pacote de Créditos BR mostra o redirecionamento pro
+     Mercado Pago; boost/patrocínio mostra o débito imediato do saldo
+     de Créditos BR já existente. -->
 <div class="ct-modal-overlay mt-sheet-overlay" id="purchaseConfirmOverlay">
   <div class="ct-modal">
     <div class="ct-modal-header">
@@ -4110,13 +4105,13 @@
       <div class="mt-purchase-payment">
         <span class="mt-purchase-payment-icon">🔒</span>
         <div class="mt-purchase-payment-mid">
-          <div class="mt-purchase-payment-label">Pagamento chega em breve</div>
-          <div class="mt-purchase-payment-sub">Ainda não é possível comprar de verdade</div>
+          <div class="mt-purchase-payment-label" id="purchasePaymentLabel"></div>
+          <div class="mt-purchase-payment-sub" id="purchasePaymentSub"></div>
         </div>
       </div>
       <div class="mt-purchase-disclosure">
         <span class="mt-purchase-disclosure-icon">ℹ</span>
-        <p class="mt-purchase-disclosure-text">Esta é uma <b>prévia da Loja</b>. Nenhum valor será cobrado e nenhum Crédito BR é creditado agora — o pagamento de verdade chega numa atualização futura.</p>
+        <p class="mt-purchase-disclosure-text" id="purchaseDisclosureText"></p>
       </div>
     </div>
     <div class="ct-modal-footer">
@@ -5052,7 +5047,7 @@
       </div>
       <div class="mt-faq-row">
         <div class="mt-faq-q">Preciso gastar dinheiro real pra jogar? <svg class="mt-faq-chev" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg></div>
-        <div class="mt-faq-a">Não. A Loja ainda está em prévia — nenhum pacote ou boost cobra nada de verdade por enquanto.</div>
+        <div class="mt-faq-a">Não. Jogar é 100% de graça — a Loja é opcional, e nenhum item dela dá vantagem competitiva (só conveniência e cosméticos).</div>
       </div>
       <div class="mt-faq-row">
         <div class="mt-faq-q">Como funciona a cor dinâmica do clube? <svg class="mt-faq-chev" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="18 15 12 9 6 15"/></svg></div>

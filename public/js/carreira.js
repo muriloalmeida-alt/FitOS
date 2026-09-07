@@ -5309,6 +5309,48 @@ async function shareInviteLink() {
   }
 }
 
+// ---- Retorno do Checkout Pro do Mercado Pago (item 7 da lista de
+// melhorias, compra de Créditos BR) ----
+// O Mercado Pago redireciona de volta pro back_url (carreira.html)
+// anexando os PRÓPRIOS parâmetros na URL (status/collection_status,
+// external_reference, payment_id etc.) — só usados aqui pra dar
+// feedback na hora; o saldo real de Créditos BR NUNCA muda por causa
+// disso (só o webhook, confirmado com o Mercado Pago, credita de
+// verdade — ver /api/support/webhook em server.js). Mesmo espírito do
+// ?convite= (captura + limpa a URL antes de qualquer coisa).
+function captureLojaReturnStatus() {
+  try {
+    const params = new URLSearchParams(location.search);
+    const status = params.get("collection_status") || params.get("status");
+    if (!status) return null;
+    ["collection_status", "status", "payment_id", "collection_id", "external_reference", "payment_type", "merchant_order_id", "preference_id", "site_id", "processing_mode"].forEach((k) => params.delete(k));
+    const clean = location.pathname + (params.toString() ? `?${params}` : "") + location.hash;
+    history.replaceState(null, "", clean);
+    return status;
+  } catch { return null; }
+}
+const LOJA_STATUS_LABELS = {
+  approved: { title: "Pagamento aprovado!", detail: "Seus Créditos BR já devem estar disponíveis.", type: "pos" },
+  pending: { title: "Pagamento pendente", detail: "Assim que for confirmado (pode levar alguns instantes, principalmente no Pix), os créditos aparecem sozinhos.", type: "warn" },
+  in_process: { title: "Pagamento em análise", detail: "Vamos confirmar e creditar automaticamente assim que possível.", type: "warn" },
+  rejected: { title: "Pagamento não aprovado", detail: "Você pode tentar de novo na Loja com outro cartão ou pelo Pix.", type: "warn" },
+};
+async function handleLojaReturnIfAny() {
+  const status = captureLojaReturnStatus();
+  if (!status) return;
+  const info = LOJA_STATUS_LABELS[status] || { title: "Pagamento em processamento", detail: "Vamos confirmar o status assim que possível.", type: "info" };
+  toast({ title: info.title, detail: info.detail }, { type: info.type });
+  if (status !== "approved") return;
+  // Webhook costuma já ter rodado a essa altura, mas Pix pode demorar
+  // alguns segundos — reconsulta agora e de novo um pouco depois, só
+  // pra refletir o saldo novo sem o técnico precisar recarregar a mão.
+  const refresh = async () => {
+    try { const me = await fetchJSON("/api/auth/me"); if (me.authenticated) ME.creditsBR = me.user.creditsBR; } catch { }
+  };
+  await refresh();
+  setTimeout(refresh, 4000);
+}
+
 /* ---------- Retenção/Engajamento — Login diário com streak (item 2 do
    documento) ----------
    Streak fica na CONTA (ver ME/users.js), não na carreira — sobrevive
@@ -5473,25 +5515,25 @@ async function claimDailyLoginNow() {
 
 /* ---------- Loja (BR_Data_Treinador_Monetizacao.xlsx +
    BR_Data_Treinador_Loja_Mockup.html) ----------
-   AVISO IMPORTANTE (decidido com o usuário antes de implementar): esta
-   entrega é só o CATÁLOGO e a TELA, fiéis à planilha/mockup — nenhum
-   pagamento de verdade acontece ainda. O mockup mostra "Google Play"
-   como forma de pagamento, mas o app hoje é um PWA/site, não um
-   aplicativo nativo publicado numa loja — não existe billing de app
-   store nenhum pra reaproveitar aqui. O rail de pagamento real (quando
-   existir) deve ser o MESMO Mercado Pago já usado nas assinaturas (ver
-   server/src/mercadoPago.js) — o botão "Confirmar compra" abaixo só
-   mostra um aviso "em breve", sem debitar nem creditar nada de
-   verdade. CAREER.finances.cash (Cifrões, moeda fictícia do clube) NÃO
-   compra nada aqui — só Créditos BR (dinheiro real) compraria, quando
-   o pagamento existir.
+   Item 7 da lista de melhorias ("Loja com pagamento de verdade") —
+   pacotes de Créditos BR agora abrem o Checkout Pro de verdade do
+   Mercado Pago (mesmo rail já usado nas assinaturas do site, ver
+   server/src/mercadoPago.js/lojaCatalog.js) — o mockup original mostrava
+   "Google Play" como forma de pagamento, descartado desde a entrega
+   anterior (o app roda como PWA/site, sem billing de loja de app pra
+   reaproveitar). Boost/patrocínio é pago com o PRÓPRIO saldo de
+   Créditos BR (ver applyBoostEffect/confirmPurchaseNow) — nunca com
+   CAREER.finances.cash (Cifrões, moeda fictícia do clube, não compra
+   nada aqui).
 
    Créditos BR (ME.creditsBR) é o PRIMEIRO valor do jogo que representa
-   dinheiro de verdade gasto — por isso mora na CONTA (server/src/
-   users.js), não no save da carreira, e só o SERVIDOR pode alterá-lo
-   (nenhum endpoint faz isso ainda, ver comentário grande em
-   createUser). Todo o resto do Modo Técnico confia no cliente (ver
-   aviso em careerStore.js) — aqui, de propósito, não. */
+   dinheiro de verdade — por isso mora na CONTA (server/src/users.js),
+   não no save da carreira, e só o SERVIDOR pode alterá-lo: sobe só via
+   webhook do Mercado Pago confirmando "approved" (nunca no redirect de
+   volta, nem em nada que o cliente mande — ver /api/support/webhook em
+   server.js), desce só via /api/loja/spend-credits (preço sempre do
+   catálogo do servidor). Todo o resto do Modo Técnico confia no
+   cliente (ver aviso em careerStore.js) — aqui, de propósito, não. */
 const CREDIT_PACKAGES = [
   { id: "bronze", name: "Pacote Bronze", tier: "bronze", priceBRL: 4.90, baseCoins: 490, bonusPct: 0, totalCoins: 490 },
   { id: "prata", name: "Pacote Prata", tier: "prata", priceBRL: 14.90, baseCoins: 1600, bonusPct: 5, totalCoins: 1680 },
@@ -5523,6 +5565,7 @@ function fmtBRLPrice(v) {
   return (v || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 let LOJA_ACTIVE_TAB = "creditos"; // só estado de UI, não é salvo
+let PURCHASE_CTX = null; // {kind, id} do item aberto no modal de confirmação (ver openPurchaseConfirm/confirmPurchaseNow)
 function packageCardHTML(pkg) {
   const bonusPill = pkg.bonusPct ? `<span class="mt-pkg-bonus">+${pkg.bonusPct}%</span>` : "";
   return `<div class="mt-pkg-card${pkg.featured ? " featured" : ""}">
@@ -5570,6 +5613,7 @@ function renderLoja() {
 function openPurchaseConfirm(kind, id) {
   const item = kind === "package" ? CREDIT_PACKAGES.find((p) => p.id === id) : BOOST_ITEMS.find((b) => b.id === id);
   if (!item) return;
+  PURCHASE_CTX = { kind, id };
   const isPackage = kind === "package";
   document.getElementById("purchaseConfirmTitle").textContent = item.name;
   document.getElementById("purchaseConfirmIcon").className = `mt-pkg-icon tier-${isPackage ? item.tier : "ouro"}`;
@@ -5581,16 +5625,110 @@ function openPurchaseConfirm(kind, id) {
   document.getElementById("purchaseConfirmPrice").textContent = isPackage ? fmtBRLPrice(item.priceBRL) : `${item.priceCredits} Créditos BR`;
   const btn = document.getElementById("btnConfirmPurchase");
   btn.textContent = `🔒 Confirmar por ${isPackage ? fmtBRLPrice(item.priceBRL) : `${item.priceCredits} Créditos BR`}`;
+  // Item 7 da lista de melhorias — pagamento de verdade: pacote de
+  // Créditos BR abre o Checkout Pro (cartão/Pix) do Mercado Pago;
+  // boost/patrocínio já é pago com Créditos BR (saldo debitado na
+  // hora, ver confirmPurchaseNow/#/api/loja/spend-credits).
+  if (isPackage) {
+    btn.disabled = false;
+    document.getElementById("purchasePaymentLabel").textContent = "Pagamento via Mercado Pago";
+    document.getElementById("purchasePaymentSub").textContent = "Cartão ou Pix, numa página segura do Mercado Pago";
+    document.getElementById("purchaseDisclosureText").innerHTML = "Você será redirecionado pro Mercado Pago pra concluir o pagamento. Seus <b>Créditos BR</b> entram na conta assim que o pagamento for aprovado.";
+  } else {
+    const canAfford = (ME.creditsBR || 0) >= item.priceCredits;
+    document.getElementById("purchasePaymentLabel").textContent = "Pago com Créditos BR";
+    document.getElementById("purchasePaymentSub").textContent = `Seu saldo: ${(ME.creditsBR || 0).toLocaleString("pt-BR")} Créditos BR`;
+    document.getElementById("purchaseDisclosureText").innerHTML = canAfford
+      ? "O valor é descontado do seu saldo <b>na hora</b>, e o efeito é aplicado direto na sua carreira."
+      : "Saldo insuficiente — compre um pacote de Créditos BR primeiro.";
+    btn.disabled = !canAfford;
+  }
   document.getElementById("purchaseConfirmOverlay").classList.add("open");
 }
-// Sem pagamento real ainda (ver aviso grande no topo desta seção) —
-// só avisa e fecha, sem debitar/creditar nada. Quando o Mercado Pago
-// entrar aqui, este é o handler que vira a criação da preferência de
-// pagamento (mesmo padrão de createPreference já usado nas
-// assinaturas, ver server/server.js).
-function confirmPurchaseNow() {
+// Item 7 da lista de melhorias ("Loja com pagamento de verdade") —
+// pacote de Créditos BR abre o Checkout Pro de verdade do Mercado Pago
+// (mesma aba — redireciona pra carreira.html?loja_status=... quando
+// volta, ver consumeLojaReturnIfAny/boot); o SALDO só sobe depois do
+// webhook confirmar o pagamento (nunca na hora do redirect — ver
+// aviso grande no topo desta seção). Boost/patrocínio já é pago com
+// Créditos BR (moeda de conta já existente) — desconta no servidor
+// (nunca confia em saldo local) e só aplica o efeito de verdade
+// depois de confirmado.
+async function confirmPurchaseNow() {
+  const ctx = PURCHASE_CTX;
   document.getElementById("purchaseConfirmOverlay").classList.remove("open");
-  toast({ title: "Loja em prévia", detail: "Pagamentos chegam em breve — nada foi cobrado." }, { type: "info" });
+  if (!ctx) return;
+  if (ctx.kind === "package") {
+    const pkg = CREDIT_PACKAGES.find((p) => p.id === ctx.id);
+    if (!pkg) return;
+    try {
+      const data = await fetchJSON("/api/loja/checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ packageId: pkg.id }) });
+      location.href = data.checkoutUrl; // mesma aba (decisão do usuário) — volta em carreira.html?loja_status=...
+    } catch (err) {
+      toast(err.message || "Não deu pra iniciar o pagamento agora.", { type: "warn" });
+    }
+    return;
+  }
+  const item = BOOST_ITEMS.find((b) => b.id === ctx.id);
+  if (!item) return;
+  try {
+    const data = await fetchJSON("/api/loja/spend-credits", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ itemId: item.id }) });
+    ME.creditsBR = data.creditsBR; // servidor já confirmou o débito -- só agora aplica o efeito de verdade
+    const effectLabel = applyBoostEffect(item);
+    pushPurchaseHistory(item.icon, item.name, effectLabel || item.desc, `-${item.priceCredits}`, "debit");
+    await persistCareer();
+    renderLoja();
+    renderAll();
+    toast({ title: "Comprado!", detail: item.name }, { type: "pos" });
+  } catch (err) {
+    toast(err.message || "Não deu pra concluir a compra agora.", { type: "warn" });
+  }
+}
+// Efeito de verdade de cada boost/patrocínio — o servidor só sabe
+// debitar Créditos BR (ver /api/loja/spend-credits), quem entende de
+// futebol e aplica o efeito na carreira é sempre o cliente (mesma
+// divisão de responsabilidade de todo o resto do Modo Técnico).
+// Devolve um texto curto pro Histórico de compras (ver
+// pushPurchaseHistory) descrevendo o que realmente aconteceu.
+//
+// Simplificações assumidas (não inventam mecânica nova, só reaproveitam
+// o que já existe):
+// - "Recuperação Instantânea" pede "1 jogador" no mockup — sem um
+//   picker dedicado, escolhe automaticamente quem está com a condição
+//   mais baixa do elenco principal (quem mais precisa).
+// - "Injeção de Moral" (DURA 3 PARTIDAS) e "Desconto de Contratação"
+//   (1 JANELA) têm duração no texto da Loja — implementados como efeito
+//   IMEDIATO (moral) ou consumido na PRÓXIMA proposta (desconto), sem
+//   um sistema de expiração por partida/janela à parte.
+// - "Uniforme Alternativo" é só um flag de posse (a própria descrição
+//   já diz "sem efeito de jogo" — não existe sistema de uniforme
+//   visual no app pra ligar isso a mais nada).
+function applyBoostEffect(item) {
+  switch (item.id) {
+    case "recuperacao_instantanea": {
+      const target = CAREER.squad.filter((p) => p.origin !== "loan").sort((a, b) => (a.condition || 0) - (b.condition || 0))[0];
+      if (!target) return null;
+      target.condition = 100;
+      return `Condição de ${abbreviateName(target.name)} zerada`;
+    }
+    case "reset_moral":
+      CAREER.squad.forEach((p) => { p.morale = 90; p.moraleReason = "Impulso de moral (Loja)"; p.moraleTrend = "estavel"; });
+      return "Moral do elenco inteiro no talo";
+    case "treino_extra":
+      CAREER.trainingAppliedForRound = null; // libera aplicar o treino da semana de novo (ver applyWeeklyTraining)
+      return "Treino da semana liberado de novo";
+    case "injecao_moral":
+      CAREER.squad.forEach((p) => { p.morale = clamp((p.morale == null ? 70 : p.morale) + 15, 0, 100); });
+      return "+15 de moral em todo o elenco";
+    case "desconto_contratacao":
+      CAREER.nextSigningDiscountPct = 15; // consumido em openOfferModal/confirmOfferFromModal
+      return "-15% na próxima proposta de contratação";
+    case "uniforme_alternativo":
+      CAREER.altKitOwned = true;
+      return "Uniforme alternativo desbloqueado";
+    default:
+      return null;
+  }
 }
 
 /* ---------- Histórico de compras (Bloco 7 pendentes,
@@ -10017,7 +10155,13 @@ function openOfferModal(clubId, playerId) {
   if (!p) return;
   OFFER_CTX = { clubId: String(clubId), playerId };
   document.getElementById("offerSub").textContent = `${abbreviateName(p.name)} · ${teamById(clubId).name} · valor de mercado ${fmtBRL(p.value)}`;
-  document.getElementById("offerValueInput").value = p.value;
+  // Item 7 da lista de melhorias — "Desconto de Contratação" (boost da
+  // Loja, ver applyBoostEffect) só sugere um valor inicial menor; o
+  // técnico ainda pode editar a proposta livremente antes de enviar
+  // (não existe desconto "garantido" numa negociação que já depende de
+  // aceite do outro clube).
+  const discountPct = CAREER.nextSigningDiscountPct || 0;
+  document.getElementById("offerValueInput").value = discountPct ? Math.round(p.value * (1 - discountPct / 100)) : p.value;
   document.getElementById("offerInstallmentsSelect").value = "1";
   document.getElementById("offerOverlay").classList.add("open");
 }
@@ -10045,6 +10189,10 @@ function confirmOfferFromModal() {
     roundsLeft: OFFER_WAIT_ROUNDS, status: "pending", counterValue: null,
     submittedRound: CAREER.currentRound,
   });
+  // Item 7 — "Desconto de Contratação" vale pra UMA proposta só (mesmo
+  // texto do boost, "1 janela de transferência" — na prática, a
+  // primeira que o técnico realmente enviar depois de comprá-lo).
+  CAREER.nextSigningDiscountPct = null;
   closeOfferModal();
   persistCareer();
   renderMercado();
@@ -13076,6 +13224,9 @@ async function enterAfterAuth() {
   // ponto único certo pra consumir um convite por link pendente (ver
   // capturePendingInviteFromUrl/consumePendingInviteIfAny).
   await consumePendingInviteIfAny();
+  // Item 7 da lista de melhorias — mesmo raciocínio, pro retorno do
+  // Checkout Pro do Mercado Pago (ver handleLojaReturnIfAny).
+  await handleLojaReturnIfAny();
   const saved = await fetchJSON("/api/career").catch(() => ({ career: null }));
   if (saved && saved.career) {
     // forceDemo só quando a carreira JÁ GRAVOU explicitamente que nasceu
