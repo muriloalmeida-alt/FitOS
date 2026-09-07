@@ -59,6 +59,7 @@ const contentStore = require("./src/contentStore");
 const careerStore = require("./src/careerStore");
 const captureSnapshot = require("./src/captureSnapshot");
 const leaderboard = require("./src/leaderboard");
+const push = require("./src/push");
 const { flushAllSync } = require("./src/debouncedPersist");
 const publicRateLimit = require("./src/publicRateLimit");
 const { slugify, matchSlug } = require("./src/slug");
@@ -1755,7 +1756,7 @@ const server = http.createServer(async (req, res) => {
       // configurado (login diário/objetivos/conquistas/ranking
       // continuam fazendo sentido inteiramente em Modo Exemplo).
       && !pathname.startsWith("/api/daily-login") && !pathname.startsWith("/api/friends")
-      && !pathname.startsWith("/api/leaderboard");
+      && !pathname.startsWith("/api/leaderboard") && !pathname.startsWith("/api/push");
     if (LIVE_ONLY && !liveModeEnabled()) {
       const err = new Error(
         APP_MODE === "demo"
@@ -2258,6 +2259,42 @@ const server = http.createServer(async (req, res) => {
       return sendJSON(res, 200, { scope, entries, own: own ? { userId: req.authUser.id, ...own } : null });
     }
 
+    // Notificações push (Web Push) — pedido do usuário (sugeri como
+    // melhoria de retenção: "o lembrete de streak só funciona com o
+    // app aberto", ele confirmou implementar). Ligado à CONTA
+    // (users.js), mesmo motivo do login diário/amigos acima. Sem as
+    // 3 variáveis VAPID_* configuradas (ver server/.env.example), as
+    // 2 primeiras rotas continuam respondendo normal (enabled:false /
+    // 404 explícito), nunca derruba o resto do app.
+    if (pathname === "/api/push/vapid-public-key" && req.method === "GET") {
+      return sendJSON(res, 200, { enabled: push.isEnabled(), publicKey: push.publicKey() });
+    }
+    if (pathname === "/api/push/subscribe" && req.method === "POST") {
+      if (!push.isEnabled()) return sendJSON(res, 404, { error: "Notificações push não configuradas neste host." });
+      const body = await readBody(req);
+      if (!body.subscription || !body.subscription.endpoint) return sendJSON(res, 400, { error: "subscription inválida." });
+      users.setPushSubscription(req.authUser.id, body.subscription);
+      return sendJSON(res, 200, { ok: true });
+    }
+    if (pathname === "/api/push/unsubscribe" && req.method === "POST") {
+      users.setPushSubscription(req.authUser.id, null);
+      return sendJSON(res, 200, { ok: true });
+    }
+    // Botão "Enviar notificação de teste" nas Configurações — feedback
+    // imediato de que a assinatura funciona, sem esperar o lembrete de
+    // streak de verdade (só dispara 1x/dia, às 20h — ver push.js).
+    if (pathname === "/api/push/test" && req.method === "POST") {
+      if (!push.isEnabled()) return sendJSON(res, 404, { error: "Notificações push não configuradas neste host." });
+      if (!req.authUser.pushSubscription) return sendJSON(res, 400, { error: "Ative as notificações antes de testar." });
+      const result = await push.sendNotification(req.authUser.pushSubscription, {
+        title: "⚽ Tudo certo!",
+        body: "As notificações push do Modo Técnico estão funcionando.",
+        url: "/carreira.html",
+      });
+      if (!result.ok && result.expired) users.setPushSubscription(req.authUser.id, null);
+      return sendJSON(res, result.ok ? 200 : 502, result);
+    }
+
     // Cria um novo checkout pra quem já está logado — cobre 2 casos:
     // (1) retomar o pagamento de um cadastro pago que ainda não
     // confirmou (planStatus "pending_payment"/"checkout_error"), e
@@ -2670,5 +2707,9 @@ bootstrapDefaultAdmin()
       // que aparece aqui, o problema é no nome/escopo da variável no
       // painel do host (Railway etc.), não no código.
       console.log(`   APP_MODE recebido: ${JSON.stringify(process.env.APP_MODE ?? null)} → modo efetivo: "${APP_MODE}"`);
+      console.log(push.isEnabled()
+        ? `   Notificações push: ativas (lembrete de streak às 20h, horário de Brasília).`
+        : `   Notificações push: desativadas (faltam VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY no .env).`);
+      push.startStreakReminderScheduler();
     });
   });

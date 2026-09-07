@@ -118,6 +118,14 @@ async function createUser({ name, email, phone, password, plan, planStatus }) {
     friendCode: generateFriendCode(),
     friends: [], // ids de outras contas (relação sempre bidirecional, ver addFriendByCode)
     dailyLogin: { currentStreakDay: 0, lastClaimDate: null }, // ver claimDailyLogin
+    // Notificações push (Web Push) — pedido do usuário: "o maior
+    // buraco de retenção" era o lembrete de streak (acima) só
+    // funcionar com o app ABERTO. null até o usuário ligar o toggle em
+    // Configurações (ver setPushSubscription); guarda o objeto de
+    // assinatura inteiro (endpoint + chaves), formato padrão de
+    // PushSubscription.toJSON() do navegador — só 1 por conta (não por
+    // dispositivo), ativar em outro aparelho substitui a anterior.
+    pushSubscription: null,
     // ---- Loja (BR_Data_Treinador_Monetizacao.xlsx) — saldo de
     // "Créditos BR" (moeda dura, comprada com dinheiro real). Ao
     // contrário de TUDO no resto do Modo Técnico (onde o cliente é
@@ -255,6 +263,34 @@ function setFavoriteClub(id, competitionId, teamId) {
   return u;
 }
 
+// Notificações push (Web Push) — liga/desliga o toggle em
+// Configurações (ver renderSettingsScreen em carreira.js). `subscription`
+// é o objeto inteiro devolvido por PushSubscription.toJSON() no
+// navegador, ou null pra desativar (chamado tanto pelo usuário
+// desligando o toggle quanto pelo job de lembrete quando o envio
+// falha com "assinatura morta" — ver sendStreakReminders em server.js).
+function setPushSubscription(id, subscription) {
+  const u = store.get(id);
+  if (!u) return null;
+  u.pushSubscription = subscription || null;
+  u.updatedAt = Date.now();
+  persist();
+  return u;
+}
+
+// Usado pelo job diário de lembrete de streak (ver server.js) — só as
+// contas com push ativado E que ainda não coletaram o login de HOJE.
+// `todayLocal` é a data ("YYYY-MM-DD") que o PRÓPRIO servidor decidiu
+// pra "hoje" (horário de Brasília fixo, ver comentário no job — o
+// servidor não sabe o fuso de cada dispositivo, mesma limitação já
+// documentada em claimDailyLogin). Devolve só o necessário pro envio,
+// nunca a conta inteira.
+function listPushSubscriptionsPendingStreak(todayLocal) {
+  return Array.from(store.values())
+    .filter((u) => u.pushSubscription && u.dailyLogin?.lastClaimDate !== todayLocal)
+    .map((u) => ({ id: u.id, subscription: u.pushSubscription, streakDay: u.dailyLogin?.currentStreakDay || 0 }));
+}
+
 // Campos seguros pra devolver ao front-end — nunca o passwordHash.
 function publicUser(u) {
   if (!u) return null;
@@ -282,6 +318,11 @@ function publicUser(u) {
     friends: listFriends(u.id),
     dailyLogin: u.dailyLogin || { currentStreakDay: 0, lastClaimDate: null },
     creditsBR: u.creditsBR || 0, // Loja — ver comentário grande em createUser
+    // Notificações push — só um booleano pro cliente saber se JÁ tem
+    // assinatura salva no servidor (reflete o toggle em Configurações
+    // ao reabrir o app); nunca devolve o objeto de assinatura em si
+    // (endpoint/chaves), que não tem uso nenhum no front-end.
+    pushEnabled: !!u.pushSubscription,
   };
 }
 
@@ -318,4 +359,5 @@ module.exports = {
   createUser, updateUser, setFavoriteClub, findByEmail, findById, publicUser, listUsers, isAdmin,
   hashPassword, verifyPassword, normalizeEmail,
   claimDailyLogin, addFriendByCode, listFriends,
+  setPushSubscription, listPushSubscriptionsPendingStreak,
 };

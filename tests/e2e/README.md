@@ -16,8 +16,11 @@ curadoria e não fazem parte deste diretório.
 
 1. **Node.js** ≥ 18.
 2. **Servidor do jogo rodando localmente** em `http://localhost:8787`
-   (`node server/server.js` a partir da raiz do repo — outra porta exige
-   editar a constante `base` no topo de cada script).
+   (`cd server && npm install && node server.js` a partir da raiz do
+   repo — outra porta exige editar a constante `base` no topo de cada
+   script). O `npm install` é necessário desde que o servidor ganhou
+   `web-push` como dependência (notificações push, ver
+   `server/src/push.js`).
 3. **`playwright-core`** instalado nesta pasta:
    ```
    cd tests/e2e
@@ -94,3 +97,10 @@ desenvolvimento (não indicam bug no app):
 - Flakiness de rede/proxy em ambientes com acesso restrito a
   `fonts.googleapis.com`/`fonts.gstatic.com` — a maioria dos scripts já
   bloqueia isso via `--host-resolver-rules`, mas nem todos.
+- `test_push_notifications.js` (notificações push) usa
+  `launchPersistentContext` (não incognito — o Push API é bloqueado de
+  propósito em contexto incognito, crbug.com/401439) e aceita 2
+  desfechos pro clique de ativar: assinatura de verdade (rede alcança o
+  serviço de push do navegador) OU falha de rede tratada com elegância
+  (ambientes com egress restrito, como este sandbox) — os dois contam
+  como PASS, só muda qual branch do log aparece.
