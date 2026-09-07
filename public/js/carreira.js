@@ -2574,6 +2574,46 @@ function tickStadiumUpgrade() {
    temporada real da API, e não teria por que mudar só porque a
    carreira avançou um ano). */
 const MAX_SEASON_HISTORY = 15;
+// Item 6 da lista de melhorias ("histórico individual do jogador...
+// dá pra abrir uma aba temporada-a-temporada por jogador, reaproveitando
+// os mesmos campos que já existem") — mesmo teto do time acima,
+// escopado só ao elenco PRÓPRIO (ver renewHumanSquad) pra não inflar o
+// save com histórico de jogador de clube CPU que o técnico nunca
+// gerencia (mesmo cuidado já tomado com o mercado "multi divisão").
+const MAX_PLAYER_SEASON_HISTORY = 15;
+function snapshotPlayerSeasonHistory(p, clubName) {
+  if (!p.seasonHistory) p.seasonHistory = [];
+  p.seasonHistory.unshift({
+    year: CAREER.seasonYear, clubName,
+    apps: p.appsSeason || 0, goals: p.goalsSeason || 0, assists: p.assistsSeason || 0,
+  });
+  if (p.seasonHistory.length > MAX_PLAYER_SEASON_HISTORY) p.seasonHistory.length = MAX_PLAYER_SEASON_HISTORY;
+}
+// Item 6 da lista de melhorias — "abrir uma aba temporada-a-temporada
+// por jogador (gols/assistências/jogos por ano no clube), reaproveitando
+// os mesmos campos que já existem" — usada no detalhe do jogador (ver
+// openDetail). Mesmo componente .mt-mini-row/.mt-mini-col já usado nas
+// mini-tabelas de Estatísticas/Tabela. Sem histórico ainda (1ª
+// temporada do jogador, ou jogador de time CPU que o técnico nunca
+// gerencia — ver renewLeagueSquad) simplesmente não aparece nada,
+// mesmo critério de outras seções condicionais deste modal.
+function playerSeasonHistoryHTML(p) {
+  if (!p.seasonHistory || !p.seasonHistory.length) return "";
+  const rows = p.seasonHistory.map((h) => `<div class="mt-mini-row">
+    <div class="mt-mini-col name">${h.year}</div>
+    <div class="mt-mini-col" style="flex:1.6;">${escapeHtml(h.clubName)}</div>
+    <div class="mt-mini-col">${h.apps}</div><div class="mt-mini-col">${h.goals}</div><div class="mt-mini-col">${h.assists}</div>
+  </div>`).join("");
+  return `<div class="mt-card" style="margin:4px 0 10px;">
+    <div class="mt-card-title" style="font-size:14px;">Histórico por temporada</div>
+    <div class="mt-mini-head">
+      <div class="mt-mini-col name">TEMP.</div>
+      <div class="mt-mini-col head" style="flex:1.6;">CLUBE</div>
+      <div class="mt-mini-col head">J</div><div class="mt-mini-col head">G</div><div class="mt-mini-col head">A</div>
+    </div>
+    ${rows}
+  </div>`;
+}
 // Nova feature (mockup brtreinadorbloco1pendentes.html, tela "Histórico
 // de confrontos") — histórico de partidas do SEU clube (não da liga
 // inteira: só os ~38 jogos por temporada em que CAREER.clubId jogou),
@@ -2597,8 +2637,12 @@ function renewLeagueSquad(club, squad) {
   // nenhuma de voltar, mesmo o campeonato tendo terminado fazia tempo.
   // Entressafra é tempo de sobra pra qualquer lesão/suspensão resolver.
   // FASE 4 (item 6) — goalsSeason/assistsSeason também zeram aqui (são
-  // "da temporada", ver attributeGoals/computeSeasonAwards).
-  squad.forEach((p) => { p.age += 1; p.status = "ok"; p.outUntilRound = null; p.injurySeverity = null; p.yellowCards = 0; p.goalsSeason = 0; p.assistsSeason = 0; });
+  // "da temporada", ver attributeGoals/computeSeasonAwards). appsSeason
+  // (item 6 da lista de melhorias) reseta junto pelo mesmo motivo, mas
+  // SEM snapshot de seasonHistory aqui — time CPU o técnico não
+  // gerencia, não faz sentido guardar histórico individual (ver
+  // renewHumanSquad, único lugar que snapshota de verdade).
+  squad.forEach((p) => { p.age += 1; p.status = "ok"; p.outUntilRound = null; p.injurySeverity = null; p.yellowCards = 0; p.goalsSeason = 0; p.assistsSeason = 0; p.appsSeason = 0; });
   const kept = squad.filter((p) => p.contractUntil >= CAREER.seasonYear);
   const rng = seededRngFromKey(`renew-league:${club.id}:${CAREER.seasonYear}`);
   // AJUSTE (pedido do usuário: "o mercado deve trazer jogadores das 3
@@ -2618,7 +2662,13 @@ function renewLeagueSquad(club, squad) {
 function renewHumanSquad() {
   // BUG CORRIGIDO — mesmo problema/motivo do renewLeagueSquad acima.
   // FASE 4 (item 6) — goalsSeason/assistsSeason também zeram aqui.
-  CAREER.squad.forEach((p) => { p.age += 1; p.status = "ok"; p.outUntilRound = null; p.injurySeverity = null; p.yellowCards = 0; p.goalsSeason = 0; p.assistsSeason = 0; });
+  // Item 6 da lista de melhorias — snapshot do ANO QUE TERMINOU pro
+  // histórico individual (ver snapshotPlayerSeasonHistory) ANTES de
+  // zerar goalsSeason/assistsSeason/appsSeason pra temporada nova;
+  // roda pra todo mundo AINDA no elenco (inclusive quem sai duas
+  // linhas abaixo por fim de contrato — a temporada que passou com
+  // esse clube conta pro histórico dele mesmo saindo agora).
+  CAREER.squad.forEach((p) => { snapshotPlayerSeasonHistory(p, CAREER.clubName); p.age += 1; p.status = "ok"; p.outUntilRound = null; p.injurySeverity = null; p.yellowCards = 0; p.goalsSeason = 0; p.assistsSeason = 0; p.appsSeason = 0; });
   const leavingNames = [];
   CAREER.squad = CAREER.squad.filter((p) => {
     if (p.contractUntil < CAREER.seasonYear) { leavingNames.push(p.name); return false; }
@@ -5738,6 +5788,13 @@ function applyMatchWearChunk(starters, round, chunkShare, appearedSet) {
   starters.forEach((p) => {
     if (appearedSet && !appearedSet.has(p.id)) {
       p.apps = (p.apps || 0) + 1;
+      // Item 6 da lista de melhorias ("histórico individual do
+      // jogador... jogos/gols/assistências por ano") — appsSeason
+      // reaproveita o MESMO padrão de goalsSeason/assistsSeason
+      // (reseta na virada de temporada, ver renewHumanSquad/
+      // renewLeagueSquad); p.apps continua sendo o total DE CARREIRA,
+      // nunca zera, como sempre foi.
+      p.appsSeason = (p.appsSeason || 0) + 1;
       appearedSet.add(p.id);
     }
     const roll = Math.random();
@@ -8235,6 +8292,7 @@ function openPlayerCard(id, clubIdHint) {
       ${attrBarHTML("Físico", p.phys)}
     </div>
     <p class="mt-info-line">Valor de mercado: ${fmtBRL(p.value)} · Salário: ${fmtBRL(p.wage)}/mês · Contrato até: ${p.contractUntil}</p>
+    ${playerSeasonHistoryHTML(p)}
     <p class="ct-empty" style="margin-top:8px;">Jogador de outro clube — consulta apenas. Pra negociar, use o Mercado.</p>`;
   document.getElementById("detailOverlay").classList.add("open");
 }
@@ -8304,6 +8362,7 @@ function openDetail(id) {
     ${potRange ? `<p class="mt-badge-gold" style="display:flex;">🔭 Avaliação do olheiro: potencial entre ${potRange.lo} e ${potRange.hi}.</p>` : ""}
     ${mtConditionBarHTML(p.condition)}
     <p class="mt-info-line">Condição: ${conditionRating(p.condition)}/5 (${CONDITION_RATING_LABEL[conditionRating(p.condition)]}) · Jogos: ${p.apps || 0} · Gols na carreira: ${p.goalsCareer || 0} · Cartões amarelos (ciclo atual): ${p.yellowCards || 0}</p>
+    ${playerSeasonHistoryHTML(p)}
     <!-- FASE 4 (item 1) — seção "Relacionamento" pedida no documento:
          motivo atual + tendência da moral (ver applyMoraleAfterMatch);
          "pede transferência" vira o mt-badge-alert de destaque abaixo,
