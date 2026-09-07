@@ -57,6 +57,26 @@ const APP_SHELL = [
   "/img/cbf-logo.png",
   "/img/icons/icon-192.png",
   "/img/icons/icon-512.png",
+  // Modo Técnico (carreira.html/carreira.js) — item 9 da lista de
+  // melhorias ("Cache offline do Modo Técnico"): antes desta lista, só
+  // os arquivos do site principal (acima) entravam em cache na
+  // instalação do service worker; carreira.html/carreira.js só
+  // ficavam disponíveis offline DEPOIS de uma 1ª visita online (o
+  // network-first acima só cacheia o que é de fato requisitado). Pra
+  // quem instala o app já direto pelo Modo Técnico (manifest-
+  // treinador.json, ver carreira.html) e depois perde a conexão sem
+  // nunca ter aberto o site principal, o app shell abaixo garante que
+  // a tela abre mesmo assim — dados de carreira (fetch/api) continuam
+  // exigindo rede na 1ª vez, como já era.
+  "/carreira.html",
+  "/js/carreira.js",
+  "/manifest-treinador.json",
+  "/img/brand-icon.png",
+  "/img/icons/apple-touch-icon.png",
+  "/img/icons/favicon-16.png",
+  "/img/icons/favicon-32.png",
+  "/img/icons/icon-maskable-192.png",
+  "/img/icons/icon-maskable-512.png",
 ];
 
 self.addEventListener("install", (event) => {
