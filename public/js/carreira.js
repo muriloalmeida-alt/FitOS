@@ -2200,8 +2200,18 @@ function renderSettingsScreen() {
   const pushTestRow = document.getElementById("settingsRowPushTest");
   if (pushTestRow) pushTestRow.addEventListener("click", testPushNotification);
   document.getElementById("settingsSfxToggleBtn").addEventListener("click", () => {
-    setSfxEnabled(!SFX_ENABLED);
+    const turningOn = !SFX_ENABLED;
+    setSfxEnabled(turningOn);
     renderSettingsScreen();
+    // Achado real (relato do usuário: "os sons não estão ativos"): som
+    // só toca de verdade DENTRO de uma partida ao vivo (apito/gol/
+    // torcida) — ligar o toggle sozinho nunca fez barulho nenhum, ao
+    // contrário do push (que tem "Enviar notificação de teste" logo
+    // abaixo do toggle dele). Sem nenhum feedback imediato, ligar o
+    // toggle e não ouvir nada parece bug mesmo estando tudo certo.
+    // Toca o apito na hora, como confirmação audível — mesmo clique
+    // já conta como gesto do usuário pro navegador liberar o áudio.
+    if (turningOn) playWhistle(1);
   });
   updateNotificationBadge();
 }

@@ -66,9 +66,27 @@ async function newCareer(page, base, email) {
   console.log("3) Com som desligado, as funções não criam AudioContext (no-op silencioso):", disabledNoop);
 
   // 4) Religar o toggle e confirmar que as funções agora criam um
-  // AudioContext de verdade e não estouram erro nenhum.
+  // AudioContext de verdade e não estouram erro nenhum. Achado real
+  // (relato do usuário: "os sons não estão ativos") -- ligar o toggle
+  // não tocava NENHUM som na hora (o único jeito de "ouvir" era abrir
+  // uma partida ao vivo de verdade), diferente do push (que tem
+  // "Enviar notificação de teste" logo abaixo do toggle dele). Agora
+  // ligar o toggle toca um apito de confirmação na hora, sem precisar
+  // esperar chamar playWhistle manualmente -- instrumenta ANTES do
+  // clique pra confirmar que o próprio clique já cria o oscilador.
+  await page.evaluate(() => {
+    window.__oscCountBeforeToggle = 0;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    const orig = AC.prototype.createOscillator;
+    AC.prototype.createOscillator = function (...args) {
+      window.__oscCountBeforeToggle++;
+      return orig.apply(this, args);
+    };
+  });
   await page.click("#settingsSfxToggleBtn");
   await page.waitForTimeout(100);
+  const instantFeedback = await page.evaluate(() => window.__oscCountBeforeToggle > 0);
+  console.log("4a) Ligar o toggle já toca um apito de confirmação na hora (sem precisar esperar uma partida):", instantFeedback);
   const enabledWorks = await page.evaluate(() => {
     playWhistle(1);
     playGoal(true);
