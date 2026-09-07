@@ -5193,6 +5193,72 @@ async function submitAddFriend() {
   }
 }
 
+// ---- Convite de amigo por link (item 5 da lista de melhorias) ----
+// "Hoje o sistema de amigos (Ranking) só funciona com um código de 6
+// caracteres digitado manualmente. Um link de convite (Web Share API)
+// reduziria fricção." Reaproveita o MESMO friendCode/endpoint
+// /api/friends/add já existentes — só embrulha o código numa URL
+// compartilhável, sem nenhum sistema de convite pendente/aceite novo
+// no servidor (mesma bidirecionalidade imediata de sempre).
+const PENDING_INVITE_KEY = "mt_pending_invite_code";
+// Lido uma vez só, bem no início de boot() — ANTES de saber se o
+// visitante já tem sessão (o link pode chegar pra alguém que só vai
+// logar/cadastrar depois). Guardado em sessionStorage (sobrevive a um
+// login/cadastro na MESMA aba, mas não fica pra sempre no navegador —
+// diferente do friendCode da própria conta, isso é só um dado de
+// trânsito). Limpa o parâmetro da URL na hora (history.replaceState)
+// pra não reprocessar em cada reload da mesma sessão de aba.
+function capturePendingInviteFromUrl() {
+  try {
+    const params = new URLSearchParams(location.search);
+    const code = params.get("convite");
+    if (!code) return;
+    sessionStorage.setItem(PENDING_INVITE_KEY, code.trim().toUpperCase());
+    params.delete("convite");
+    const clean = location.pathname + (params.toString() ? `?${params}` : "") + location.hash;
+    history.replaceState(null, "", clean);
+  } catch { }
+}
+// Chamado de dentro de enterAfterAuth() — ponto único em que ME já
+// está garantidamente setado, tanto vindo de boot() (sessão já ativa)
+// quanto de submitCtLogin() (login pelo formulário). Remove do
+// sessionStorage ANTES de qualquer coisa, pra nunca duplicar o toast
+// num reload/erro no meio do caminho (consumo de uso único).
+async function consumePendingInviteIfAny() {
+  let code;
+  try { code = sessionStorage.getItem(PENDING_INVITE_KEY); } catch { return; }
+  if (!code) return;
+  try { sessionStorage.removeItem(PENDING_INVITE_KEY); } catch { }
+  if (!ME || code === ME.friendCode) return; // convite do próprio código (ex.: o dono testando o link) -- ignora em silêncio
+  try {
+    const data = await fetchJSON("/api/friends/add", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code }) });
+    ME.friends = data.friends;
+    toast({ title: "Amigo adicionado!", detail: "Vocês já podem se comparar no Ranking." }, { type: "pos" });
+  } catch {
+    // Código inválido/expirado -- o técnico só clicou num link, não foi
+    // uma ação que ele possa "corrigir" na hora, então fica em
+    // silêncio; ainda dá pra adicionar manualmente depois no Ranking.
+  }
+}
+// Botão "Compartilhar convite" ao lado do código -- Web Share API com
+// fallback de copiar pro clipboard (qualquer navegador sem suporte a
+// compartilhar, principalmente desktop).
+async function shareInviteLink() {
+  const url = `${location.origin}${location.pathname}?convite=${encodeURIComponent(ME.friendCode)}`;
+  const text = `Entra no Modo Técnico comigo! Usa meu link pra a gente virar amigo no Ranking:`;
+  try {
+    if (navigator.share) { await navigator.share({ title: "BR Treinador — Modo Técnico", text, url }); return; }
+  } catch (err) {
+    if (err && err.name === "AbortError") return; // usuário cancelou o compartilhamento, nada a fazer
+  }
+  try {
+    await navigator.clipboard.writeText(url);
+    toast({ title: "Link copiado", detail: "Cole onde quiser compartilhar." }, { type: "pos" });
+  } catch {
+    toast("Não deu pra copiar o link agora.", { type: "warn" });
+  }
+}
+
 /* ---------- Retenção/Engajamento — Login diário com streak (item 2 do
    documento) ----------
    Streak fica na CONTA (ver ME/users.js), não na carreira — sobrevive
@@ -12411,6 +12477,7 @@ function wireStaticListeners() {
     btn.addEventListener("click", () => { RANKING_ACTIVE_SCOPE = btn.dataset.scope; refreshRankingList(); });
   });
   document.getElementById("btnAddFriend").addEventListener("click", submitAddFriend);
+  document.getElementById("btnShareInvite").addEventListener("click", shareInviteLink);
   document.getElementById("btnClaimDailyLogin").addEventListener("click", claimDailyLoginNow);
   // Loja — mesmo padrão de Objetivos/Conquistas acima (switchToPanel já
   // chama renderLoja() ao entrar, ver switchToPanel).
@@ -12658,6 +12725,17 @@ async function submitCtLogin(e) {
       btn.disabled = false; btn.textContent = originalLabel;
       return;
     }
+    // BUG CORRIGIDO (achado testando o convite por link, item 5):
+    // login pelo FORMULÁRIO de verdade (ao contrário do boot() normal,
+    // que já fazia isso — ver linha "ME = me.user" mais abaixo) nunca
+    // setava a global ME antes de enterAfterAuth() — showGameScreen()
+    // lê ME.onboardingSeen e quebrava em silêncio pra quem re-logava
+    // com uma carreira já salva (o jogo aparecia por trás, mas o login
+    // diário/onboarding nunca rodavam, e um erro genérico ficava preso
+    // no formulário já escondido). /api/auth/login devolve o MESMO
+    // formato de usuário que /api/auth/me (users.publicUser), então
+    // dá pra reaproveitar direto.
+    ME = data.user;
     await enterAfterAuth();
   } catch (err) {
     errEl.textContent = err.message || "E-mail ou senha incorretos.";
@@ -12934,6 +13012,11 @@ function migrateCareerDefaults() {
 async function enterAfterAuth() {
   show("screenLoading");
   document.getElementById("screenLoading").innerHTML = splashLoadingHTML("Carregando o Modo Técnico...");
+  // Item 5 da lista de melhorias — ME já está garantidamente setado
+  // aqui (tanto vindo de boot() quanto de submitCtLogin()), então é o
+  // ponto único certo pra consumir um convite por link pendente (ver
+  // capturePendingInviteFromUrl/consumePendingInviteIfAny).
+  await consumePendingInviteIfAny();
   const saved = await fetchJSON("/api/career").catch(() => ({ career: null }));
   if (saved && saved.career) {
     // forceDemo só quando a carreira JÁ GRAVOU explicitamente que nasceu
@@ -13000,6 +13083,11 @@ function wireModalScrollResetObserver() {
   observer.observe(document.body, { attributes: true, attributeFilter: ["class"], subtree: true });
 }
 async function boot() {
+  // Item 5 da lista de melhorias — captura o ?convite=CODE da URL (se
+  // veio de um link compartilhado) ANTES de saber se o visitante já
+  // tem sessão; consumido de verdade depois, em enterAfterAuth() (ver
+  // capturePendingInviteFromUrl/consumePendingInviteIfAny).
+  capturePendingInviteFromUrl();
   applyStoredTheme();
   wireStaticListeners();
   wireModalScrollResetObserver();
