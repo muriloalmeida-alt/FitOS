@@ -31,6 +31,7 @@ const { chromium } = require("playwright-core");
   console.log("1) Selecionar NÃO inicia carreira (só marca):", beforeSelect.fabHidden && !afterSelect.fabHidden && afterSelect.stillOnPicker, JSON.stringify({ beforeSelect, afterSelect }));
 
   await page.click("#btnConfirmClub");
+  await page.click("#btnOnboardSkip", { timeout: 2000 }).catch(() => {});
   await page.waitForTimeout(700);
   const afterConfirm = await page.evaluate(() => ({ gameVisible: !document.getElementById("screenGame").classList.contains("hidden") }));
   console.log("2) Confirmar clube inicia a carreira de fato:", afterConfirm.gameVisible);

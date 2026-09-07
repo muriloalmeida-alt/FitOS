@@ -1648,6 +1648,33 @@
   .mt-matchdetail-score .ct-next-match .side .n{ font-family:var(--m3-display); font-weight:600; font-size:13px; letter-spacing:0; color:var(--m3-primary); }
   .mt-matchdetail-score #matchDetailTickets{ color:var(--m3-on-surface-variant); font-size:12px; margin-top:8px; }
 
+  /* ---- Onboarding — tutorial de boas-vindas (pedido do usuário:
+     "onboarding pro primeiro acesso... tutorial curtinho na primeira
+     carreira") — tela cheia, sem cabeçalho (só um "Pular" no canto),
+     conteúdo centralizado verticalmente (ícone grande + título Bebas
+     Neue + texto), rodapé com pontos de progresso + botão. Ver
+     renderOnboardingSlide/ONBOARDING_SLIDES em carreira.js. ---- */
+  .mt-onboard-overlay .ct-modal-body{
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+    text-align:center; padding:32px 30px;
+  }
+  .mt-onboard-skip{
+    position:absolute; top:calc(18px + env(safe-area-inset-top, 0px)); right:18px; z-index:2;
+    background:none; border:none; color:var(--mt-ink-muted); font-family:var(--font);
+    font-size:13px; font-weight:600; cursor:pointer; padding:8px 10px;
+  }
+  .mt-onboard-icon{
+    width:92px; height:92px; margin-bottom:26px; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center;
+    border-radius:50%; background:var(--m3-primary-container); color:var(--m3-on-primary-container);
+  }
+  .mt-onboard-icon svg{ width:44px; height:44px; }
+  .mt-onboard-title{ font-family:'Bebas Neue', var(--font); font-size:26px; letter-spacing:.4px; color:var(--mt-ivory-50); margin:0 0 12px; }
+  .mt-onboard-text{ font-size:14.5px; line-height:1.65; color:var(--mt-ink-muted); max-width:300px; margin:0; }
+  .mt-onboard-dots{ display:flex; gap:6px; align-self:center; margin-bottom:2px; }
+  .mt-onboard-dot{ width:7px; height:7px; border-radius:50%; background:var(--m3-outline-variant); transition:width .2s, border-radius .2s; }
+  .mt-onboard-dot.active{ background:var(--m3-primary); width:20px; border-radius:4px; }
+
   /* ---- diálogo de confirmação genérico (Tela 10b — ver
      10b-confirmar-venda-restyled.html do designer) — escopado a
      #confirmOverlay (.mt-confirm-overlay), reaproveitado por TODA
@@ -3476,6 +3503,23 @@
      (Tela 10b) verbatim — mesmo espírito de diálogo centralizado
      curto, só com corpo customizado (trilha de 7 dias + vitrine da
      recompensa do dia) no lugar do texto de confirmação genérico. -->
+<!-- ================= Onboarding — tutorial de boas-vindas =================
+     Pedido do usuário: "onboarding pro primeiro acesso... tutorial
+     curtinho (3-4 telas) na primeira carreira". Aparece só 1x por
+     CONTA (ver ME.onboardingSeen/renderOnboardingSlide em carreira.js),
+     na 1ª vez que showGameScreen() roda — ANTES do modal de login
+     diário (checkDailyLoginOnBoot só é chamado depois de fechar este). -->
+<div class="ct-modal-overlay ct-modal-fullscreen mt-onboard-overlay" id="onboardingOverlay">
+  <div class="ct-modal">
+    <button class="mt-onboard-skip" id="btnOnboardSkip">Pular</button>
+    <div class="ct-modal-body" id="onboardingBody"></div>
+    <div class="ct-modal-footer mt-onboard-footer">
+      <div class="mt-onboard-dots" id="onboardingDots"></div>
+      <button class="mt-btn-primary-gold" id="btnOnboardNext" style="width:100%;">Avançar</button>
+    </div>
+  </div>
+</div>
+
 <div class="ct-modal-overlay mt-confirm-overlay" id="dailyLoginOverlay">
   <div class="ct-modal">
     <div class="ct-modal-header">

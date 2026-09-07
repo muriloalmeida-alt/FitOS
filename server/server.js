@@ -1747,6 +1747,7 @@ const server = http.createServer(async (req, res) => {
     // impossível de jogar em qualquer host sem chave.
     const LIVE_ONLY = pathname.startsWith("/api/") && pathname !== "/api/broadcast" && pathname !== "/api/news"
       && pathname !== "/api/competitions" && pathname !== "/api/account/favorite-club" && pathname !== "/api/account/name"
+      && pathname !== "/api/account/onboarding-seen"
       && !pathname.startsWith("/api/support/") && !pathname.startsWith("/api/auth/")
       && !pathname.startsWith("/api/admin/") && !pathname.startsWith("/api/adminpanel/")
       && !pathname.startsWith("/api/career")
@@ -2183,6 +2184,14 @@ const server = http.createServer(async (req, res) => {
       const name = String(body.name || "").trim().slice(0, 80);
       if (!name) return sendJSON(res, 400, { error: "Nome não pode ficar vazio." });
       const updated = users.updateUser(req.authUser.id, { name });
+      return sendJSON(res, 200, { user: users.publicUser(updated) });
+    }
+    // Onboarding (pedido do usuário: "tutorial curtinho na primeira
+    // carreira") — marcado como visto quando o usuário pula ou termina
+    // o tutorial (ver closeOnboardingOverlay em carreira.js). Ligado à
+    // CONTA — nunca reaparece, nem em "Reiniciar"/"Escolher outro clube".
+    if (pathname === "/api/account/onboarding-seen" && req.method === "POST") {
+      const updated = users.updateUser(req.authUser.id, { onboardingSeen: true });
       return sendJSON(res, 200, { user: users.publicUser(updated) });
     }
 
