@@ -4111,6 +4111,16 @@ async function startCareer(clubId) {
       // recruitProspectToBase): nascem vazios, sem staff nenhum de
       // cara — carreira só ganha isso se o técnico contratar.
       scouts: [], scoutMissionProspects: [],
+      // Assistente de início (pedido do usuário: "criar perguntas
+      // formato onboarding para o treinador montar sua formação
+      // favorita, contratar comissão e olheiros e fazer tudo o que for
+      // necessário para iniciar o jogo") — controla se já rodou NESTA
+      // carreira (persistido, não só em memória — sobrevive a fechar o
+      // navegador no meio do assistente, ver maybeOpenStartupWizard/
+      // showGameScreen). Toda carreira NOVA nasce com isso false —
+      // decisão do usuário: aparece toda vez (1ª carreira, "Reiniciar",
+      // "Escolher outro clube"), não só uma vez por conta.
+      startupWizardSeen: false,
       // FASE 3 (c) — multitemporadas (ver advanceSeason). seasonYear
       // começa em LIVE_SEASON (a temporada real dos dados) e só sobe
       // quando VOCÊ avança de temporada — LIVE_SEASON em si é fixo.
@@ -5498,7 +5508,7 @@ async function closeOnboardingOverlay() {
   document.getElementById("onboardingOverlay").classList.remove("open");
   ME.onboardingSeen = true;
   try { await fetchJSON("/api/account/onboarding-seen", { method: "POST" }); } catch { /* mesmo se falhar, não trava a experiência — só reapareceria de novo na próxima entrada */ }
-  checkDailyLoginOnBoot();
+  maybeOpenStartupWizard();
 }
 async function checkDailyLoginOnBoot() {
   const today = localDateStr();
@@ -5521,6 +5531,154 @@ async function claimDailyLoginNow() {
   } finally {
     btn.disabled = false;
   }
+}
+
+/* ---------- Assistente de início (pedido do usuário: "criar
+   perguntas formato onboarding para o treinador montar sua formação
+   favorita, contratar comissão e olheiros e fazer tudo o que for
+   necessário para iniciar o jogo") ----------
+   Abre em TODA carreira nova (decisão confirmada via AskUserQuestion:
+   "toda carreira nova", inclusive "Reiniciar"/"Escolher outro clube",
+   não só a 1ª da conta) — depois do tutorial de navegação, se essa for
+   a 1ª carreira da conta (ver showGameScreen), e antes do login diário
+   (ver maybeOpenStartupWizard/checkDailyLoginOnBoot). 4 passos, cada
+   um pulável (decisão confirmada: "todas puláveis") — Formação
+   favorita + titulares, Comissão Técnica, Olheiros, Táticas básicas
+   (os 4 eixos já existentes, ver TACTIC_AXES). CAREER.startupWizardSeen
+   controla se já rodou NESTA carreira — persistido (não só em memória)
+   pra sobreviver a fechar o navegador no meio (ver migrateCareerDefaults
+   pro save de antes desta mudança, que nasce sem o assistente).
+
+   Passos 1 e 4 reaproveitam o próprio #panel-escalacao — MESMO nó do
+   DOM movido de verdade pra dentro daqui (mesma técnica já usada por
+   #adjustLineupOverlay, ver openAdjustLineupModal/closeAdjustLineupModal)
+   e devolvido ao lugar exato ao terminar — zero duplicação de id/
+   render/wiring dos controles de Escalação/Tática. Sem "Voltar" nos
+   passos (fluxo só pra frente, mesmo espírito do tutorial de
+   boas-vindas) — os blocos só precisam ser movidos 1x cada. */
+const STARTUP_WIZARD_STEPS = [
+  { id: "formacao", key: "wizardStepFormacao", title: "Monte sua formação favorita", icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1.5"/><circle cx="12" cy="8.5" r="1.6"/><circle cx="7" cy="15" r="1.6"/><circle cx="17" cy="15" r="1.6"/></svg>' },
+  { id: "comissao", key: "wizardStepComissao", title: "Comissão Técnica", icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>' },
+  { id: "olheiros", key: "wizardStepOlheiros", title: "Contrate olheiros", icon: "🔭" },
+  { id: "taticas", key: "wizardStepTaticas", title: "Táticas básicas", icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1.5"/><circle cx="12" cy="8.5" r="1.6"/><circle cx="7" cy="15" r="1.6"/><circle cx="17" cy="15" r="1.6"/></svg>' },
+];
+let WIZARD_STEP = 0;
+let WIZARD_FORMATION_MOUNTED = false;
+let WIZARD_TACTICS_MOUNTED = false;
+function maybeOpenStartupWizard() {
+  if (CAREER.startupWizardSeen === false) {
+    openStartupWizard();
+    return;
+  }
+  checkDailyLoginOnBoot();
+}
+function openStartupWizard() {
+  WIZARD_STEP = 0;
+  WIZARD_FORMATION_MOUNTED = false;
+  WIZARD_TACTICS_MOUNTED = false;
+  renderWizardStep();
+  document.getElementById("startupWizardOverlay").classList.add("open");
+}
+function renderWizardStep() {
+  const step = STARTUP_WIZARD_STEPS[WIZARD_STEP];
+  document.getElementById("wizardStepIcon").innerHTML = step.icon;
+  document.getElementById("wizardStepTitle").textContent = step.title;
+  document.getElementById("wizardStepSub").textContent = `Passo ${WIZARD_STEP + 1} de ${STARTUP_WIZARD_STEPS.length}`;
+  document.getElementById("wizardStepDots").innerHTML = STARTUP_WIZARD_STEPS
+    .map((_, i) => `<span class="mt-onboard-dot${i === WIZARD_STEP ? " active" : ""}"></span>`).join("");
+  STARTUP_WIZARD_STEPS.forEach((s, i) => document.getElementById(s.key).classList.toggle("hidden", i !== WIZARD_STEP));
+  document.getElementById("btnWizardContinue").textContent = WIZARD_STEP === STARTUP_WIZARD_STEPS.length - 1 ? "Começar a temporada" : "Continuar";
+  if (step.id === "formacao") {
+    // Move o bloco só na 1ª vez que este passo é mostrado (sem
+    // "Voltar" no assistente, nunca precisa mover de novo).
+    if (!WIZARD_FORMATION_MOUNTED) {
+      document.getElementById("wizardStepFormacao").appendChild(document.getElementById("escalacaoFormationBlock"));
+      WIZARD_FORMATION_MOUNTED = true;
+    }
+    renderFormationChips();
+    renderPitch();
+    renderBench();
+  } else if (step.id === "comissao") {
+    renderWizardCommissionStep();
+  } else if (step.id === "olheiros") {
+    renderWizardScoutList();
+  } else if (step.id === "taticas") {
+    if (!WIZARD_TACTICS_MOUNTED) {
+      document.getElementById("wizardStepTaticas").appendChild(document.getElementById("escalacaoTacticsBlock"));
+      WIZARD_TACTICS_MOUNTED = true;
+    }
+    renderTacticAxisRows("tacticAxisRows", CAREER.lineup.tactics);
+  }
+}
+// Mesmo texto/custo de #commissionOverlay (ver renderCommissionScreen)
+// — só o estado "ainda não contratada" faz sentido aqui (carreira
+// recém-criada nunca chega com comissão já contratada).
+function renderWizardCommissionStep() {
+  const hired = CAREER.technicalStaff.hired;
+  document.getElementById("wizardCommissionCost").textContent = `${fmtBRL(technicalStaffMonthlyCost())}/mês`;
+  document.getElementById("btnWizardHireCommission").disabled = hired;
+  document.getElementById("btnWizardHireCommission").textContent = hired ? "Comissão já contratada" : "Contratar comissão técnica";
+  document.getElementById("wizardCommissionHiredNote").hidden = !hired;
+}
+// Mesmo catálogo/markup de #scoutMarketOverlay (ver renderScoutMarketScreen)
+// — container próprio (wizardScoutList) pra não colidir com a tela
+// real, que continua existindo em Base e Olheiros pra contratar mais
+// depois. hireScout() já persiste e re-renderiza as telas reais
+// sozinho — só precisa re-renderizar esta lista própria também.
+function renderWizardScoutList() {
+  const hiredIds = new Set((CAREER.scouts || []).map((s) => s.marketId));
+  document.getElementById("wizardScoutList").innerHTML = SCOUT_MARKET.map((c) => {
+    const hired = hiredIds.has(c.id);
+    return `<div class="m3-list-item" style="cursor:default;">
+      <div class="m3-li-avatar">${initials(c.name)}</div>
+      <div class="m3-li-body">
+        <div class="m3-li-name">${escapeHtml(c.name)}</div>
+        <div class="m3-li-meta"><span class="m3-mini-chip">${escapeHtml(c.specialty)}</span></div>
+        <div class="m3-recruit-stars">${starsHTML(c.stars)}</div>
+      </div>
+      ${hired ? `<span class="m3-mini-chip">Contratado</span>` : `<button class="m3-upgrade-buy" data-hire="${c.id}">${fmtBRLShort(c.monthlyCost)}/mês</button>`}
+    </div>`;
+  }).join("");
+  document.getElementById("wizardScoutList").querySelectorAll("[data-hire]").forEach((btn) => {
+    btn.addEventListener("click", () => { hireScout(btn.dataset.hire); renderWizardScoutList(); });
+  });
+}
+// "Continuar" aplica a escolha do passo atual antes de avançar — só o
+// passo de Táticas tem de verdade algo a aplicar aqui (os outros 3 já
+// se aplicam na hora, no próprio clique dentro do passo: chip de
+// formação, troca no campinho, contratar comissão/olheiro).
+function wizardAdvance() {
+  if (STARTUP_WIZARD_STEPS[WIZARD_STEP].id === "taticas") {
+    Object.assign(CAREER.lineup.tactics, readTacticAxisRows("tacticAxisRows"));
+    markLineupDirty();
+  }
+  if (WIZARD_STEP === STARTUP_WIZARD_STEPS.length - 1) { finishStartupWizard(); return; }
+  WIZARD_STEP++;
+  renderWizardStep();
+}
+// "Pular esta etapa" nunca aplica a escolha do passo atual — no passo
+// de Táticas isso significa NÃO ler os eixos editados (fica no que já
+// estava, neutro numa carreira nova); nos outros 3 passos não desfaz
+// nada, já que a ação de cada um lá dentro (chip/troca/contratação) já
+// tinha se aplicado sozinha no clique, não no rodapé.
+function wizardSkipStep() {
+  if (WIZARD_STEP === STARTUP_WIZARD_STEPS.length - 1) { finishStartupWizard(); return; }
+  WIZARD_STEP++;
+  renderWizardStep();
+}
+function finishStartupWizard() {
+  // Devolve os 2 blocos físicos pro #panel-escalacao original — mesmo
+  // padrão de closeAdjustLineupModal() (o conteúdo já renderizado
+  // sobrevive à mudança de pai, sem precisar renderizar de novo).
+  const formationAnchor = document.getElementById("escalacaoFormationAnchor");
+  formationAnchor.parentNode.insertBefore(document.getElementById("escalacaoFormationBlock"), formationAnchor);
+  const tacticsAnchor = document.getElementById("escalacaoTacticsAnchor");
+  tacticsAnchor.parentNode.insertBefore(document.getElementById("escalacaoTacticsBlock"), tacticsAnchor);
+  CAREER.startupWizardSeen = true;
+  persistCareer();
+  renderAll();
+  document.getElementById("startupWizardOverlay").classList.remove("open");
+  checkDailyLoginOnBoot();
 }
 
 /* ---------- Loja (BR_Data_Treinador_Monetizacao.xlsx +
@@ -11587,8 +11745,10 @@ function showGameScreen() {
   // Retenção/Engajamento — login diário só faz sentido com uma
   // carreira em andamento pra aplicar a recompensa (ver
   // applyDailyLoginReward); picker de competição/clube (sem carreira
-  // ainda) fica de fora de propósito.
-  checkDailyLoginOnBoot();
+  // ainda) fica de fora de propósito. Assistente de início (formação/
+  // comissão/olheiros/táticas) fica na fila logo antes dele, só em
+  // carreira nova — ver maybeOpenStartupWizard.
+  maybeOpenStartupWizard();
 }
 function switchToPanel(name) {
   // Redesign M3 — nav virou .m3-nav-item (pílula, 5 itens), ver
@@ -12241,6 +12401,22 @@ function wireStaticListeners() {
   document.getElementById("btnOnboardNext").addEventListener("click", () => {
     if (ONBOARD_INDEX < ONBOARDING_SLIDES.length - 1) { ONBOARD_INDEX++; renderOnboardingSlide(); }
     else closeOnboardingOverlay();
+  });
+
+  // Assistente de início — "Continuar"/"Pular esta etapa" avançam o
+  // mesmo jeito na maioria dos passos (a ação de cada passo já se
+  // aplica na hora, no próprio clique — chip de formação, troca no
+  // campo, contratar comissão/olheiro); só o passo de Táticas tem de
+  // verdade algo a "não aplicar" quando pulado (ver wizardAdvance/
+  // wizardSkipStep). Contratar comissão é o único botão DENTRO de um
+  // passo (Olheiros já wire os próprios [data-hire] a cada render, ver
+  // renderWizardScoutList).
+  document.getElementById("btnWizardContinue").addEventListener("click", wizardAdvance);
+  document.getElementById("btnWizardSkip").addEventListener("click", wizardSkipStep);
+  document.getElementById("btnWizardHireCommission").addEventListener("click", () => {
+    hireTechnicalStaff();
+    renderWizardCommissionStep();
+    toast("Comissão técnica contratada!", { type: "pos" });
   });
 
   // AJUSTE (Bloco 2 M3) — formationSelect (Escalação) e tacticMentality/
@@ -13217,6 +13393,11 @@ function migrateCareerDefaults() {
   // verdade — a Loja ainda não cobra nada (ver aviso grande em
   // renderLoja). Nasce vazio, sem reconstrução retroativa.
   if (!CAREER.purchaseHistory) CAREER.purchaseHistory = [];
+  // Assistente de início — carreira criada ANTES desta mudança nasce
+  // com o assistente já "visto" (não aparece sozinho no meio de uma
+  // temporada em andamento) — só carreira NOVA a partir de agora passa
+  // por ele (ver startCareer/maybeOpenStartupWizard).
+  if (CAREER.startupWizardSeen === undefined) CAREER.startupWizardSeen = true;
   evaluateAlwaysCheckableAchievements();
 }
 // AJUSTE (pedido do usuário: "acrescentar a Série B, C [ao Modo

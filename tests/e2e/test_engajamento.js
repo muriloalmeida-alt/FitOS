@@ -23,6 +23,10 @@ const { chromium } = require("playwright-core");
   await page.waitForTimeout(150);
   await page.click("#btnConfirmClub");
   await page.click("#btnOnboardSkip", { timeout: 2000 }).catch(() => {});
+  await page.click("#btnWizardSkip", { timeout: 4000 }).catch(() => {});
+  await page.click("#btnWizardSkip", { timeout: 4000 }).catch(() => {});
+  await page.click("#btnWizardSkip", { timeout: 4000 }).catch(() => {});
+  await page.click("#btnWizardSkip", { timeout: 4000 }).catch(() => {});
   await page.waitForTimeout(700);
 
   // 1) Login diário: modal abre sozinha (carreira nova, ainda não coletou hoje).
