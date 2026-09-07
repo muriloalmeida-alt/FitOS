@@ -2837,6 +2837,11 @@ async function advanceSeason() {
   // FASE 4 (item 5) — patrocínio: precisa rodar ANTES de setupCup()
   // resetar CAREER.cup mais abaixo (sponsorshipTier lê
   // cup.championIsHuman da temporada que ACABOU de terminar).
+  // Item 4 da lista de melhorias ("compartilhar... título conquistado")
+  // — mesmo motivo: guarda ANTES do reset, pro "share card" de campeão
+  // da Copa (ver showSeasonModal/shareTitleCard) ainda saber quem foi
+  // campeão da temporada que terminou.
+  const wasCupChampion = !!(CAREER.cup && CAREER.cup.championIsHuman);
   advanceSponsorshipSeason();
   CAREER.seasonYear += 1;
   // FASE 2 (c) — empréstimos (nos dois sentidos) sempre voltam pro dono
@@ -2926,7 +2931,7 @@ async function advanceSeason() {
   // que abre a notificação depois do resumo da virada de temporada.
   maybeGenerateClubProposals();
 
-  return { dismissed: false, finishedYear, finishedPos, finishedGoal, goalWasMet, newYear: CAREER.seasonYear, humanRenewal, newGoal: CAREER.boardGoal, promotionRelegation };
+  return { dismissed: false, finishedYear, finishedPos, finishedGoal, goalWasMet, newYear: CAREER.seasonYear, humanRenewal, newGoal: CAREER.boardGoal, promotionRelegation, wasCupChampion };
 }
 
 /* ---------- FASE 2 (a) — elenco individual pra TODOS os times ----------
@@ -5112,11 +5117,10 @@ function openAchievementDetail(id) {
     : `Progresso: ${entry.currentProgress} / ${tpl.target}`;
   const shareBtn = document.getElementById("btnShareAchievement");
   shareBtn.hidden = !unlocked;
-  shareBtn.onclick = () => {
-    const text = `Desbloqueei a conquista "${tpl.title}" no BR Data Treinador! 🏆`;
-    if (navigator.share) navigator.share({ text }).catch(() => {});
-    else if (navigator.clipboard) { navigator.clipboard.writeText(text).catch(() => {}); toast("Texto copiado — cole onde quiser compartilhar.", { type: "pos" }); }
-  };
+  // Item 4 da lista de melhorias — antes era só texto (navigator.share
+  // com {text}); agora gera um "share card" de verdade (ver
+  // shareAchievementCard), o mesmo gancho de reels/stories pedido.
+  shareBtn.onclick = () => shareAchievementCard(tpl);
   document.getElementById("achievementDetailOverlay").classList.add("open");
 }
 
@@ -11349,6 +11353,250 @@ function finishOperationAndGoHome() {
   switchToPanel("central");
 }
 
+/* ---------- Compartilhar resultado como imagem (item 4 da lista de
+   melhorias): "nenhum 'share card' existe (resultado da rodada, título
+   conquistado, marco de carreira)". 3 gatilhos (showMatchDetailModal,
+   showSeasonModal, openAchievementDetail), todos desenhados num
+   <canvas> só na hora do clique (nenhuma imagem pré-gerada/guardada) e
+   exportados via Web Share API — cai pra download direto do PNG em
+   qualquer navegador sem suporte a compartilhar ARQUIVO (a maioria dos
+   desktops hoje), sem quebrar a experiência. ---------- */
+// Hexágono igual ao "crest-hex" do resto do app (mesmo clip-path,
+// agora em canvas) — usado tanto pro escudo real (imagem) quanto pro
+// fallback de monograma, mesma hierarquia de crestImg().
+function shareHexPath(ctx, cx, cy, r) {
+  ctx.beginPath();
+  for (let i = 0; i < 6; i++) {
+    const angle = (Math.PI / 180) * (60 * i - 30);
+    const x = cx + r * Math.cos(angle), y = cy + r * Math.sin(angle);
+    if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+}
+// crossOrigin anônimo pra permitir canvas.toBlob depois (sem isso, um
+// escudo carregado de outro domínio "contamina" o canvas — toBlob
+// falharia com SecurityError); resolve(null) em qualquer erro, nunca
+// rejeita — quem chama sempre cai pro monograma sozinho.
+function shareLoadImage(src) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => resolve(img);
+    img.onerror = () => resolve(null);
+    img.src = src;
+  });
+}
+async function shareDrawCrest(ctx, team, cx, cy, r) {
+  const img = team && team.logo ? await shareLoadImage(team.logo) : null;
+  shareHexPath(ctx, cx, cy, r);
+  ctx.save();
+  ctx.clip();
+  if (img) {
+    // Mesmo motivo do crestImg() (ver comentário lá): escudo real
+    // sempre sobre uma "chapinha" clara neutra, senão clubes de cor
+    // escura ficam quase invisíveis no fundo navy do cartão.
+    ctx.fillStyle = "#F5F1E6";
+    ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+    const pad = r * 0.14;
+    ctx.drawImage(img, cx - r + pad, cy - r + pad, (r - pad) * 2, (r - pad) * 2);
+  } else {
+    const grad = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
+    grad.addColorStop(0, (team && team.c1) || "#1d3a63");
+    grad.addColorStop(1, (team && team.c2) || "#0b1c33");
+    ctx.fillStyle = grad;
+    ctx.fillRect(cx - r, cy - r, r * 2, r * 2);
+  }
+  ctx.restore();
+  shareHexPath(ctx, cx, cy, r);
+  ctx.strokeStyle = "rgba(255,255,255,.22)";
+  ctx.lineWidth = 3;
+  ctx.stroke();
+  if (!img) {
+    ctx.fillStyle = "#f5f0e6";
+    ctx.font = `700 ${Math.round(r * 0.68)}px "Bebas Neue", sans-serif`;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(((team && (team.short || team.name)) || "?").slice(0, 3).toUpperCase(), cx, cy + r * 0.05);
+  }
+}
+// canvas não herda fontes do CSS sozinho — sem isso, "Bebas Neue"/
+// "Inter" (carregadas via Google Fonts pro resto do app) silenciosamente
+// caem pro sans-serif genérico do sistema só dentro do <canvas> na
+// primeira vez que uma tela usa esse desenho, mesmo já estando
+// visíveis em texto HTML normal na mesma página. document.fonts.load
+// força o carregamento (ou confirma cache) de cada peso/tamanho usado
+// abaixo antes de desenhar; nunca rejeita o cartão inteiro por causa
+// disso (cai pro fallback do próprio navegador, só menos bonito).
+async function shareEnsureFonts() {
+  try {
+    await Promise.all([
+      document.fonts.load('700 100px "Bebas Neue"'),
+      document.fonts.load('700 40px "Inter"'),
+      document.fonts.load('600 40px "Inter"'),
+    ]);
+  } catch { }
+}
+// Moldura comum aos 3 cartões — fundo navy em degradê + brilho dourado
+// suave (mesma identidade "estádio à noite" do resto do app) + marca
+// do jogo no rodapé. Formato 4:5 (1080×1350) — cabe tanto em post de
+// feed quanto, com uma faixa de fundo, em story.
+async function shareCanvasBase(w = 1080, h = 1350) {
+  await shareEnsureFonts();
+  const canvas = document.createElement("canvas");
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  const bg = ctx.createLinearGradient(0, 0, 0, h);
+  bg.addColorStop(0, "#0d1a2e");
+  bg.addColorStop(1, "#040a15");
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, w, h);
+  const glow = ctx.createRadialGradient(w / 2, h * 0.34, 40, w / 2, h * 0.34, w * 0.75);
+  glow.addColorStop(0, "rgba(212,175,55,.18)");
+  glow.addColorStop(1, "rgba(212,175,55,0)");
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, w, h);
+  ctx.strokeStyle = "rgba(212,175,55,.4)";
+  ctx.lineWidth = 4;
+  ctx.strokeRect(22, 22, w - 44, h - 44);
+  ctx.fillStyle = "rgba(232,222,196,.6)";
+  ctx.font = "600 26px Inter, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("BR TREINADOR · MODO TÉCNICO", w / 2, h - 58);
+  return { canvas, ctx };
+}
+// Exporta o canvas e compartilha via Web Share API (com arquivo de
+// verdade, quando o navegador aceita) — sem suporte, baixa o PNG
+// direto (funciona em qualquer navegador/desktop). Cancelar o share
+// sheet (AbortError) não deve forçar um download por baixo.
+async function shareCanvasImage(canvas, opts) {
+  const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+  if (!blob) { toast("Não deu pra gerar a imagem agora.", { type: "warn" }); return; }
+  const filename = opts.filename || "br-treinador.png";
+  try {
+    const file = new File([blob], filename, { type: "image/png" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      await navigator.share({ files: [file], title: opts.title, text: opts.text });
+      return;
+    }
+  } catch (err) {
+    if (err && err.name === "AbortError") return; // usuário cancelou o compartilhamento, nada a fazer
+    // qualquer outro erro real do share -- cai no download abaixo
+  }
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 4000);
+  toast({ title: "Imagem baixada", detail: "Compartilhe direto da sua galeria ou app favorito." }, { type: "pos" });
+}
+// Cartão 1: resultado da rodada (chamado do botão "Compartilhar" em
+// "Seu jogo", ver showMatchDetailModal/wireStaticListeners).
+async function shareMatchResultCard(summary) {
+  const { home, away, gh, ga } = summary.humanMatch;
+  const homeTeam = teamById(home), awayTeam = teamById(away);
+  const { canvas, ctx } = await shareCanvasBase();
+  const w = canvas.width;
+  ctx.fillStyle = "#d4af37";
+  ctx.font = "700 34px Inter, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText(`RODADA ${summary.round}`, w / 2, 150);
+  // Linhas empilhadas de cima pra baixo, cada uma com espaço de sobra
+  // pra próxima (bug real pego na verificação: escudo grande + placar
+  // gigante na MESMA faixa vertical desenhavam um por cima do outro).
+  await shareDrawCrest(ctx, homeTeam, w * 0.27, 390, 115);
+  await shareDrawCrest(ctx, awayTeam, w * 0.73, 390, 115);
+  ctx.fillStyle = "#cfd8e6";
+  ctx.font = "600 34px Inter, sans-serif";
+  ctx.fillText(homeTeam.name, w * 0.27, 580, w * 0.42);
+  ctx.fillText(awayTeam.name, w * 0.73, 580, w * 0.42);
+  ctx.fillStyle = "#f5f0e6";
+  ctx.font = '700 130px "Bebas Neue", sans-serif';
+  ctx.fillText(`${gh}  ×  ${ga}`, w / 2, 730);
+  const myGoals = summary.humanMatch.isHome ? gh : ga, oppGoals = summary.humanMatch.isHome ? ga : gh;
+  const resultLabel = myGoals > oppGoals ? "VITÓRIA" : myGoals === oppGoals ? "EMPATE" : "DERROTA";
+  const resultColor = myGoals > oppGoals ? "#3db86a" : myGoals === oppGoals ? "#e8be4b" : "#e36565";
+  ctx.fillStyle = resultColor;
+  ctx.font = '700 56px "Bebas Neue", sans-serif';
+  ctx.fillText(resultLabel, w / 2, 830);
+  const scorers = (summary.humanMatch.events || []).filter((e) => e.type === "gol" && e.mine).map((e) => abbreviateName(e.player));
+  if (scorers.length) {
+    ctx.fillStyle = "rgba(232,222,196,.85)";
+    ctx.font = "600 32px Inter, sans-serif";
+    ctx.fillText(`⚽ ${scorers.join(" · ")}`, w / 2, 910, w - 160);
+  }
+  await shareCanvasImage(canvas, {
+    filename: `resultado-rodada-${summary.round}.png`,
+    title: "Resultado da rodada",
+    text: `${homeTeam.name} ${gh} x ${ga} ${awayTeam.name} — Rodada ${summary.round} do Modo Técnico!`,
+  });
+}
+// Cartão 2: título conquistado (Brasileirão ou Copa do Brasil — ver
+// showSeasonModal/btnShareTitle, único ponto que sabe qual dos dois
+// títulos reais o motor resolveu nessa temporada específica).
+async function shareTitleCard({ year, competition }) {
+  const team = teamById(CAREER.clubId);
+  const { canvas, ctx } = await shareCanvasBase();
+  const w = canvas.width;
+  ctx.fillStyle = "#d4af37";
+  ctx.font = "700 40px Inter, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText(competition === "copa" ? "CAMPEÃO DA COPA DO BRASIL" : "CAMPEÃO BRASILEIRO", w / 2, 200);
+  await shareDrawCrest(ctx, team, w / 2, 480, 220);
+  ctx.fillStyle = "#f5f0e6";
+  ctx.font = '700 76px "Bebas Neue", sans-serif';
+  ctx.fillText(team.name.toUpperCase(), w / 2, 840, w - 120);
+  ctx.fillStyle = "rgba(232,222,196,.75)";
+  ctx.font = "600 38px Inter, sans-serif";
+  ctx.fillText(`Temporada ${year}`, w / 2, 910);
+  ctx.font = "48px serif";
+  ctx.fillText("🏆", w / 2, 990);
+  await shareCanvasImage(canvas, {
+    filename: `campeao-${year}.png`,
+    title: "Título conquistado!",
+    text: `${team.name} é ${competition === "copa" ? "campeão da Copa do Brasil" : "campeão brasileiro"} em ${year} no Modo Técnico!`,
+  });
+}
+// Cartão 3: marco de carreira (conquista desbloqueada — substitui o
+// compartilhamento só-texto de antes, ver openAchievementDetail).
+async function shareAchievementCard(tpl) {
+  const { canvas, ctx } = await shareCanvasBase();
+  const w = canvas.width;
+  ctx.fillStyle = "#d4af37";
+  ctx.font = "700 34px Inter, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText("CONQUISTA DESBLOQUEADA", w / 2, 200);
+  ctx.font = "160px serif";
+  ctx.fillText(tpl.icon || "🏆", w / 2, 480);
+  ctx.fillStyle = "#f5f0e6";
+  ctx.font = '700 70px "Bebas Neue", sans-serif';
+  ctx.fillText(tpl.title, w / 2, 640, w - 140);
+  ctx.fillStyle = "rgba(232,222,196,.8)";
+  ctx.font = "600 32px Inter, sans-serif";
+  wrapCanvasText(ctx, tpl.description, w / 2, 720, w - 200, 42);
+  await shareCanvasImage(canvas, {
+    filename: `conquista-${tpl.achievementId}.png`,
+    title: "Conquista desbloqueada!",
+    text: `Desbloqueei a conquista "${tpl.title}" no BR Treinador! 🏆`,
+  });
+}
+// Util simples de quebra de linha centralizada pro canvas (não existe
+// nativo) — usado só pela descrição da conquista, texto curto o
+// bastante pra nunca passar de 2-3 linhas.
+function wrapCanvasText(ctx, text, cx, y, maxWidth, lineHeight) {
+  const words = text.split(" ");
+  let line = "";
+  const lines = [];
+  words.forEach((word) => {
+    const test = line ? `${line} ${word}` : word;
+    if (ctx.measureText(test).width > maxWidth && line) { lines.push(line); line = word; }
+    else line = test;
+  });
+  if (line) lines.push(line);
+  lines.forEach((l, i) => ctx.fillText(l, cx, y + i * lineHeight));
+}
+
 /* ---------- Modais do fluxo "Simular rodada" (pedido do usuário) ---------- */
 // 1º modal: o jogo do PRÓPRIO clube (se jogou essa rodada — bye/folga
 // pula direto pro modal de resultados, não tem jogo pra detalhar).
@@ -11613,8 +11861,17 @@ function divisionMoveSummaryHTML(pr) {
   return html;
 }
 function showSeasonModal(result) {
-  const { finishedYear, finishedPos, finishedGoal, goalWasMet, newYear, humanRenewal, newGoal, promotionRelegation } = result;
+  const { finishedYear, finishedPos, finishedGoal, goalWasMet, newYear, humanRenewal, newGoal, promotionRelegation, wasCupChampion } = result;
   document.getElementById("seasonModalSub").textContent = `Temporada ${newYear}`;
+  // Item 4 da lista de melhorias ("compartilhar... título conquistado")
+  // — só aparece na temporada em que o técnico REALMENTE foi campeão
+  // (Brasileirão OU Copa, os 2 títulos que o motor resolve de verdade).
+  const shareBtn = document.getElementById("btnShareTitle");
+  const isNationalChampion = finishedPos === 1;
+  shareBtn.hidden = !isNationalChampion && !wasCupChampion;
+  if (!shareBtn.hidden) {
+    shareBtn.onclick = () => shareTitleCard({ year: finishedYear, competition: isNationalChampion ? "brasileirao" : "copa" });
+  }
   const leaving = humanRenewal.leavingNames;
   // FASE 1 (item 3) — mostra se bateu a meta da temporada que terminou
   // ANTES do resto do resumo (pedido do documento: "mostrar se bateu
@@ -12359,6 +12616,13 @@ function wireStaticListeners() {
   // "Seu jogo" (que continua aberto por baixo), mesmo padrão de
   // sub-modal já usado no resto do app.
   document.getElementById("btnMatchDetailReplay").addEventListener("click", openMatchReplay);
+  // Item 4 da lista de melhorias — "compartilhar resultado como
+  // imagem" (ver shareMatchResultCard). PENDING_ROUND_SUMMARY é o
+  // mesmo resumo que showMatchDetailModal acabou de renderizar nesta
+  // tela, sempre disponível enquanto a modal estiver aberta.
+  document.getElementById("btnMatchDetailShare").addEventListener("click", () => {
+    if (PENDING_ROUND_SUMMARY && PENDING_ROUND_SUMMARY.humanMatch) shareMatchResultCard(PENDING_ROUND_SUMMARY);
+  });
   document.getElementById("matchReplayClose").addEventListener("click", closeMatchReplay);
   document.getElementById("matchReplayOverlay").addEventListener("click", (e) => { if (e.target.id === "matchReplayOverlay") closeMatchReplay(); });
   document.getElementById("roundResultsClose").addEventListener("click", closeRoundResultsModal);
