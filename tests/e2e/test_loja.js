@@ -1,7 +1,10 @@
 // Testa a Loja (BR_Data_Treinador_Monetizacao.xlsx + BR_Data_Treinador_
 // Loja_Mockup.html + BR_Data_Treinador_Confirmacao_Compra_Mockup.html):
 // catálogo (5 pacotes de Créditos BR + 6 boosts/patrocínios), carteiras,
-// fluxo de confirmação de compra sem pagamento real ainda.
+// tela/modal de confirmação de compra. O pagamento de VERDADE (Mercado
+// Pago pros pacotes, débito real de Créditos BR pros boosts -- item 7
+// da lista de melhorias) tem cobertura própria em
+// test_loja_pagamento_real.js; este arquivo cobre só o catálogo/UI.
 const { chromium } = require("playwright-core");
 
 (async () => {
@@ -79,18 +82,24 @@ const { chromium } = require("playwright-core");
   }));
   console.log("4) Confirmação de compra do Pacote Ouro com dados certos:", confirmPkg.open && confirmPkg.title.includes("Ouro") && confirmPkg.name.includes("4.480") && norm(confirmPkg.price) === "R$ 34,90" && norm(confirmPkg.btnLabel).includes("R$ 34,90"), JSON.stringify(confirmPkg));
 
-  // 5) Confirmar -- toast "em breve", SEM debitar/creditar nada (nenhum
-  // endpoint de compra existe ainda -- decisão do usuário).
+  // 5) Confirmar chama o Checkout Pro de verdade (item 7) -- nesta
+  // sandbox sem MERCADOPAGO_ACCESS_TOKEN configurado, a chamada
+  // devolve erro e a Loja mostra um toast, mas NÃO altera nenhum saldo
+  // local (o crédito só chega de verdade via webhook aprovado, nunca
+  // pelo clique em si -- ver test_loja_pagamento_real.js pro caminho
+  // completo, incluindo a debitação real de boost).
   const cashBefore = await page.evaluate(() => CAREER.finances.cash);
+  const checkoutReqPromise = page.waitForResponse((r) => r.url().includes("/api/loja/checkout"));
   await page.click("#btnConfirmPurchase");
+  const checkoutRes = await checkoutReqPromise;
   await page.waitForTimeout(250);
   const afterConfirm = await page.evaluate(() => ({
-    overlayClosed: !document.getElementById("purchaseConfirmOverlay").classList.contains("open"),
+    stillOnCarreira: location.pathname.includes("carreira.html"),
     cashAfter: CAREER.finances.cash,
     creditsAfter: ME.creditsBR,
-    toastText: document.getElementById("toast").style.display !== "none" ? document.getElementById("toast").textContent : "",
+    toastVisible: getComputedStyle(document.getElementById("toast")).display !== "none",
   }));
-  console.log("5) Confirmar mostra aviso 'em breve' e NÃO altera nenhum saldo:", afterConfirm.overlayClosed && afterConfirm.cashAfter === cashBefore && afterConfirm.creditsAfter === 0 && /breve/i.test(afterConfirm.toastText), JSON.stringify(afterConfirm));
+  console.log("5) Confirmar chama /api/loja/checkout de verdade e NÃO altera saldo local (crédito só chega via webhook):", checkoutRes.status() >= 400 && afterConfirm.stillOnCarreira && afterConfirm.cashAfter === cashBefore && afterConfirm.creditsAfter === 0 && afterConfirm.toastVisible, checkoutRes.status(), JSON.stringify(afterConfirm));
 
   // 6) Comprar um boost -- confirmação mostra preço em Créditos BR (não R$).
   await page.click('#lojaTabs .mt-obj-tab[data-tab="boosts"]');
@@ -105,7 +114,7 @@ const { chromium } = require("playwright-core");
     disclosure: document.querySelector(".mt-purchase-disclosure-text").textContent,
   }));
   console.log("6) Confirmação de boost mostra preço em Créditos BR:", confirmBoost.open && confirmBoost.title.includes("Reset de Moral") && confirmBoost.price.includes("Créditos BR") && confirmBoost.btnLabel.includes("120 Créditos BR"), JSON.stringify(confirmBoost));
-  console.log("6b) Aviso de prévia (não copia o texto de cobrança real do mockup):", /prévia/i.test(confirmBoost.disclosure) && !/Google Play/i.test(confirmBoost.disclosure), confirmBoost.disclosure);
+  console.log("6b) Aviso mostra o débito real de Créditos BR (não copia o texto de cobrança do mockup, ex.: Google Play):", /créditos br/i.test(confirmBoost.disclosure) && !/Google Play/i.test(confirmBoost.disclosure), confirmBoost.disclosure);
 
   // 7) Cancelar fecha sem tocar em nada.
   await page.click("#btnCancelPurchase");

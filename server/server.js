@@ -50,6 +50,7 @@ const sportmonksClient = require("./src/sportmonksClient");
 const analytics = require("./src/analytics");
 const { fetchNews } = require("./src/newsSource");
 const mercadoPago = require("./src/mercadoPago");
+const lojaCatalog = require("./src/lojaCatalog");
 const supportPlans = require("./src/supportPlans");
 const users = require("./src/users");
 const sessions = require("./src/sessions");
@@ -1757,7 +1758,13 @@ const server = http.createServer(async (req, res) => {
       // configurado (login diário/objetivos/conquistas/ranking
       // continuam fazendo sentido inteiramente em Modo Exemplo).
       && !pathname.startsWith("/api/daily-login") && !pathname.startsWith("/api/friends")
-      && !pathname.startsWith("/api/leaderboard") && !pathname.startsWith("/api/push");
+      && !pathname.startsWith("/api/leaderboard") && !pathname.startsWith("/api/push")
+      // Item 7 da lista de melhorias ("Loja com pagamento de verdade")
+      // — mesmo motivo das rotas de Retenção/Engajamento acima: não
+      // depende da Sportmonks/API-Sports nenhuma (créditos são da
+      // CONTA, boost é efeito na carreira local), precisa funcionar
+      // mesmo sem fornecedor de dado ao vivo configurado.
+      && !pathname.startsWith("/api/loja");
     if (LIVE_ONLY && !liveModeEnabled()) {
       const err = new Error(
         APP_MODE === "demo"
@@ -2338,6 +2345,57 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    // Item 7 da lista de melhorias ("Loja com pagamento de verdade") —
+    // MESMO fluxo Checkout Pro de cima, reaproveitando createPreference
+    // sem duplicar nada: só troca o item (pacote de Créditos BR em vez
+    // de plano de assinatura) e o formato de external_reference
+    // (prefixo "credits:" — ver webhook logo abaixo, que precisa
+    // distinguir os dois fluxos compartilhando o mesmo endpoint de
+    // notificação). Preço/quantidade de créditos SEMPRE do catálogo do
+    // servidor (lojaCatalog.js) — nunca de nada vindo do corpo da
+    // requisição.
+    if (pathname === "/api/loja/checkout" && req.method === "POST") {
+      const user = req.authUser;
+      const body = await readBody(req);
+      const pkg = lojaCatalog.getCreditPackage(String(body.packageId || "").trim());
+      if (!pkg) return sendJSON(res, 400, { error: "Pacote inválido." });
+      const base = publicBaseUrl(req);
+      try {
+        const pref = await mercadoPago.createPreference({
+          plan: { id: `credits_${pkg.id}`, title: pkg.title, price: pkg.price, description: `${pkg.credits.toLocaleString("pt-BR")} Créditos BR` },
+          itemTitle: `BR Treinador — ${pkg.title} (${pkg.credits.toLocaleString("pt-BR")} Créditos BR)`,
+          name: user.name, email: user.email, phone: user.phone,
+          externalReference: `credits:${user.id}:${pkg.id}`,
+          backUrl: `${base}/carreira.html`,
+          notificationUrl: `${base}/api/support/webhook`,
+        });
+        return sendJSON(res, 200, { checkoutUrl: pref.init_point });
+      } catch (err) {
+        console.error("[loja/checkout] falha ao criar preference:", err.message);
+        return sendJSON(res, 502, { error: "Não foi possível iniciar o pagamento agora. Tente novamente em instantes." });
+      }
+    }
+
+    // Item 7 — gasta Créditos BR num boost/patrocínio da Loja. Preço
+    // SEMPRE do catálogo do servidor (nunca confia em valor vindo do
+    // cliente); o EFEITO de cada item (o que ele realmente faz na
+    // carreira) é decidido inteiramente no cliente (ver
+    // applyBoostEffect em carreira.js) — o servidor só sabe debitar o
+    // saldo, não entende nada de futebol, mesma divisão de sempre
+    // neste projeto.
+    if (pathname === "/api/loja/spend-credits" && req.method === "POST") {
+      const body = await readBody(req);
+      const itemId = String(body.itemId || "").trim();
+      const price = lojaCatalog.getBoostPrice(itemId);
+      if (price == null) return sendJSON(res, 400, { error: "Item inválido." });
+      try {
+        const creditsBR = users.spendCredits(req.authUser.id, price);
+        return sendJSON(res, 200, { creditsBR });
+      } catch (err) {
+        return sendJSON(res, err.status || 500, { error: err.message });
+      }
+    }
+
     // Notificação do Mercado Pago quando um pagamento muda de status.
     // Aceita webhooks v2 (POST, corpo JSON: {type, data:{id}}) e o
     // formato mais antigo (query string: ?topic=payment&id=...) — o
@@ -2355,7 +2413,37 @@ const server = http.createServer(async (req, res) => {
           // token) — nunca do conteúdo da notificação em si, que
           // poderia ser forjado por qualquer um que descobrisse a URL.
           const payment = await mercadoPago.getPayment(paymentId);
-          const user = payment.external_reference ? users.findById(payment.external_reference) : null;
+          const ref = String(payment.external_reference || "");
+          // Item 7 da lista de melhorias ("Loja com pagamento de
+          // verdade") — pagamento de um pacote de Créditos BR usa o
+          // formato "credits:<userId>:<packageId>" (ver
+          // /api/loja/checkout acima), pra distinguir do formato
+          // simples "userId" que a assinatura do site já usava — os
+          // dois fluxos compartilham o MESMO endpoint de notificação.
+          if (ref.startsWith("credits:")) {
+            const [, creditsUserId, packageId] = ref.split(":");
+            const creditsUser = creditsUserId ? users.findById(creditsUserId) : null;
+            const pkg = lojaCatalog.getCreditPackage(packageId);
+            if (creditsUser && pkg) {
+              if (payment.status === "approved") users.addCredits(creditsUser.id, pkg.credits, payment.id);
+              paymentsLedger.recordIfNew({
+                paymentId: payment.id,
+                status: payment.status,
+                statusDetail: payment.status_detail || null,
+                userId: creditsUser.id,
+                email: creditsUser.email,
+                plan: `credits_${pkg.id}`,
+                amount: payment.transaction_amount,
+                currency: payment.currency_id,
+                method: payment.payment_method_id || payment.payment_type_id || null,
+                eventAt: payment.date_approved
+                  ? new Date(payment.date_approved).getTime()
+                  : (payment.date_created ? new Date(payment.date_created).getTime() : Date.now()),
+              });
+            }
+            return sendJSON(res, 200, { received: true });
+          }
+          const user = ref ? users.findById(ref) : null;
           if (user) {
             let planForLedger = user.plan;
             if (payment.status === "approved") {

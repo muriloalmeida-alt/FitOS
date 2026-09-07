@@ -234,6 +234,43 @@ function addFriendByCode(id, code) {
   return listFriends(id);
 }
 
+// Item 7 da lista de melhorias ("Loja com pagamento de verdade") —
+// Créditos BR só sobe por aqui, chamado do webhook do Mercado Pago
+// DEPOIS de confirmar payment.status === "approved" (ver server.js) —
+// nunca direto de uma rota que um cliente comum possa chamar. `paymentId`
+// (quando informado) torna a chamada idempotente: o Mercado Pago pode
+// reenviar a MESMA notificação de webhook mais de uma vez, e sem essa
+// trava o técnico ganharia os créditos em dobro/triplo.
+function addCredits(id, amount, paymentId) {
+  const u = store.get(id);
+  if (!u) return null;
+  if (paymentId) {
+    u.creditedPaymentIds = u.creditedPaymentIds || [];
+    if (u.creditedPaymentIds.includes(String(paymentId))) return u.creditsBR || 0;
+    u.creditedPaymentIds.push(String(paymentId));
+  }
+  u.creditsBR = (u.creditsBR || 0) + amount;
+  u.updatedAt = Date.now();
+  persist();
+  return u.creditsBR;
+}
+// Único jeito de Créditos BR diminuir — gastar um boost/patrocínio da
+// Loja (ver /api/loja/spend-credits em server.js). Recusa saldo
+// insuficiente ANTES de debitar (nunca deixa o saldo negativo).
+function spendCredits(id, amount) {
+  const u = store.get(id);
+  if (!u) return null;
+  if ((u.creditsBR || 0) < amount) {
+    const err = new Error("Saldo de Créditos BR insuficiente.");
+    err.status = 400;
+    throw err;
+  }
+  u.creditsBR -= amount;
+  u.updatedAt = Date.now();
+  persist();
+  return u.creditsBR;
+}
+
 // Lista de amigos com só o necessário pro Ranking (id + nome do
 // técnico) — nunca e-mail/telefone/dado de plano de outra conta.
 function listFriends(id) {
@@ -366,6 +403,6 @@ function listUsers() {
 module.exports = {
   createUser, updateUser, setFavoriteClub, findByEmail, findById, publicUser, listUsers, isAdmin,
   hashPassword, verifyPassword, normalizeEmail,
-  claimDailyLogin, addFriendByCode, listFriends,
+  claimDailyLogin, addFriendByCode, listFriends, addCredits, spendCredits,
   setPushSubscription, listPushSubscriptionsPendingStreak,
 };
