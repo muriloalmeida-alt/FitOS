@@ -1913,10 +1913,85 @@ function maskEmail(email) {
   if (!domain) return email || "";
   return `${(user || "").slice(0, 3)}••••@••••.${domain.split(".").pop()}`;
 }
+// ---------- Notificações push (Web Push) — pedido do usuário: sugeri
+// como melhoria de retenção ("o lembrete de streak só funciona com o
+// app aberto") e ele confirmou implementar. Opt-in SEMPRE explícito
+// pelo toggle em Configurações (decisão via AskUserQuestion) — nunca
+// pede permissão do navegador sozinho, em nenhuma outra tela. Gatilho
+// único desta 1ª entrega é o lembrete de streak (ver server/src/push.js
+// — a mesma infra de assinar/desinscrever/enviar já fica pronta pra
+// outros gatilhos futuros, sem retrabalho). ----------
+// Converte a chave pública VAPID (base64url, formato que o servidor
+// devolve) pro Uint8Array que pushManager.subscribe() exige — mesmo
+// helper padrão documentado pela própria spec do Push API.
+function urlBase64ToUint8Array(base64String) {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/");
+  const rawData = atob(base64);
+  return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
+}
+function pushSupported() {
+  return "serviceWorker" in navigator && "PushManager" in window && typeof Notification !== "undefined";
+}
+async function enablePushNotifications() {
+  if (!pushSupported()) { toast("Seu navegador não suporta notificações push.", { type: "warn" }); return false; }
+  try {
+    const { enabled, publicKey } = await fetchJSON("/api/push/vapid-public-key");
+    if (!enabled) { toast("Notificações push não configuradas neste host.", { type: "warn" }); return false; }
+    const permission = await Notification.requestPermission();
+    if (permission !== "granted") {
+      toast("Permissão de notificação negada — ative pelas configurações do navegador se mudar de ideia.", { type: "warn" });
+      return false;
+    }
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: urlBase64ToUint8Array(publicKey),
+    });
+    await fetchJSON("/api/push/subscribe", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ subscription: subscription.toJSON() }) });
+    ME.pushEnabled = true;
+    toast({ title: "Notificações ativadas", detail: "Você recebe um lembrete se estiver perto de perder sua sequência." }, { type: "pos" });
+    return true;
+  } catch (err) {
+    toast(err.message || "Não deu pra ativar as notificações agora.", { type: "warn" });
+    return false;
+  }
+}
+async function disablePushNotifications() {
+  try {
+    if (pushSupported()) {
+      const registration = await navigator.serviceWorker.ready;
+      const subscription = await registration.pushManager.getSubscription();
+      if (subscription) await subscription.unsubscribe();
+    }
+  } catch { /* segue mesmo se o navegador reclamar — apagar no servidor (abaixo) já resolve o essencial */ }
+  try { await fetchJSON("/api/push/unsubscribe", { method: "POST" }); } catch { /* idem */ }
+  ME.pushEnabled = false;
+  toast("Notificações desativadas.");
+}
+async function testPushNotification() {
+  try {
+    await fetchJSON("/api/push/test", { method: "POST" });
+    toast({ title: "Notificação de teste enviada", detail: "Deve chegar em alguns segundos." }, { type: "pos" });
+  } catch (err) {
+    toast(err.message || "Não deu pra enviar a notificação de teste agora.", { type: "warn" });
+  }
+}
+
 function renderSettingsScreen() {
   const rep = CAREER.reputation == null ? 50 : CAREER.reputation;
   const createdYear = ME.createdAt ? new Date(ME.createdAt).getFullYear() : new Date().getFullYear();
   const settings = CAREER.notificationSettings || { partida: true, loja: false, lesao: true };
+  // AJUSTE (pedido do usuário: sugeri como melhoria de retenção — "o
+  // lembrete de streak só funciona com o app aberto" — e ele confirmou
+  // implementar) — seção própria, separada da "Notificações" acima
+  // (aquela só controla o que entra na Central de notificações IN-APP;
+  // esta liga o navegador de verdade, funciona com o app fechado). Sem
+  // suporte do navegador (pushSupported() false), o toggle aparece
+  // desabilitado com o motivo, em vez de simplesmente sumir — mais
+  // transparente que esconder sem explicação.
+  const pushOk = pushSupported();
+  const pushOn = !!ME.pushEnabled;
   document.getElementById("settingsBody").innerHTML = `
     <div class="mt-settings-profile">
       <div class="mt-settings-avatar">${escapeHtml(initialsFor(ME.name))}</div>
@@ -1928,6 +2003,10 @@ function renderSettingsScreen() {
     ${settingsToggleRowHTML("partida", "📅", "Lembrete de partida", settings.partida)}
     ${settingsToggleRowHTML("loja", "🎁", "Recompensas/ofertas", settings.loja)}
     ${settingsToggleRowHTML("lesao", "🩹", "Alertas de lesão", settings.lesao)}
+    <div class="m3-card-title">Notificações push</div>
+    <p class="mt-card-sub" style="margin:-4px 0 8px;">${pushOk ? "Um lembrete se você estiver perto de perder sua sequência de login diário — mesmo com o app fechado." : "Seu navegador não suporta notificações push."}</p>
+    <div class="mt-setting-row"><div class="mt-setting-icon">🔔</div><div class="mt-setting-label">Ativar notificações push</div><button type="button" class="mt-setting-toggle${pushOn ? " on" : ""}" id="settingsPushToggleBtn" ${pushOk ? "" : "disabled"}><span class="mt-setting-toggle-dot"></span></button></div>
+    <div class="mt-setting-row${pushOn ? "" : " hidden"}" id="settingsRowPushTest"><div class="mt-setting-icon">🧪</div><div class="mt-setting-label">Enviar notificação de teste</div><span class="mt-setting-chev">›</span></div>
     <div class="m3-card-title">Conta</div>
     <div class="mt-setting-row" id="settingsRowEditProfile"><div class="mt-setting-icon">✎</div><div class="mt-setting-label">Editar perfil</div><span class="mt-setting-chev">›</span></div>
     <div class="mt-setting-row" id="settingsRowPurchaseHistory"><div class="mt-setting-icon">🧾</div><div class="mt-setting-label">Histórico de compras</div><span class="mt-setting-chev">›</span></div>
@@ -1947,6 +2026,17 @@ function renderSettingsScreen() {
       renderSettingsScreen();
     });
   });
+  const pushToggleBtn = document.getElementById("settingsPushToggleBtn");
+  if (pushOk) {
+    pushToggleBtn.addEventListener("click", async () => {
+      pushToggleBtn.disabled = true;
+      if (ME.pushEnabled) await disablePushNotifications();
+      else await enablePushNotifications();
+      renderSettingsScreen();
+    });
+  }
+  const pushTestRow = document.getElementById("settingsRowPushTest");
+  if (pushTestRow) pushTestRow.addEventListener("click", testPushNotification);
   updateNotificationBadge();
 }
 function settingsToggleRowHTML(key, icon, label, on) {

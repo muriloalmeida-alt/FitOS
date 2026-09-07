@@ -110,3 +110,41 @@ self.addEventListener("fetch", (event) => {
   const cacheName = isApiRequest(url) ? API_CACHE_NAME : CACHE_NAME;
   event.respondWith(networkFirst(request, cacheName));
 });
+
+/* AJUSTE (notificações push do Modo Técnico, pedido do usuário —
+   sugeri como melhoria de retenção e ele confirmou implementar; ver
+   server/src/push.js) — handler de "push" (mostra a notificação) +
+   "notificationclick" (foca uma aba já aberta no destino, ou abre uma
+   nova). Só o Modo Técnico assina push por enquanto (o site principal,
+   index.html, não usa isso ainda), mas o handler mora neste MESMO
+   arquivo porque as duas páginas registram o MESMO service worker
+   (mesmo escopo "/") — não dá pra ter 2 workers competindo por ele. */
+self.addEventListener("push", (event) => {
+  let data = { title: "BR Treinador", body: "Você tem uma novidade no Modo Técnico." };
+  try {
+    if (event.data) data = { ...data, ...event.data.json() };
+  } catch {
+    // payload não era JSON (não deveria acontecer, ver push.js) —
+    // segue com o texto genérico acima em vez de falhar a notificação.
+  }
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: "/img/icons/icon-192.png",
+      badge: "/img/icons/icon-192.png",
+      data: { url: data.url || "/carreira.html" },
+    })
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const targetUrl = new URL(event.notification.data?.url || "/carreira.html", self.location.origin);
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      const existing = clients.find((c) => new URL(c.url).pathname === targetUrl.pathname);
+      if (existing) return existing.focus();
+      return self.clients.openWindow(targetUrl.href);
+    })
+  );
+});

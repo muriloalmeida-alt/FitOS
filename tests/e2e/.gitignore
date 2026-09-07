@@ -1,3 +1,4 @@
 node_modules/
 *.png
 _last_parallel_run.json
+.chrome-profile-push-test/
