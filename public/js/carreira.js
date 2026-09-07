@@ -1978,6 +1978,165 @@ async function testPushNotification() {
   }
 }
 
+// ---- Efeitos sonoros leves (item 3 da lista de melhorias) ----
+// "Apito de início/fim, som de gol, torcida ambiente... sem custo de
+// dado" — tudo sintetizado na hora via Web Audio API, zero arquivo de
+// áudio externo (mesmo espírito "sem dependência" já seguido pro resto
+// do client). Preferência ligado/desligado é por DISPOSITIVO
+// (localStorage) — diferente de push/onboarding, que são da CONTA;
+// som é um gosto de aparelho, não algo que devesse seguir o técnico
+// pra outro celular.
+let SFX_CTX = null;
+let SFX_NOISE_BUFFER = null;
+let SFX_CROWD_SOURCE = null;
+let SFX_CROWD_GAIN = null;
+let SFX_ENABLED = true;
+try { SFX_ENABLED = localStorage.getItem("mt_sfx_enabled") !== "0"; } catch { }
+function setSfxEnabled(v) {
+  SFX_ENABLED = !!v;
+  try { localStorage.setItem("mt_sfx_enabled", SFX_ENABLED ? "1" : "0"); } catch { }
+  if (!SFX_ENABLED) stopCrowdAmbience();
+}
+// AudioContext só é criado (e retomado, política de autoplay do
+// navegador) na hora do 1º som de verdade — todo chamador já roda a
+// partir de um clique do técnico (Simular rodada, Pular pro fim) ou
+// de dentro do próprio jogo ao vivo já aberto por um clique, então
+// nunca esbarra na trava de "sem gesto do usuário".
+function sfxCtx() {
+  if (!SFX_ENABLED) return null;
+  if (!SFX_CTX) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    try { SFX_CTX = new AC(); } catch { return null; }
+  }
+  if (SFX_CTX.state === "suspended") SFX_CTX.resume().catch(() => { });
+  return SFX_CTX;
+}
+// Buffer de ruído branco reaproveitado por toda torcida/impacto — 2s
+// gerados uma vez só, bem mais barato que recriar a cada chamada.
+function sfxNoiseBuffer(ctx) {
+  if (SFX_NOISE_BUFFER && SFX_NOISE_BUFFER.sampleRate === ctx.sampleRate) return SFX_NOISE_BUFFER;
+  const len = ctx.sampleRate * 2;
+  const buf = ctx.createBuffer(1, len, ctx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+  SFX_NOISE_BUFFER = buf;
+  return buf;
+}
+// Apito de árbitro: tom agudo curto, repetido `n` vezes — 1x no início
+// da partida (startLiveMatch), 3x curtos no final (finishLiveMatch),
+// mesma convenção real de apito de juiz.
+function playWhistle(n = 1) {
+  const ctx = sfxCtx();
+  if (!ctx) return;
+  for (let i = 0; i < n; i++) {
+    const t0 = ctx.currentTime + i * 0.22;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "square";
+    osc.frequency.setValueAtTime(2400, t0);
+    osc.frequency.exponentialRampToValueAtTime(2900, t0 + 0.05);
+    gain.gain.setValueAtTime(0, t0);
+    gain.gain.linearRampToValueAtTime(0.16, t0 + 0.015);
+    gain.gain.setValueAtTime(0.16, t0 + 0.12);
+    gain.gain.linearRampToValueAtTime(0, t0 + 0.16);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(t0);
+    osc.stop(t0 + 0.18);
+  }
+}
+// Rajada curta de ruído filtrado — usada isolada (baque de gol
+// adversário) e embutida em playGoal (comemoração de gol seu).
+function playCrowdPop(ctx, t0, gainPeak, duration, freq) {
+  const src = ctx.createBufferSource();
+  src.buffer = sfxNoiseBuffer(ctx);
+  const filter = ctx.createBiquadFilter();
+  filter.type = "bandpass";
+  filter.frequency.value = freq;
+  filter.Q.value = 0.6;
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0, t0);
+  gain.gain.linearRampToValueAtTime(gainPeak, t0 + duration * 0.15);
+  gain.gain.exponentialRampToValueAtTime(0.001, t0 + duration);
+  src.connect(filter).connect(gain).connect(ctx.destination);
+  src.start(t0);
+  src.stop(t0 + duration + 0.05);
+}
+// Som de gol: fanfarra ascendente + explosão de torcida quando é SEU
+// gol (e.mine); um baque surdo + rumor baixo da torcida quando é gol
+// do adversário — chamado de dentro de showNextGoalHighlight, que já
+// sabe de quem foi cada gol.
+function playGoal(mine) {
+  const ctx = sfxCtx();
+  if (!ctx) return;
+  const t0 = ctx.currentTime;
+  if (mine) {
+    [523.25, 659.25, 783.99, 1046.5].forEach((freq, i) => {
+      const t = t0 + i * 0.09;
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sawtooth";
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0, t);
+      gain.gain.linearRampToValueAtTime(0.14, t + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.001, t + 0.35);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(t);
+      osc.stop(t + 0.4);
+    });
+    playCrowdPop(ctx, t0 + 0.05, 0.35, 1.8, 1200);
+  } else {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(180, t0);
+    osc.frequency.exponentialRampToValueAtTime(70, t0 + 0.3);
+    gain.gain.setValueAtTime(0.2, t0);
+    gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.35);
+    osc.connect(gain).connect(ctx.destination);
+    osc.start(t0);
+    osc.stop(t0 + 0.4);
+    playCrowdPop(ctx, t0 + 0.05, 0.14, 1.4, 400);
+  }
+}
+// Torcida ambiente: ruído filtrado em loop, bem baixo, só durante a
+// partida ao vivo aberta (startLiveMatch/finishLiveMatch) — reforça
+// "estádio à noite" sem disputar atenção com apito/gol. Único som
+// contínuo desta seção (os demais são um-tiro-só), por isso guarda a
+// própria fonte/ganho pra poder desligar depois.
+function startCrowdAmbience() {
+  stopCrowdAmbience();
+  const ctx = sfxCtx();
+  if (!ctx) return;
+  const src = ctx.createBufferSource();
+  src.buffer = sfxNoiseBuffer(ctx);
+  src.loop = true;
+  const filter = ctx.createBiquadFilter();
+  filter.type = "lowpass";
+  filter.frequency.value = 500;
+  const gain = ctx.createGain();
+  gain.gain.setValueAtTime(0, ctx.currentTime);
+  gain.gain.linearRampToValueAtTime(0.045, ctx.currentTime + 1.2);
+  src.connect(filter).connect(gain).connect(ctx.destination);
+  src.start();
+  SFX_CROWD_SOURCE = src;
+  SFX_CROWD_GAIN = gain;
+}
+function stopCrowdAmbience() {
+  if (!SFX_CROWD_SOURCE) return;
+  try {
+    const ctx = SFX_CTX;
+    if (ctx && SFX_CROWD_GAIN) {
+      SFX_CROWD_GAIN.gain.linearRampToValueAtTime(0, ctx.currentTime + 0.4);
+      SFX_CROWD_SOURCE.stop(ctx.currentTime + 0.45);
+    } else {
+      SFX_CROWD_SOURCE.stop();
+    }
+  } catch { }
+  SFX_CROWD_SOURCE = null;
+  SFX_CROWD_GAIN = null;
+}
+
 function renderSettingsScreen() {
   const rep = CAREER.reputation == null ? 50 : CAREER.reputation;
   const createdYear = ME.createdAt ? new Date(ME.createdAt).getFullYear() : new Date().getFullYear();
@@ -2007,6 +2166,9 @@ function renderSettingsScreen() {
     <p class="mt-card-sub" style="margin:-4px 0 8px;">${pushOk ? "Um lembrete se você estiver perto de perder sua sequência de login diário — mesmo com o app fechado." : "Seu navegador não suporta notificações push."}</p>
     <div class="mt-setting-row"><div class="mt-setting-icon">🔔</div><div class="mt-setting-label">Ativar notificações push</div><button type="button" class="mt-setting-toggle${pushOn ? " on" : ""}" id="settingsPushToggleBtn" ${pushOk ? "" : "disabled"}><span class="mt-setting-toggle-dot"></span></button></div>
     <div class="mt-setting-row${pushOn ? "" : " hidden"}" id="settingsRowPushTest"><div class="mt-setting-icon">🧪</div><div class="mt-setting-label">Enviar notificação de teste</div><span class="mt-setting-chev">›</span></div>
+    <div class="m3-card-title">Áudio</div>
+    <p class="mt-card-sub" style="margin:-4px 0 8px;">Apito de início/fim de jogo, som de gol e torcida ambiente durante a partida ao vivo.</p>
+    <div class="mt-setting-row"><div class="mt-setting-icon">🔊</div><div class="mt-setting-label">Efeitos sonoros</div><button type="button" class="mt-setting-toggle${SFX_ENABLED ? " on" : ""}" id="settingsSfxToggleBtn"><span class="mt-setting-toggle-dot"></span></button></div>
     <div class="m3-card-title">Conta</div>
     <div class="mt-setting-row" id="settingsRowEditProfile"><div class="mt-setting-icon">✎</div><div class="mt-setting-label">Editar perfil</div><span class="mt-setting-chev">›</span></div>
     <div class="mt-setting-row" id="settingsRowPurchaseHistory"><div class="mt-setting-icon">🧾</div><div class="mt-setting-label">Histórico de compras</div><span class="mt-setting-chev">›</span></div>
@@ -2037,6 +2199,10 @@ function renderSettingsScreen() {
   }
   const pushTestRow = document.getElementById("settingsRowPushTest");
   if (pushTestRow) pushTestRow.addEventListener("click", testPushNotification);
+  document.getElementById("settingsSfxToggleBtn").addEventListener("click", () => {
+    setSfxEnabled(!SFX_ENABLED);
+    renderSettingsScreen();
+  });
   updateNotificationBadge();
 }
 function settingsToggleRowHTML(key, icon, label, on) {
@@ -6691,6 +6857,8 @@ function startLiveMatch(round, fixtures, humanFx, standingsBefore) {
   };
   renderLiveMatch();
   document.getElementById("liveMatchOverlay").classList.add("open");
+  playWhistle(1);
+  startCrowdAmbience();
   scheduleNextChunk();
 }
 function scheduleNextChunk() {
@@ -6876,6 +7044,7 @@ function showNextGoalHighlight() {
   }
   const e = lm.goalHighlightQueue.shift();
   renderGoalHighlight(e);
+  playGoal(e.mine);
   document.getElementById("goalHighlightOverlay").classList.add("open");
   clearTimeout(lm.goalHighlightTimer);
   lm.goalHighlightTimer = setTimeout(dismissGoalHighlight, 2600);
@@ -6934,6 +7103,8 @@ function skipLiveMatch() {
 async function finishLiveMatch() {
   const lm = LIVE_MATCH;
   lm.finished = true;
+  playWhistle(3);
+  stopCrowdAmbience();
   const result = { home: lm.humanFx.home, away: lm.humanFx.away, gh: lm.gh, ga: lm.ga };
   // "substituicao"/"chance_perdida"/"defesa" só existem pro feed AO
   // VIVO (ver liveEventLabel) — igual lesão (ver comentário no topo de
