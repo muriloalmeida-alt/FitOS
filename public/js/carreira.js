@@ -3448,13 +3448,153 @@ function maxSquadSizeFor(teamId) {
 function minSquadSizeFor(teamId) {
   return isOwnDivisionTeam(teamId) ? MIN_LEAGUE_SQUAD : MIN_LEAGUE_SQUAD_OTHER_DIVISION;
 }
-function findInterestedBuyer(excludeId) {
+
+/* ---------- Fase 1.1 — Transfer AI (TransferScore) ----------
+   Pedido do usuário ("substituir a lógica essencialmente aleatória de
+   transferências da CPU por uma IA contextual, preservando
+   integralmente os sistemas existentes de mercado, contratos,
+   parcelas, propostas e elenco"). Estas funções só LEEM dados já
+   existentes (elenco, overall, potencial, idade, valor, salário,
+   CAREER.standings) — nada novo é persistido, nenhum schema muda.
+
+   Escopo aprovado desta etapa: só simulateAiTransfers/
+   findInterestedBuyer passam a usar isso. maybeGenerateOffer/
+   maybeSpawnListingOffer/maybeSpawnRivalOffer ficam para a Fase 1.2 —
+   por isso as funções abaixo recebem sempre (candidato, elenco,
+   clubId) de forma genérica, nunca algo específico de
+   simulateAiTransfers, para serem reaproveitadas depois sem alteração. */
+
+// 1) NECESSIDADE (35%) — proporção entre os 4 grupos (GOL/DEF/MEI/ATA)
+// dentro do próprio elenco ATUAL do clube (squad.length), nunca um
+// alvo absoluto de tamanho de elenco. Respeita os limites por divisão
+// de graça: squad.length já é mantido dentro de [minSquadSizeFor,
+// maxSquadSizeFor] pelas checagens de elegibilidade que já existem
+// (ver simulateAiTransfers/buildLeagueSquad) — não precisa de nenhuma
+// regra nova de tamanho de elenco aqui.
+const SQUAD_GROUP_PROPORTION = { G: 0.12, D: 0.32, M: 0.32, F: 0.24 };
+function idealCountForGroup(squad, grp) {
+  return Math.max(1, Math.round(squad.length * SQUAD_GROUP_PROPORTION[grp]));
+}
+function necessidadeScore(candidate, squad) {
+  const ideal = idealCountForGroup(squad, candidate.group);
+  const atual = squad.filter((p) => p.group === candidate.group).length;
+  return clamp((ideal - atual) / ideal, 0, 1);
+}
+
+// 2) ADEQUAÇÃO (30%) — nível do candidato vs. nível do elenco
+// comprador, SEM penalizar um jogador muito melhor: curva crescente
+// até +20 de diferença de overall, só decai suavemente depois (nunca
+// abaixo de 0.55) — quem decide se um upgrade grande é inviável de
+// verdade é o financeiro, não esta curva.
+function overallFitCurve(diff) {
+  if (diff <= -15) return 0.15;                              // muito abaixo do nível — baixa, nunca zero
+  if (diff <= 0) return 0.15 + (diff + 15) / 15 * 0.35;       // abaixo do nível — 0.15 a 0.50
+  if (diff <= 8) return 0.50 + diff / 8 * 0.35;               // próximo do nível — 0.50 a 0.85 (bom)
+  if (diff <= 20) return 0.85 + (diff - 8) / 12 * 0.15;       // acima do nível — 0.85 a 1.00 (ótimo)
+  return clamp(1.00 - (diff - 20) * 0.02, 0.55, 1.00);        // absurdamente acima — leve penalização, nunca < 0.55
+}
+function adequacaoScore(candidate, squad, buyingClubId) {
+  const squadAvg = squadAvgOverallOf(buyingClubId);
+  const overallFit = overallFitCurve(candidate.overall - squadAvg);
+  const roomToGrow = candidate.potential != null
+    ? clamp((candidate.potential - candidate.overall) / 20, 0, 1) : 0;
+  const ageFit = candidate.age <= 23 ? 0.8 + roomToGrow * 0.2
+    : candidate.age <= 30 ? 1.0
+    : clamp(1 - (candidate.age - 30) * 0.08, 0.2, 1);
+  return clamp(overallFit * 0.6 + roomToGrow * 0.2 + ageFit * 0.2, 0, 1);
+}
+
+// 3) FINANCEIRO (20%) — orçamento do clube CPU derivado do próprio
+// elenco (mesma fórmula de initialFinances, calculada em tempo real —
+// clubes CPU não têm CAREER.finances próprio, e não ganham nenhum
+// campo novo aqui).
+function clubBudgetProxy(clubId) {
+  const squad = leagueSquadFor(clubId);
+  const wageCap = Math.round(wageBillOf(squad) * 1.35 / 1000) * 1000;
+  const cash = Math.round(wageCap * 6 / 1000) * 1000;
+  return { cash, wageCap };
+}
+function financeiroScore(candidate, squad, buyingClubId) {
+  const budget = clubBudgetProxy(buyingClubId);
+  const cabeNoSalario = wageBillOf(squad) + candidate.wage <= budget.wageCap;
+  const cabeNoValor = candidate.value <= budget.cash;
+  return cabeNoSalario && cabeNoValor ? 1 : (cabeNoSalario || cabeNoValor ? 0.4 : 0);
+}
+
+// 4) CONTEXTO (15%) — ambição do clube (posição na tabela quando
+// disponível, MESMO critério de sortedStandings/positionInStandings —
+// nenhuma 2ª lógica de classificação; força relativa dentro da própria
+// competição pra clube de outra divisão, que não tem tabela) cruzada
+// com o quanto o candidato eleva o time.
+function clubPositionFactor(clubId) {
+  if (!isOwnDivisionTeam(clubId)) return null; // sem tabela — clube de outra divisão
+  const ranked = sortedStandings(); // já existe — mesmo critério de desempate de sempre
+  const idx = ranked.findIndex((r) => String(r.id) === String(clubId));
+  if (idx < 0 || ranked.length <= 1) return 0.5;
+  return 1 - idx / (ranked.length - 1); // 1º lugar = 1.0, lanterna = 0.0
+}
+function clubAmbitionFactor(clubId) {
+  const posFactor = clubPositionFactor(clubId);
+  if (posFactor != null) return posFactor;
+  // Fora da própria divisão: sem tabela — usa a MESMA força relativa
+  // (squadAvgOverallOf) já usada em adequação, comparada contra os
+  // pares da própria competição — nenhum dado novo.
+  const team = teamById(clubId);
+  const peers = ALL_TEAMS_FLAT.filter((t) => t.competitionId === team.competitionId);
+  const maxAvg = Math.max(...peers.map((t) => squadAvgOverallOf(t.id)), 1);
+  return clamp(squadAvgOverallOf(clubId) / maxAvg, 0, 1);
+}
+function contextoScore(candidate, squad, buyingClubId) {
+  const squadAvg = squadAvgOverallOf(buyingClubId);
+  const ambicao = clubAmbitionFactor(buyingClubId);
+  const upgrade = clamp((candidate.overall - squadAvg) / 15, -1, 1);
+  return clamp(0.5 + ambicao * upgrade * 0.5, 0, 1);
+}
+
+// TransferScore final — pesos aprovados: necessidade 35% + adequação
+// 30% + financeiro 20% + contexto 15%.
+function transferScore(candidate, buyingClubId) {
+  const squad = leagueSquadFor(buyingClubId);
+  const necessidade = necessidadeScore(candidate, squad);
+  const adequacao = adequacaoScore(candidate, squad, buyingClubId);
+  const financeiro = financeiroScore(candidate, squad, buyingClubId);
+  const contexto = contextoScore(candidate, squad, buyingClubId);
+  return necessidade * 0.35 + adequacao * 0.30 + financeiro * 0.20 + contexto * 0.15;
+}
+
+// Escolha ponderada entre os melhores candidatos já filtrados/
+// ranqueados — nunca sempre o #1 (mantém variedade), nunca uniforme
+// entre todos (o RNG deixa de ser a inteligência, só decide ENTRE
+// opções plausíveis). Peso = score², acentua a preferência pelos
+// melhores sem eliminar a chance dos próximos.
+function pickWeightedByScore(scoredList) {
+  const top = scoredList.slice().sort((a, b) => b.score - a.score).slice(0, 5);
+  const weights = top.map((x) => x.score * x.score);
+  const total = weights.reduce((s, w) => s + w, 0);
+  if (total <= 0) return top.length ? top[0].item : null;
+  let roll = Math.random() * total;
+  for (let i = 0; i < top.length; i++) {
+    roll -= weights[i];
+    if (roll <= 0) return top[i].item;
+  }
+  return top[top.length - 1].item;
+}
+
+function findInterestedBuyer(excludeId, player) {
   const eligible = marketTeamsPool().filter((t) =>
     String(t.id) !== String(excludeId) && leagueSquadFor(t.id).length < maxSquadSizeFor(t.id)
   );
   if (!eligible.length) return null;
   if (Math.random() < 0.2) return null; // 20% de chance de ninguém topar agora, mesmo com vaga
-  return eligible[Math.floor(Math.random() * eligible.length)];
+  // Compat: chamada sem jogador (não deveria acontecer nos 2 call
+  // sites atuais, ambos já passam o jogador) mantém o sorteio uniforme
+  // de sempre em vez de quebrar.
+  if (!player) return eligible[Math.floor(Math.random() * eligible.length)];
+  const scored = eligible
+    .filter((t) => financeiroScore(player, leagueSquadFor(t.id), t.id) > 0)
+    .map((t) => ({ item: t, score: transferScore(player, t.id) }));
+  if (!scored.length) return null; // ninguém consegue bancar nem o salário reduzido do empréstimo
+  return pickWeightedByScore(scored);
 }
 
 /* ---------- Fase 2 do Modo Carreira — empréstimo de jogadores ----------
@@ -3652,7 +3792,7 @@ function openLoanOutModal(id) {
   // interessado, nem abre o modal de configuração — mesmo espírito da
   // venda, evita o técnico configurar duração/cláusula à toa pra um
   // empréstimo que não vai ter pra quem ir.
-  const buyer = findInterestedBuyer(CAREER.clubId);
+  const buyer = findInterestedBuyer(CAREER.clubId, p);
   if (!buyer) {
     toast(`Nenhum time demonstrou interesse em pegar ${abbreviateName(p.name)} emprestado agora.`);
     return;
@@ -3713,7 +3853,7 @@ async function finalizeLoanOut(id, { returnRound, buyOption, buyer: passedBuyer 
   // mostrado ao técnico em openLoanOutModal (pra não trocar quem
   // aparece na confirmação por outro clube no fim); só re-sorteia aqui
   // se chamado direto sem passar por lá (ex: chamada avulsa/teste).
-  const buyer = passedBuyer || findInterestedBuyer(CAREER.clubId);
+  const buyer = passedBuyer || findInterestedBuyer(CAREER.clubId, p);
   if (!buyer) {
     toast(`Nenhum time demonstrou interesse em pegar ${abbreviateName(p.name)} emprestado agora.`);
     return false;
@@ -3787,9 +3927,21 @@ function simulateAiTransfers(round) {
     if (fromSquad.length <= minSquadSizeFor(fromClub.id)) continue; // não esvazia um elenco CPU
     const toClub = pickRandomOtherClub(fromClub.id);
     if (!toClub || String(toClub.id) === String(CAREER.clubId)) continue; // negociação CPU x CPU só, não mexe no SEU elenco sem sua ação
-    if (leagueSquadFor(toClub.id).length >= maxSquadSizeFor(toClub.id)) continue; // elenco de destino já cheio
-    const idx = Math.floor(Math.random() * fromSquad.length);
-    const [player] = fromSquad.splice(idx, 1);
+    const toSquad = leagueSquadFor(toClub.id);
+    if (toSquad.length >= maxSquadSizeFor(toClub.id)) continue; // elenco de destino já cheio
+    // Fase 1.1 — Transfer AI: em vez de sortear um jogador qualquer do
+    // elenco vendedor, ranqueia por transferScore (necessidade do
+    // comprador + adequação ao seu nível + orçamento + contexto
+    // esportivo, ver definições acima) e sorteia PONDERADO entre os
+    // melhores (pickWeightedByScore) — quem vende/compra (fromClub/
+    // toClub) continua escolhido do mesmo jeito de sempre, só QUAL
+    // jogador muda de sorteio uniforme pra contextual.
+    const candidatos = fromSquad
+      .filter((p) => financeiroScore(p, toSquad, toClub.id) > 0)
+      .map((p) => ({ item: p, score: transferScore(p, toClub.id) }));
+    if (!candidatos.length) continue; // nenhum jogador daquele elenco cabe no orçamento do comprador agora
+    const player = pickWeightedByScore(candidatos);
+    fromSquad.splice(fromSquad.indexOf(player), 1);
     (CAREER.leagueSquads[String(toClub.id)] = CAREER.leagueSquads[String(toClub.id)] || []).push(player);
     pushTransferLog(`${toClub.name} contratou ${player.name} (${SUBPOS_LABEL[subPositionOf(player)]}) do ${fromClub.name} por ${fmtBRL(player.value)}.`, round);
   }
