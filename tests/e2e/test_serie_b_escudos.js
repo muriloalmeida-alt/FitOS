@@ -52,6 +52,10 @@ const SEM_ESCUDO = ["Athletico Paranaense", "Coritiba", "Chapecoense", "Remo", "
   await page.waitForTimeout(150);
   await page.click("#btnConfirmClub");
   await page.click("#btnOnboardSkip", { timeout: 2000 }).catch(() => {});
+  await page.click("#btnWizardSkip", { timeout: 4000 }).catch(() => {});
+  await page.click("#btnWizardSkip", { timeout: 4000 }).catch(() => {});
+  await page.click("#btnWizardSkip", { timeout: 4000 }).catch(() => {});
+  await page.click("#btnWizardSkip", { timeout: 4000 }).catch(() => {});
   await page.waitForTimeout(1500);
   const centralHasImg = await page.evaluate(() => {
     const nextMatch = document.querySelector(".m3-hero-match");

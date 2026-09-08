@@ -13,6 +13,10 @@ async function newCareer(page, base, email) {
   await page.waitForTimeout(150);
   await page.click("#btnConfirmClub");
   await page.click("#btnOnboardSkip", { timeout: 2000 }).catch(() => {});
+  await page.click("#btnWizardSkip", { timeout: 4000 }).catch(() => {});
+  await page.click("#btnWizardSkip", { timeout: 4000 }).catch(() => {});
+  await page.click("#btnWizardSkip", { timeout: 4000 }).catch(() => {});
+  await page.click("#btnWizardSkip", { timeout: 4000 }).catch(() => {});
   await page.click("#btnClaimDailyLogin", { timeout: 3000 }).catch(() => {});
   await page.waitForTimeout(500);
 }
@@ -105,6 +109,10 @@ async function newCareer(page, base, email) {
   await page.waitForTimeout(150);
   await page.click("#btnConfirmClub");
   await page.click("#btnOnboardSkip", { timeout: 2000 }).catch(() => {});
+  await page.click("#btnWizardSkip", { timeout: 4000 }).catch(() => {});
+  await page.click("#btnWizardSkip", { timeout: 4000 }).catch(() => {});
+  await page.click("#btnWizardSkip", { timeout: 4000 }).catch(() => {});
+  await page.click("#btnWizardSkip", { timeout: 4000 }).catch(() => {});
   await page.click("#btnClaimDailyLogin", { timeout: 3000 }).catch(() => {});
   await page.waitForTimeout(500);
   const r4 = await page.evaluate(() => ({ reputation: CAREER.reputation, historyLen: (CAREER.clubHistory || []).length }));
@@ -187,6 +195,10 @@ async function newCareer(page, base, email) {
   await page.waitForTimeout(150);
   await page.click("#btnConfirmClub");
   await page.click("#btnOnboardSkip", { timeout: 2000 }).catch(() => {});
+  await page.click("#btnWizardSkip", { timeout: 4000 }).catch(() => {});
+  await page.click("#btnWizardSkip", { timeout: 4000 }).catch(() => {});
+  await page.click("#btnWizardSkip", { timeout: 4000 }).catch(() => {});
+  await page.click("#btnWizardSkip", { timeout: 4000 }).catch(() => {});
   await page.click("#btnClaimDailyLogin", { timeout: 3000 }).catch(() => {});
   await page.waitForTimeout(800);
   const finalState = await page.evaluate(() => ({ clubName: CAREER.clubName, historyLen: (CAREER.clubHistory || []).length, lastReason: (CAREER.clubHistory || [])[0] && CAREER.clubHistory[0].reason }));

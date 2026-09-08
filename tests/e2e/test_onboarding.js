@@ -101,6 +101,10 @@ const { chromium } = require("playwright-core");
   await page.waitForTimeout(700);
   const openedForSkip = await page.evaluate(() => document.getElementById("onboardingOverlay").classList.contains("open"));
   await page.click("#btnOnboardSkip");
+  await page.click("#btnWizardSkip", { timeout: 4000 }).catch(() => {});
+  await page.click("#btnWizardSkip", { timeout: 4000 }).catch(() => {});
+  await page.click("#btnWizardSkip", { timeout: 4000 }).catch(() => {});
+  await page.click("#btnWizardSkip", { timeout: 4000 }).catch(() => {});
   await page.waitForTimeout(400);
   const afterSkip = await page.evaluate(() => ({
     onboardOpen: document.getElementById("onboardingOverlay").classList.contains("open"),

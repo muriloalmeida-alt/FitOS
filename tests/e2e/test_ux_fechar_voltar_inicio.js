@@ -25,6 +25,10 @@ const { chromium } = require("playwright-core");
   await page.waitForTimeout(150);
   await page.click("#btnConfirmClub");
   await page.click("#btnOnboardSkip", { timeout: 2000 }).catch(() => {});
+  await page.click("#btnWizardSkip", { timeout: 4000 }).catch(() => {});
+  await page.click("#btnWizardSkip", { timeout: 4000 }).catch(() => {});
+  await page.click("#btnWizardSkip", { timeout: 4000 }).catch(() => {});
+  await page.click("#btnWizardSkip", { timeout: 4000 }).catch(() => {});
   await page.waitForTimeout(700);
   try { await page.click("#btnClaimDailyLogin", { timeout: 1500 }); await page.waitForTimeout(200); } catch {}
 
