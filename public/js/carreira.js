@@ -3597,6 +3597,80 @@ function offerProbabilityFromScore(score) {
   return 0.55;
 }
 
+// Fase 1.3 — Transfer AI: valuation (pedido do usuário: "eliminar
+// valores de proposta pouco coerentes"). VALOR BASE = player.value (ou
+// context.baseValue, quando o chamador já ancora a negociação em outro
+// número — askingValue de um anúncio, marketValue já registrado numa
+// proposta em andamento) — não recalculado aqui: player.value já é
+// não-linear em overall/idade/potencial (ver computeContractFields, a
+// mesma fórmula usada na criação/backfill de todo jogador), então
+// reaplicar esses 3 ajustes por cima duplicaria o efeito. As camadas
+// abaixo são só os sinais que esse valor base NUNCA carrega (contrato,
+// interesse do comprador específico, orçamento dele, contexto,
+// concorrência, quem está vendendo) — cada uma como um multiplicador
+// pequeno (nunca "value * score" cru, ver aviso do usuário: um score
+// baixo não pode transformar um craque numa oferta irrisória).
+// Pura/determinística/sem RNG — a variação aleatória entre ofertas
+// continua vivendo nos 3 chamadores (maybeGenerateOffer/
+// maybeSpawnListingOffer/maybeSpawnRivalOffer), nunca aqui.
+function transferValuation(player, buyingClubId, sellingClubId, context = {}) {
+  const base = context.baseValue != null ? context.baseValue : player.value;
+  const squad = leagueSquadFor(buyingClubId);
+
+  // Contratual — contrato acabando enfraquece o poder de negociação de
+  // quem vende (o comprador sabe que pode esperar o jogador sair de
+  // graça); contrato longo sustenta o preço. Só o dado que já existe
+  // (contractUntil, sempre presente — ver computeContractFields), sem
+  // inventar cláusula/agente/rescisão (fora do escopo desta fase).
+  const yearsLeft = clamp((player.contractUntil || CAREER.seasonYear) - CAREER.seasonYear, 0, 4);
+  const contractFactor = 0.85 + yearsLeft * 0.05; // 0 anos restantes -> 0.85x, 4+ anos -> 1.05x
+
+  // Necessidade do comprador (reaproveita necessidadeScore, Fase 1.1).
+  const necessidade = necessidadeScore(player, squad);
+  const needFactor = 0.95 + necessidade * 0.10; // 0.95x a 1.05x
+
+  // Interesse do comprador (reaproveita transferScore, Fase 1.1/1.2) —
+  // desloca o preço num range pequeno em torno do valor base, nunca
+  // multiplica o valor pelo score direto.
+  const interesse = transferScore(player, buyingClubId);
+  const scoreFactor = 0.90 + interesse * 0.20; // 0.90x a 1.10x
+
+  // Capacidade financeira (reaproveita financeiroScore/clubBudgetProxy,
+  // Fase 1.1) — só a margem fina; SE o clube pode pagar ou não já foi
+  // decidido antes desta função, nos 3 call sites (financeiroScore > 0).
+  const financeiro = financeiroScore(player, squad, buyingClubId);
+  const finFactor = 0.97 + financeiro * 0.05; // 0.99x (apertado) a 1.02x (folgado)
+
+  // Contexto competitivo (reaproveita contextoScore, Fase 1.1 — já
+  // combina clubAmbitionFactor/clubPositionFactor com o quanto o
+  // jogador eleva o time do comprador).
+  const contexto = contextoScore(player, squad, buyingClubId);
+  const ctxFactor = 0.95 + contexto * 0.10; // 0.95x a 1.05x
+
+  // Concorrência — só quando o chamador sabe de verdade quantos outros
+  // clubes disputam o MESMO jogador agora (listing.offers.length numa
+  // venda anunciada; 1 na oferta rival, que por definição só nasce
+  // enquanto a proposta do técnico já está em andamento). Sem dado
+  // confiável (maybeGenerateOffer não tem conceito de múltiplas
+  // propostas simultâneas por um jogador seu), fica em 0 — documentado
+  // como limitação, sem inventar contagem.
+  const competitorCount = clamp(context.competitorCount || 0, 0, 10);
+  const concFactor = 1 + Math.min(0.10, competitorCount * 0.03); // até +10%
+
+  // Clube vendedor — só quando quem vende é VOCÊ (titularidade real via
+  // CAREER.lineup.starters); clube CPU vendendo não tem titularidade
+  // confiável (pickCpuXI escala uma XI ad-hoc a cada rodada, não um
+  // conceito fixo de titular), fica neutro — documentado como limitação.
+  let sellerFactor = 1;
+  if (String(sellingClubId) === String(CAREER.clubId)) {
+    const isStarter = (CAREER.lineup.starters || []).includes(player.id);
+    sellerFactor = isStarter ? 1.05 : 0.97;
+  }
+
+  const raw = base * contractFactor * needFactor * scoreFactor * finFactor * ctxFactor * concFactor * sellerFactor;
+  return Math.round(clamp(raw, base * 0.70, base * 1.50) / 1000) * 1000;
+}
+
 function findInterestedBuyer(excludeId, player) {
   const eligible = marketTeamsPool().filter((t) =>
     String(t.id) !== String(excludeId) && leagueSquadFor(t.id).length < maxSquadSizeFor(t.id)
@@ -3975,8 +4049,13 @@ function simulateAiTransfers(round) {
 // reaproveita o mesmo transferScore/pickWeightedByScore da Fase 1.1
 // (o clube é ponderado pela mesma necessidade/adequação/financeiro/
 // contexto, nunca sorteado uniforme) + offerProbabilityFromScore como
-// último filtro antes do RNG. Valor da proposta (fee) NÃO muda nesta
-// fase — fica pra uma futura Fase 1.3 de valuation.
+// último filtro antes do RNG.
+// Fase 1.3 — o valor da proposta (fee) passa a vir de transferValuation
+// em vez de um range aleatório sobre player.value — mesmo padrão de
+// interesse/necessidade/financeiro já usado pra decidir SE a oferta
+// nasce, agora decidindo POR QUANTO. Sem competitorCount confiável
+// aqui (não existe conceito de "múltiplas propostas simultâneas" pelo
+// mesmo jogador seu vindas de clubes diferentes) — fica em 0 (default).
 const OFFER_CHANCE_PER_ROUND = 0.18;
 function maybeGenerateOffer(round) {
   if (CAREER.pendingOffer) return; // só 1 proposta pendente por vez
@@ -3995,7 +4074,7 @@ function maybeGenerateOffer(round) {
   const club = pickWeightedByScore(scored);
   const score = scored.find((s) => s.item === club).score;
   if (Math.random() >= offerProbabilityFromScore(score)) return; // score baixo -> raríssimo; score alto -> frequente
-  const fee = Math.round(player.value * (0.85 + Math.random() * 0.4) / 1000) * 1000;
+  const fee = Math.max(1000, transferValuation(player, club.id, CAREER.clubId));
   CAREER.pendingOffer = { playerId: player.id, playerName: player.name, clubId: String(club.id), clubName: club.name, fee, round };
 }
 
@@ -10659,8 +10738,14 @@ const RIVAL_OFFER_CHANCE_PER_ROUND = 0.35;
 // o jogador que o técnico está tentando comprar) em vez de sorteado
 // uniforme, e só vira concorrência de verdade com probabilidade
 // proporcional a esse score (offerProbabilityFromScore) — clube que
-// claramente não pode pagar nem entra na disputa. Valor da proposta
-// rival não muda nesta fase (fica pra uma futura Fase 1.3 de valuation).
+// claramente não pode pagar nem entra na disputa.
+// Fase 1.3 — o valor da proposta rival passa a vir de transferValuation
+// (base = o.marketValue, o mesmo valor já registrado quando o técnico
+// enviou sua proposta) em vez de um range aleatório; vendedor é o clube
+// CPU dono do jogador (o.clubId), não o técnico, então o ajuste de
+// titularidade fica neutro (sem dado confiável de XI fixa pra CPU) —
+// competitorCount=1 porque essa oferta só nasce enquanto a proposta do
+// técnico já está em andamento (é literalmente o concorrente #1).
 function maybeSpawnRivalOffer(o) {
   if (o.rivalOffer || o.status !== "pending") return;
   if (Math.random() >= RIVAL_OFFER_CHANCE_PER_ROUND) return;
@@ -10677,8 +10762,7 @@ function maybeSpawnRivalOffer(o) {
   const rivalClub = pickWeightedByScore(scored);
   const score = scored.find((s) => s.item === rivalClub).score;
   if (Math.random() >= offerProbabilityFromScore(score)) return;
-  const factor = 0.75 + Math.random() * 0.4; // proposta rival entre 75% e 115% do valor de mercado
-  const rivalValue = Math.max(1000, Math.round((o.marketValue * factor) / 1000) * 1000);
+  const rivalValue = Math.max(1000, transferValuation(player, rivalClub.id, o.clubId, { baseValue: o.marketValue, competitorCount: 1 }));
   const rivalInstallments = Math.random() < 0.7 ? 1 : 2; // clube CPU quase sempre paga à vista
   o.rivalOffer = { clubId: String(rivalClub.id), clubName: rivalClub.name, offerValue: rivalValue, installments: rivalInstallments };
   toast({ title: "Concorrência pelo alvo", detail: `${rivalClub.name} também quer ${abbreviateName(o.playerName)} — compare as propostas.` }, { type: "warn" });
@@ -10795,8 +10879,17 @@ function listingFor(playerId) {
 // passa a ser ponderado por transferScore em vez de sorteado uniforme,
 // e só vira proposta de verdade com probabilidade proporcional ao
 // score (offerProbabilityFromScore) — jogador listado não significa
-// que qualquer clube do mercado quer comprar. Faixa de valor/parcelas
-// não muda nesta fase (fica pra uma futura Fase 1.3 de valuation).
+// que qualquer clube do mercado quer comprar.
+// Fase 1.3 — o valor da proposta passa a vir de transferValuation
+// (base = listing.askingValue, o que o técnico realmente pediu — pedir
+// acima do valor de mercado continua legítimo e continua puxando a
+// proposta pra cima proporcionalmente, só que agora de forma coerente
+// com necessidade/interesse/financeiro do comprador, não um range
+// solto); competitorCount = quantas propostas esse anúncio já tem (dado
+// que já existe, listing.offers.length) — quanto mais concorrência real
+// já visível, maior o prêmio (até +10%, ver transferValuation). Vendedor
+// é sempre você aqui, então o ajuste de titularidade usa
+// CAREER.lineup.starters de verdade.
 function maybeSpawnListingOffer(listing) {
   if (listing.offers.length >= LISTING_MAX_OFFERS) return;
   if (Math.random() >= LISTING_OFFER_CHANCE_PER_ROUND) return;
@@ -10814,8 +10907,7 @@ function maybeSpawnListingOffer(listing) {
   const club = pickWeightedByScore(scored);
   const score = scored.find((s) => s.item === club).score;
   if (Math.random() >= offerProbabilityFromScore(score)) return; // score baixo -> raríssimo; score alto -> frequente
-  const factor = 0.55 + Math.random() * 0.55; // entre 55% e 110% do valor PEDIDO
-  const value = Math.max(1000, Math.round((listing.askingValue * factor) / 1000) * 1000);
+  const value = Math.max(1000, transferValuation(p, club.id, CAREER.clubId, { baseValue: listing.askingValue, competitorCount: listing.offers.length }));
   const installments = Math.random() < 0.6 ? 1 : Math.random() < 0.7 ? 2 : 3; // clube CPU às vezes parcela também
   listing.offers.unshift({
     id: `listingoffer_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
