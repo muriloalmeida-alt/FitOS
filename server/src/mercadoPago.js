@@ -60,14 +60,18 @@ function splitPhone(raw) {
 
 // Cria uma preference (pagamento único) e devolve { id, init_point }.
 // `plan` = { id, title, price } — preço SEMPRE decidido pelo backend
-// (server/src/supportPlans.js), nunca confiar em valor vindo do
-// front-end.
-async function createPreference({ plan, name, email, phone, externalReference, backUrl, notificationUrl }) {
+// (server/src/supportPlans.js pras assinaturas, server/src/lojaCatalog.js
+// pros pacotes de Créditos BR), nunca confiar em valor vindo do
+// front-end. `itemTitle` (opcional) sobrescreve o título completo do
+// item exibido no checkout do Mercado Pago — sem isso, cai no padrão
+// de sempre ("BR Data — Plano X"), que não fazia sentido pra um pacote
+// de créditos (viraria "BR Data — Plano Pacote Bronze").
+async function createPreference({ plan, name, email, phone, externalReference, backUrl, notificationUrl, itemTitle }) {
   const payload = {
     items: [
       {
         id: plan.id,
-        title: `BR Data — Plano ${plan.title}`,
+        title: itemTitle || `BR Data — Plano ${plan.title}`,
         description: plan.description,
         quantity: 1,
         currency_id: "BRL",

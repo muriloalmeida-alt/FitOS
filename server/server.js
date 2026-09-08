@@ -50,6 +50,7 @@ const sportmonksClient = require("./src/sportmonksClient");
 const analytics = require("./src/analytics");
 const { fetchNews } = require("./src/newsSource");
 const mercadoPago = require("./src/mercadoPago");
+const lojaCatalog = require("./src/lojaCatalog");
 const supportPlans = require("./src/supportPlans");
 const users = require("./src/users");
 const sessions = require("./src/sessions");
@@ -57,6 +58,10 @@ const competitions = require("./src/competitions");
 const paymentsLedger = require("./src/paymentsLedger");
 const contentStore = require("./src/contentStore");
 const careerStore = require("./src/careerStore");
+const captureSnapshot = require("./src/captureSnapshot");
+const leaderboard = require("./src/leaderboard");
+const push = require("./src/push");
+const { flushAllSync } = require("./src/debouncedPersist");
 const publicRateLimit = require("./src/publicRateLimit");
 const { slugify, matchSlug } = require("./src/slug");
 
@@ -337,7 +342,17 @@ async function withCache(key, ttl, fetcher) {
 // parâmetro). Valida em 2 camadas: o plano do usuário alcança esse
 // campeonato (403), e o campeonato já está habilitado de verdade
 // (501 "em breve" — ver server/src/competitions.js).
-function resolveCompetition(req, searchParams) {
+// AJUSTE (pedido do usuário: "acrescentar Série B, C [ao Modo Carreira]
+// com dados reais... liberar pra todo mundo no Modo Carreira") — as
+// rotas /api/career/* (ver mais abaixo) passam skipPlanCheck:true de
+// propósito: a trava de plano (Pro/Enterprise) do site principal NÃO
+// vale dentro do Modo Carreira, por decisão explícita do usuário — as
+// duas travas ficam INDEPENDENTES (mudar uma não afeta a outra). Isso
+// NÃO abre mão da checagem de "campeonato existe de verdade" logo
+// abaixo (enabled + liga mapeada no fornecedor) — essa é sobre o dado
+// real estar configurado, não sobre monetização, e continua valendo
+// nos dois casos.
+function resolveCompetition(req, searchParams, opts = {}) {
   const compId = searchParams.get("competition") || "brasileirao";
   const comp = competitions.getCompetition(compId);
   if (!comp) {
@@ -358,7 +373,7 @@ function resolveCompetition(req, searchParams) {
   // crawler de busca) via sempre dado de mentira, mesmo com a API
   // funcionando normalmente. Mesmo fallback já usado em /api/competitions
   // logo acima: sem conta = trata como Freemium.
-  if (!competitions.planAllowsCompetition(req.authUser?.plan || "freemium", comp)) {
+  if (!opts.skipPlanCheck && !competitions.planAllowsCompetition(req.authUser?.plan || "freemium", comp)) {
     const err = new Error("Esse campeonato não está disponível no seu plano — faça upgrade pra Pro ou Enterprise.");
     err.status = 403; err.code = "PLAN_UPGRADE_REQUIRED";
     throw err;
@@ -860,7 +875,16 @@ function serveStatic(req, res) {
     // service worker já busca isso com cache:"no-store" quando ativo,
     // isso aqui cobre quem ainda não tem o service worker registrado
     // ou não suporta).
-    if (ext === ".html") headers["Cache-Control"] = "no-cache";
+    // BUG CORRIGIDO ("o header não está atualizado" mesmo depois de
+    // vários deploys): .js/.css não tinham NENHUM Cache-Control, e o
+    // service worker (única coisa forçando rede sempre) só é registrado
+    // em index.html — quem visita direto uma página sem esse registro
+    // (ex.: carreira.html, ver registro adicionado lá) nunca teria o
+    // JS/CSS revalidado, o navegador (ou um proxy no meio) podia
+    // guardar a versão antiga por tempo indefinido. Mesmo tratamento do
+    // .html: sempre revalida com o servidor, nunca serve do cache local
+    // sem perguntar.
+    if (ext === ".html" || ext === ".js" || ext === ".css") headers["Cache-Control"] = "no-cache";
     res.writeHead(200, headers);
     // Todo .html (raiz, privacidade, admin) leva a checagem de
     // homologação — ver withRobotsMetaIfHomolog acima.
@@ -1663,6 +1687,7 @@ const server = http.createServer(async (req, res) => {
       "/api/support/plans", "/api/support/webhook", "/api/support/status",
       "/api/admin/users", // autenticação própria (ADMIN_SECRET), não usa cookie de sessão
       "/api/adminpanel/promote", // idem — bootstrap de admin, ver rota abaixo
+      "/api/admin/snapshot-capture", "/api/admin/snapshot", // idem — captura/download de retrato real de elenco (ver captureSnapshot.js)
     ]);
     if (pathname.startsWith("/api/") && !AUTH_EXEMPT_PATHS.has(pathname)) {
       const cookies = parseCookies(req);
@@ -1722,10 +1747,24 @@ const server = http.createServer(async (req, res) => {
     // mesmo sem fornecedor configurado, senão a carreira fica
     // impossível de jogar em qualquer host sem chave.
     const LIVE_ONLY = pathname.startsWith("/api/") && pathname !== "/api/broadcast" && pathname !== "/api/news"
-      && pathname !== "/api/competitions" && pathname !== "/api/account/favorite-club"
+      && pathname !== "/api/competitions" && pathname !== "/api/account/favorite-club" && pathname !== "/api/account/name"
+      && pathname !== "/api/account/onboarding-seen"
       && !pathname.startsWith("/api/support/") && !pathname.startsWith("/api/auth/")
       && !pathname.startsWith("/api/admin/") && !pathname.startsWith("/api/adminpanel/")
-      && !pathname.startsWith("/api/career");
+      && !pathname.startsWith("/api/career")
+      // Retenção/Engajamento (BRDataRetencaoEspecificacao) — mesmo
+      // motivo do /api/career acima: não dependem da API-Sports/
+      // Sportmonks nenhuma, precisam funcionar mesmo sem fornecedor
+      // configurado (login diário/objetivos/conquistas/ranking
+      // continuam fazendo sentido inteiramente em Modo Exemplo).
+      && !pathname.startsWith("/api/daily-login") && !pathname.startsWith("/api/friends")
+      && !pathname.startsWith("/api/leaderboard") && !pathname.startsWith("/api/push")
+      // Item 7 da lista de melhorias ("Loja com pagamento de verdade")
+      // — mesmo motivo das rotas de Retenção/Engajamento acima: não
+      // depende da Sportmonks/API-Sports nenhuma (créditos são da
+      // CONTA, boost é efeito na carreira local), precisa funcionar
+      // mesmo sem fornecedor de dado ao vivo configurado.
+      && !pathname.startsWith("/api/loja");
     if (LIVE_ONLY && !liveModeEnabled()) {
       const err = new Error(
         APP_MODE === "demo"
@@ -1770,6 +1809,40 @@ const server = http.createServer(async (req, res) => {
       const season = searchParams.get("season");
       if (!season) return sendJSON(res, 400, { error: "parâmetro season é obrigatório" });
       const comp = resolveCompetition(req, searchParams);
+      const standings = await withCache(`standings:${comp.id}:${season}`, TTL.standings, () =>
+        dataProvider.getStandings({ leagueId: comp.leagueId, season })
+      );
+      return sendJSON(res, 200, { standings });
+    }
+
+    // AJUSTE (pedido do usuário: "acrescentar Série B, C [ao Modo
+    // Carreira] com dados reais... liberar pra todo mundo no Modo
+    // Carreira") — variantes de /api/teams, /api/standings e
+    // /api/teams/:id/players (mais abaixo) SEM a trava de plano
+    // (resolveCompetition com skipPlanCheck:true — ver comentário lá),
+    // usadas só pelo Modo Carreira (ver loadLeague/fetchRealPlayers em
+    // carreira.js) — nomes de rota distintos de propósito, pra deixar
+    // óbvio pra quem ler o código depois que essa ausência de trava é
+    // intencional, não um descuido de segurança. Continuam exigindo
+    // sessão (mesma seção "Login obrigatório" acima) e continuam
+    // respeitando "campeonato existe de verdade" (enabled + liga
+    // mapeada), que não é sobre plano — se a Série B/C ainda não tiver
+    // o id da liga configurado, cai no mesmo catch de sempre e o
+    // cliente usa o modo exemplo (ver DEMO_DATA_BY_COMPETITION).
+    if (pathname === "/api/career/teams") {
+      const season = searchParams.get("season");
+      if (!season) return sendJSON(res, 400, { error: "parâmetro season é obrigatório" });
+      const comp = resolveCompetition(req, searchParams, { skipPlanCheck: true });
+      const teams = await withCache(`teams:${comp.id}:${season}`, TTL.teams, () =>
+        dataProvider.getTeams({ leagueId: comp.leagueId, season })
+      );
+      return sendJSON(res, 200, { teams });
+    }
+
+    if (pathname === "/api/career/standings") {
+      const season = searchParams.get("season");
+      if (!season) return sendJSON(res, 400, { error: "parâmetro season é obrigatório" });
+      const comp = resolveCompetition(req, searchParams, { skipPlanCheck: true });
       const standings = await withCache(`standings:${comp.id}:${season}`, TTL.standings, () =>
         dataProvider.getStandings({ leagueId: comp.leagueId, season })
       );
@@ -1821,6 +1894,21 @@ const server = http.createServer(async (req, res) => {
       // contrato em providers/index.js) — resolveCompetition() já
       // trata "competição não informada" caindo pro Brasileirão.
       const comp = resolveCompetition(req, searchParams);
+      const players = await withCache(`teamplayers:${comp.id}:${teamId}:${season}`, TTL.teams, () =>
+        dataProvider.getTeamPlayers({ teamId, season, leagueId: comp.leagueId })
+      );
+      return sendJSON(res, 200, { players });
+    }
+
+    // AJUSTE (pedido do usuário, Modo Carreira multi-divisão) — mesma
+    // rota, sem a trava de plano (ver comentário em /api/career/teams
+    // acima).
+    const careerTeamPlayersMatch = pathname.match(/^\/api\/career\/teams\/(\d+)\/players$/);
+    if (careerTeamPlayersMatch) {
+      const teamId = careerTeamPlayersMatch[1];
+      const season = searchParams.get("season");
+      if (!season) return sendJSON(res, 400, { error: "parâmetro season é obrigatório" });
+      const comp = resolveCompetition(req, searchParams, { skipPlanCheck: true });
       const players = await withCache(`teamplayers:${comp.id}:${teamId}:${season}`, TTL.teams, () =>
         dataProvider.getTeamPlayers({ teamId, season, leagueId: comp.leagueId })
       );
@@ -2092,6 +2180,28 @@ const server = http.createServer(async (req, res) => {
       return sendJSON(res, 200, { favoriteClubs: updated.favoriteClubs || {} });
     }
 
+    // "Editar perfil" (Modo Técnico, Bloco 8 pendentes) — decisão do
+    // usuário via AskUserQuestion: só o NOME é editável por agora
+    // (e-mail continua fixo, mostrado mascarado no cliente). Mesmo
+    // padrão de validação de tamanho já usado no cadastro
+    // (POST /api/auth/signup, ver mais abaixo) — nunca vazio, nunca
+    // gigantesco.
+    if (pathname === "/api/account/name" && req.method === "PUT") {
+      const body = await readBody(req);
+      const name = String(body.name || "").trim().slice(0, 80);
+      if (!name) return sendJSON(res, 400, { error: "Nome não pode ficar vazio." });
+      const updated = users.updateUser(req.authUser.id, { name });
+      return sendJSON(res, 200, { user: users.publicUser(updated) });
+    }
+    // Onboarding (pedido do usuário: "tutorial curtinho na primeira
+    // carreira") — marcado como visto quando o usuário pula ou termina
+    // o tutorial (ver closeOnboardingOverlay em carreira.js). Ligado à
+    // CONTA — nunca reaparece, nem em "Reiniciar"/"Escolher outro clube".
+    if (pathname === "/api/account/onboarding-seen" && req.method === "POST") {
+      const updated = users.updateUser(req.authUser.id, { onboardingSeen: true });
+      return sendJSON(res, 200, { user: users.publicUser(updated) });
+    }
+
     // ================= Modo Técnico (carreira estilo Elifoot) =================
     // Save inteiro é opaco pro backend (ver aviso em careerStore.js) —
     // elenco/escalação/tabela/notícias são montados e recalculados no
@@ -2107,6 +2217,98 @@ const server = http.createServer(async (req, res) => {
     if (pathname === "/api/career" && req.method === "DELETE") {
       careerStore.deleteCareer(req.authUser.id);
       return sendJSON(res, 200, { ok: true });
+    }
+
+    // ================= Retenção/Engajamento (BRDataRetencaoEspecificacao) =================
+    // Login diário com streak — ligado à CONTA (users.js), não à
+    // carreira (ver comentário lá). `localDate` ("YYYY-MM-DD") vem do
+    // relógio local do dispositivo (ver claimDailyLogin) — o reward
+    // devolvido aqui é só o formato GENÉRICO do documento; o CLIENTE
+    // decide o que cada tipo vira de verdade no jogo (moedas/moral/
+    // olheiro/pacote — ver applyDailyLoginReward em carreira.js).
+    if (pathname === "/api/daily-login" && req.method === "GET") {
+      const u = req.authUser;
+      return sendJSON(res, 200, { currentStreakDay: u.dailyLogin?.currentStreakDay || 0, lastClaimDate: u.dailyLogin?.lastClaimDate || null });
+    }
+    if (pathname === "/api/daily-login/claim" && req.method === "POST") {
+      const body = await readBody(req);
+      const localDate = String(body.localDate || "");
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(localDate)) return sendJSON(res, 400, { error: "localDate precisa ser YYYY-MM-DD." });
+      const result = users.claimDailyLogin(req.authUser.id, localDate);
+      return sendJSON(res, 200, result);
+    }
+
+    // Amigos — pré-requisito do Ranking assíncrono (escopo "friends").
+    // Código curto (friendCode) gerado na criação da conta (ver
+    // users.js); adicionar é sempre bidirecional, sem convite pendente.
+    if (pathname === "/api/friends" && req.method === "GET") {
+      return sendJSON(res, 200, { friendCode: req.authUser.friendCode, friends: users.listFriends(req.authUser.id) });
+    }
+    if (pathname === "/api/friends/add" && req.method === "POST") {
+      const body = await readBody(req);
+      const friends = users.addFriendByCode(req.authUser.id, body.code);
+      return sendJSON(res, 200, { friends });
+    }
+
+    // Ranking assíncrono — placar calculado e publicado pelo CLIENTE
+    // (ver aviso de confiança no topo de leaderboard.js), managerName
+    // SEMPRE do nome real da conta (nunca aceito do body — impediria
+    // alguém publicar um nome falso pra aparecer no ranking de outra
+    // pessoa). scope=friends devolve só quem já publicou score entre
+    // você + sua lista de amigos; scope=global (padrão) devolve o topo
+    // 50 + garante a SUA entrada mesmo fora dele (mesmo padrão do
+    // mockup — "card fixo destacando a própria posição").
+    if (pathname === "/api/leaderboard/publish" && req.method === "POST") {
+      const body = await readBody(req);
+      const entry = leaderboard.publishScore(req.authUser.id, req.authUser.name, body);
+      return sendJSON(res, 200, { entry });
+    }
+    if (pathname === "/api/leaderboard" && req.method === "GET") {
+      const scope = searchParams.get("scope") === "friends" ? "friends" : "global";
+      if (scope === "friends") {
+        const ids = [req.authUser.id, ...users.listFriends(req.authUser.id).map((f) => f.id)];
+        return sendJSON(res, 200, { scope, entries: leaderboard.listForUsers(ids) });
+      }
+      const entries = leaderboard.listGlobal(50);
+      const ownIncluded = entries.some((e) => e.userId === req.authUser.id);
+      const own = ownIncluded ? null : leaderboard.getEntry(req.authUser.id);
+      return sendJSON(res, 200, { scope, entries, own: own ? { userId: req.authUser.id, ...own } : null });
+    }
+
+    // Notificações push (Web Push) — pedido do usuário (sugeri como
+    // melhoria de retenção: "o lembrete de streak só funciona com o
+    // app aberto", ele confirmou implementar). Ligado à CONTA
+    // (users.js), mesmo motivo do login diário/amigos acima. Sem as
+    // 3 variáveis VAPID_* configuradas (ver server/.env.example), as
+    // 2 primeiras rotas continuam respondendo normal (enabled:false /
+    // 404 explícito), nunca derruba o resto do app.
+    if (pathname === "/api/push/vapid-public-key" && req.method === "GET") {
+      return sendJSON(res, 200, { enabled: push.isEnabled(), publicKey: push.publicKey() });
+    }
+    if (pathname === "/api/push/subscribe" && req.method === "POST") {
+      if (!push.isEnabled()) return sendJSON(res, 404, { error: "Notificações push não configuradas neste host." });
+      const body = await readBody(req);
+      if (!body.subscription || !body.subscription.endpoint) return sendJSON(res, 400, { error: "subscription inválida." });
+      users.setPushSubscription(req.authUser.id, body.subscription);
+      return sendJSON(res, 200, { ok: true });
+    }
+    if (pathname === "/api/push/unsubscribe" && req.method === "POST") {
+      users.setPushSubscription(req.authUser.id, null);
+      return sendJSON(res, 200, { ok: true });
+    }
+    // Botão "Enviar notificação de teste" nas Configurações — feedback
+    // imediato de que a assinatura funciona, sem esperar o lembrete de
+    // streak de verdade (só dispara 1x/dia, às 20h — ver push.js).
+    if (pathname === "/api/push/test" && req.method === "POST") {
+      if (!push.isEnabled()) return sendJSON(res, 404, { error: "Notificações push não configuradas neste host." });
+      if (!req.authUser.pushSubscription) return sendJSON(res, 400, { error: "Ative as notificações antes de testar." });
+      const result = await push.sendNotification(req.authUser.pushSubscription, {
+        title: "⚽ Tudo certo!",
+        body: "As notificações push do Modo Técnico estão funcionando.",
+        url: "/carreira.html",
+      });
+      if (!result.ok && result.expired) users.setPushSubscription(req.authUser.id, null);
+      return sendJSON(res, result.ok ? 200 : 502, result);
     }
 
     // Cria um novo checkout pra quem já está logado — cobre 2 casos:
@@ -2143,6 +2345,57 @@ const server = http.createServer(async (req, res) => {
       }
     }
 
+    // Item 7 da lista de melhorias ("Loja com pagamento de verdade") —
+    // MESMO fluxo Checkout Pro de cima, reaproveitando createPreference
+    // sem duplicar nada: só troca o item (pacote de Créditos BR em vez
+    // de plano de assinatura) e o formato de external_reference
+    // (prefixo "credits:" — ver webhook logo abaixo, que precisa
+    // distinguir os dois fluxos compartilhando o mesmo endpoint de
+    // notificação). Preço/quantidade de créditos SEMPRE do catálogo do
+    // servidor (lojaCatalog.js) — nunca de nada vindo do corpo da
+    // requisição.
+    if (pathname === "/api/loja/checkout" && req.method === "POST") {
+      const user = req.authUser;
+      const body = await readBody(req);
+      const pkg = lojaCatalog.getCreditPackage(String(body.packageId || "").trim());
+      if (!pkg) return sendJSON(res, 400, { error: "Pacote inválido." });
+      const base = publicBaseUrl(req);
+      try {
+        const pref = await mercadoPago.createPreference({
+          plan: { id: `credits_${pkg.id}`, title: pkg.title, price: pkg.price, description: `${pkg.credits.toLocaleString("pt-BR")} Créditos BR` },
+          itemTitle: `BR Treinador — ${pkg.title} (${pkg.credits.toLocaleString("pt-BR")} Créditos BR)`,
+          name: user.name, email: user.email, phone: user.phone,
+          externalReference: `credits:${user.id}:${pkg.id}`,
+          backUrl: `${base}/carreira.html`,
+          notificationUrl: `${base}/api/support/webhook`,
+        });
+        return sendJSON(res, 200, { checkoutUrl: pref.init_point });
+      } catch (err) {
+        console.error("[loja/checkout] falha ao criar preference:", err.message);
+        return sendJSON(res, 502, { error: "Não foi possível iniciar o pagamento agora. Tente novamente em instantes." });
+      }
+    }
+
+    // Item 7 — gasta Créditos BR num boost/patrocínio da Loja. Preço
+    // SEMPRE do catálogo do servidor (nunca confia em valor vindo do
+    // cliente); o EFEITO de cada item (o que ele realmente faz na
+    // carreira) é decidido inteiramente no cliente (ver
+    // applyBoostEffect em carreira.js) — o servidor só sabe debitar o
+    // saldo, não entende nada de futebol, mesma divisão de sempre
+    // neste projeto.
+    if (pathname === "/api/loja/spend-credits" && req.method === "POST") {
+      const body = await readBody(req);
+      const itemId = String(body.itemId || "").trim();
+      const price = lojaCatalog.getBoostPrice(itemId);
+      if (price == null) return sendJSON(res, 400, { error: "Item inválido." });
+      try {
+        const creditsBR = users.spendCredits(req.authUser.id, price);
+        return sendJSON(res, 200, { creditsBR });
+      } catch (err) {
+        return sendJSON(res, err.status || 500, { error: err.message });
+      }
+    }
+
     // Notificação do Mercado Pago quando um pagamento muda de status.
     // Aceita webhooks v2 (POST, corpo JSON: {type, data:{id}}) e o
     // formato mais antigo (query string: ?topic=payment&id=...) — o
@@ -2160,7 +2413,37 @@ const server = http.createServer(async (req, res) => {
           // token) — nunca do conteúdo da notificação em si, que
           // poderia ser forjado por qualquer um que descobrisse a URL.
           const payment = await mercadoPago.getPayment(paymentId);
-          const user = payment.external_reference ? users.findById(payment.external_reference) : null;
+          const ref = String(payment.external_reference || "");
+          // Item 7 da lista de melhorias ("Loja com pagamento de
+          // verdade") — pagamento de um pacote de Créditos BR usa o
+          // formato "credits:<userId>:<packageId>" (ver
+          // /api/loja/checkout acima), pra distinguir do formato
+          // simples "userId" que a assinatura do site já usava — os
+          // dois fluxos compartilham o MESMO endpoint de notificação.
+          if (ref.startsWith("credits:")) {
+            const [, creditsUserId, packageId] = ref.split(":");
+            const creditsUser = creditsUserId ? users.findById(creditsUserId) : null;
+            const pkg = lojaCatalog.getCreditPackage(packageId);
+            if (creditsUser && pkg) {
+              if (payment.status === "approved") users.addCredits(creditsUser.id, pkg.credits, payment.id);
+              paymentsLedger.recordIfNew({
+                paymentId: payment.id,
+                status: payment.status,
+                statusDetail: payment.status_detail || null,
+                userId: creditsUser.id,
+                email: creditsUser.email,
+                plan: `credits_${pkg.id}`,
+                amount: payment.transaction_amount,
+                currency: payment.currency_id,
+                method: payment.payment_method_id || payment.payment_type_id || null,
+                eventAt: payment.date_approved
+                  ? new Date(payment.date_approved).getTime()
+                  : (payment.date_created ? new Date(payment.date_created).getTime() : Date.now()),
+              });
+            }
+            return sendJSON(res, 200, { received: true });
+          }
+          const user = ref ? users.findById(ref) : null;
           if (user) {
             let planForLedger = user.plan;
             if (payment.status === "approved") {
@@ -2232,6 +2515,74 @@ const server = http.createServer(async (req, res) => {
         activeSessions: sessions.countActive(),
         users: users.listUsers(),
       });
+    }
+
+    // Captura o retrato real de elenco das 3 competições do Modo
+    // Técnico (Série A/B/C — ver server/src/captureSnapshot.js) direto
+    // por HTTPS, sem precisar de shell nenhum no host. Descoberto na
+    // prática que o shell web do Railway não tem como devolver um
+    // arquivo pro usuário, e ainda cai (WebSocket) no meio de comandos
+    // mais longos — via HTTP comum isso não acontece: mesmo que o
+    // cliente desista de esperar a resposta (a captura de 60 times
+    // pode levar 1-2 minutos), a captura continua rodando no processo
+    // e os arquivos ficam salvos; é só chamar GET /api/admin/snapshot
+    // (rota abaixo) de novo depois pra pegar o resultado. Aceita GET
+    // além de POST (tecnicamente essa chamada tem efeito colateral —
+    // escreve arquivo — então POST seria o correto por convenção REST,
+    // mas dado o pedido explícito do usuário de rodar isso só colando a
+    // URL no navegador, sem curl/DevTools, aceitar GET também elimina
+    // esse atrito; sem risco real, é uma ação admin-only, idempotente
+    // na prática (só sobrescreve os mesmos 3 arquivos) e sem nenhum
+    // efeito no resto do app.
+    if (pathname === "/api/admin/snapshot-capture" && (req.method === "GET" || req.method === "POST")) {
+      if (!isValidAdminSecret(req, searchParams)) return sendJSON(res, 404, { error: "endpoint não encontrado" });
+      try {
+        const summary = await captureSnapshot.captureAllCompetitions();
+        return sendJSON(res, 200, { ok: true, summary });
+      } catch (err) {
+        return sendJSON(res, 500, { ok: false, error: err.message });
+      }
+    }
+
+    // Baixa um dos 3 arquivos gerados pela captura acima
+    // (?file=brasileirao|serie_b|serie_c) — Content-Disposition faz o
+    // navegador baixar o arquivo direto, sem precisar copiar/colar
+    // texto nenhum de dentro de um terminal.
+    //
+    // AJUSTE (pedido do usuário: "está dando timeout, melhor fazer 3
+    // chamadas (1 por divisão) que já rode o comando e o arquivo a ser
+    // salvo") — capturar as 3 competições numa chamada só
+    // (/snapshot-capture acima) demora o bastante pra estourar timeout
+    // em alguns hosts/navegadores. Com ?capture=1, esta MESMA rota
+    // primeiro captura só ESSA competição (~20 times, bem mais rápido)
+    // e já devolve o arquivo baixado em seguida — 3 URLs, uma por
+    // divisão, cada uma fazendo captura+download juntos numa chamada
+    // só. Sem o parâmetro, continua só servindo o que já estiver salvo
+    // (útil pra baixar de novo sem gastar cota da API à toa).
+    if (pathname === "/api/admin/snapshot") {
+      if (!isValidAdminSecret(req, searchParams)) return sendJSON(res, 404, { error: "endpoint não encontrado" });
+      const id = searchParams.get("file");
+      if (!captureSnapshot.COMPETITION_IDS.includes(id)) {
+        return sendJSON(res, 400, { error: `file precisa ser um de: ${captureSnapshot.COMPETITION_IDS.join(", ")}` });
+      }
+      if (searchParams.get("capture")) {
+        try {
+          await captureSnapshot.captureOneCompetition(id);
+        } catch (err) {
+          return sendJSON(res, 500, { ok: false, error: err.message });
+        }
+      }
+      const fileName = `snapshot-${id}.json`;
+      const filePath = path.join(captureSnapshot.OUT_DIR, fileName);
+      if (!fs.existsSync(filePath)) {
+        return sendJSON(res, 404, { error: "ainda não capturado nesse host -- acrescente &capture=1 na URL, ou chame /api/admin/snapshot-capture primeiro" });
+      }
+      res.writeHead(200, {
+        "Content-Type": "application/json; charset=utf-8",
+        "Content-Disposition": `attachment; filename="${fileName}"`,
+        "Cache-Control": "no-store",
+      });
+      return res.end(fs.readFileSync(filePath));
     }
 
     // ================= Área administrativa (/admin) — rotas =================
@@ -2419,6 +2770,26 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
+// Performance (pedido do usuário: "o jogo está lento") — careerStore/
+// sessions/users/analytics/leaderboard/contentStore agora escrevem em
+// disco de forma assíncrona e DEBOUNCED (ver debouncedPersist.js), em
+// vez de bloquear cada requisição com um fs.writeFileSync síncrono do
+// arquivo inteiro. Isso abre uma janela pequena (até DEBOUNCE_MS) onde
+// uma mudança já confirmada pro cliente ainda não foi de fato gravada
+// no disco — nos 2 sinais de desligamento normal (deploy, restart
+// manual), descarrega tudo que ainda está pendente ANTES de soltar a
+// porta, então um desligamento gracioso nunca perde a última mudança.
+function gracefulShutdown(signal) {
+  console.log(`\n[server] ${signal} recebido — descarregando saves pendentes antes de sair...`);
+  flushAllSync();
+  server.close(() => process.exit(0));
+  // Se algo travar o close (conexão pendurada), não fica esperando pra
+  // sempre — o flush já rodou, é o que importa de verdade.
+  setTimeout(() => process.exit(0), 3000).unref();
+}
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+
 bootstrapDefaultAdmin()
   .catch((err) => console.error("[bootstrap] falha ao criar/promover admin padrão:", err.message))
   .finally(() => {
@@ -2433,5 +2804,9 @@ bootstrapDefaultAdmin()
       // que aparece aqui, o problema é no nome/escopo da variável no
       // painel do host (Railway etc.), não no código.
       console.log(`   APP_MODE recebido: ${JSON.stringify(process.env.APP_MODE ?? null)} → modo efetivo: "${APP_MODE}"`);
+      console.log(push.isEnabled()
+        ? `   Notificações push: ativas (lembrete de streak às 20h, horário de Brasília).`
+        : `   Notificações push: desativadas (faltam VAPID_PUBLIC_KEY/VAPID_PRIVATE_KEY no .env).`);
+      push.startStreakReminderScheduler();
     });
   });

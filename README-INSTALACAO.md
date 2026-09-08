@@ -18,8 +18,12 @@ brasileirao-2026-simulador/
 └── README-INSTALACAO.md         → este arquivo
 ```
 
-Requisito único: **Node.js 18 ou superior** no servidor. Não há
-`npm install` — o backend usa só módulos nativos do Node.
+Requisito: **Node.js 18 ou superior** no servidor. O backend é quase
+100% módulos nativos do Node — a única dependência externa de verdade
+é `web-push` (notificações push do Modo Técnico, ver seção 3.3), então
+**agora precisa rodar `npm install` uma vez** dentro de `server/`
+antes do primeiro `node server.js` (e de novo a cada `git pull` que
+mudar `server/package.json`).
 
 ---
 
@@ -27,6 +31,7 @@ Requisito único: **Node.js 18 ou superior** no servidor. Não há
 
 ```bash
 cd server
+npm install
 cp .env.example .env
 # abra o .env e cole sua API_SPORTS_KEY (veja seção 3)
 node server.js
@@ -59,6 +64,7 @@ sudo mkdir -p /var/www/brasileirao-2026-simulador
 # ... copie os arquivos do projeto pra lá ...
 
 cd /var/www/brasileirao-2026-simulador/server
+npm install
 cp .env.example .env
 nano .env    # cole sua API_SPORTS_KEY
 
@@ -83,6 +89,7 @@ Pra atualizar depois de uma mudança no código:
 ```bash
 cd /var/www/brasileirao-2026-simulador
 git pull    # ou reenvie os arquivos atualizados
+cd server && npm install   # só reinstala algo se package.json mudou
 sudo systemctl restart brasileirao
 ```
 
@@ -132,7 +139,9 @@ O passo a passo muda de plataforma pra plataforma, mas o padrão é:
 2. Defina o **diretório raiz do serviço** como `server/` (é onde está
    o `package.json` e o `server.js`).
 3. **Start command**: `node server.js`
-4. **Build command**: nenhum necessário (sem dependências).
+4. **Build command**: `npm install` (a plataforma geralmente já roda
+   isso sozinha ao detectar `package.json`, mas confira nas
+   configurações do serviço se não tiver certeza).
 5. Configure as variáveis de ambiente no painel da plataforma (não em
    arquivo `.env` — isso é só para uso local): `API_SPORTS_KEY`,
    `LEAGUE_ID`, e deixe a plataforma injetar `PORT` automaticamente
@@ -178,6 +187,29 @@ Como esse arquivo é servido como estático, basta reiniciar o serviço
 depois de editar (`systemctl restart brasileirao`, `docker compose up
 -d --build`, ou o redeploy automático da sua PaaS) para as mudanças
 valerem.
+
+### 3.3 Notificações push do Modo Técnico (opcional)
+
+Ativa o lembrete "sua sequência de login diário está em risco",
+enviado às 20h (horário de Brasília) pra quem já ativou o toggle
+"Notificações push" nas Configurações do jogo, mesmo com o app
+fechado. Sem as 2 variáveis abaixo, esse toggle fica sempre
+desabilitado — nada mais no site quebra.
+
+1. Gere um par de chaves VAPID (uma vez só, nunca precisa trocar
+   depois — trocar invalidaria as assinaturas de quem já ativou):
+   ```bash
+   cd server && node -e "console.log(require('web-push').generateVAPIDKeys())"
+   ```
+2. Cole no `server/.env` (ou nas variáveis de ambiente do seu host):
+   ```env
+   VAPID_PUBLIC_KEY=a_publicKey_gerada_acima
+   VAPID_PRIVATE_KEY=a_privateKey_gerada_acima
+   VAPID_SUBJECT=mailto:seu-email-de-contato@exemplo.com
+   ```
+3. Reinicie o serviço. O log de boot confirma se ficou ativo:
+   `Notificações push: ativas (lembrete de streak às 20h, horário de
+   Brasília).`
 
 ---
 

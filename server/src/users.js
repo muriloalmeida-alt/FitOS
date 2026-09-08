@@ -15,6 +15,7 @@ const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
 const { promisify } = require("util");
+const { scheduleWrite } = require("./debouncedPersist");
 
 const scryptAsync = promisify(crypto.scrypt);
 
@@ -34,13 +35,12 @@ function load() {
   }
 }
 
+// Performance (pedido do usuário: "o jogo está lento") — mesmo
+// tratamento do resto do backend (ver debouncedPersist.js): escrita
+// assíncrona e debounced em vez de bloquear o event loop a cada
+// cadastro/login/coleta de recompensa diária.
 function persist() {
-  try {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-    fs.writeFileSync(FILE, JSON.stringify(Object.fromEntries(store), null, 2));
-  } catch (err) {
-    console.error("[users] falha ao salvar arquivo local:", err.message);
-  }
+  scheduleWrite(FILE, DATA_DIR, () => JSON.stringify(Object.fromEntries(store)));
 }
 
 load();
@@ -86,6 +86,21 @@ function newUserId() {
   return `usr_${crypto.randomBytes(12).toString("hex")}`;
 }
 
+// Código curto de convite pro sistema de amigos (Especificação de
+// Retenção/Engajamento, item "Ranking assíncrono" — escopo "friends").
+// 6 caracteres (36^6 ≈ 2 bilhões de combinações — colisão improvável,
+// mas confere e sorteia de novo mesmo assim, mesmo espírito de
+// newUserId acima) sem 0/O/1/I (fáceis de confundir lendo em voz alta
+// ou copiando de tela pequena).
+const FRIEND_CODE_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZ";
+function generateFriendCode() {
+  let code;
+  do {
+    code = Array.from({ length: 6 }, () => FRIEND_CODE_ALPHABET[crypto.randomInt(FRIEND_CODE_ALPHABET.length)]).join("");
+  } while (Array.from(store.values()).some((u) => u.friendCode === code));
+  return code;
+}
+
 async function createUser({ name, email, phone, password, plan, planStatus }) {
   const passwordHash = await hashPassword(password);
   const rec = {
@@ -95,11 +110,173 @@ async function createUser({ name, email, phone, password, plan, planStatus }) {
     plan, planStatus,       // planStatus: "active" | "pending_payment" | "checkout_error"
     pendingPlan: null,      // setado quando um usuário ATIVO troca de plano (upgrade) — só vira `plan` quando o pagamento confirma, pra não perder acesso no meio da troca
     favoriteClubs: {},      // clube favorito (card em destaque no Dashboard), por competição — { [competitionId]: teamId | null } — ver setFavoriteClub
+    // ---- Retenção/Engajamento (BRDataRetencaoEspecificacao) — ligado
+    // à CONTA, não à carreira, de propósito: sequência de login e
+    // lista de amigos precisam sobreviver a "Reiniciar carreira"/
+    // "Escolher outro clube" (ver migrateCareerDefaults em
+    // carreira.js, que NUNCA toca nesses 3 campos). ----
+    friendCode: generateFriendCode(),
+    friends: [], // ids de outras contas (relação sempre bidirecional, ver addFriendByCode)
+    dailyLogin: { currentStreakDay: 0, lastClaimDate: null }, // ver claimDailyLogin
+    // Notificações push (Web Push) — pedido do usuário: "o maior
+    // buraco de retenção" era o lembrete de streak (acima) só
+    // funcionar com o app ABERTO. null até o usuário ligar o toggle em
+    // Configurações (ver setPushSubscription); guarda o objeto de
+    // assinatura inteiro (endpoint + chaves), formato padrão de
+    // PushSubscription.toJSON() do navegador — só 1 por conta (não por
+    // dispositivo), ativar em outro aparelho substitui a anterior.
+    pushSubscription: null,
+    // Onboarding (pedido do usuário: "tutorial curtinho na primeira
+    // carreira") — true assim que o tutorial de boas-vindas é
+    // fechado/pulado uma vez (ver renderOnboardingSlide/
+    // closeOnboardingOverlay em carreira.js); ligado à CONTA (não à
+    // carreira) — nunca reaparece de novo, nem depois de "Reiniciar"/
+    // "Escolher outro clube".
+    onboardingSeen: false,
+    // ---- Loja (BR_Data_Treinador_Monetizacao.xlsx) — saldo de
+    // "Créditos BR" (moeda dura, comprada com dinheiro real). Ao
+    // contrário de TUDO no resto do Modo Técnico (onde o cliente é
+    // "dono da verdade" do save, ver aviso em careerStore.js), este
+    // valor representa dinheiro de verdade gasto — por isso mora aqui
+    // na CONTA (mesmo lugar que já guarda plano/pagamento), não no
+    // save opaco da carreira, e só pode ser alterado no servidor.
+    // NENHUM endpoint credita este campo ainda — decisão do usuário,
+    // ver comentário grande em renderLoja() (carreira.js): esta
+    // primeira entrega é só a tela/catálogo, pagamento de verdade
+    // (Mercado Pago, mesmo rail já usado nas assinaturas) fica pra uma
+    // etapa futura. Quando existir, a rota de compra confirmada é o
+    // ÚNICO lugar que deve incrementar isso, no mesmo espírito do
+    // webhook do Mercado Pago que já ativa plano/pagamento hoje.
+    creditsBR: 0,
     createdAt: Date.now(), updatedAt: Date.now(),
   };
   store.set(rec.id, rec);
   persist();
   return rec;
+}
+
+// Ciclo de recompensas (só o VALOR/TIPO abstrato — o que cada tipo
+// vira de verdade no jogo, ex.: "coins" -> CAREER.finances.cash, é
+// decisão do CLIENTE, ver DAILY_LOGIN_REWARD_TYPES em carreira.js; o
+// servidor só sabe o formato genérico do documento de especificação,
+// igual TRAINING_SCHEMES não conhece jogador nenhum de verdade).
+const DAILY_LOGIN_CYCLE = [
+  { day: 1, reward: { type: "coins", amount: 500 } },
+  { day: 2, reward: { type: "coins", amount: 800 } },
+  { day: 3, reward: { type: "boost", id: "moral_boost_small" } },
+  { day: 4, reward: { type: "coins", amount: 1200 } },
+  { day: 5, reward: { type: "scout_token", amount: 1 } },
+  { day: 6, reward: { type: "coins", amount: 1800 } },
+  { day: 7, reward: { type: "premium_pack", id: "weekly_elite" } },
+];
+
+// "YYYY-MM-DD" -> nº de dias desde uma época qualquer (só pra
+// SUBTRAIR duas datas com segurança, sem lidar com fuso/DST — meio-dia
+// UTC evita qualquer ambiguidade de borda de dia).
+function dateStringToDayNumber(s) {
+  return Math.round(Date.parse(`${s}T12:00:00Z`) / 86400000);
+}
+
+// Login diário com streak (Especificação de Retenção/Engajamento, item
+// 2). AJUSTE DE CONFIANÇA (mesmo espírito de careerStore.js: o
+// cliente já é "dono da verdade" do resto do jogo) — `localDate`
+// ("YYYY-MM-DD") vem do relógio LOCAL do dispositivo do usuário, não
+// do servidor: a regra do documento é "reseta à meia-noite LOCAL", e o
+// servidor não tem como saber o fuso horário de quem está jogando.
+// Sem validação cruzada contra hora real nenhuma — mesmo trade-off já
+// aceito pro resto do save, sem risco financeiro real aqui (só
+// recompensa dentro do próprio jogo).
+function claimDailyLogin(id, localDate) {
+  const u = store.get(id);
+  if (!u) return null;
+  if (!u.dailyLogin) u.dailyLogin = { currentStreakDay: 0, lastClaimDate: null };
+  const dl = u.dailyLogin;
+  if (dl.lastClaimDate === localDate) {
+    const err = new Error("Recompensa de hoje já foi coletada.");
+    err.status = 409;
+    throw err;
+  }
+  const todayNum = dateStringToDayNumber(localDate);
+  const lastNum = dl.lastClaimDate ? dateStringToDayNumber(dl.lastClaimDate) : null;
+  // Sequência continua só se a última coleta foi ONTEM (diff === 1) —
+  // qualquer outro caso (nunca coletou, ou pulou 1+ dias) reseta pro
+  // dia 1, exatamente a regra do documento ("reseta se o usuário não
+  // abrir o app em um dia").
+  dl.currentStreakDay = lastNum != null && todayNum - lastNum === 1
+    ? (dl.currentStreakDay % 7) + 1
+    : 1;
+  dl.lastClaimDate = localDate;
+  u.updatedAt = Date.now();
+  persist();
+  const entry = DAILY_LOGIN_CYCLE.find((c) => c.day === dl.currentStreakDay);
+  return { currentStreakDay: dl.currentStreakDay, reward: entry.reward };
+}
+
+// Adiciona amigo por código (SEMPRE bidirecional — mais simples que um
+// fluxo de convite pendente/aceite, e suficiente pro v1 do ranking
+// "friends" pedido na especificação). Recusa auto-adição e código
+// inexistente; idempotente (adicionar de novo o mesmo amigo não
+// duplica, só devolve sucesso).
+function addFriendByCode(id, code) {
+  const u = store.get(id);
+  if (!u) return null;
+  const normalizedCode = String(code || "").trim().toUpperCase();
+  const target = Array.from(store.values()).find((x) => x.friendCode === normalizedCode);
+  if (!target) { const err = new Error("Código de amigo não encontrado."); err.status = 404; throw err; }
+  if (target.id === id) { const err = new Error("Você não pode adicionar a si mesmo."); err.status = 400; throw err; }
+  if (!u.friends) u.friends = [];
+  if (!target.friends) target.friends = [];
+  if (!u.friends.includes(target.id)) u.friends.push(target.id);
+  if (!target.friends.includes(id)) target.friends.push(id);
+  u.updatedAt = Date.now();
+  target.updatedAt = Date.now();
+  persist();
+  return listFriends(id);
+}
+
+// Item 7 da lista de melhorias ("Loja com pagamento de verdade") —
+// Créditos BR só sobe por aqui, chamado do webhook do Mercado Pago
+// DEPOIS de confirmar payment.status === "approved" (ver server.js) —
+// nunca direto de uma rota que um cliente comum possa chamar. `paymentId`
+// (quando informado) torna a chamada idempotente: o Mercado Pago pode
+// reenviar a MESMA notificação de webhook mais de uma vez, e sem essa
+// trava o técnico ganharia os créditos em dobro/triplo.
+function addCredits(id, amount, paymentId) {
+  const u = store.get(id);
+  if (!u) return null;
+  if (paymentId) {
+    u.creditedPaymentIds = u.creditedPaymentIds || [];
+    if (u.creditedPaymentIds.includes(String(paymentId))) return u.creditsBR || 0;
+    u.creditedPaymentIds.push(String(paymentId));
+  }
+  u.creditsBR = (u.creditsBR || 0) + amount;
+  u.updatedAt = Date.now();
+  persist();
+  return u.creditsBR;
+}
+// Único jeito de Créditos BR diminuir — gastar um boost/patrocínio da
+// Loja (ver /api/loja/spend-credits em server.js). Recusa saldo
+// insuficiente ANTES de debitar (nunca deixa o saldo negativo).
+function spendCredits(id, amount) {
+  const u = store.get(id);
+  if (!u) return null;
+  if ((u.creditsBR || 0) < amount) {
+    const err = new Error("Saldo de Créditos BR insuficiente.");
+    err.status = 400;
+    throw err;
+  }
+  u.creditsBR -= amount;
+  u.updatedAt = Date.now();
+  persist();
+  return u.creditsBR;
+}
+
+// Lista de amigos com só o necessário pro Ranking (id + nome do
+// técnico) — nunca e-mail/telefone/dado de plano de outra conta.
+function listFriends(id) {
+  const u = store.get(id);
+  if (!u || !u.friends) return [];
+  return u.friends.map((fid) => store.get(fid)).filter(Boolean).map((f) => ({ id: f.id, name: f.name }));
 }
 
 function updateUser(id, patch) {
@@ -130,9 +307,43 @@ function setFavoriteClub(id, competitionId, teamId) {
   return u;
 }
 
+// Notificações push (Web Push) — liga/desliga o toggle em
+// Configurações (ver renderSettingsScreen em carreira.js). `subscription`
+// é o objeto inteiro devolvido por PushSubscription.toJSON() no
+// navegador, ou null pra desativar (chamado tanto pelo usuário
+// desligando o toggle quanto pelo job de lembrete quando o envio
+// falha com "assinatura morta" — ver sendStreakReminders em server.js).
+function setPushSubscription(id, subscription) {
+  const u = store.get(id);
+  if (!u) return null;
+  u.pushSubscription = subscription || null;
+  u.updatedAt = Date.now();
+  persist();
+  return u;
+}
+
+// Usado pelo job diário de lembrete de streak (ver server.js) — só as
+// contas com push ativado E que ainda não coletaram o login de HOJE.
+// `todayLocal` é a data ("YYYY-MM-DD") que o PRÓPRIO servidor decidiu
+// pra "hoje" (horário de Brasília fixo, ver comentário no job — o
+// servidor não sabe o fuso de cada dispositivo, mesma limitação já
+// documentada em claimDailyLogin). Devolve só o necessário pro envio,
+// nunca a conta inteira.
+function listPushSubscriptionsPendingStreak(todayLocal) {
+  return Array.from(store.values())
+    .filter((u) => u.pushSubscription && u.dailyLogin?.lastClaimDate !== todayLocal)
+    .map((u) => ({ id: u.id, subscription: u.pushSubscription, streakDay: u.dailyLogin?.currentStreakDay || 0 }));
+}
+
 // Campos seguros pra devolver ao front-end — nunca o passwordHash.
 function publicUser(u) {
   if (!u) return null;
+  // Conta criada ANTES do bloco de retenção/engajamento existir não
+  // tem friendCode nenhum gravado — gera e persiste na primeira leitura
+  // (idempotente: só roda essa vez, próxima leitura já acha o campo
+  // preenchido), senão a conta fica pra sempre sem código pra
+  // compartilhar no Ranking "amigos".
+  if (!u.friendCode) { u.friendCode = generateFriendCode(); persist(); }
   return {
     id: u.id, name: u.name, email: u.email, plan: u.plan, planStatus: u.planStatus, pendingPlan: u.pendingPlan || null,
     favoriteClubs: u.favoriteClubs || {},
@@ -141,6 +352,22 @@ function publicUser(u) {
     // /api/adminpanel/*). Não existe por padrão em conta nenhuma —
     // precisa ser promovida explicitamente depois de já cadastrada.
     role: u.role || null,
+    // createdAt exposto pro achievement "Veterano" (1 ano de conta
+    // ativa) — ver checkAchievements em carreira.js. friendCode/friends
+    // pro Ranking assíncrono (escopo "amigos"); dailyLogin pro modal de
+    // login diário — os 3 novos campos de
+    // BRDataRetencaoEspecificacao.docx.
+    createdAt: u.createdAt,
+    friendCode: u.friendCode,
+    friends: listFriends(u.id),
+    dailyLogin: u.dailyLogin || { currentStreakDay: 0, lastClaimDate: null },
+    creditsBR: u.creditsBR || 0, // Loja — ver comentário grande em createUser
+    // Notificações push — só um booleano pro cliente saber se JÁ tem
+    // assinatura salva no servidor (reflete o toggle em Configurações
+    // ao reabrir o app); nunca devolve o objeto de assinatura em si
+    // (endpoint/chaves), que não tem uso nenhum no front-end.
+    pushEnabled: !!u.pushSubscription,
+    onboardingSeen: !!u.onboardingSeen,
   };
 }
 
@@ -176,4 +403,6 @@ function listUsers() {
 module.exports = {
   createUser, updateUser, setFavoriteClub, findByEmail, findById, publicUser, listUsers, isAdmin,
   hashPassword, verifyPassword, normalizeEmail,
+  claimDailyLogin, addFriendByCode, listFriends, addCredits, spendCredits,
+  setPushSubscription, listPushSubscriptionsPendingStreak,
 };

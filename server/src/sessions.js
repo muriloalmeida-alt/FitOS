@@ -5,6 +5,7 @@
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const { scheduleWrite } = require("./debouncedPersist");
 
 const DATA_DIR = path.join(__dirname, "..", "data");
 const FILE = path.join(DATA_DIR, "sessions.json");
@@ -23,13 +24,13 @@ function load() {
   }
 }
 
+// Performance (pedido do usuário: "o jogo está lento") — getSession()
+// roda em TODA requisição autenticada, e ela mesma chama persist()
+// sempre que encontra um token expirado no caminho — uma escrita
+// síncrona bloqueante bem no meio do fluxo mais quente do backend
+// inteiro. Ver debouncedPersist.js.
 function persist() {
-  try {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-    fs.writeFileSync(FILE, JSON.stringify(Object.fromEntries(store), null, 2));
-  } catch (err) {
-    console.error("[sessions] falha ao salvar arquivo local:", err.message);
-  }
+  scheduleWrite(FILE, DATA_DIR, () => JSON.stringify(Object.fromEntries(store)));
 }
 
 load();

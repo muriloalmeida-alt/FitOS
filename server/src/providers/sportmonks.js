@@ -144,8 +144,28 @@ async function resolveSeasonId(leagueId, season) {
   return s.id;
 }
 
+// AJUSTE 8 (02/09/2026, pedido do usuário: "Antes de listar os times
+// está trazendo esses 8 exemplos de marcação" -- print mostrando "1st
+// ranked" ... "8th ranked" antes dos clubes de verdade, na Escolha do
+// Clube da Série C) — /teams/seasons/{id} (getTeams abaixo) não
+// devolve só os clubes que jogam o returno todos-contra-todos: pra
+// competição com fase final por chaveamento/vaga por posição na
+// tabela (a Série C tem uma fase de acesso além do returno principal
+// — mesmo motivo, documentado em competitions.js, que já tinha
+// excluído a Série D e sinalizado risco parecido pra Copa do Brasil),
+// a Sportmonks também inclui "times" placeholder representando uma
+// VAGA por posição final ainda não decidida ("1st Ranked", "2nd
+// Ranked" etc. — sem escudo, sem sigla de verdade, sem estádio), que
+// só vira um clube de verdade depois que essa fase realmente
+// acontece. Nosso motor (engine.js) só sabe jogar returno todos-
+// contra-todos, então esses placeholders nunca deviam ter entrado na
+// lista pra começo de carreira. Filtrados aqui pelo próprio nome
+// (nenhum clube de futebol de verdade se chama "1st Ranked") — se
+// aparecer uma variação de texto diferente no futuro (e.g. "Winner
+// Group A", "TBD"), é o mesmo problema; some o padrão novo na regex.
+const PLACEHOLDER_TEAM_NAME = /^\d+(st|nd|rd|th)\s+ranked$/i;
 function mapTeam(t) {
-  if (!t) return null;
+  if (!t || !t.name || PLACEHOLDER_TEAM_NAME.test(t.name.trim())) return null;
   return {
     id: t.id,
     name: t.name,
@@ -251,15 +271,50 @@ const TOPSCORER_TYPE = { GOALS: 208, ASSISTS: 209, CARDS: 210, RATING: 211 };
 // pronto (ver playerSeasonStats abaixo, buscado separado por
 // jogador) — sem ele, cai de volta pro item.xxx antigo só por
 // garantia (não deveria nunca vir preenchido, mas não custa nada).
+//
+// BUG CORRIGIDO (pedido do usuário: "goleiro Santos e Mycael não
+// aparecem no elenco", "posição dos atletas não reflete a posição
+// real"): "position" saía sempre null aqui, mesmo o comentário acima
+// já apontando que posição É PARTE do vínculo (item), não do jogador —
+// nunca chegou a ser lido de verdade. Sem posição reconhecida, quem
+// consome esse dado (mapPositionGroup em public/js/carreira.js) sorteia
+// o grupo aleatoriamente entre Defensor/Meio/Atacante (nunca Goleiro,
+// de propósito — ver comentário lá) pra todo mundo, goleiro incluso:
+// resultado, elenco inteiro com posição errada e nenhum goleiro
+// aparecendo como goleiro. position_id É esse campo (mesmo id fixo já
+// confirmado contra resposta real em LINEUP_POSITION/mapLineupPosition,
+// mais abaixo — 24=goleiro, 25=zagueiro, 26=meia, 27=atacante);
+// detailed_position_id como fallback pro raro caso de vir só ele.
+// AJUSTE (pedido do usuário: "a idade de todos os atletas está
+// incorreta... favor buscar a idade na API") — Sportmonks não devolve
+// idade pronta como a API-Sports (ver mapPlayerEntry em adapter.js),
+// só a data de nascimento no recurso Player ("date_of_birth", formato
+// YYYY-MM-DD) — calcula a idade a partir dela. Tolera variação de
+// nome de campo (snake_case é o documentado publicamente; camelCase
+// como rede de segurança, já que não dá pra confirmar contra resposta
+// real sem token pago, ver aviso no topo do arquivo).
+function ageFromBirthdate(dateStr) {
+  if (!dateStr) return null;
+  const birth = new Date(dateStr);
+  if (Number.isNaN(birth.getTime())) return null;
+  const now = new Date();
+  let age = now.getFullYear() - birth.getFullYear();
+  const monthDiff = now.getMonth() - birth.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < birth.getDate())) age--;
+  return age >= 14 && age <= 50 ? age : null; // fora disso é dado claramente errado, melhor null que idade absurda
+}
 function mapPlayerFromSquad(item, stats) {
   const p = item.player;
   if (!p) return null;
+  const posCode = mapLineupPosition(item.position_id ?? item.detailed_position_id);
+  const position = { G: "Goalkeeper", D: "Defender", M: "Midfielder", F: "Attacker" }[posCode] || null;
   return {
     id: p.id,
     name: p.display_name || p.name,
     photo: p.image_path || null,
     teamId: item.team_id ?? null,
-    position: null,
+    position,
+    age: ageFromBirthdate(p.date_of_birth ?? p.dateOfBirth ?? p.birthdate),
     games: stats?.games ?? item.appearances ?? null,
     goals: stats?.goals ?? item.goals ?? null,
     assists: stats?.assists ?? item.assists ?? null,
@@ -517,9 +572,15 @@ async function getTeamPlayers({ teamId, season, leagueId }) {
 async function getPlayer({ playerId }) {
   const p = await sportmonksGet(`/players/${playerId}`, {});
   if (!p) return null;
+  // Mesmo bug/correção de mapPlayerFromSquad acima — o Player da
+  // Sportmonks também tem posição PRINCIPAL em position_id (mesmos ids
+  // de LINEUP_POSITION), nunca lida aqui antes.
+  const posCode = mapLineupPosition(p.position_id ?? p.detailed_position_id);
+  const position = { G: "Goalkeeper", D: "Defender", M: "Midfielder", F: "Attacker" }[posCode] || null;
   return {
     id: p.id, name: p.display_name || p.name, photo: p.image_path || null,
-    teamId: null, position: null,
+    teamId: null, position,
+    age: ageFromBirthdate(p.date_of_birth ?? p.dateOfBirth ?? p.birthdate),
     games: null, goals: null, assists: null, yellow: null, red: null, rating: null,
   };
 }

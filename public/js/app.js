@@ -489,6 +489,16 @@ async function startAuthFlow() {
 
   if (!authState.authenticated) {
     if (hasApoieReturnParams()) { await requireLogin(); return; }
+    // BUG REPORTADO (usuário: "ao clicar em criar conta está enviando
+    // pra home do BR Data") — o link "Cadastre-se no BR Data" da tela
+    // de login do Modo Técnico (ver #screenLoginRequired em
+    // carreira.html, que não tem cadastro próprio) só sabia mandar pra
+    // "/", e desde o Freemium-sem-login (AJUSTE acima) isso não abre
+    // mais o gate sozinho — cai direto no app como visitante, sem
+    // rastro nenhum de como criar a conta de verdade. Esse link agora
+    // manda "/?signup=1"; aqui, com a sessão confirmada como anônima,
+    // reconhece o parâmetro e abre o gate direto na view de cadastro.
+    if (hasSignupIntent()) { history.replaceState(null, "", location.pathname); await requireSignup(); return; }
     await startApp(null);
     return;
   }
@@ -512,6 +522,21 @@ async function requireLogin() {
   trackEvent("gate_shown"); // denominador do funil "% que passa do login" — ver submitGateLogin
   await renderAuthGate();
   setGateVisible(true);
+}
+
+// "?signup=1" na URL (ver startAuthFlow/hasSignupIntent) — mesmo gate
+// de requireLogin, só que já abre direto na view de CADASTRO em vez de
+// login (renderAuthGate sempre volta pra "login" por padrão). Único
+// jeito de outra página (ex: carreira.html, que não tem formulário de
+// cadastro próprio) mandar o visitante direto pra criar conta.
+async function requireSignup() {
+  trackEvent("gate_shown");
+  await renderAuthGate();
+  showGateView("signup");
+  setGateVisible(true);
+}
+function hasSignupIntent() {
+  return new URLSearchParams(location.search).get("signup") === "1";
 }
 
 // Mesma coisa, mas já abre direto na tela de cadastro com um plano

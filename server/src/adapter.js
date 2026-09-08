@@ -174,6 +174,13 @@ function mapPlayerEntry(item) {
     yellow: s.cards?.yellow || 0,
     red: s.cards?.red || 0,
     rating: Number.isFinite(rating) ? rating : null,
+    // AJUSTE (pedido do usuário: "a idade de todos os atletas está
+    // incorreta... favor buscar a idade na API") — o item.player da
+    // API-Sports já vem com "age" pronto (número, não precisa calcular
+    // a partir de birth.date) — só nunca tinha sido lido aqui; o
+    // cliente (buildRealPlayer, em public/js/carreira.js) sorteava uma
+    // idade aleatória por não receber nada de verdade.
+    age: Number.isFinite(p.age) ? p.age : null,
   };
 }
 

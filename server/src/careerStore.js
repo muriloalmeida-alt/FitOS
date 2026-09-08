@@ -21,6 +21,7 @@
 
 const fs = require("fs");
 const path = require("path");
+const { scheduleWrite } = require("./debouncedPersist");
 
 const DATA_DIR = path.join(__dirname, "..", "data");
 const FILE = path.join(DATA_DIR, "careers.json");
@@ -29,7 +30,23 @@ const FILE = path.join(DATA_DIR, "careers.json");
 // com histórico de rodadas e notícias, mas impede que uma conta
 // comprometida (ou um bug no cliente) escreva um blob gigante sem
 // limite nenhum.
-const MAX_BYTES = 400 * 1024;
+//
+// AJUSTE (pedido do usuário: "o mercado deve trazer jogadores das 3
+// ligas para que transações possam ser feitas entre os 60 times das
+// Séries A, B e C") — BUG CORRIGIDO antes de publicar: uma carreira
+// "multi" nova (elenco dos 59 outros times das 3 divisões, não só os
+// 19 da própria — ver CAREER.marketScope em carreira.js) já nasce em
+// ~500KB (medido de verdade, mesmo depois de encolher o elenco dos
+// times de OUTRA divisão — ver MAX_LEAGUE_SQUAD_OTHER_DIVISION em
+// carreira.js), estourando os 400KB de antes na 1ª tentativa de
+// salvar. Levantado pra 768KB — mesma margem de crescimento ao longo
+// de uma temporada (resultados/notícias/transferências acumulando)
+// que uma carreira "single" sempre teve sob o limite antigo, só
+// recalibrada pro tamanho de criação maior da carreira "multi"
+// (carreira "single", de antes desta mudança, continua exatamente do
+// mesmo tamanho de sempre — a folga só cresceu, nada fica mais
+// apertado pra ela).
+const MAX_BYTES = 768 * 1024;
 
 let store = new Map(); // userId -> save object (opaco)
 
@@ -44,13 +61,18 @@ function load() {
   }
 }
 
+// Performance (pedido do usuário: "o jogo está lento") — este é o
+// arquivo de save mais quente do backend inteiro (50+ pontos no
+// cliente chamam persistCareer() a cada ação de verdade — comprar,
+// treinar, simular rodada...) e também o maior (uma conta "multi" já
+// nasce acima de 500KB). Escrita síncrona do arquivo INTEIRO a cada
+// PUT media ~100-125ms de verdade (medido: curl direto, sem overhead
+// de browser, comparado a ~0.5ms de um GET que não escreve nada) e
+// BLOQUEIA o event loop, travando qualquer outra requisição em
+// andamento nesse meio-tempo — não escala com a base de contas. Ver
+// debouncedPersist.js pro raciocínio completo do trade-off aceito.
 function persist() {
-  try {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-    fs.writeFileSync(FILE, JSON.stringify(Object.fromEntries(store), null, 2));
-  } catch (err) {
-    console.error("[careerStore] falha ao salvar arquivo local:", err.message);
-  }
+  scheduleWrite(FILE, DATA_DIR, () => JSON.stringify(Object.fromEntries(store)));
 }
 
 load();

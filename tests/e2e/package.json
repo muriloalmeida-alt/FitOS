@@ -1,0 +1,12 @@
+{
+  "name": "fitos-e2e-regressao",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Suíte de regressão end-to-end (Playwright) do Modo Técnico — scripts independentes, sem test runner externo.",
+  "scripts": {
+    "test": "node run_parallel.js"
+  },
+  "devDependencies": {
+    "playwright-core": "1.48.0"
+  }
+}
