@@ -3580,6 +3580,23 @@ function pickWeightedByScore(scoredList) {
   return top[top.length - 1].item;
 }
 
+// Fase 1.2 — Transfer AI: geração de ofertas (pedido do usuário:
+// "reduzir ofertas absurdas... sem eliminar a imprevisibilidade").
+// Converte um transferScore (0-1) numa probabilidade de a oferta se
+// concretizar de verdade — nunca um corte binário (if score > X) —
+// tabela de referência dada pelo usuário. Usada por maybeGenerateOffer/
+// maybeSpawnListingOffer/maybeSpawnRivalOffer, sempre como o ÚLTIMO
+// filtro antes do RNG decidir se a oferta nasce.
+function offerProbabilityFromScore(score) {
+  if (score < 0.25) return 0.02;
+  if (score < 0.40) return 0.05;
+  if (score < 0.55) return 0.10;
+  if (score < 0.70) return 0.18;
+  if (score < 0.80) return 0.28;
+  if (score < 0.90) return 0.40;
+  return 0.55;
+}
+
 function findInterestedBuyer(excludeId, player) {
   const eligible = marketTeamsPool().filter((t) =>
     String(t.id) !== String(excludeId) && leagueSquadFor(t.id).length < maxSquadSizeFor(t.id)
@@ -3950,14 +3967,34 @@ function simulateAiTransfers(round) {
 // CPU oferece pra comprar um jogador SEU — usuário decide aceitar ou
 // recusar (ver acceptOffer/declineOffer). Nunca deixa o elenco
 // principal cair abaixo do mínimo jogável (mesma trava de "release").
+//
+// Fase 1.2 — Transfer AI: OFFER_CHANCE_PER_ROUND continua sendo a
+// mesma "janela de exposição" de sempre (decide SE algo pode acontecer
+// nesta rodada, preservando o ritmo geral já calibrado); o que mudou é
+// QUEM se interessa e COM QUE FREQUÊNCIA de verdade vira proposta —
+// reaproveita o mesmo transferScore/pickWeightedByScore da Fase 1.1
+// (o clube é ponderado pela mesma necessidade/adequação/financeiro/
+// contexto, nunca sorteado uniforme) + offerProbabilityFromScore como
+// último filtro antes do RNG. Valor da proposta (fee) NÃO muda nesta
+// fase — fica pra uma futura Fase 1.3 de valuation.
+const OFFER_CHANCE_PER_ROUND = 0.18;
 function maybeGenerateOffer(round) {
   if (CAREER.pendingOffer) return; // só 1 proposta pendente por vez
-  if (Math.random() >= 0.18) return;
+  if (Math.random() >= OFFER_CHANCE_PER_ROUND) return;
   const principal = CAREER.squad.filter((p) => p.origin === "principal");
   if (principal.length <= 14) return;
   const player = principal[Math.floor(Math.random() * principal.length)];
-  const club = pickRandomOtherClub(CAREER.clubId);
-  if (!club) return;
+  const eligible = marketTeamsPool().filter((t) =>
+    String(t.id) !== String(CAREER.clubId) && leagueSquadFor(t.id).length < maxSquadSizeFor(t.id)
+  );
+  if (!eligible.length) return;
+  const scored = eligible
+    .filter((t) => financeiroScore(player, leagueSquadFor(t.id), t.id) > 0) // elimina quem claramente não pode pagar ANTES do RNG
+    .map((t) => ({ item: t, score: transferScore(player, t.id) }));
+  if (!scored.length) return; // nenhum clube consegue bancar esse jogador agora
+  const club = pickWeightedByScore(scored);
+  const score = scored.find((s) => s.item === club).score;
+  if (Math.random() >= offerProbabilityFromScore(score)) return; // score baixo -> raríssimo; score alto -> frequente
   const fee = Math.round(player.value * (0.85 + Math.random() * 0.4) / 1000) * 1000;
   CAREER.pendingOffer = { playerId: player.id, playerName: player.name, clubId: String(club.id), clubName: club.name, fee, round };
 }
@@ -10615,12 +10652,31 @@ function finalizeIncomingPurchase(o) {
    enquanto a proposta está "countered" (o clube já está negociando
    direto com você nesse estado, sem espaço pra um 3º interessado). */
 const RIVAL_OFFER_CHANCE_PER_ROUND = 0.35;
+// Fase 1.2 — Transfer AI: RIVAL_OFFER_CHANCE_PER_ROUND continua sendo a
+// mesma "janela de exposição" de sempre (será que ALGUÉM aparece
+// disputando esta rodada); dentro dela, QUEM aparece passa a ser
+// ponderado por transferScore (do ponto de vista do clube rival, sobre
+// o jogador que o técnico está tentando comprar) em vez de sorteado
+// uniforme, e só vira concorrência de verdade com probabilidade
+// proporcional a esse score (offerProbabilityFromScore) — clube que
+// claramente não pode pagar nem entra na disputa. Valor da proposta
+// rival não muda nesta fase (fica pra uma futura Fase 1.3 de valuation).
 function maybeSpawnRivalOffer(o) {
   if (o.rivalOffer || o.status !== "pending") return;
   if (Math.random() >= RIVAL_OFFER_CHANCE_PER_ROUND) return;
-  const pool = marketTeamsPool().filter((t) => String(t.id) !== String(o.clubId) && String(t.id) !== String(CAREER.clubId));
+  const player = leagueSquadFor(o.clubId).find((x) => String(x.id) === String(o.playerId));
+  if (!player) return; // jogador já não está mais lá — nada a disputar
+  const pool = marketTeamsPool().filter((t) =>
+    String(t.id) !== String(o.clubId) && String(t.id) !== String(CAREER.clubId) && leagueSquadFor(t.id).length < maxSquadSizeFor(t.id)
+  );
   if (!pool.length) return;
-  const rivalClub = pool[Math.floor(Math.random() * pool.length)];
+  const scored = pool
+    .filter((t) => financeiroScore(player, leagueSquadFor(t.id), t.id) > 0)
+    .map((t) => ({ item: t, score: transferScore(player, t.id) }));
+  if (!scored.length) return; // nenhum clube consegue bancar esse jogador agora
+  const rivalClub = pickWeightedByScore(scored);
+  const score = scored.find((s) => s.item === rivalClub).score;
+  if (Math.random() >= offerProbabilityFromScore(score)) return;
   const factor = 0.75 + Math.random() * 0.4; // proposta rival entre 75% e 115% do valor de mercado
   const rivalValue = Math.max(1000, Math.round((o.marketValue * factor) / 1000) * 1000);
   const rivalInstallments = Math.random() < 0.7 ? 1 : 2; // clube CPU quase sempre paga à vista
@@ -10732,6 +10788,15 @@ function listingFor(playerId) {
 // concorrência do lado da compra (55%-110% do valor PEDIDO, não do de
 // mercado) — de propósito: pedir mais que o valor de mercado é
 // legítimo, mas atrai propostas relativamente mais baixas.
+//
+// Fase 1.2 — Transfer AI: LISTING_OFFER_CHANCE_PER_ROUND continua
+// sendo a mesma "janela de exposição" de sempre (será que o anúncio
+// chama atenção nesta rodada); dentro dela, QUAL clube se interessa
+// passa a ser ponderado por transferScore em vez de sorteado uniforme,
+// e só vira proposta de verdade com probabilidade proporcional ao
+// score (offerProbabilityFromScore) — jogador listado não significa
+// que qualquer clube do mercado quer comprar. Faixa de valor/parcelas
+// não muda nesta fase (fica pra uma futura Fase 1.3 de valuation).
 function maybeSpawnListingOffer(listing) {
   if (listing.offers.length >= LISTING_MAX_OFFERS) return;
   if (Math.random() >= LISTING_OFFER_CHANCE_PER_ROUND) return;
@@ -10742,7 +10807,13 @@ function maybeSpawnListingOffer(listing) {
     String(t.id) !== String(CAREER.clubId) && !alreadyOffered.has(String(t.id)) && leagueSquadFor(t.id).length < maxSquadSizeFor(t.id)
   );
   if (!eligible.length) return;
-  const club = eligible[Math.floor(Math.random() * eligible.length)];
+  const scored = eligible
+    .filter((t) => financeiroScore(p, leagueSquadFor(t.id), t.id) > 0) // elimina quem claramente não pode pagar ANTES do RNG
+    .map((t) => ({ item: t, score: transferScore(p, t.id) }));
+  if (!scored.length) return; // nenhum clube elegível consegue bancar esse jogador agora
+  const club = pickWeightedByScore(scored);
+  const score = scored.find((s) => s.item === club).score;
+  if (Math.random() >= offerProbabilityFromScore(score)) return; // score baixo -> raríssimo; score alto -> frequente
   const factor = 0.55 + Math.random() * 0.55; // entre 55% e 110% do valor PEDIDO
   const value = Math.max(1000, Math.round((listing.askingValue * factor) / 1000) * 1000);
   const installments = Math.random() < 0.6 ? 1 : Math.random() < 0.7 ? 2 : 3; // clube CPU às vezes parcela também
