@@ -3475,10 +3475,70 @@ const SQUAD_GROUP_PROPORTION = { G: 0.12, D: 0.32, M: 0.32, F: 0.24 };
 function idealCountForGroup(squad, grp) {
   return Math.max(1, Math.round(squad.length * SQUAD_GROUP_PROPORTION[grp]));
 }
-function necessidadeScore(candidate, squad) {
+// Déficit de GRUPO (comportamento original desta função, preservado
+// tal e qual — Fase 1.3.2 mantém a ideia de grupos/posições, só some
+// como componente dentro do novo necessidadeScore em vez de ser o
+// score inteiro).
+function groupDeficitScore(candidate, squad) {
   const ideal = idealCountForGroup(squad, candidate.group);
   const atual = squad.filter((p) => p.group === candidate.group).length;
   return clamp((ideal - atual) / ideal, 0, 1);
+}
+// Déficit QUALITATIVO (Fase 1.3.2, item 4C do pedido do usuário) — o
+// Balance Check 1.3.1 mostrou que elencos reais quase nunca têm déficit
+// de QUANTIDADE (69% dos casos com groupDeficitScore=0, já que os
+// elencos nascem próximos de SQUAD_GROUP_PROPORTION), então o
+// componente de 35% do transferScore ficava praticamente inerte.
+// Mesmo com o grupo "numericamente cheio", pode existir necessidade
+// REAL se todos os jogadores daquele grupo forem bem mais fracos que o
+// candidato (comprar um upgrade claro, não só preencher vaga). Sem
+// segunda fonte de dado: só overall, já existente em todo jogador.
+// Moderado por construção (contribui uma fração pequena do total, ver
+// necessidadeScore) — nunca "necessidade = overall alto" direto, é
+// necessidade = overall do candidato MENOS a média do que o clube já
+// tem naquele grupo (0 quando o candidato não é melhor que a média;
+// só cresce se ele realmente resolveria um gap de nível).
+function qualityDeficitScore(candidate, squad) {
+  if (candidate.overall == null) return 0; // sem overall (ex.: candidato sintético de teste) — sem sinal, não inventa
+  const peers = squad.filter((p) => p.group === candidate.group && p.overall != null);
+  if (!peers.length) return 1; // grupo vazio — já capturado por groupDeficitScore, reforça igual
+  const avgOverall = peers.reduce((s, p) => s + p.overall, 0) / peers.length;
+  return clamp((candidate.overall - avgOverall) / 20, 0, 1); // 0 até não superar a média; 1 a partir de +20
+}
+// Fator de TAMANHO DE ELENCO (Fase 1.3.2, item 4D) — clube perto do
+// teto da própria divisão (ver maxSquadSizeFor/minSquadSizeFor, já
+// existentes, nenhuma regra nova de limite) tem necessidade reduzida;
+// clube perto do piso tem necessidade ampliada. buyingClubId é
+// OPCIONAL (3º parâmetro novo de necessidadeScore) — chamada antiga de
+// teste/2 argumentos continua funcionando idêntica (retorna neutro 1,
+// sem alterar o comportamento anterior quando o clube não é informado).
+function squadSizeNeedFactor(squad, buyingClubId) {
+  if (buyingClubId == null) return 1;
+  const min = minSquadSizeFor(buyingClubId), max = maxSquadSizeFor(buyingClubId);
+  if (max <= min) return 1;
+  const frac = clamp((squad.length - min) / (max - min), 0, 1); // 0 = no piso, 1 = no teto
+  return 1.25 - frac * 0.55; // no piso -> 1.25x (amplia); no teto -> 0.70x (reduz)
+}
+// necessidadeScore final — déficit de grupo (peso principal, 75%) +
+// déficit qualitativo (item 4C, 25% — "um jogador que resolve um
+// déficit real deve gerar necessidade maior do que um que não
+// resolve", sem reutilizar adequacaoScore diretamente pra não
+// duplicar o peso de 30% que ela já tem no transferScore, ver aviso
+// do usuário contra dupla contagem) modulado pelo tamanho do elenco
+// (item 4D). NÃO implementado nesta fase: déficit por POSIÇÃO
+// ESPECÍFICA dentro do grupo (item 4B do pedido — ex.: lateral vs.
+// zagueiro) — ver nota de bloqueio no relatório da Fase 1.3.2:
+// subPositionOf() é hoje só um alias 1:1 de group->label (GOL/DEF/
+// MEI/ATA), sem nenhum dado real de sub-posição — foi removido de
+// propósito numa fase anterior desta sessão ("as posições não
+// refletem a posição real que o jogador joga"), então dar
+// necessidade diferente pra lateral vs. zagueiro exigiria inventar de
+// novo exatamente o dado que já foi removido por não ser real.
+function necessidadeScore(candidate, squad, buyingClubId) {
+  const groupDeficit = groupDeficitScore(candidate, squad);
+  const qualDeficit = qualityDeficitScore(candidate, squad);
+  const combined = clamp(groupDeficit * 0.75 + qualDeficit * 0.25, 0, 1);
+  return clamp(combined * squadSizeNeedFactor(squad, buyingClubId), 0, 1);
 }
 
 // 2) ADEQUAÇÃO (30%) — nível do candidato vs. nível do elenco
@@ -3514,11 +3574,37 @@ function clubBudgetProxy(clubId) {
   const cash = Math.round(wageCap * 6 / 1000) * 1000;
   return { cash, wageCap };
 }
+// Fase 1.3.2 (item 8/9/10 do pedido do usuário) — o Balance Check 1.3.1
+// mostrou 68,8% dos pares eliminados por financeiroScore=0 e ZERO
+// oportunidades pro tercil financeiro mais pobre dos 60 clubes: a
+// checagem original era um corte binário (cabe/não cabe no
+// salário/valor), então qualquer clube um pouco abaixo da linha virava
+// automaticamente inelegível, mesmo pra jogadores só um pouco acima da
+// sua capacidade. affordabilityRatio() troca o corte por uma RAMPA:
+// dentro da capacidade (ratio<=1) continua exatamente 1 (nenhuma
+// mudança pra quem já cabia — ver Test 7/"forte" preservados);
+// além da capacidade decai LINEARMENTE até 0 só quando fica
+// "claramente inacessível" (2,5x a capacidade, ratio>=2.5) — nunca
+// remove o filtro por completo (item 8: "não simplesmente remova
+// financeiroScore<=0"), só deixa de ser um degrau único. Continua
+// decidido ANTES do RNG de oferta nos 3 chamadores (maybeGenerateOffer/
+// maybeSpawnListingOffer/maybeSpawnRivalOffer, todos já filtram por
+// financeiroScore>0 antes de pontuar/sortear) — nenhuma mudança de
+// ORDEM na pipeline, só o valor que ela produz.
+function affordabilityRatio(ratio) {
+  if (ratio <= 1) return 1;
+  if (ratio >= 2.5) return 0; // claramente fora de alcance — continua bloqueado
+  return clamp(1 - (ratio - 1) / 1.5, 0, 1);
+}
 function financeiroScore(candidate, squad, buyingClubId) {
   const budget = clubBudgetProxy(buyingClubId);
-  const cabeNoSalario = wageBillOf(squad) + candidate.wage <= budget.wageCap;
-  const cabeNoValor = candidate.value <= budget.cash;
-  return cabeNoSalario && cabeNoValor ? 1 : (cabeNoSalario || cabeNoValor ? 0.4 : 0);
+  const wageRatio = (wageBillOf(squad) + candidate.wage) / Math.max(1, budget.wageCap);
+  const valueRatio = candidate.value / Math.max(1, budget.cash);
+  // o mais restritivo dos dois decide (mesmo espírito do "&&" original:
+  // precisa caber nos dois pra valer o score cheio) — nunca inflaciona
+  // ao invés de restringir; transferValuation continua responsável
+  // pelo preço (ver finFactor, sem nenhuma mudança nesta fase).
+  return Math.min(affordabilityRatio(wageRatio), affordabilityRatio(valueRatio));
 }
 
 // 4) CONTEXTO (15%) — ambição do clube (posição na tabela quando
@@ -3555,7 +3641,7 @@ function contextoScore(candidate, squad, buyingClubId) {
 // 30% + financeiro 20% + contexto 15%.
 function transferScore(candidate, buyingClubId) {
   const squad = leagueSquadFor(buyingClubId);
-  const necessidade = necessidadeScore(candidate, squad);
+  const necessidade = necessidadeScore(candidate, squad, buyingClubId);
   const adequacao = adequacaoScore(candidate, squad, buyingClubId);
   const financeiro = financeiroScore(candidate, squad, buyingClubId);
   const contexto = contextoScore(candidate, squad, buyingClubId);
@@ -3625,8 +3711,8 @@ function transferValuation(player, buyingClubId, sellingClubId, context = {}) {
   const yearsLeft = clamp((player.contractUntil || CAREER.seasonYear) - CAREER.seasonYear, 0, 4);
   const contractFactor = 0.85 + yearsLeft * 0.05; // 0 anos restantes -> 0.85x, 4+ anos -> 1.05x
 
-  // Necessidade do comprador (reaproveita necessidadeScore, Fase 1.1).
-  const necessidade = necessidadeScore(player, squad);
+  // Necessidade do comprador (reaproveita necessidadeScore, Fase 1.1/1.3.2).
+  const necessidade = necessidadeScore(player, squad, buyingClubId);
   const needFactor = 0.95 + necessidade * 0.10; // 0.95x a 1.05x
 
   // Interesse do comprador (reaproveita transferScore, Fase 1.1/1.2) —
