@@ -864,6 +864,122 @@ Perfil do jogador por último (depende de `S3-DS20-S4-PREP-002`).
 
 ⸻
 
+S4-B2-002 — Migrar tela Login/Entrada para o Design System novo
+
+Status: PRONTO PARA IMPLEMENTAÇÃO
+Sprint: S4 — Redesign Mobile
+Fase: Batch 2 (Core) — item 2 de 5
+Prioridade: P0
+
+Objetivo
+
+Migrar a tela de entrada do usuário no produto para o Design System
+novo, conforme `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela
+1): apresentar identidade BRDATA, hierarquia visual clara, entrada sem
+fricção, feedback de erro, estados de loading, e funcionar bem em
+mobile. Estados exigidos: default, loading, erro, sucesso.
+
+Contexto
+
+Segunda tela retomada do Batch 2, depois de `S4-B2-001` (Loading/
+Bootstrap). A S3.2.7 Readiness Review identificou Login como uma das 9
+telas P0 ainda fora do sistema novo.
+
+Escolhida como segunda por ser, como a de Loading, independente do
+componente PlayerCard (ainda não formalizado, ver
+`S3-DS20-S4-PREP-002`) e sem regra de negócio de jogo — é uma tela de
+autenticação, não de carreira.
+
+Atenção específica desta demanda: a tela de Login pode ser compartilhada
+com outras partes do produto além do Modo Técnico (o site principal
+também tem fluxo de entrada de usuário). Chapéu implementador deve
+confirmar, na inspeção inicial, se a tela é exclusiva do Modo Técnico
+ou compartilhada — se for compartilhada, migrar sem afetar o
+comportamento/visual de qualquer outra parte do produto que dependa
+dela é requisito obrigatório, não opcional, e deve ser tratado com o
+mesmo cuidado do princípio de preservação funcional do CLAUDE.md.
+
+Escopo
+
+Chapéu implementador deve, quando retomar esta demanda:
+
+1. Inspecionar a implementação atual da tela de Login antes de alterar
+   qualquer coisa, incluindo confirmar o escopo de compartilhamento
+   citado acima.
+2. Migrar a apresentação visual para os tokens do Design System novo.
+3. Garantir que os 4 estados (default, loading, erro, sucesso)
+   continuam todos cobertos e claramente diferenciados.
+4. Usar os componentes já disponíveis (Dialog, Bottom Sheet, Skeleton)
+   se a tela precisar de algum overlay ou carregamento — não criar
+   nada novo em paralelo.
+5. Preservar o comportamento funcional (fluxo de autenticação,
+   validações, mensagens de erro) — redesign visual, não mudança de
+   fluxo.
+6. Testar (mobile-first, mesmo padrão das demandas anteriores).
+7. Atualizar `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`
+   marcando esta tela como migrada.
+8. Retornar relatório técnico nesta mesma seção do handoff, status
+   `REVISÃO DO PM NECESSÁRIA`.
+
+Fora de escopo
+
+* qualquer outra das telas do Batch 2 (Tática, Treino, Perfil do
+  jogador);
+* qualquer mudança de fluxo de autenticação, regra de validação, ou
+  de segurança;
+* qualquer alteração em telas fora do Modo Técnico, se a tela de Login
+  for de fato compartilhada — nesse caso, se uma migração completa
+  exigir tocar nelas, a divergência deve ser registrada e devolvida ao
+  PM antes de prosseguir, não decidida unilateralmente;
+* gaps P1/P2 não relacionados a esta tela específica.
+
+Dependências
+
+* `S3-DS20-S4-PREP-001` (aprovada, concluída — fundação de tokens e
+  componentes disponíveis).
+* `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 1 — objetivo e
+  requisitos).
+* `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`.
+
+Requisitos
+
+Mesma sequência obrigatória de sempre: inspecionar → localizar →
+entender → planejar → alterar → testar → revisar. Mudança mínima
+necessária.
+
+Critérios de aceite
+
+* tela usa os tokens do Design System novo;
+* os 4 estados (default/loading/erro/sucesso) continuam claros e
+  diferenciados;
+* nenhuma mudança de fluxo de autenticação;
+* nenhuma tela fora do Modo Técnico afetada (ou, se compartilhada,
+  divergência registrada e decisão do PM obtida antes de prosseguir);
+* nenhuma outra tela do Modo Técnico tocada;
+* teste mobile-first cobrindo a tela, incluindo os 4 estados.
+
+Validações
+
+O PM deverá validar: aderência ao Design System, os 4 estados
+continuam cobertos, preservação funcional do fluxo de autenticação,
+confirmação do escopo de compartilhamento (ou tratamento correto se
+compartilhada), teste, escopo respeitado.
+
+Riscos
+
+* médio — ao contrário de Loading/Bootstrap, esta tela pode ser
+  compartilhada com outras partes do produto; risco baixo se for
+  exclusiva do Modo Técnico, mas precisa ser confirmado antes de
+  migrar, não presumido.
+
+Observações
+
+Terceira e quarta telas recomendadas do Batch 2, depois desta: Tática
+e Treino. Perfil do jogador continua por último, dependente de
+`S3-DS20-S4-PREP-002`.
+
+⸻
+
 Histórico
 
 Demanda	Data	Commit	Changelog
