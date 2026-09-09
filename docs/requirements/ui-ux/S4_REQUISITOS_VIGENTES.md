@@ -128,7 +128,8 @@ for paga agora, antes de replicar o padrão ad hoc em mais telas.
 1. **`S3-DS20-S4-PREP-001`** — Dialog/Bottom Sheet/Skeleton +
    convergência de nomenclatura. **Concluído**: aprovado pelo PM e
    mesclado em `main` (commit `8dcff10`), registrado no Histórico de
-   `docs/HANDOFF_CLAUDE.md` e em `docs/project/CHANGELOG.md`.
+   `docs/HANDOFF_CLAUDE.md` e em `docs/project/CHANGELOG.md` — fundação
+   e os 3 componentes disponíveis pras próximas telas do Batch 2.
 2. **Formalizar PlayerCard** a partir do que já existe em Elenco
    (`playerRow()`, dívida retroativa, §4 acima) — demanda própria
    (`S3-DS20-S4-PREP-002`). **Em andamento**, deliberadamente isolada
@@ -147,6 +148,25 @@ for paga agora, antes de replicar o padrão ad hoc em mais telas.
 3. **Completar Batch 2** — migrar Login, Bootstrap, Perfil do jogador,
    Tática, Treino (5 telas), reutilizando Dialog (item 1) e PlayerCard
    (item 2) onde aplicável.
+   - Item 1: **Loading/Bootstrap** (`S4-B2-001`, status `PRONTO PARA
+     IMPLEMENTAÇÃO`) — a mais simples e independente (sem PlayerCard,
+     sem formulário, sem regra de negócio própria), primeiro uso real
+     do componente Skeleton.
+   - Item 2: **Login/Entrada** (`S4-B2-002`, status `PRONTO PARA
+     IMPLEMENTAÇÃO`) — independente de PlayerCard, sem regra de
+     negócio de jogo, mas com um risco próprio: pode ser compartilhada
+     com outras partes do produto além do Modo Técnico — confirmar
+     escopo de compartilhamento antes de migrar é requisito da
+     demanda, não opcional.
+   - Item 3: **Tática/Formação** (`S4-B2-003`, status `PRONTO PARA
+     IMPLEMENTAÇÃO`) — tela interativa, mais complexa que as duas
+     anteriores; possível dependência não confirmada do PlayerCard
+     (a inspecionar, não presumida); as 3 telas P1 relacionadas (Eixos
+     táticos, Marcação individual, Meus esquemas) ficam fora, são
+     Batch 4.
+   - Restantes (Treino, Perfil do jogador) seguem sem demanda própria
+     ainda — Perfil do jogador por último, depende de
+     `S3-DS20-S4-PREP-002`.
 4. **Batch 3 (Transactional)** — antes de qualquer tela, formalizar
    TransferCard e ContractCard (não existem, sem dívida retroativa
    aqui, são novos). Depois migrar Mercado, Negociação, Contratos,

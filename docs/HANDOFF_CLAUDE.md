@@ -919,6 +919,368 @@ REVISÃO DO PM NECESSÁRIA.
 
 ⸻
 
+S4-B2-001 — Migrar tela Loading/Bootstrap para o Design System novo
+
+Status: PRONTO PARA IMPLEMENTAÇÃO
+Sprint: S4 — Redesign Mobile
+Fase: Batch 2 (Core) — item 1 de 5
+Prioridade: P0
+
+Objetivo
+
+Migrar a tela de carregamento inicial do produto (Loading/Bootstrap)
+para o sistema de Design System novo, conforme
+`docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 2): representar o
+carregamento inicial diferenciando claramente carregamento, erro e
+conclusão, usando o componente Skeleton onde apropriado.
+
+Contexto
+
+Com `S3-DS20-S4-PREP-001` aprovada e concluída, a fundação de
+tokens/nomenclatura e os 3 componentes P0 que faltavam (Dialog, Bottom
+Sheet, Skeleton) já existem. A Readiness Review (S3.2.7) tinha
+identificado Loading/Bootstrap como uma das 9 telas P0 ainda fora do
+sistema novo, e o relatório da PREP-001 registrou explicitamente que o
+Skeleton ficou pronto mas sem uso real ainda, por falta de uma tela com
+carregamento assíncrono de verdade dentro do escopo daquela demanda —
+esta é exatamente essa primeira oportunidade real.
+
+É a primeira tela do Batch 2 a ser retomada (as outras 2 do Batch 2 já
+migradas — Escolha do clube e Início/Elenco — foram feitas antes da
+S3.2.7; as 3 restantes depois desta — Perfil do jogador, Tática,
+Treino — ficam para demandas seguintes, Perfil do jogador só depois de
+`S3-DS20-S4-PREP-002`, que formaliza o componente de jogador que ela
+usa).
+
+Escolhida como primeira por ser a mais simples e independente das 5
+telas restantes do Batch 2: sem dependência do componente PlayerCard
+(ainda não formalizado, ver `S3-DS20-S4-PREP-002`), sem formulário,
+sem regra de negócio própria — só apresentação de estado.
+
+Problema
+
+A tela de carregamento hoje está fora do sistema de Design System
+novo. Sem diferenciação clara entre carregamento/erro/conclusão
+usando os padrões definidos, a primeira impressão do produto (é
+literalmente a primeira tela que o usuário vê) fica inconsistente com
+o resto do redesign mobile que já está em produção.
+
+Escopo
+
+Chapéu implementador deve, quando retomar esta demanda:
+
+1. Inspecionar a implementação atual da tela de carregamento antes de
+   alterar qualquer coisa (regra de ouro de sempre — entender o que já
+   existe, reaproveitar, só então estender).
+2. Migrar a apresentação visual para os tokens do Design System novo.
+3. Usar o componente Skeleton (entregue na `S3-DS20-S4-PREP-001`) para
+   representar o carregamento, no lugar do indicador genérico atual,
+   quando fizer sentido pro tipo de conteúdo sendo carregado.
+4. Garantir que os 3 estados (carregamento, erro, conclusão) continuam
+   todos cobertos e claramente diferenciados.
+5. Preservar o comportamento funcional (o que a tela faz, quando
+   aparece, pra onde leva) — este é um redesign visual/de apresentação,
+   não uma mudança de fluxo.
+6. Testar (mobile-first, mesmo padrão das demandas anteriores).
+7. Atualizar `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`
+   marcando esta tela como migrada.
+8. Retornar relatório técnico nesta mesma seção do handoff, status
+   `REVISÃO DO PM NECESSÁRIA`.
+
+Fora de escopo
+
+* qualquer outra das 5 telas do Batch 2 (Perfil do jogador, Tática,
+  Treino, Login) — demandas próprias;
+* qualquer mudança de fluxo, regra de negócio, ou de quando/por que a
+  tela de carregamento aparece;
+* os componentes Dialog/Bottom Sheet — não são relevantes pra esta
+  tela;
+* qualquer gap P1/P2 não relacionado a esta tela específica.
+
+Dependências
+
+* `S3-DS20-S4-PREP-001` (aprovada, concluída — fundação de tokens e
+  componente Skeleton disponíveis).
+* `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 2 — objetivo e
+  requisitos).
+* `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`.
+
+Requisitos
+
+Mesma sequência obrigatória de sempre: inspecionar → localizar →
+entender → planejar → alterar → testar → revisar. Mudança mínima
+necessária — não reconstruir a tela do zero.
+
+Critérios de aceite
+
+* tela usa os tokens do Design System novo;
+* Skeleton usado onde apropriado pro carregamento;
+* os 3 estados (carregamento/erro/conclusão) continuam claros e
+  diferenciados;
+* nenhuma mudança de comportamento/fluxo;
+* nenhuma outra tela tocada;
+* teste mobile-first cobrindo a tela.
+
+Validações
+
+O PM deverá validar: aderência ao Design System, os 3 estados
+continuam cobertos, uso apropriado do Skeleton, preservação funcional,
+teste, escopo respeitado.
+
+Riscos
+
+* baixo — tela pequena, sem regra de negócio própria, sem dependência
+  de componentes ainda não entregues.
+
+Observações
+
+Continuação natural do Batch 2 depois da fundação entregue em
+`S3-DS20-S4-PREP-001`. Ordem recomendada das próximas telas do Batch 2
+(fora desta demanda): Login (independente), depois Tática/Treino, com
+Perfil do jogador por último (depende de `S3-DS20-S4-PREP-002`).
+
+⸻
+
+S4-B2-002 — Migrar tela Login/Entrada para o Design System novo
+
+Status: PRONTO PARA IMPLEMENTAÇÃO
+Sprint: S4 — Redesign Mobile
+Fase: Batch 2 (Core) — item 2 de 5
+Prioridade: P0
+
+Objetivo
+
+Migrar a tela de entrada do usuário no produto para o Design System
+novo, conforme `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela
+1): apresentar identidade BRDATA, hierarquia visual clara, entrada sem
+fricção, feedback de erro, estados de loading, e funcionar bem em
+mobile. Estados exigidos: default, loading, erro, sucesso.
+
+Contexto
+
+Segunda tela retomada do Batch 2, depois de `S4-B2-001` (Loading/
+Bootstrap). A S3.2.7 Readiness Review identificou Login como uma das 9
+telas P0 ainda fora do sistema novo.
+
+Escolhida como segunda por ser, como a de Loading, independente do
+componente PlayerCard (ainda não formalizado, ver
+`S3-DS20-S4-PREP-002`) e sem regra de negócio de jogo — é uma tela de
+autenticação, não de carreira.
+
+Atenção específica desta demanda: a tela de Login pode ser compartilhada
+com outras partes do produto além do Modo Técnico (o site principal
+também tem fluxo de entrada de usuário). Chapéu implementador deve
+confirmar, na inspeção inicial, se a tela é exclusiva do Modo Técnico
+ou compartilhada — se for compartilhada, migrar sem afetar o
+comportamento/visual de qualquer outra parte do produto que dependa
+dela é requisito obrigatório, não opcional, e deve ser tratado com o
+mesmo cuidado do princípio de preservação funcional do CLAUDE.md.
+
+Escopo
+
+Chapéu implementador deve, quando retomar esta demanda:
+
+1. Inspecionar a implementação atual da tela de Login antes de alterar
+   qualquer coisa, incluindo confirmar o escopo de compartilhamento
+   citado acima.
+2. Migrar a apresentação visual para os tokens do Design System novo.
+3. Garantir que os 4 estados (default, loading, erro, sucesso)
+   continuam todos cobertos e claramente diferenciados.
+4. Usar os componentes já disponíveis (Dialog, Bottom Sheet, Skeleton)
+   se a tela precisar de algum overlay ou carregamento — não criar
+   nada novo em paralelo.
+5. Preservar o comportamento funcional (fluxo de autenticação,
+   validações, mensagens de erro) — redesign visual, não mudança de
+   fluxo.
+6. Testar (mobile-first, mesmo padrão das demandas anteriores).
+7. Atualizar `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`
+   marcando esta tela como migrada.
+8. Retornar relatório técnico nesta mesma seção do handoff, status
+   `REVISÃO DO PM NECESSÁRIA`.
+
+Fora de escopo
+
+* qualquer outra das telas do Batch 2 (Tática, Treino, Perfil do
+  jogador);
+* qualquer mudança de fluxo de autenticação, regra de validação, ou
+  de segurança;
+* qualquer alteração em telas fora do Modo Técnico, se a tela de Login
+  for de fato compartilhada — nesse caso, se uma migração completa
+  exigir tocar nelas, a divergência deve ser registrada e devolvida ao
+  PM antes de prosseguir, não decidida unilateralmente;
+* gaps P1/P2 não relacionados a esta tela específica.
+
+Dependências
+
+* `S3-DS20-S4-PREP-001` (aprovada, concluída — fundação de tokens e
+  componentes disponíveis).
+* `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 1 — objetivo e
+  requisitos).
+* `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`.
+
+Requisitos
+
+Mesma sequência obrigatória de sempre: inspecionar → localizar →
+entender → planejar → alterar → testar → revisar. Mudança mínima
+necessária.
+
+Critérios de aceite
+
+* tela usa os tokens do Design System novo;
+* os 4 estados (default/loading/erro/sucesso) continuam claros e
+  diferenciados;
+* nenhuma mudança de fluxo de autenticação;
+* nenhuma tela fora do Modo Técnico afetada (ou, se compartilhada,
+  divergência registrada e decisão do PM obtida antes de prosseguir);
+* nenhuma outra tela do Modo Técnico tocada;
+* teste mobile-first cobrindo a tela, incluindo os 4 estados.
+
+Validações
+
+O PM deverá validar: aderência ao Design System, os 4 estados
+continuam cobertos, preservação funcional do fluxo de autenticação,
+confirmação do escopo de compartilhamento (ou tratamento correto se
+compartilhada), teste, escopo respeitado.
+
+Riscos
+
+* médio — ao contrário de Loading/Bootstrap, esta tela pode ser
+  compartilhada com outras partes do produto; risco baixo se for
+  exclusiva do Modo Técnico, mas precisa ser confirmado antes de
+  migrar, não presumido.
+
+Observações
+
+Terceira e quarta telas recomendadas do Batch 2, depois desta: Tática
+e Treino. Perfil do jogador continua por último, dependente de
+`S3-DS20-S4-PREP-002`.
+
+⸻
+
+S4-B2-003 — Migrar tela Tática/Formação para o Design System novo
+
+Status: PRONTO PARA IMPLEMENTAÇÃO
+Sprint: S4 — Redesign Mobile
+Fase: Batch 2 (Core) — item 3 de 5
+Prioridade: P0
+
+Objetivo
+
+Migrar a tela de configuração de formação e escalação para o Design
+System novo, conforme `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md`
+(Tela 9): contemplar formação, titulares, reservas, posições,
+alterações e confirmação, com a representação do campo adaptada ao
+mobile.
+
+Contexto
+
+Terceira tela retomada do Batch 2, depois de `S4-B2-001` (Loading/
+Bootstrap) e `S4-B2-002` (Login/Entrada). A S3.2.7 Readiness Review
+identificou Tática/Formação como uma das 9 telas P0 ainda fora do
+sistema novo.
+
+Diferente das duas anteriores, esta tela é interativa e mais complexa
+(escolha de formação, posicionamento de jogadores em campo,
+titulares/reservas) — não presumo aqui o nível de dependência dela em
+relação ao componente PlayerCard (`S3-DS20-S4-PREP-002`, ainda não
+implementado): a matriz cita "titulares; reservas; posições", o que
+sugere alguma forma de lista/seleção de jogador dentro da tela, mas
+isso precisa ser confirmado na inspeção, não presumido aqui — chapéu
+PM não inspeciona código. Se a inspeção confirmar dependência real do
+componente de jogador, isso é uma divergência a registrar e devolver
+ao PM antes de prosseguir (mesma regra da tela de Login em relação a
+telas compartilhadas), não uma decisão unilateral do implementador.
+
+Escopo
+
+Chapéu implementador deve, quando retomar esta demanda:
+
+1. Inspecionar a implementação atual da tela de Tática/Formação antes
+   de alterar qualquer coisa, incluindo avaliar e reportar a
+   dependência real (ou não) do componente PlayerCard.
+2. Migrar a apresentação visual para os tokens do Design System novo,
+   incluindo a representação do campo adaptada ao mobile.
+3. Garantir que formação, titulares, reservas, posições, alterações e
+   confirmação continuam todos funcionando.
+4. Usar os componentes já disponíveis (Dialog, Bottom Sheet, Skeleton)
+   onde a tela precisar de overlay/carregamento — não criar nada novo
+   em paralelo.
+5. Preservar o comportamento funcional (regras de escalação, validação
+   de posições, etc.) — redesign visual, não mudança de regra de jogo.
+6. Testar (mobile-first, mesmo padrão das demandas anteriores),
+   cobrindo interação com a representação do campo.
+7. Atualizar `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`
+   marcando esta tela como migrada.
+8. Retornar relatório técnico nesta mesma seção do handoff, status
+   `REVISÃO DO PM NECESSÁRIA`.
+
+Fora de escopo
+
+* qualquer outra das telas do Batch 2 (Treino, Perfil do jogador);
+* as 3 telas P1 relacionadas — Eixos táticos, Marcação individual,
+  Meus esquemas (`S3_S4_MATRIZ_TELAS_MOBILE.md` Telas 10-12) — são
+  Batch 4 (Complementary), não fazem parte desta demanda mesmo sendo
+  conceitualmente próximas;
+* qualquer mudança de regra de jogo (força por formação, cálculo
+  tático, validação de escalação);
+* se a inspeção confirmar dependência real do PlayerCard: implementar
+  a migração completa dessa dependência não é desta demanda — registrar
+  e devolver ao PM (pode virar ordem de execução revisada: esta tela
+  esperar `S3-DS20-S4-PREP-002`, como já vale para Perfil do jogador);
+* gaps P1/P2 não relacionados a esta tela específica.
+
+Dependências
+
+* `S3-DS20-S4-PREP-001` (aprovada, concluída — fundação de tokens e
+  componentes disponíveis).
+* `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 9 — objetivo e
+  requisitos).
+* `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`.
+* Possível dependência de `S3-DS20-S4-PREP-002` — a confirmar na
+  inspeção (ver Contexto acima), não presumida.
+
+Requisitos
+
+Mesma sequência obrigatória de sempre: inspecionar → localizar →
+entender → planejar → alterar → testar → revisar. Mudança mínima
+necessária. Dado o risco de escopo maior que as duas telas anteriores,
+se a inspeção revelar que o trabalho é significativamente maior que o
+esperado (ex.: reconstrução da representação de campo, não só
+retoken), isso também é uma divergência a reportar, não a absorver
+silenciosamente.
+
+Critérios de aceite
+
+* tela usa os tokens do Design System novo, incluindo a representação
+  do campo;
+* formação, titulares, reservas, posições, alterações e confirmação
+  continuam todos funcionando;
+* nenhuma mudança de regra de jogo;
+* dependência (ou não) do PlayerCard confirmada e reportada;
+* nenhuma outra tela tocada;
+* teste mobile-first cobrindo a tela e a interação com o campo.
+
+Validações
+
+O PM deverá validar: aderência ao Design System, preservação de todas
+as funcionalidades de escalação, confirmação da dependência (ou não)
+do PlayerCard, teste, escopo respeitado.
+
+Riscos
+
+* médio-alto — tela interativa e mais complexa que as duas anteriores
+  do Batch 2; possível dependência não confirmada do componente
+  PlayerCard; representação do campo pode exigir mais esforço de
+  adaptação mobile do que uma migração de tokens simples.
+
+Observações
+
+Última tela recomendada do Batch 2 antes de Perfil do jogador: Treino
+(mesma cautela sobre dependências deve ser aplicada, a confirmar
+quando essa demanda for especificada).
+
+⸻
+
 Histórico
 
 Demanda	Data	Commit	Changelog
