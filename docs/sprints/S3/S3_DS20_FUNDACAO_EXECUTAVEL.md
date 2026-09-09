@@ -1199,3 +1199,57 @@ REVISÃO DO PM NECESSÁRIA
 acompanhado do relatório técnico da implementação, testes, divergências, riscos e arquivos alterados.
 
 A conclusão formal da demanda depende da validação do PM.
+
+⸻
+
+## Adendo (09/09/2026) — decisão de nomenclatura de tokens
+
+Este documento original (acima) é preservado sem alteração — registro
+histórico da especificação da S3.1. Este adendo documenta uma decisão
+de convergência tomada posteriormente, na demanda
+`S3-DS20-S4-PREP-001` (`docs/HANDOFF_CLAUDE.md`), motivada pelo achado
+da S3.2.7 Readiness Review: nenhum dos 15 nomes de token definidos nas
+seções 6-10 acima (`bg.canvas`, `text.primary`, `state.success` etc.)
+foi implementado literalmente no código — o que existe é um sistema
+`--m3-*` com nomenclatura própria do Material Design 3 (`--m3-primary`,
+`--m3-surface-container-*`, `--m3-on-surface` etc.).
+
+**Decisão:** `--m3-*` é o sistema-alvo único de tokens do BRDATA DS 2.0
+daqui pra frente. O vocabulário `bg.canvas`/`text.primary`/`state.*`
+definido acima passa a ser tratado como **vocabulário conceitual/de
+documentação** — útil pra descrever a INTENÇÃO de um token em prosa —
+mapeado para os tokens `--m3-*` reais quando a intenção for
+implementada em código:
+
+| Vocabulário conceitual (§6-10) | Token real (`--m3-*`) |
+|---|---|
+| `bg.canvas` | `--m3-surface-dim` |
+| `bg.surface` | `--m3-surface` |
+| `bg.surfaceElevated` | `--m3-surface-container-high` |
+| `border.default` | `--m3-outline-variant` |
+| `border.strong` | `--m3-outline` |
+| `text.primary` | `--m3-on-surface` |
+| `text.secondary` | `--m3-on-surface-variant` |
+| `text.muted` | `--m3-on-surface-variant` (mesmo token — o M3 não separa "muted" de "secondary"; diferenciar exigiria um token novo, não criado nesta demanda por falta de caso de uso real ainda) |
+| `brand.primary` | `--m3-primary` |
+| `brand.strong` | `--m3-primary-container` |
+| `accent.football` | `--m3-secondary` (dourado, ver paleta em §5) |
+| `state.success` | sem token direto ainda — ver nota abaixo |
+| `state.warning` | sem token direto ainda — ver nota abaixo |
+| `state.danger` | `--m3-error`/`--m3-on-error` |
+| `state.info` | `--m3-tertiary`/`--m3-on-tertiary` |
+
+**Nota sobre `state.success`/`state.warning`:** o M3 padrão não define
+"success"/"warning" nativamente (só `error`/`tertiary`). Hoje o app usa
+`--brd-green`/`--brd-red` (site principal) e `--m3-inverse-success`/
+`--m3-inverse-warning` (só calibrados para o inverse-surface do Toast,
+ver `carreira.html` linhas ~168-170) para esse propósito — não existe
+ainda um par success/warning calibrado para a superfície PADRÃO
+(escura) do sistema `--m3-*`. Criar esse par fica para quando houver um
+caso de uso real fora do Toast (nenhum encontrado nesta demanda) — não
+criado especulativamente aqui.
+
+`--brd-*` (site principal) e `--mt-*` (Modo Técnico, legado) continuam
+existindo e funcionando sem nenhuma alteração — nenhum prazo de remoção
+definido nesta demanda. Descontinuação é trabalho da própria S4
+(migração tela a tela), não desta demanda de preparação.

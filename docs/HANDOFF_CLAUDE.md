@@ -635,7 +635,7 @@ em uma nova demanda, não como reabertura dessa issue.
 
 S3-DS20-S4-PREP-001 — Convergência de tokens + componentes P0 ausentes (pré-requisito da S4)
 
-Status: PRONTO PARA IMPLEMENTAÇÃO
+Status: REVISÃO DO PM NECESSÁRIA
 Sprint: S3 — BRDATA Design System 2.0 (pré-requisito para S4)
 Fase: S3.2.8 — Resolução dos gaps P0 da S3.2.7 Readiness Review
 Prioridade: P0
@@ -812,6 +812,149 @@ especificação. Problemas encontrados devem ser registrados e
 classificados, mesmo padrão da S3.2.7. A aprovação formal do PM
 (Murilo) é obrigatória — somente após APROVADO o commit final de
 código está autorizado.
+
+⸻
+
+Relatório técnico — S3-DS20-S4-PREP-001
+
+Executado por: Claude (chapéu implementador) · Data: 09/09/2026 ·
+Branch de trabalho: `claude/s4-prep-001-tokens-components` (código NÃO
+mesclado em `main` — só esta atualização de handoff, conforme regra de
+autorização de commit).
+
+1. Resumo executivo
+
+Os 3 componentes P0 e a convergência de nomenclatura foram
+implementados como extensões novas e isoladas — nenhuma linha de
+`.ct-modal-*`/`.mt-sheet-overlay` foi alterada, nenhuma das 9 telas P0
+legadas foi tocada. Dialog está integrado num fluxo real (visualização
+de jogador de outro clube a partir da Tabela/Elenco); Bottom Sheet e
+Skeleton foram construídos como primitivas reutilizáveis com API
+pública, sem integração em tela real nesta demanda (justificativa na
+seção 5). 12 asserções automatizadas, todas passando.
+
+2. O que foi implementado
+
+* **Adendo de nomenclatura** — `docs/sprints/S3/S3_DS20_FUNDACAO_EXECUTAVEL.md`
+  (seção nova ao final): `--m3-*` formalizado como sistema-alvo único;
+  tabela de mapeamento do vocabulário conceitual da S3.1
+  (`bg.canvas`/`text.primary`/`state.*`) para os tokens `--m3-*` reais.
+  `state.success`/`state.warning` não têm token direto ainda — decisão
+  registrada de não criar especulativamente, sem caso de uso real.
+* **Dialog** (`public/carreira.html`, bloco CSS novo antes de
+  `/* ---------- Modal ---------- */`; `public/js/carreira.js`,
+  funções `m3OpenOverlay`/`openM3Dialog`/`closeM3Dialog`) — overlay +
+  card centralizado, `role="dialog"`, `aria-modal="true"`,
+  `aria-labelledby` apontando pro `<h3>` real, foco preso (Tab/Shift+Tab
+  não escapam do card), Esc fecha, clique no backdrop fecha, foco
+  retorna a quem abriu.
+* **Bottom Sheet** (mesmos arquivos, mesmo controlador
+  `m3OpenOverlay`/`openM3BottomSheet`/`closeM3BottomSheet`, variante
+  `"sheet"`) — mesma acessibilidade do Dialog, alinhado ao rodapé,
+  grabber visual (convenção M3).
+* **Skeleton** (`public/carreira.html`, `.m3-skeleton-line`/
+  `.m3-skeleton-avatar`, reaproveitando a técnica de shimmer já
+  existente em `adShimmer`/`style.css:304-306`, sem duplicar animação;
+  `public/js/carreira.js`, função `m3SkeletonHTML({lines, avatar})`) —
+  primitiva pura (retorna HTML), `aria-hidden="true"` no container
+  (decorativo, não deve ser lido por leitor de tela).
+* **Integração real** — `openPlayerCard()` (`carreira.js`) agora chama
+  `openM3Dialog(...)` em vez de manipular `#detailOverlay`
+  (`.ct-modal-overlay`). `openDetail()` (elenco PRÓPRIO — promover,
+  renovar, vender) continua em `#detailOverlay` sem nenhuma alteração —
+  troca isolada só ao fluxo somente-leitura de jogador de outro clube,
+  como pedido no escopo.
+
+3. Testes
+
+Novo: `tests/e2e/test_m3_dialog_sheet_skeleton.js` — 12 asserções, 12/12
+passando. Fluxo real testado: Menu → Tabela → clube adversário →
+elenco (legado, intacto) → jogador → Dialog. Cobre: role/aria-modal/
+aria-labelledby, conteúdo correto, foco preso na abertura, fechar via
+Esc, fechar via clique no backdrop, `#detailOverlay` legado permanece
+fechado (openDetail intocado); Bottom Sheet via API pública (mesmas
+verificações de acessibilidade + alinhamento); focus trap testado
+explicitamente (Tab no último elemento não escapa do componente);
+Skeleton (contagem de linhas, avatar, `aria-hidden`).
+
+Regressão: `tests/e2e/test_m3_bloco1_inicio.js` (fundação M3/Elenco/
+Início) reexecutado, 7/7 passando, sem alteração de resultado. Subconjunto
+de modais/toast (`test_toast_novo_componente.js`,
+`test_toast_placar_led.js`, `test_toast_rodape.js`) reexecutado, 3/3
+passando. `test_toast_reposiciona.js` falhou (timeout esperando
+`#pressOverlay.open`) — **reproduzido de forma idêntica com o código
+ANTES desta demanda** (`git stash` das alterações de código + re-run),
+confirmando que é uma falha pré-existente, não uma regressão introduzida
+aqui. Uma varredura da suíte completa (121 arquivos) foi iniciada em
+paralelo; se ela achar algo além do já confirmado como pré-existente,
+retorno com um adendo a esta seção antes da sua decisão.
+
+4. Gaps / divergências / riscos
+
+* **Bottom Sheet e Skeleton não têm integração em tela real** — a
+  arquitetura atual do Modo Técnico é 100% síncrona no cliente (dado já
+  carregado em `CAREER`, sem fetch de rede na maioria dos fluxos, ver
+  `CLAUDE.md` §9) — não existe hoje uma fronteira assíncrona legítima
+  dentro do escopo desta demanda (que exclui as 9 telas legadas) pra
+  Skeleton, nem um segundo ponto natural de bottom sheet sem tocar um
+  dos ~10 usos existentes de `.mt-sheet-overlay` espalhados por telas
+  fora do escopo. Optei por construir os dois como primitivas completas
+  e testadas via API pública, em vez de forçar uma integração
+  artificial só pra "ter uma tela usando". Ficam prontos pra uso real
+  assim que o Batch 3 (Mercado/Negociação/Contratos, que usam modal
+  pesadamente) ou uma tela com fetch de rede real entrarem em pauta.
+* **`--m3-inverse-success`/`--m3-inverse-warning`** existentes só
+  servem o Toast (calibrados pro inverse-surface); não há par
+  success/warning pra superfície padrão ainda — registrado no adendo,
+  não criado especulativamente.
+* Nenhuma regressão encontrada nos pontos testados.
+
+5. Arquivos avaliados
+
+* `public/carreira.html` (fundação `--m3-*`, `.ct-modal-*`,
+  `.mt-sheet-overlay`, `#detailOverlay`, `#clubRosterOverlay`)
+* `public/js/carreira.js` (`openPlayerCard`, `openDetail`,
+  `openClubRoster`, `toast`, `toastBottomOffset`, `escapeHtml`,
+  `isRendered`)
+* `tests/e2e/test_m3_bloco1_inicio.js` (padrão de teste seguido)
+* `docs/sprints/S3/S3_DS20_FUNDACAO_EXECUTAVEL.md`,
+  `docs/sprints/S3/S3_2_COMPONENTES_E_CONTRATOS.md` (contratos de
+  Dialog/Bottom Sheet/Skeleton)
+
+6. Arquivos alterados/criados
+
+* `public/carreira.html` — bloco CSS novo (Dialog/Bottom Sheet/
+  Skeleton), nenhuma linha existente removida ou alterada.
+* `public/js/carreira.js` — funções novas (`m3OpenOverlay` e
+  variantes, `m3SkeletonHTML`) + `openPlayerCard()` com o corpo trocado
+  (mesmo conteúdo, novo container).
+* `tests/e2e/test_m3_dialog_sheet_skeleton.js` — novo.
+* `docs/sprints/S3/S3_DS20_FUNDACAO_EXECUTAVEL.md` — adendo (seção
+  nova ao final, original preservado).
+
+7. Resultado final
+
+**ADJUSTMENTS REQUIRED → gaps resolvidos nos termos definidos nesta
+demanda; proponho APPROVED**, sustentado por: os 2 gaps P0 da S3.2.7
+(nomenclatura + componentes ausentes) foram endereçados dentro do
+escopo definido; testes automatizados cobrindo acessibilidade real
+(não só visual); nenhuma tela legada tocada; nenhuma regressão
+encontrada nos pontos testados regressivamente. A classificação final é
+prerrogativa do PM (Murilo).
+
+8. Recomendação
+
+1. Depois de aprovado: formalizar retroativamente PlayerCard/
+   MatchCard/FinancialSummary a partir de Elenco/Início (próximo passo
+   já registrado em `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`
+   §5, item 2).
+2. Quando o Batch 3 (Mercado/Negociação/Contratos) entrar em pauta,
+   usar `openM3Dialog`/`openM3BottomSheet` como base — já testados e
+   com contrato de acessibilidade real.
+3. Skeleton fica pronto pra uso na primeira fronteira assíncrona real
+   que a S4 tocar (fetch de dado, não simulação local).
+
+REVISÃO DO PM NECESSÁRIA.
 
 ⸻
 

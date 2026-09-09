@@ -565,6 +565,104 @@ function toast(input, opts = {}) {
   toastRepositionTimer = setInterval(() => { el.style.bottom = toastBottomOffset() + "px"; }, 150);
   toastTimer = setTimeout(hideToast, durationMs);
 }
+
+// ---------- M3 Dialog / Bottom Sheet / Skeleton (S3-DS20-S4-PREP-001) ----------
+// Componentes P0 que a S3.2.7 Readiness Review achou ausentes no
+// sistema --m3-* (docs/HANDOFF_CLAUDE.md). Montados dinamicamente
+// (createElement/innerHTML, não um elemento fixo no HTML) — qualquer
+// tela pode abrir um sem precisar de markup próprio, diferente do
+// padrão .ct-modal-overlay (que reaproveita elementos fixos como
+// #detailOverlay). NÃO tocam em .ct-modal-*/.mt-sheet-overlay — essas
+// continuam servindo todas as telas legadas sem alteração (regra de
+// escopo da demanda). Dialog e Bottom Sheet compartilham o mesmo
+// controlador (m3OpenOverlay); a variante só muda a classe/CSS.
+let m3OverlaySeq = 0;
+const m3OpenOverlays = []; // pilha — suporta um diálogo aberto por cima de outro, mesmo padrão de empilhamento do .ct-modal-overlay
+function m3EscapeCloseHandler(e) {
+  if (e.key !== "Escape") return;
+  const top = m3OpenOverlays[m3OpenOverlays.length - 1];
+  if (top) closeM3Overlay(top.id);
+}
+function m3FocusableIn(card) {
+  return [...card.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')].filter(isRendered);
+}
+function m3OpenOverlay(variant, { icon = "", title = "", subtitle = "", bodyHTML = "", ariaLabel = "" } = {}) {
+  const id = `m3Overlay${++m3OverlaySeq}`;
+  const titleId = `${id}Title`;
+  const cardTag = variant === "sheet" ? "m3-bottom-sheet" : "m3-dialog";
+  const overlay = document.createElement("div");
+  overlay.className = variant === "sheet" ? "m3-bottom-sheet-overlay" : "m3-dialog-overlay";
+  overlay.id = id;
+  const labelAttr = title ? `aria-labelledby="${titleId}"` : ariaLabel ? `aria-label="${escapeHtml(ariaLabel)}"` : "";
+  overlay.innerHTML = `
+    <div class="${cardTag}" role="dialog" aria-modal="true" ${labelAttr}>
+      <div class="${cardTag}-header">
+        ${icon ? `<span class="${cardTag}-icon">${icon}</span>` : ""}
+        <div class="${cardTag}-header-text">
+          ${title ? `<h3 id="${titleId}">${escapeHtml(title)}</h3>` : ""}
+          ${subtitle ? `<div class="${cardTag}-sub">${escapeHtml(subtitle)}</div>` : ""}
+        </div>
+        <button type="button" class="${cardTag}-close" aria-label="Fechar">✕</button>
+      </div>
+      <div class="${cardTag}-body">${bodyHTML}</div>
+    </div>`;
+  document.body.appendChild(overlay);
+  const card = overlay.firstElementChild;
+  const closeBtn = overlay.querySelector(`.${cardTag}-close`);
+  const lastFocused = document.activeElement;
+  closeBtn.addEventListener("click", () => closeM3Overlay(id));
+  overlay.addEventListener("click", (e) => { if (e.target === overlay) closeM3Overlay(id); });
+  card.addEventListener("keydown", (e) => {
+    if (e.key !== "Tab") return;
+    const items = m3FocusableIn(card);
+    if (!items.length) return;
+    const first = items[0], last = items[items.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
+  m3OpenOverlays.push({ id, overlay, lastFocused });
+  if (m3OpenOverlays.length === 1) document.addEventListener("keydown", m3EscapeCloseHandler);
+  // Abre num frame seguinte (nasce sem .open, ganha depois) pra
+  // animação de entrada (ctOverlayIn/ctSheetIn) disparar de verdade —
+  // mesmo motivo de qualquer transição CSS por troca de classe.
+  requestAnimationFrame(() => {
+    overlay.classList.add("open");
+    const focusable = m3FocusableIn(card);
+    (focusable[0] || closeBtn).focus();
+  });
+  return id;
+}
+function closeM3Overlay(id) {
+  const idx = m3OpenOverlays.findIndex((o) => o.id === id);
+  if (idx === -1) return;
+  const { overlay, lastFocused } = m3OpenOverlays[idx];
+  m3OpenOverlays.splice(idx, 1);
+  overlay.remove();
+  if (!m3OpenOverlays.length) document.removeEventListener("keydown", m3EscapeCloseHandler);
+  // Devolve o foco pra quem abriu o diálogo (ex.: a linha do jogador
+  // clicada) — requisito de acessibilidade (S3.2.7 §7 Accessibility).
+  if (lastFocused && document.body.contains(lastFocused)) lastFocused.focus();
+}
+function openM3Dialog(opts) { return m3OpenOverlay("dialog", opts); }
+function closeM3Dialog(id) { closeM3Overlay(id); }
+function openM3BottomSheet(opts) { return m3OpenOverlay("sheet", opts); }
+function closeM3BottomSheet(id) { closeM3Overlay(id); }
+// Primitiva de loading estrutural (S3_2_COMPONENTES_E_CONTRATOS.md §18).
+// Retorna HTML puro (não gerencia estado) — quem chama decide quando
+// trocar pelo conteúdo real, mesmo padrão de qualquer outra *HTML()
+// deste arquivo (ex.: splashLoadingHTML). aria-hidden porque é só forma,
+// não conteúdo — um leitor de tela não deve anunciar "linha, linha,
+// linha" enquanto o dado real carrega.
+function m3SkeletonHTML({ lines = 3, avatar = false } = {}) {
+  const rows = Array.from({ length: lines }, (_, i) =>
+    `<div class="m3-skeleton-line${i === lines - 1 ? " w60" : i === 0 ? " w80" : ""}"></div>`
+  ).join("");
+  const body = avatar
+    ? `<div class="m3-skeleton-row"><div class="m3-skeleton-avatar"></div><div style="flex:1;">${rows}</div></div>`
+    : rows;
+  return `<div aria-hidden="true">${body}</div>`;
+}
+
 // Sistema (Bloco 8) — splash/loading com marca (crest do app, nunca a
 // cor do clube — identidade do JOGO, não de um clube "dono", mesmo
 // princípio já usado nas 4 telas sem clube em show() logo abaixo) +
@@ -9181,27 +9279,34 @@ function openPlayerCard(id, clubIdHint) {
   if (!p) return;
   const subpos = subPositionOf(p);
   const groupFull = SUBPOS_LABEL[subpos] || "—";
-  document.getElementById("detailIcon").textContent = subpos === "GOL" ? "🧤" : "⚽";
-  document.getElementById("detailName").textContent = "Perfil do jogador";
-  document.getElementById("detailSub").textContent = club ? club.name : "";
-  document.getElementById("detailBody").innerHTML = `
-    <div class="mt-player-hero">
-      <div class="mt-ovr-badge sz-lg ${ovrTierClass(p.overall)}">${p.overall}</div>
-      <div class="mt-player-hero-info">
-        <b>${escapeHtml(p.name.toUpperCase())}</b>
-        <span>${groupFull} · ${p.age} anos${club ? ` · ${escapeHtml(club.name)}` : ""}</span>
+  // Fase S3-DS20-S4-PREP-001 — único fluxo migrado pro Dialog --m3-*
+  // novo (ver openM3Dialog acima). openDetail() (elenco PRÓPRIO, com
+  // ações de promover/renovar/vender) continua em #detailOverlay/
+  // .ct-modal-overlay sem nenhuma alteração — troca isolada a este
+  // fluxo específico (visualização somente-leitura de jogador de outro
+  // clube), conforme o escopo da demanda.
+  openM3Dialog({
+    icon: subpos === "GOL" ? "🧤" : "⚽",
+    title: "Perfil do jogador",
+    subtitle: club ? club.name : "",
+    bodyHTML: `
+      <div class="mt-player-hero">
+        <div class="mt-ovr-badge sz-lg ${ovrTierClass(p.overall)}">${p.overall}</div>
+        <div class="mt-player-hero-info">
+          <b>${escapeHtml(p.name.toUpperCase())}</b>
+          <span>${groupFull} · ${p.age} anos${club ? ` · ${escapeHtml(club.name)}` : ""}</span>
+        </div>
       </div>
-    </div>
-    <div class="m3-attr-bars">
-      ${attrBarHTML("Geral", p.overall, "gold")}
-      ${attrBarHTML("Ataque", p.atk)}
-      ${attrBarHTML("Defesa", p.def)}
-      ${attrBarHTML("Físico", p.phys)}
-    </div>
-    <p class="mt-info-line">Valor de mercado: ${fmtBRL(p.value)} · Salário: ${fmtBRL(p.wage)}/mês · Contrato até: ${p.contractUntil}</p>
-    ${playerSeasonHistoryHTML(p)}
-    <p class="ct-empty" style="margin-top:8px;">Jogador de outro clube — consulta apenas. Pra negociar, use o Mercado.</p>`;
-  document.getElementById("detailOverlay").classList.add("open");
+      <div class="m3-attr-bars">
+        ${attrBarHTML("Geral", p.overall, "gold")}
+        ${attrBarHTML("Ataque", p.atk)}
+        ${attrBarHTML("Defesa", p.def)}
+        ${attrBarHTML("Físico", p.phys)}
+      </div>
+      <p class="mt-info-line">Valor de mercado: ${fmtBRL(p.value)} · Salário: ${fmtBRL(p.wage)}/mês · Contrato até: ${p.contractUntil}</p>
+      ${playerSeasonHistoryHTML(p)}
+      <p class="ct-empty" style="margin-top:8px;">Jogador de outro clube — consulta apenas. Pra negociar, use o Mercado.</p>`,
+  });
 }
 function openDetail(id) {
   const p = CAREER.squad.find((x) => x.id === id);
