@@ -79,12 +79,29 @@ bump.
 
 ## Histórico completo (mais recente primeiro)
 
-### 2026-09-09 — v7.1.0  (4 commits)
+### 2026-09-09 — v7.1.0  (4 commits catalogados + 1 adicionado depois, ver nota)
 
 - `c11e61f` Adiciona CHANGELOG.md com histórico completo do projeto
 - `de928ec` Reorganiza documentação em docs/ (project/reqs/library/ops)
 - `472217a` Fase 1.5 — Transfer AI: Market Dynamics
 - `19d0ce2` Transfer AI Fase 1.4 (Negotiation AI)
+- `8dcff10` S3-DS20-S4-PREP-001 — Dialog/Bottom Sheet/Skeleton (`--m3-*`) +
+  convergência de nomenclatura de tokens (governança PM↔Claude,
+  `docs/HANDOFF_CLAUDE.md`): 3 componentes P0 novos, isolados dos
+  sistemas legados (`.ct-modal-*`/`.mt-sheet-overlay` intocados),
+  Dialog integrado em `openPlayerCard()`; 12/12 testes automatizados
+  (`tests/e2e/test_m3_dialog_sheet_skeleton.js`)
+
+**Nota (adicionada depois, mesmo dia):** o resto do trabalho de
+09/09/2026 além destes 5 commits — a governança PM↔Claude em si
+(`docs/HANDOFF_CLAUDE.md`/`README_HANDOFF.md`), a S3.2.7 Readiness
+Review, o checkpoint de conclusão da S8, e as demais reorganizações de
+`docs/` — não está catalogado commit a commit nesta entrada ainda
+(ficou registrado em `docs/HANDOFF_CLAUDE.md` e nos documentos de
+`docs/project/`/`docs/requirements/`, não aqui). Adicionar só o commit
+`8dcff10` (não uma re-tabulação completa do dia) foi uma escolha
+deliberada: era o item que motivou esta atualização (conclusão formal
+de uma demanda aprovada), catalogar o resto é um trabalho à parte.
 
 ### 2026-09-08 — v7.0.0  (3 commits)
 
