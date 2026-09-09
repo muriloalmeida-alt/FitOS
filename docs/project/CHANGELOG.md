@@ -1,6 +1,7 @@
 # BRDATA — CHANGELOG
 **Gerado em:** 09/09/2026
-**Cobertura:** 2026-08-14 até 2026-09-09 (403 commits, branch `main`)
+**Cobertura:** 2026-08-14 até 2026-09-09 (227 commits em 16 dias, branch `main`)
+**Versão atual:** v7.1.0
 
 ## Metodologia
 
@@ -10,54 +11,90 @@ conversa — cada entrada tem o hash curto do commit real para conferência
 
 - **De 30/08/2026 em diante**, o projeto adotou o fluxo
   branch→implementar→testar→commit→merge `--no-ff` descrito no `CLAUDE.md`.
-  Nesse período, cada entrada é um **commit de merge** (149 no total) —
-  cada merge representa uma unidade de trabalho testada e revisada antes
-  de entrar em `main`. Merges puramente de sincronização entre branches
+  Nesse período, cada linha da lista é um **commit de merge** — cada merge
+  representa uma unidade de trabalho testada e revisada antes de entrar
+  em `main`. Merges puramente de sincronização entre branches
   (`Merge pull request #N`, sincronizações de sessão) foram omitidos por
   não carregarem conteúdo de produto.
 - **Antes disso** (14–29/08/2026), não havia esse fluxo — os commits eram
-  diretos. Nesse período, cada entrada é um **commit direto** (raiz do
+  diretos. Nesse período, cada linha é um **commit direto** (raiz do
   histórico do repositório).
 - Datas são as do commit (`%ad`, formato `YYYY-MM-DD`), não de um
   changelog editado manualmente — por isso a ordem é estritamente
   cronológica e verificável.
 - Este documento é **técnico e completo** (nível de commit). Para a
   versão resumida e em linguagem de usuário final, ver `public/historico.html`
-  (versões v1.0 em diante, a partir do redesign visual de 31/08).
+  (versões v1.0 em diante, a partir do redesign visual de 31/08 — **numeração
+  independente** da usada aqui; não confundir os dois esquemas).
+
+## Esquema de versionamento (1 versão por dia de trabalho)
+
+A pedido do usuário, a versão é atribuída **por dia** (o conjunto de
+commits feitos naquela data), não por commit individual — cada dia de
+trabalho é um bump só, calculado pelo item de **maior complexidade**
+daquele dia:
+
+| Nível | Quando bumpa | Critério aplicado |
+|---|---|---|
+| **PATCH** (x.y.**Z**) | 3º dígito | O dia inteiro só teve ajustes pontuais, correções de bug, texto/cor/espaçamento — nenhum item novo de peso. |
+| **MINOR** (x.**Y**.0) | 2º dígito, zera o 3º | O dia teve ao menos uma feature completa e testável (um item de "Fase", um "Bloco" numerado, uma tela inteira refeita, uma nova página) — mesmo que também tenha tido ajustes menores junto. |
+| **MAJOR** (**X**.0.0) | 1º dígito, zera os outros dois | O dia entregou ao menos um pilar novo do produto ou uma reconstrução completa de um já existente: um módulo de negócio novo (Loja, Engajamento), uma mudança de arquitetura (multi-divisão, catálogo congelado), o fechamento de uma "Fase" inteira da simulação, um redesign completo do design system, ou uma fundação de governança/IA nova. **Mantido deliberadamente raro** (7 dos 16 dias) — dias marcados MAJOR trazem uma linha "Bump MAJOR porque:" citando o item exato que justificou. |
+
+O primeiro dia com commit (14/08) é o **baseline v1.0.0** — não é o
+"começo do projeto" (o site já existia antes disso), é só o ponto em que
+este changelog passa a existir e a numerar.
+
+**Isso é uma classificação minha (Claude), não uma medição objetiva** — a
+linha entre PATCH/MINOR/MAJOR em vários dias é uma chamada de julgamento
+(por isso os dias MAJOR vêm com a justificativa explícita). Se algum bump
+parecer errado pra você, é só apontar qual dia e eu ajusto — a ordem
+cronológica e os hashes continuam verdadeiros de qualquer forma.
+
+**Daqui pra frente**: ao fechar um dia de trabalho novo, aplique a mesma
+tabela acima sobre o conjunto de commits daquele dia antes de decidir o
+bump.
 
 ## Visão geral por era
 
-| Período | Era |
-|---|---|
-| 14–16/08 | Site principal (Brasileirão 2026 Simulador): Freemium sem login, SEO/indexação, páginas de time/jogador/partida/tabela, cores reais de clube |
-| 26/08 | Placar ao vivo (Sportmonks livescores) |
-| 29/08 | **Nasce o Modo Técnico** (carreira estilo Elifoot) + Fases 2 e 3 de mecânica (elenco/mercado/contratos, diretoria/ingressos/multitemporada) |
-| 30/08 | Fases 1–4 de mecânica de carreira (renovação, janela de transferências, metas, lesões, Copa do Brasil, moral, empréstimo, olheiro/potencial) + 1º reskin visual |
-| 31/08–01/09 | Refatoração visual completa tela-a-tela seguindo material do designer (Login → Escolha do Clube → Central → ... → 31 telas) + polish pós-lançamento (rodapé fixo, toasts, modais) |
-| 02/09 | Confronto/escudo, Play-by-Play v1+v2, Histórico de Atualizações, Série B/C real + mercado de 60 times, catálogo congelado |
-| 03/09 | Módulo de Treinos, engajamento/retenção (login diário/objetivos/conquistas/ranking), Loja, desconexão de APIs externas |
-| 04/09 | **Redesign M3** completo (9 blocos) + reorganização Bloco 1 (H2H, resumo de rodada, comparar jogadores) + Bloco 2 (tática) + Comissão Técnica + início do Bloco 3 (Mercado) |
-| 05/09 | Conclusão do Bloco 3 (negociação/histórico), Bloco 5 (treino/fadiga), performance de save, Bloco 7/8/9 (perfil/config/sistema), Módulo de Estatísticas |
-| 06/09 | Transições suaves, suíte de regressão E2E migrada pro repositório, filtros de Mercado, toast placar LED |
-| 07/09 | Notificações push, onboarding, efeitos sonoros, compartilhar imagem, convite de amigo, histórico do jogador |
-| 08/09 | Assistente de início + documentação formal (CLAUDE.md/GDD/GDD Técnico/Game Engine Spec/Auditoria) + **Transfer AI Fases 1.1–1.3** |
-| 09/09 | Transfer AI Fases 1.3.2, 1.4, 1.5 + reorganização de documentação em `docs/` |
+| Dia | Versão | Era |
+|---|---|---|
+| 14/08 | v1.0.0 | Site principal: Freemium sem login (fases 1-2), parceiros de apostas, correções de Estatísticas |
+| 15/08 | v1.1.0 | Site principal: Plano de Indexação (SEO) completo, páginas de time/jogador/partida/tabela, cores reais de clube |
+| 16/08 | v1.1.1 | Bump de cache do Service Worker (1º deploy automático) |
+| 26/08 | v1.1.2 | Placar ao vivo (Sportmonks livescores) |
+| 29/08 | **v2.0.0** | **Nasce o Modo Técnico** (carreira estilo Elifoot) + elenco/mercado/contratos reais + diretoria/ingressos/multitemporada |
+| 30/08 | **v3.0.0** | Fecham as Fases 1 (lesões reais), 2 (olheiro/potencial) e 4 (coletiva de imprensa) da simulação de carreira, no mesmo dia |
+| 31/08 | v3.1.0 | Refatoração visual tela-a-tela seguindo o material do designer (Login → Escolha do Clube → ... → 19 telas) |
+| 01/09 | v3.2.0 | Polish pós-lançamento do redesign (rodapé fixo, toasts, modais) |
+| 02/09 | **v4.0.0** | **Série B/C real dentro do Modo Técnico** (multi-divisão) + Play-by-Play v1/v2 + Histórico de Atualizações |
+| 03/09 | **v5.0.0** | **Engajamento/retenção, Loja (monetização) e catálogo real congelado** — 3 subsistemas novos no mesmo dia |
+| 04/09 | **v6.0.0** | **Redesign completo do design system (Material 3, 9 blocos)** + Comissão Técnica + início do Bloco 3 (Mercado) |
+| 05/09 | v6.1.0 | Conclusão do Bloco 3, Bloco 5 (treino/fadiga), performance de save, Módulo de Estatísticas |
+| 06/09 | v6.2.0 | Transições suaves, suíte de regressão E2E no repositório, filtros de Mercado |
+| 07/09 | v6.3.0 | Notificações push, onboarding, efeitos sonoros, compartilhar imagem, convite de amigo, histórico do jogador |
+| 08/09 | **v7.0.0** | **Documentação formal de governança (CLAUDE.md/GDD/Game Engine Spec) + nasce o Transfer AI** |
+| 09/09 | v7.1.0 | Transfer AI Fases 1.4/1.5 + reorganização de documentação em `docs/` + este CHANGELOG.md |
 
 ---
 
 ## Histórico completo (mais recente primeiro)
 
-### 2026-09-09
+### 2026-09-09 — v7.1.0  (4 commits)
 
+- `c11e61f` Adiciona CHANGELOG.md com histórico completo do projeto
+- `de928ec` Reorganiza documentação em docs/ (project/reqs/library/ops)
+- `472217a` Fase 1.5 — Transfer AI: Market Dynamics
 - `19d0ce2` Transfer AI Fase 1.4 (Negotiation AI)
 
-### 2026-09-08
+### 2026-09-08 — v7.0.0  (3 commits)
+
+> **Bump MAJOR porque:** Assistente de início + documentação (CLAUDE.md/GDB/GDB Técnico/Game Engine Spec); Transfer AI (Fases 1.1, 1.2, 1.3)
 
 - `202fc99` Transfer AI Fase 1.3.2 (Balanceamento estrutural)
 - `5145b7d` Transfer AI (Fases 1.1, 1.2, 1.3)
 - `9c83e4b` Assistente de início + documentação (CLAUDE.md/GDB/GDB Técnico/Game Engine Spec)
 
-### 2026-09-07
+### 2026-09-07 — v6.3.0  (6 commits)
 
 - `b163340` Histórico individual do jogador
 - `2666a8a` Convite de amigo por link + bug fix de login
@@ -66,14 +103,14 @@ conversa — cada entrada tem o hash curto do commit real para conferência
 - `3c69f52` Onboarding: tutorial de boas-vindas
 - `2babe65` Notificações push (lembrete de streak)
 
-### 2026-09-06
+### 2026-09-06 — v6.2.0  (4 commits)
 
 - `cd8d401` Mensagens de rodapé no visual placar de LED
 - `3a9e8a7` Filtros ampliados no Mercado
 - `82260b5` Suíte de regressão E2E no repositório
 - `22f9591` Transições suaves ao trocar de aba e abrir modal
 
-### 2026-09-05
+### 2026-09-05 — v6.1.0  (9 commits)
 
 - `f4e774b` Corrige respiro no topo das modais em tela cheia
 - `76c8e4e` Corrige respiro no topo + Módulo de Estatísticas completo
@@ -85,7 +122,9 @@ conversa — cada entrada tem o hash curto do commit real para conferência
 - `79701ae` Bloco 3 (4/4): Histórico de negociações, fecha o Bloco 3
 - `00b6356` Bloco 3 (3/4): Colocar à venda + Indicações dos olheiros
 
-### 2026-09-04
+### 2026-09-04 — v6.0.0  (18 commits)
+
+> **Bump MAJOR porque:** Redesign M3: Blocos 1-9 completos
 
 - `272dd31` Comissão Técnica: sugestão de Mercado abre proposta real
 - `340541c` evolução de atributos mais realista, acesso/rebaixamento A/B/C + Série D, Comissão Técnica no lugar do elenco em destaque
@@ -106,7 +145,9 @@ conversa — cada entrada tem o hash curto do commit real para conferência
 - `c8191c9` elimina o diamante atrás das logos dos clubes
 - `62f8419` Redesign M3: Blocos 1-9 completos
 
-### 2026-09-03
+### 2026-09-03 — v5.0.0  (8 commits)
+
+> **Bump MAJOR porque:** login diário, objetivos, conquistas, ranking; Loja: catálogo (pacotes + boosts), sem pagamento real ainda; catálogo real congelado + fornecedor "frozen"
 
 - `d96e740` catálogo real congelado + fornecedor "frozen"
 - `6810677` Loja: catálogo (pacotes + boosts), sem pagamento real ainda
@@ -117,7 +158,9 @@ conversa — cada entrada tem o hash curto do commit real para conferência
 - `1521ce3` captura de elenco real via HTTP
 - `2bb5dcc` Módulo de Treinos + nav de 6 itens
 
-### 2026-09-02
+### 2026-09-02 — v4.0.0  (14 commits)
+
+> **Bump MAJOR porque:** Série B/C no Modo Técnico
 
 - `2c32fbd` script de captura de elenco real
 - `7665cfe` registra Mercado com as 3 divisões
@@ -134,7 +177,7 @@ conversa — cada entrada tem o hash curto do commit real para conferência
 - `a7c01b0` Botões "Avançar temporada" e "Salvar escalação e táticas" no padrão dourado dos demais botões primários
 - `d93a86f` Escudo dos clubes: monograma como fallback (sigla no hexágono) + Opção B no card "Próximo jogo" (escudo ampliado com halo de cor)
 
-### 2026-09-01
+### 2026-09-01 — v3.2.0  (14 commits)
 
 - `89bc0d7` Toast de rodapé: fundo cor gelo (marfim) em vez de navy escuro, pra se destacar do resto da tela
 - `42fbf40` Toast de rodapé: largura fixa igual ao botão "Ir para o jogo" (Opção B) + revisão de todos os ~48 textos do app
@@ -151,7 +194,7 @@ conversa — cada entrada tem o hash curto do commit real para conferência
 - `0c1025c` Merge: revisão das modais de pós-jogo
 - `a960dc4` Merge: botões de ação principal travados no rodapé
 
-### 2026-08-31
+### 2026-08-31 — v3.1.0  (32 commits)
 
 - `2b2ae19` Merge: Notícias redesenhada pra "capa de jornal" (Opção B)
 - `ae36ea6` Merge: Banco de reservas da escalação automática sempre em 1-4-3-3
@@ -186,7 +229,9 @@ conversa — cada entrada tem o hash curto do commit real para conferência
 - `acf3837` Merge: corrige link de cadastro do Modo Técnico que mandava pra home
 - `ae948b6` Merge: intervalo pausável, notícias por rodada, destaque a propostas e clube destino
 
-### 2026-08-30
+### 2026-08-30 — v3.0.0  (33 commits)
+
+> **Bump MAJOR porque:** Fase 1 item 4 (lesões reais) — fecha a Fase 1; Fase 2 item (olheiro/potencial na base) — fecha a Fase 2; Merge feature/fase4-coletiva-imprensa: coletiva de imprensa pós-jogo (Fase 4 item 2 — fecha a Fase 4 inteira)
 
 - `974d177` Merge feature/emprestimos-idade-confirmar-escalacao: empréstimos realistas, idade real da API, confirmação de escalação
 - `5476f9b` Merge feature/noticias-fullscreen-pre-resultados: notícias em tela cheia antes dos resultados
@@ -222,7 +267,9 @@ conversa — cada entrada tem o hash curto do commit real para conferência
 - `ed7bf7f` componentes seguindo o design system
 - `42c929a` refatoração visual do Modo Carreira
 
-### 2026-08-29
+### 2026-08-29 — v2.0.0  (32 commits)
+
+> **Bump MAJOR porque:** NOVA FEATURE: Modo Técnico — carreira estilo Elifoot no Brasileirão
 
 - `0ca3c23` AJUSTE: confirm() nativo virou modal + botão da diretoria centralizado
 - `9d6c9bb` AJUSTE: renderização isolada por aba + erro visível (relato: Elenco em branco)
@@ -257,15 +304,15 @@ conversa — cada entrada tem o hash curto do commit real para conferência
 - `e45cda0` AJUSTE: 4 melhorias no Modo Técnico (pedido do usuário)
 - `adb2225` NOVA FEATURE: Modo Técnico — carreira estilo Elifoot no Brasileirão
 
-### 2026-08-26
+### 2026-08-26 — v1.1.2  (1 commit)
 
 - `cb96062` Placar ao vivo na aba Jogos (Sportmonks livescores/inplay)
 
-### 2026-08-16
+### 2026-08-16 — v1.1.1  (1 commit)
 
 - `f984b0a` AJUSTE: bump do cache do Service Worker — gatilho do 1º deploy automático em produção
 
-### 2026-08-15
+### 2026-08-15 — v1.1.0  (36 commits)
 
 - `8aed45d` AJUSTE: /apoie renomeada pra /seja-premium
 - `a865243` NOVA FEATURE: conclui o plano de SEO — /estatisticas, /noticias e /apoie indexáveis
@@ -304,7 +351,7 @@ conversa — cada entrada tem o hash curto do commit real para conferência
 - `bd5cfd7` BUG CORRIGIDO: tela em branco pós-deploy — cache do Service Worker desatualizado
 - `360ec60` BUG CORRIGIDO: visitante via dado de EXEMPLO em vez de AO VIVO + flash da tela de login no boot
 
-### 2026-08-14
+### 2026-08-14 — v1.0.0  (12 commits)
 
 - `0756fd0` NOVA FEATURE: Fase 4 do plano "Freemium sem login" — clube favorito por navegador pra visitante
 - `11cf76c` AJUSTE: renomeia "Apoie o BR Data" pra "Assine o BR Data"
@@ -322,14 +369,15 @@ conversa — cada entrada tem o hash curto do commit real para conferência
 
 ## Notas de governança
 
-- Este arquivo cobre até o commit `de928ec` (09/09/2026, reorganização de
-  `docs/`) — o mais recente na branch `claude/elifoot-brasileirao-game-epw0sz`
+- Este arquivo cobre até o commit `c11e61f` (09/09/2026, este próprio
+  arquivo) — o mais recente na branch `claude/elifoot-brasileirao-game-epw0sz`
   no momento em que este changelog foi gerado.
 - Segundo a regra fixada em `docs/README.md`, mudanças relevantes de
   produto/arquitetura daqui pra frente devem ser adicionadas no topo deste
-  arquivo (mais recente primeiro) — não é regerado automaticamente do
-  zero a cada vez, para não perder as anotações manuais das entradas
-  antigas (como as expansões de `[feature/...]` feitas nesta primeira
-  versão).
+  arquivo (mais recente primeiro), com a versão do dia calculada pela
+  tabela de bump acima — não é regerado automaticamente do zero a cada
+  vez, para não perder as anotações manuais das entradas antigas (como as
+  expansões de `[feature/...]` e as justificativas de bump MAJOR feitas
+  nesta primeira versão).
 - Para o status/sequência de Sprints (diferente de "o que já foi feito"),
   a fonte de verdade é `docs/project/ROADMAP.md` (pendente).
