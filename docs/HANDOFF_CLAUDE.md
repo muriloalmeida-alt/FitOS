@@ -11,7 +11,7 @@ Demandas vigentes
 
 S3-DS20-S4-READINESS-001 — S3.2.7 Readiness Review
 
-Status: REVISÃO DO PM NECESSÁRIA
+Status: AJUSTES NECESSÁRIOS
 Sprint: S3 — BRDATA Design System 2.0
 Fase: S3.2.7 — S4 Readiness Review
 Prioridade: P0
@@ -575,9 +575,65 @@ convergência de nomenclatura sobre o que já existe.
 
 REVISÃO DO PM NECESSÁRIA.
 
+18. Decisão do PM
+
+Data: 09/09/2026
+Decisão: **AJUSTES NECESSÁRIOS**
+Decidido por: Murilo — aprovação/validação formal, conforme
+`docs/README_HANDOFF.md` §13/§17 e a adaptação de governança registrada
+em `docs/README.md` (regra 1): quem especifica/implementa/revisa
+tecnicamente (Claude) não fecha essa decisão sozinho.
+
+Parecer técnico prévio (Claude, chapéu PM, registrado como comentário na
+issue #9): concordância com a classificação `ADJUSTMENTS REQUIRED`
+proposta no relatório — evidências conferidas por amostragem direta
+contra o código em `origin/main` (linhas, contagens e uma citação de
+comentário do código), sem indício de fabricação nem de regressão.
+
+Ajustes necessários (base: seção 11 "Gaps" e seção 17 "Recomendação"
+deste relatório):
+1. Decidir a convergência de nomenclatura de tokens (`--m3-*` como
+   sistema único vs. formalizar alias para o vocabulário da S3.1) antes
+   de qualquer trabalho novo de S4, para não criar um 4º sistema
+   paralelo.
+2. Resolver os 3 componentes P0 ausentes no sistema `--m3-*` (Dialog,
+   Bottom Sheet, Skeleton) antes de expandir a migração às 9 telas P0
+   ainda no sistema legado.
+3. Migração das 9 telas P0 pendentes (Login, Perfil do jogador,
+   Tática/Formação, Treino, Mercado, Negociação/Proposta, Contratos,
+   Resumo da rodada, Loading/Bootstrap) pode prosseguir de forma
+   incremental como trabalho inicial da própria S4 — não é
+   pré-requisito bloqueante adicional à S3.
+4. Reduzir uso de emoji como ícone de interface (262 ocorrências) à
+   medida que cada tela for migrada, não como projeto isolado.
+5. Ampliar a cobertura de teste E2E do Design System a cada bloco de
+   telas migrado (hoje só 1 dos ~121 testes cobre o redesign M3).
+6. Os demais gaps P1/P2 (LeagueTable não redesenhada, densidade de ARIA
+   baixa, `.icon-btn` abaixo de 48dp, CSS morto) podem ser tratados
+   durante a execução da S4, não bloqueiam o início dela.
+
+Encerramento desta demanda: a auditoria em si
+(`S3-DS20-S4-READINESS-001`) está **concluída** — seu objetivo era
+determinar a prontidão da implementação, e a determinação foi entregue
+com evidência real, revisada e agora decidida. O resultado não libera
+o início "puro" da S4: os itens 1 e 2 acima devem ser resolvidos
+primeiro (ou tratados como as primeiras tarefas formais da S4).
+
+Esta demanda **não é movida para a seção Histórico** — essa seção é
+reservada a demandas `APROVADO`, conforme `docs/README_HANDOFF.md` §16.
+Fica registrada aqui, com status `AJUSTES NECESSÁRIOS`, como a decisão
+vigente. O trabalho de ajuste em si (itens 1-6 acima) deve ser aberto
+como uma nova demanda quando o Murilo priorizar — não é reaberto sob
+este mesmo ID.
+
+Issue de rastreio: `https://github.com/muriloalmeida-alt/FitOS/issues/9`
+— fechada como concluída (a execução da auditoria pedida nela foi
+entregue e revisada); os ajustes que ela revelou passam a ser tratados
+em uma nova demanda, não como reabertura dessa issue.
+
 ⸻
 
 Histórico
 
 Demanda	Data	Commit	Changelog
-(nenhuma demanda concluída sob este fluxo ainda)
+(nenhuma demanda concluída sob este fluxo ainda — AJUSTES NECESSÁRIOS não é encerramento por APROVADO, ver §18)
