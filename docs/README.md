@@ -64,10 +64,12 @@ mudar depois, o registro da Sprint não é reescrito, uma Sprint nova (ou
 - `PROJECT_CONTEXT.md`, `ROADMAP.md` — contexto permanente e roadmap oficial do produto.
 
 ### docs/requirements/ — requisitos e regras de negócio vivos
-Ver `docs/requirements/README.md`. Ainda vazia (09/09/2026) — os
-documentos de requisito que existiam antes desta reorganização ficaram
-em `docs/sprints/`, por Sprint de origem, até serem revisitados aqui como
-regra vigente e não histórica.
+Ver `docs/requirements/README.md`. Primeiro documento chegou em
+09/09/2026: `ui-ux/S4_REQUISITOS_VIGENTES.md` (estado real por tela e
+gaps de componentes do redesign mobile, promovido a partir do registro
+histórico da S3 assim que a S4 começou a entrar em execução — ver regra
+de promoção logo abaixo). As demais subpastas seguem vazias até o
+próximo requisito ser revisitado como regra vigente.
 
 ### docs/library/ — material de referência
 Ver `docs/library/README.md`. Vazia até o primeiro material chegar.
