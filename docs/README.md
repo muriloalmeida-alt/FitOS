@@ -58,6 +58,7 @@ mudar depois, o registro da Sprint não é reescrito, uma Sprint nova (ou
 
 ### docs/project/ — gestão e governança
 - `BRDATA_Auditoria_v1.0.md` — auditoria completa do código vs. especificação + roadmap de implementação (08/09/2026).
+- `DIAGNOSTICO_2026-09-09.md` — diagnóstico do projeto a partir de `docs/` (estado do roadmap, achados herdados da auditoria, lacunas documentais, recomendação priorizada).
 - `ESTRUTURA_DE_PASTAS.md` — mapa completo da árvore de diretórios do repositório.
 - `CHANGELOG.md` — histórico completo do projeto, versionado por dia de trabalho (v1.0.0 em diante).
 - `PROJECT_CONTEXT.md`, `ROADMAP.md` — contexto permanente e roadmap oficial do produto.
