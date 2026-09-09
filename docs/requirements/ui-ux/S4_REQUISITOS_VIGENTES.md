@@ -108,12 +108,14 @@ refinação adiciona:
 > componente nomeado e documentado** (função/classe com contrato — nome,
 > objetivo, entradas, estados — não apenas uma classe CSS ad hoc reaproveitada).
 
-Consequência prática: quando o Batch 2 retomar (após
-`S3-DS20-S4-PREP-001`), a primeira tarefa não é uma tela nova — é
-**formalizar retroativamente o PlayerCard** a partir do que já existe em
-Elenco (`.m3-list-item`), antes de tocar Perfil do jogador (que também
-usa PlayerCard). O mesmo vale para MatchCard/FinancialSummary a partir
-do que já existe em Início, antes de tocar Resumo da rodada.
+Consequência prática: antes de tocar Perfil do jogador (que também usa
+PlayerCard), a dívida retroativa do PlayerCard precisa estar paga —
+demanda própria já especificada (`S3-DS20-S4-PREP-002`, ver §5). O
+mesmo vale, em princípio, para MatchCard/FinancialSummary antes de
+tocar Resumo da rodada — mas essa dívida específica ainda não virou
+demanda porque os candidatos no código (`.m3-match-row`,
+`financeCashBarsHTML()`) não foram inspecionados o suficiente pra
+confirmar se são de fato o padrão certo a formalizar (ver §5, item 2b).
 
 Isso não é trabalho extra descartável — é dívida já contraída (Elenco e
 Início já estão em produção sem o contrato formal) que só cresce se não
@@ -123,12 +125,24 @@ for paga agora, antes de replicar o padrão ad hoc em mais telas.
 
 ## 5. Ordem de execução refinada
 
-1. **`S3-DS20-S4-PREP-001`** (em implementação) — Dialog/Bottom
-   Sheet/Skeleton + convergência de nomenclatura. Sem mudança.
-2. **Formalizar PlayerCard e MatchCard/FinancialSummary** a partir do
-   que já existe em Elenco/Início (dívida retroativa, §4 acima) — nova
-   demanda, pequena, sem tela nova, só contrato + eventual refactor de
-   nome de classe.
+1. **`S3-DS20-S4-PREP-001`** — Dialog/Bottom Sheet/Skeleton +
+   convergência de nomenclatura. **Implementado** (branch
+   `claude/s4-prep-001-tokens-components`, não mesclada em `main`),
+   status `REVISÃO DO PM NECESSÁRIA` em `docs/HANDOFF_CLAUDE.md`,
+   aguardando decisão.
+2. **Formalizar PlayerCard** a partir do que já existe em Elenco
+   (`playerRow()`, dívida retroativa, §4 acima) — demanda própria
+   (`S3-DS20-S4-PREP-002`, status `PRONTO PARA IMPLEMENTAÇÃO`),
+   deliberadamente isolada de MatchCard/FinancialSummary (item 2b
+   abaixo) por já ter candidato claro e único (3 pontos de reuso
+   confirmados). Não depende da aprovação da PREP-001.
+2b. **MatchCard e FinancialSummary** — candidatos identificados
+   (`.m3-match-row` em `renderH2H`, `financeCashBarsHTML()`) mas
+   **ainda não inspecionados o suficiente** pra virar demanda — o
+   candidato a MatchCard parece ser um widget menor (confronto direto),
+   não o card de "próxima partida" que a matriz descreve. Fica como
+   item pendente de inspeção, não presumido, antes de nascer como
+   demanda.
 3. **Completar Batch 2** — migrar Login, Bootstrap, Perfil do jogador,
    Tática, Treino (5 telas), reutilizando Dialog (item 1) e PlayerCard
    (item 2) onde aplicável.
