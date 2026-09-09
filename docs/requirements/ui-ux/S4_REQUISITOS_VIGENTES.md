@@ -164,9 +164,15 @@ for paga agora, antes de replicar o padrão ad hoc em mais telas.
      (a inspecionar, não presumida); as 3 telas P1 relacionadas (Eixos
      táticos, Marcação individual, Meus esquemas) ficam fora, são
      Batch 4.
-   - Restantes (Treino, Perfil do jogador) seguem sem demanda própria
-     ainda — Perfil do jogador por último, depende de
-     `S3-DS20-S4-PREP-002`.
+   - Item 4: **Treino** (`S4-B2-004`, status `PRONTO PARA
+     IMPLEMENTAÇÃO`) — mesma incerteza de dependência do PlayerCard
+     que o item 3 (a inspecionar, não presumida), sem o componente de
+     interação visual complexa que eleva o risco daquele. Com esta
+     demanda, o Batch 2 fica totalmente coberto exceto Perfil do
+     jogador.
+   - Restante: **Perfil do jogador** — última tela do Batch 2, ainda
+     sem demanda própria, aguarda `S3-DS20-S4-PREP-002` (dependência
+     confirmada, não hipotética, do PlayerCard).
 4. **Batch 3 (Transactional)** — antes de qualquer tela, formalizar
    TransferCard e ContractCard (não existem, sem dívida retroativa
    aqui, são novos). Depois migrar Mercado, Negociação, Contratos,
