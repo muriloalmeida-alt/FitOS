@@ -635,7 +635,7 @@ em uma nova demanda, não como reabertura dessa issue.
 
 S3-DS20-S4-PREP-002 — Formalizar PlayerCard (retroativo, Elenco)
 
-Status: REVISÃO DO PM NECESSÁRIA
+Status: PRONTO PARA IMPLEMENTAÇÃO
 Sprint: S3 — BRDATA Design System 2.0 (pré-requisito para S4)
 Fase: S3.2.9 — dívida retroativa de Product Pattern
 Prioridade: P1
