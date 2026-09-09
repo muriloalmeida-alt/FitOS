@@ -3757,6 +3757,173 @@ function transferValuation(player, buyingClubId, sellingClubId, context = {}) {
   return Math.round(clamp(raw, base * 0.70, base * 1.50) / 1000) * 1000;
 }
 
+/* ---------- Fase 1.4 — Transfer AI: Negotiation AI ----------
+   Pedido do usuário: transformar a proposta única (Fase 1.3) numa
+   negociação de verdade — vendedor pode aceitar/rejeitar/contrapor,
+   comprador pode aceitar/aumentar/desistir — reaproveitando o que já
+   existe (transferValuation continua decidindo o valor INICIAL,
+   transferScore/necessidadeScore/financeiroScore continuam decidindo
+   QUEM/QUANTO/SE cabe, nada disso é recalculado aqui).
+
+   Decisão de arquitetura (confirmada com o usuário via AskUserQuestion
+   antes de implementar): SEM UI nova. Nos 2 caminhos em que o CPU
+   compra de VOCÊ (maybeGenerateOffer/maybeSpawnListingOffer), a
+   negociação roda internamente e de forma síncrona (até
+   MAX_NEGOTIATION_ROUNDS rodadas, ver negotiateOffer) ANTES de
+   qualquer coisa aparecer na tela — você continua vendo só
+   Aceitar/Recusar um valor final, só que esse valor agora é fruto de
+   uma negociação real (reserva do vendedor vs. tolerância do
+   comprador), não mais a saída direta e única de transferValuation.
+   No único caminho em que JÁ existe negociação interativa de verdade
+   (CAREER.pendingOffersOut — você compra de um clube CPU, UI de
+   contraproposta/aceitar/retirar já existente), a mudança é só a
+   REGRA DE DECISÃO do vendedor CPU (ver resolvePendingOffersOutRound
+   mais abaixo) — de uma sequência de faixas de ratio ad hoc pra estas
+   mesmas funções puras, testáveis e reaproveitadas em todo o resto. */
+function squadForClub(clubId) {
+  return String(clubId) === String(CAREER.clubId) ? CAREER.squad.filter((p) => p.origin === "principal") : leagueSquadFor(clubId);
+}
+
+// PREÇO DE RESERVA do vendedor — "quanto me custa perder esse
+// jogador", nunca "quanto eu quero comprar". Pura, determinística, sem
+// RNG, sem persistência. Âncora = base (player.value, ou
+// context.baseValue quando já existe uma âncora anterior — mesmo
+// padrão de transferValuation, nunca uma 2ª market value). NÃO
+// re-deriva idade/overall/potencial/contrato — já estão dentro do
+// valor base (ver comentário de transferValuation) — só os 2 sinais
+// que o valor base nunca carrega: titularidade real (só quando a
+// informação é confiável, CAREER.lineup.starters, só pro SEU clube —
+// CPU não tem titular fixo, ver pickCpuXI) e necessidade do PRÓPRIO
+// vendedor por aquele perfil (reaproveita necessidadeScore — o quanto
+// o vendedor também careceria desse jogador, não duplicando
+// adequação/financeiro/contexto, que são sinais do COMPRADOR).
+function calculateSellerReservationValue(player, sellingClubId, context = {}) {
+  const base = context.baseValue != null ? context.baseValue : player.value;
+
+  let titularityFactor = 1;
+  if (String(sellingClubId) === String(CAREER.clubId)) {
+    const isStarter = (CAREER.lineup.starters || []).includes(player.id);
+    titularityFactor = isStarter ? 1.15 : 1.0; // titular de verdade -> +15% de resistência
+  }
+
+  const sellerSquad = squadForClub(sellingClubId);
+  const sellerNeed = necessidadeScore(player, sellerSquad, sellingClubId);
+  const needFactor = 1 + sellerNeed * 0.15; // até +15% quando o próprio vendedor carece desse perfil
+
+  return Math.round(clamp(base * titularityFactor * needFactor, base * 0.95, base * 1.30) / 1000) * 1000;
+}
+
+// Máximo de rodadas de contraproposta (item 15 do pedido) — único
+// controle de limite desta fase, reaproveitado em todo lugar que
+// precisa de um teto (negotiateOffer e resolvePendingOffersOutRound),
+// nunca 2 controles concorrentes.
+const MAX_NEGOTIATION_ROUNDS = 3;
+
+// CONTRAPROPOSTA do vendedor — determinística (item 16: preferir
+// determinismo quando não prejudica o gameplay). Sempre > offerValue
+// (nunca "oferta 5M -> counter 50M sem justificativa"), progride uma
+// fração da distância até a reserva, nunca ultrapassa reserva*1.05.
+function calculateCounterOffer(offerValue, reservationValue) {
+  const gap = Math.max(reservationValue - offerValue, 0);
+  const raw = offerValue + Math.max(gap * 0.6, offerValue * 0.03); // sobe pelo menos 3% ou 60% da distância até a reserva
+  const capped = Math.min(raw, reservationValue * 1.05);
+  return Math.round(Math.max(capped, offerValue + 1000) / 1000) * 1000; // garante estritamente > offerValue mesmo após arredondar
+}
+
+// DECISÃO DO VENDEDOR — item 8: faixas claras e testáveis a partir de
+// offerValue/reservationValue, nunca uma sequência arbitrária de if.
+// RNG só na faixa "perto da reserva" (item 16 — pequena incerteza
+// permitida), nunca pra calcular valuation/preço/escapar da reserva.
+function sellerNegotiationDecision(offerValue, reservationValue, rng = Math.random) {
+  const ratio = reservationValue > 0 ? offerValue / reservationValue : 1;
+  if (ratio < 0.75) return { action: "reject", value: null }; // muito abaixo da reserva
+  if (ratio < 0.95) return { action: "counter", value: calculateCounterOffer(offerValue, reservationValue) }; // perto, mas ainda abaixo
+  if (ratio < 1.05) {
+    // na reserva (com folga de arredondamento pros 2 lados) -> aceita
+    // com alta probabilidade; pequena chance de tentar mais um pouco.
+    if (rng() < 0.85) return { action: "accept", value: offerValue };
+    return { action: "counter", value: calculateCounterOffer(offerValue, reservationValue) };
+  }
+  return { action: "accept", value: offerValue }; // claramente acima da reserva
+}
+
+// TOLERÂNCIA DO COMPRADOR — itens 10/11/12/13. A tolerância vem do
+// transferScore (que JÁ carrega necessidade a 35% de peso, ver
+// transferScore) — necessidade não é reaplicada uma 2ª vez de forma
+// explícita aqui, exatamente pra não duplicar o efeito (item 13:
+// "não aplicar duas vezes de forma agressiva"). Teto financeiro
+// (clubBudgetProxy.cash) é sempre respeitado — nunca aceita/força uma
+// contraproposta acima da capacidade real (item 12); nunca
+// player.value*2 nem qualquer multiplicador solto (item 10).
+// Teto financeiro REAL do comprador (item 12/22 — "nenhuma
+// contraproposta/transferência pode ultrapassar a capacidade
+// financeira real"): capacidade de caixa (clubBudgetProxy, já
+// existente) E o mesmo limite de 150% do valor base que
+// transferValuation já respeita (item 6 — "não permitir que a
+// negociação ignore completamente o valuation da Fase 1.3"). Usada
+// tanto por buyerNegotiationDecision (contraproposta) quanto por
+// negotiateOffer (a PRÓPRIA oferta inicial também nunca pode superar
+// isto — sem este teto ali, um clube com financeiroScore>0 mas
+// "apertado" podia "aceitar" de cara um valor que na prática não cabe
+// no caixa dele, já que financeiroScore só decide ELEGIBILIDADE, não
+// o valor exato da oferta).
+function buyerHardCap(player, buyingClubId, context = {}) {
+  const budget = clubBudgetProxy(buyingClubId);
+  const base = context.baseValue != null ? context.baseValue : player.value;
+  return Math.min(budget.cash, base * 1.50);
+}
+function buyerNegotiationDecision(counterValue, initialOfferValue, player, buyingClubId, context = {}) {
+  const score = transferScore(player, buyingClubId);
+  const hardCap = buyerHardCap(player, buyingClubId, context);
+  const toleranceFromScore = score < 0.40 ? 0.03 : score < 0.60 ? 0.08 : 0.15; // baixo/médio/alto interesse
+  const maxWillingToPay = Math.min(initialOfferValue * (1 + toleranceFromScore), hardCap);
+
+  if (counterValue > hardCap) return { action: "walk", value: null }; // impossível pagar -> desiste, nunca força
+  if (counterValue <= maxWillingToPay) return { action: "accept", value: counterValue };
+  const raised = Math.min(maxWillingToPay, hardCap);
+  if (raised > initialOfferValue) return { action: "raise", value: Math.round(raised / 1000) * 1000 };
+  return { action: "walk", value: null };
+}
+
+// FUNÇÃO CENTRAL (item 18 — "criar uma função central sempre que
+// possível, sem duplicar implementação") — reaproveitada pelos 3
+// caminhos (maybeGenerateOffer/maybeSpawnListingOffer/
+// maybeSpawnRivalOffer). transferValuation continua decidindo o valor
+// INICIAL sem nenhuma alteração (item 17 — "não recalcular"); a
+// negociação só decide o que acontece A PARTIR dele. Finita por
+// construção (item 15 — máximo de MAX_NEGOTIATION_ROUNDS rodadas +
+// corte de "sem progresso" quando o comprador não consegue melhorar a
+// própria oferta, nunca loop infinito).
+function negotiateOffer(player, buyingClubId, sellingClubId, context = {}) {
+  const initialOffer = transferValuation(player, buyingClubId, sellingClubId, context);
+  const reservation = calculateSellerReservationValue(player, sellingClubId, context);
+  // NOTA (item 12) — o teto financeiro (buyerHardCap) protege
+  // explicitamente CONTRAPROPOSTAS ("o comprador nunca pode aceitar
+  // uma contraproposta que ultrapasse sua capacidade financeira
+  // real"), não a oferta INICIAL em si: transferValuation (Fase 1.3)
+  // já não é limitada por caixa — financeiroScore>0 (Fase 1.3.2,
+  // graduado até 2,5x a capacidade) decide só ELEGIBILIDADE pra
+  // pontuar/competir, mesma característica que já existia antes desta
+  // fase (ver outlier documentado no Balance Check 1.3.1/1.3.2: um
+  // clube com financeiro=0.4 já podia gerar uma oferta de dezenas de
+  // milhões). Manter esse comportamento aqui evita uma 2ª mudança de
+  // regra fora do pedido desta fase (alterar quando um clube é
+  // elegível) — só a CONTRAPROPOSTA ganha o teto rígido novo.
+  let currentOffer = initialOffer;
+  let rounds = 0;
+  while (rounds < MAX_NEGOTIATION_ROUNDS) {
+    rounds++;
+    const sellerDecision = sellerNegotiationDecision(currentOffer, reservation);
+    if (sellerDecision.action === "accept") return { outcome: "accepted", finalValue: currentOffer, initialOffer, reservation, rounds };
+    if (sellerDecision.action === "reject") return { outcome: "rejected", finalValue: null, initialOffer, reservation, rounds };
+    const buyerDecision = buyerNegotiationDecision(sellerDecision.value, initialOffer, player, buyingClubId, context);
+    if (buyerDecision.action === "accept") return { outcome: "accepted", finalValue: sellerDecision.value, initialOffer, reservation, rounds };
+    if (buyerDecision.action === "walk" || buyerDecision.value <= currentOffer) return { outcome: "walked", finalValue: null, initialOffer, reservation, rounds };
+    currentOffer = buyerDecision.value; // "raise" com progresso real -> próxima rodada
+  }
+  return { outcome: "walked", finalValue: null, initialOffer, reservation, rounds }; // esgotou o limite -> encerra, nunca loop infinito
+}
+
 function findInterestedBuyer(excludeId, player) {
   const eligible = marketTeamsPool().filter((t) =>
     String(t.id) !== String(excludeId) && leagueSquadFor(t.id).length < maxSquadSizeFor(t.id)
@@ -4160,7 +4327,17 @@ function maybeGenerateOffer(round) {
   const club = pickWeightedByScore(scored);
   const score = scored.find((s) => s.item === club).score;
   if (Math.random() >= offerProbabilityFromScore(score)) return; // score baixo -> raríssimo; score alto -> frequente
-  const fee = Math.max(1000, transferValuation(player, club.id, CAREER.clubId));
+  // Fase 1.4 — a proposta única (transferValuation) vira o PONTO DE
+  // PARTIDA de uma negociação interna (reserva do vendedor = você vs.
+  // tolerância do comprador = o clube), resolvida antes de qualquer
+  // coisa aparecer na tela (ver negotiateOffer) — você continua vendo
+  // só Aceitar/Recusar um valor final, sem UI nova. Sem acordo
+  // (vendedor rejeitou de vez, ou comprador não teve fôlego pra
+  // fechar): nenhuma proposta nasce nesta rodada, igual a qualquer
+  // outro "return" acima.
+  const deal = negotiateOffer(player, club.id, CAREER.clubId);
+  if (deal.outcome !== "accepted") return;
+  const fee = Math.max(1000, deal.finalValue);
   CAREER.pendingOffer = { playerId: player.id, playerName: player.name, clubId: String(club.id), clubName: club.name, fee, round };
 }
 
@@ -10848,7 +11025,13 @@ function maybeSpawnRivalOffer(o) {
   const rivalClub = pickWeightedByScore(scored);
   const score = scored.find((s) => s.item === rivalClub).score;
   if (Math.random() >= offerProbabilityFromScore(score)) return;
-  const rivalValue = Math.max(1000, transferValuation(player, rivalClub.id, o.clubId, { baseValue: o.marketValue, competitorCount: 1 }));
+  // Fase 1.4 — mesma negociação interna (vendedor = o clube dono do
+  // jogador, o.clubId; comprador = o clube rival) — se o vendedor e o
+  // rival não chegam a acordo internamente, simplesmente não nasce
+  // oferta rival nesta rodada (igual a qualquer outro "return" acima).
+  const rivalDeal = negotiateOffer(player, rivalClub.id, o.clubId, { baseValue: o.marketValue, competitorCount: 1 });
+  if (rivalDeal.outcome !== "accepted") return;
+  const rivalValue = Math.max(1000, rivalDeal.finalValue);
   const rivalInstallments = Math.random() < 0.7 ? 1 : 2; // clube CPU quase sempre paga à vista
   o.rivalOffer = { clubId: String(rivalClub.id), clubName: rivalClub.name, offerValue: rivalValue, installments: rivalInstallments };
   toast({ title: "Concorrência pelo alvo", detail: `${rivalClub.name} também quer ${abbreviateName(o.playerName)} — compare as propostas.` }, { type: "warn" });
@@ -10887,12 +11070,32 @@ function resolvePendingOffersOutRound(round) {
       pushTransferLog(`${o.rivalOffer.clubName} venceu a disputa por ${o.playerName} (sua proposta era de ${fmtBRL(o.offerValue)}).`, round);
       return;
     }
-    const ratio = o.offerValue / o.marketValue;
-    const rng = Math.random();
-    if (ratio >= 0.95 && rng < 0.85) { finalizeIncomingPurchase(o); return; }
-    if (ratio >= 0.8 && rng < 0.45) { finalizeIncomingPurchase(o); return; }
-    if (ratio >= 0.6 && rng < 0.5) {
-      o.counterValue = Math.min(o.marketValue, Math.round((o.offerValue + o.marketValue) / 2 / 1000) * 1000);
+    // Fase 1.4 — decisão do vendedor CPU (aceitar/contrapor/recusar a
+    // SUA proposta, digitada livremente em openOfferModal) trocada da
+    // sequência de faixas de ratio ad hoc pras mesmas funções puras
+    // reaproveitadas em todo o resto (calculateSellerReservationValue/
+    // sellerNegotiationDecision) — mesma UI de sempre (contraproposta/
+    // aceitar/retirar em CAREER.pendingOffersOut, nada muda aí).
+    // o.counterRounds (novo campo temporário, só nesta oferta pendente
+    // — não é schema de jogador/clube) limita esta negociação a
+    // MAX_NEGOTIATION_ROUNDS contrapropostas (item 15): sem isso, o
+    // técnico podia aumentar a proposta indefinidamente
+    // (ver increaseOffer) e o vendedor contrapor de novo pra sempre,
+    // sem nenhum teto — um loop sem fim que este item pede pra evitar.
+    const sellerPlayer = leagueSquadFor(o.clubId).find((x) => String(x.id) === String(o.playerId));
+    const reservation = sellerPlayer ? calculateSellerReservationValue(sellerPlayer, o.clubId, { baseValue: o.marketValue }) : o.marketValue;
+    const roundsUsed = o.counterRounds || 0;
+    let decision = sellerNegotiationDecision(o.offerValue, reservation);
+    if (decision.action === "counter" && roundsUsed >= MAX_NEGOTIATION_ROUNDS) {
+      // esgotou o limite de contrapropostas -> decide definitivamente
+      // agora (aceita se ficou razoavelmente perto da reserva, senão
+      // recusa), nunca mais um ciclo.
+      decision = (o.offerValue / reservation) >= 0.85 ? { action: "accept", value: o.offerValue } : { action: "reject", value: null };
+    }
+    if (decision.action === "accept") { finalizeIncomingPurchase(o); return; }
+    if (decision.action === "counter") {
+      o.counterValue = decision.value;
+      o.counterRounds = roundsUsed + 1;
       o.status = "countered";
       stillPending.push(o);
       toast({ title: "Contraproposta recebida", detail: `${o.clubName} quer ${fmtBRL(o.counterValue)} por ${abbreviateName(o.playerName)} — veja em Minhas propostas.` }, { type: "warn" });
@@ -10993,7 +11196,15 @@ function maybeSpawnListingOffer(listing) {
   const club = pickWeightedByScore(scored);
   const score = scored.find((s) => s.item === club).score;
   if (Math.random() >= offerProbabilityFromScore(score)) return; // score baixo -> raríssimo; score alto -> frequente
-  const value = Math.max(1000, transferValuation(p, club.id, CAREER.clubId, { baseValue: listing.askingValue, competitorCount: listing.offers.length }));
+  // Fase 1.4 — mesma negociação interna de maybeGenerateOffer, com
+  // askingValue como âncora (item 19 — nunca substituído): passa por
+  // context.baseValue tanto pra transferValuation (valor inicial, já
+  // era assim) quanto pra calculateSellerReservationValue (reserva
+  // também ancorada no anúncio, não em player.value).
+  const dealCtx = { baseValue: listing.askingValue, competitorCount: listing.offers.length };
+  const deal = negotiateOffer(p, club.id, CAREER.clubId, dealCtx);
+  if (deal.outcome !== "accepted") return;
+  const value = Math.max(1000, deal.finalValue);
   const installments = Math.random() < 0.6 ? 1 : Math.random() < 0.7 ? 2 : 3; // clube CPU às vezes parcela também
   listing.offers.unshift({
     id: `listingoffer_${Date.now()}_${Math.floor(Math.random() * 1000)}`,

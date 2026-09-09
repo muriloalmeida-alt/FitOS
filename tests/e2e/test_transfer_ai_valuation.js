@@ -322,7 +322,16 @@ const { chromium } = require("playwright-core");
       result = { ok: false, reason: "nenhuma oferta gerada em 300 tentativas (cenário favorável)" };
     } else {
       const player = CAREER.squad.find((p) => p.id === found.playerId);
-      const recomputed = transferValuation(player, found.clubId, CAREER.clubId);
+      // Fase 1.4 — maybeGenerateOffer não usa mais transferValuation
+      // pura direto: o fee final é o resultado de negotiateOffer
+      // (reserva do vendedor vs. tolerância do comprador em cima do
+      // valor inicial de transferValuation, ver carreira.js). A
+      // checagem de integração vira "recalcular negotiateOffer pro
+      // mesmo par bate com o fee gerado", não mais igualdade com
+      // transferValuation puro (que continua sendo só o PONTO DE
+      // PARTIDA, nunca mais necessariamente o valor final).
+      const recomputedDeal = negotiateOffer(player, found.clubId, CAREER.clubId);
+      const recomputed = recomputedDeal.outcome === "accepted" ? recomputedDeal.finalValue : null;
       result = { ok: true, fee: found.fee, recomputed, matches: found.fee === recomputed, base: player.value, withinLimits: found.fee >= Math.round(player.value * 0.70) && found.fee <= Math.round(player.value * 1.50) };
     }
     CAREER.pendingOffer = null;
@@ -330,7 +339,7 @@ const { chromium } = require("playwright-core");
     CAREER.leagueSquads = backupLeague;
     return result;
   });
-  console.log("10) maybeGenerateOffer usa transferValuation de verdade (fee gerado == transferValuation recalculado pro mesmo par jogador/clube):",
+  console.log("10) maybeGenerateOffer usa negotiateOffer de verdade (fee gerado == negotiateOffer recalculado pro mesmo par jogador/clube, Fase 1.4):",
     t10.ok && t10.matches && t10.withinLimits, JSON.stringify(t10));
 
   // ---------- TESTE 10b — Integração real (maybeSpawnListingOffer) ----------
@@ -390,13 +399,16 @@ const { chromium } = require("playwright-core");
     if (!found) {
       result = { ok: false, reason: "nenhuma oferta rival gerada em 200 tentativas (cenário favorável)" };
     } else {
-      const recomputed = transferValuation(player, found.clubId, sellerId, { baseValue: o.marketValue, competitorCount: 1 });
+      // Fase 1.4 — mesmo ajuste do teste 10: recalcula via
+      // negotiateOffer (não mais transferValuation puro).
+      const recomputedDeal = negotiateOffer(player, found.clubId, sellerId, { baseValue: o.marketValue, competitorCount: 1 });
+      const recomputed = recomputedDeal.outcome === "accepted" ? recomputedDeal.finalValue : null;
       result = { ok: true, offerValue: found.offerValue, recomputed, matches: found.offerValue === recomputed, withinLimits: found.offerValue >= Math.round(o.marketValue * 0.70) && found.offerValue <= Math.round(o.marketValue * 1.50) };
     }
     CAREER.leagueSquads = backup;
     return result;
   });
-  console.log("10c) maybeSpawnRivalOffer usa transferValuation de verdade (offerValue == transferValuation recalculado):",
+  console.log("10c) maybeSpawnRivalOffer usa negotiateOffer de verdade (offerValue == negotiateOffer recalculado, Fase 1.4):",
     t10c.ok && t10c.matches && t10c.withinLimits, JSON.stringify(t10c));
 
   await browser.close();
