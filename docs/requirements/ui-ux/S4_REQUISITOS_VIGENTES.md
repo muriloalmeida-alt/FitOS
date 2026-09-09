@@ -37,10 +37,13 @@ Batch 2 — Core (8 telas)
 | Login / Entrada | ❌ `--brd-*` (legado) | — |
 | Loading / Bootstrap | ❌ não identificada como tela própria migrada | — |
 | Perfil do jogador | ❌ `.ct-modal-*` (legado) | overlay vira `.m3-dialog` assim que `S3-DS20-S4-PREP-001` for aprovada (é o próprio ponto de validação dessa demanda) — mas isso NÃO formaliza o PlayerCard nem migra o resto da tela pros tokens `--m3-*`, só o container do modal |
-| Tática / Formação | ❌ `--mt-*` (legado) | — |
+| Tática / Formação | 🟡 parcial (`S4-B2-003`) | 2 tokens duplicados migrados (badge "problema" → `--m3-error`, indicador de lesão → `--m3-secondary`); 2 divergências abertas aguardando decisão do PM (tipografia `Rajdhani` no campinho/banco — classificar como BRDATA Extension ou migrar; `.mt-bench-row` reaproveitar `playerRow()`/PlayerCard ou manter padrão compacto próprio) — ver relatório técnico |
 | Treino | ❌ `--mt-*` (legado) | — |
 
-**3 de 8 (37%) migradas.**
+**3 de 8 (37%) totalmente migradas + 1 parcial** (contando só o que já
+está em `main` nesta branch — `S4-B2-001`/Loading-Bootstrap e
+`S4-B2-002`/Login seguem em branches próprias, aguardando aprovação
+separada, ver `docs/HANDOFF_CLAUDE.md`).
 
 Batch 3 — Transactional (4 telas, todas P0)
 
@@ -163,12 +166,16 @@ for paga agora, antes de replicar o padrão ad hoc em mais telas.
      com outras partes do produto além do Modo Técnico — confirmar
      escopo de compartilhamento antes de migrar é requisito da
      demanda, não opcional.
-   - Item 3: **Tática/Formação** (`S4-B2-003`, status `PRONTO PARA
-     IMPLEMENTAÇÃO`) — tela interativa, mais complexa que as duas
-     anteriores; possível dependência não confirmada do PlayerCard
-     (a inspecionar, não presumida); as 3 telas P1 relacionadas (Eixos
-     táticos, Marcação individual, Meus esquemas) ficam fora, são
-     Batch 4.
+   - Item 3: **Tática/Formação** (`S4-B2-003`). **Parcial, com 2
+     divergências registradas para decisão do PM** antes de considerar
+     concluída: (1) `.mt-bench-row` (lista de reservas) usa um padrão
+     compacto próprio, não `playerRow()`/PlayerCard — decidir se deve
+     ser unificado; (2) tipografia `'Rajdhani'` no campinho/banco
+     (badges de OVR, posições, nomes) é uma fonte diferente da
+     `--m3-display` (Space Grotesk) usada no resto do app — decidir se
+     é uma BRDATA Extension legítima (identidade "placar de estádio")
+     ou deve migrar. 2 tokens de cor duplicados já migrados (badge
+     "problema", indicador de lesão) enquanto aguarda essa decisão.
    - Item 4: **Treino** (`S4-B2-004`, status `PRONTO PARA
      IMPLEMENTAÇÃO`) — mesma incerteza de dependência do PlayerCard
      que o item 3 (a inspecionar, não presumida), sem o componente de

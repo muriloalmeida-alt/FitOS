@@ -873,7 +873,7 @@ e Treino. Perfil do jogador continua por último, dependente de
 
 S4-B2-003 — Migrar tela Tática/Formação para o Design System novo
 
-Status: PRONTO PARA IMPLEMENTAÇÃO
+Status: REVISÃO DO PM NECESSÁRIA
 Sprint: S4 — Redesign Mobile
 Fase: Batch 2 (Core) — item 3 de 5
 Prioridade: P0
@@ -992,6 +992,180 @@ Observações
 Última tela recomendada do Batch 2 antes de Perfil do jogador: Treino
 (mesma cautela sobre dependências deve ser aplicada, a confirmar
 quando essa demanda for especificada).
+
+⸻
+
+Relatório técnico — S4-B2-003
+
+Executado por: Claude · Data: 09/09/2026 · Branch: `claude/s4-b2-003-tatica`.
+As 2 cautelas explícitas da especificação foram confirmadas pela
+inspeção — registradas como divergências abaixo, **não decididas
+unilateralmente**, conforme a própria especificação instruiu.
+
+1. Resumo executivo
+
+As 2 incertezas que a especificação pediu pra confirmar (não presumir)
+se confirmaram as duas:
+
+1. **Dependência do PlayerCard**: `renderBench()` (lista de reservas)
+   usa um padrão de linha próprio (`.mt-bench-row`/`.mt-bench-ovr`/
+   `.mt-pos-chip`), não `playerRow()` — não é PlayerCard, é um padrão
+   compacto distinto, já existente antes desta demanda.
+2. **Esforço de adaptação mobile do campo**: além de tokens de cor
+   legados, o campinho/banco usam a família tipográfica `'Rajdhani'`
+   diretamente (não `--m3-display`), diferente do resto do app —
+   achado que vai além de "migração de tokens simples".
+
+Diante disso, esta demanda entrega o que pôde ser resolvido **sem
+decisão de produto/design** (2 tokens de cor duplicados, mesmo padrão
+de correção já aplicado em `S4-B2-001`/`S4-B2-002`), e registra as 2
+divergências acima pra decisão do PM antes de qualquer trabalho
+adicional nesta tela — conforme a própria especificação pediu
+explicitamente ("é uma divergência a registrar e devolver ao PM antes
+de prosseguir — não decisão unilateral do implementador").
+
+2. Dependência do PlayerCard — divergência registrada
+
+`renderBench()` (`carreira.js:10307`) renderiza `.mt-bench-row` com
+badge de OVR + nome + chip de posição — visualmente parecido mas
+estruturalmente diferente de `playerRow()`/PlayerCard (sem barra de
+condição, sem tags de contrato/moral/lesão). Foi **reestilizado antes
+desta demanda** (comentário preservado no código: "refatoração
+completa, Tela 6... lista (.mt-bench-row) no lugar da tabela genérica
+.ct-table de antes"), então não é uma tela intocada — é uma decisão de
+componente já tomada, só que diferente da formalizada em
+`S3-DS20-S4-PREP-002`.
+
+**Pergunta pro PM**: `.mt-bench-row` deve ser substituído por
+`playerRow()` (unificando com Elenco/Treino/`openClubRoster()`), ou
+mantido como um padrão compacto próprio, justificado pelo contexto
+diferente (lista de reservas dentro do campinho, não uma lista de
+elenco completa)? Nenhuma decisão tomada aqui — ambas as opções têm
+mérito e nenhuma é obviamente "a certa" sem uma decisão de produto.
+
+3. Tipografia `Rajdhani` — divergência registrada
+
+`.mt-pos-slot .role`/`.mt-pitch-badge`/`.mt-pos-slot .name`/
+`.mt-bench-ovr`/`.mt-pos-chip` usam `font-family:'Rajdhani', var(--font)`
+— uma fonte condensada diferente de `--m3-display` (Space Grotesk,
+usada em títulos/marca no resto do app já migrado). Não é uma
+descoberta nova de todo — o histórico do redesign M3 já documentava
+Rajdhani como fonte "servindo telas ainda não migradas" (commit
+`7795a64`), mas nunca ficou claro se ela deveria ser substituída ou
+reclassificada quando essas telas fossem migradas.
+
+**Pergunta pro PM**: `Rajdhani` nos números/posições do campinho e
+banco deve ser classificada como **BRDATA Extension** (identidade
+"placar de estádio" pra badges de jogador — mesmo espírito de
+`Bebas Neue` já usado nos monogramas de escudo, `.ct-crest-mono`), ou
+deve migrar pra `--m3-display` por consistência tipográfica com o
+resto do sistema? Nenhuma decisão tomada aqui — envolve identidade
+visual, não é uma correção mecânica de token.
+
+4. Implementação (o que PODE ser resolvido sem decisão de produto)
+
+2 tokens de cor migrados, ambos duplicações reais de papel semântico
+já coberto por `--m3-*` (mesmo critério usado em `S4-B2-001`/`002` —
+migrar só o que é mecanicamente equivalente, não decidir por conta
+própria o que é ambíguo):
+
+* `.mt-pitch-badge.problem` — `var(--mt-crimson-400)` → `var(--m3-error)`
+  (mesmo papel "problema/erro" já usado em Login/Loading).
+* `.mt-injury-flag` — `var(--mt-gold-400)` → `var(--m3-secondary)`
+  (mesmo mapeamento "acento futebolístico" já formalizado no adendo de
+  `S3-DS20-S4-PREP-001`, `S3_DS20_FUNDACAO_EXECUTAVEL.md` §56.3:
+  `accent.football` → `--m3-secondary`); borda `var(--mt-navy-950)` →
+  `var(--m3-surface-container-lowest)`; ícone SVG `#3A2A03` (raw,
+  nunca tokenizado) → `var(--m3-on-secondary)` (par semântico correto,
+  contraste 7.56:1, verificado).
+
+**Não migrado, classificado como BRDATA Extension e não gap**: o
+gradiente verde do campinho (`--mt-pitch-600`/`--mt-pitch-900`) e as
+linhas brancas de marcação (`rgba(255,255,255,.25)`) — cor decorativa
+de "campo de futebol real", sem papel semântico equivalente em nenhum
+token `--m3-*` (M3 não tem conceito de "superfície de gramado");
+renomear o prefixo sem mudar o valor seria puro trabalho cosmético,
+não uma correção de token duplicado.
+
+**Não tocado**: `.mt-pos-chip.gol/def/mei/ata` (esquema de 4 cores por
+posição) — confirmado por busca literal como usado em 6 pontos do app
+além desta tela (posição de jogador em várias listas), fora de escopo
+tocar aqui.
+
+5. Tests
+
+`tests/e2e/test_s4_b2_003_tatica.js` (novo) — 3 checks, todos `true`:
+1. Badge "problema" no campinho usa `--m3-error` (jogador forçado pra
+   `status:"contundido"` via `page.evaluate`, confirmado no
+   `box-shadow` computado).
+2. Indicador de lesão segue `--m3-secondary` — comparado contra o
+   valor REAL do token (não um hex fixo), porque a paleta `--m3-secondary`
+   é dinâmica por clube (`applyClubPalette()`); o teste usa um elemento
+   de referência isolado pra converter a variável em `rgb()` comparável.
+3. Trocar formação continua funcionando (preservação funcional).
+
+Regressão: reexecutei os 4 testes pré-existentes de escalação/tática
+(`test_bloco2_tatica.js`, `test_escalacao_avancada.js`,
+`test_escalacao_ui2.js`, `test_ajustar_escalacao_modal.js`) contra o
+código alterado — todos os checks continuam `true`, nenhuma regressão.
+
+6. Gaps
+
+Os 2 divergências das seções 2-3 são o gap principal desta demanda —
+não corrigidos, aguardando decisão do PM, exatamente como a
+especificação instruiu.
+
+7. Risks
+
+Risco declarado na especificação ("médio-alto") confirmado como
+correto na prática — ao contrário de `S4-B2-001`/`002`, esta tela
+realmente tinha decisões não-mecânicas pendentes, não só tokens
+simples de trocar.
+
+8. Arquivos avaliados / alterados / criados
+
+Avaliados: `public/js/carreira.js` (`renderEscalacao()`,
+`renderPitch()`, `pitchPieceHTML()`, `renderBench()`,
+`renderFormationChips()`), `public/carreira.html` (CSS de
+`.mt-pitch*`/`.mt-pos-slot`/`.mt-bench-row`/`.mt-pos-chip`).
+
+Alterados: `public/carreira.html` (2 seletores CSS),
+`docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`,
+`docs/HANDOFF_CLAUDE.md` (este relatório).
+
+Criados: `tests/e2e/test_s4_b2_003_tatica.js`. Removidos: nenhum.
+
+9. Resultado final
+
+**ADJUSTMENTS REQUIRED**
+
+Justificativa: esta é a primeira das telas do Batch 2 onde a inspeção
+obrigatória revelou decisões reais de produto/design pendentes, não
+apenas tokens a trocar — exatamente o cenário que a própria
+especificação previu e instruiu a registrar, não decidir
+unilateralmente. Os 2 tokens de cor duplicados foram corrigidos (baixo
+risco, mecânicos, testados), mas a tela não pode ser considerada
+"migrada" no mesmo sentido de `S4-B2-001`/`002` enquanto as 2
+divergências (PlayerCard vs. `.mt-bench-row`; `Rajdhani` como Extension
+ou migrar) não forem decididas. Isso não é `BLOCKED` — não há
+impedimento técnico, só uma decisão de produto pendente — nem
+`APPROVED` — a tela ainda não está no estado final que a demanda
+descreve.
+
+10. Recomendação
+
+1. PM decide as 2 divergências das seções 2-3.
+2. Se a decisão gerar trabalho adicional (unificar `.mt-bench-row` com
+   PlayerCard, e/ou migrar `Rajdhani`), recomendo tratar como uma
+   pequena extensão desta mesma demanda (`S4-B2-003`), não uma demanda
+   nova — o escopo já foi inspecionado e as opções já estão mapeadas.
+3. Se a decisão for "manter como está" pros dois casos (BRDATA
+   Extension pra Rajdhani, padrão próprio pro bench), então esta
+   demanda pode ser considerada `APPROVED` como está, com as duas
+   classificações formalizadas em `S3_2_COMPONENTES_E_CONTRATOS.md`
+   (mesmo padrão de adendo já usado antes).
+
+REVISÃO DO PM NECESSÁRIA.
 
 ⸻
 
