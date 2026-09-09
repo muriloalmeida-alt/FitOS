@@ -633,6 +633,188 @@ em uma nova demanda, não como reabertura dessa issue.
 
 ⸻
 
+S3-DS20-S4-PREP-001 — Convergência de tokens + componentes P0 ausentes (pré-requisito da S4)
+
+Status: PRONTO PARA IMPLEMENTAÇÃO
+Sprint: S3 — BRDATA Design System 2.0 (pré-requisito para S4)
+Fase: S3.2.8 — Resolução dos gaps P0 da S3.2.7 Readiness Review
+Prioridade: P0
+
+Objetivo
+
+Resolver os 2 gaps P0 identificados na S3.2.7 Readiness Review (decisão
+AJUSTES NECESSÁRIOS, ver §18 acima) que bloqueiam o início "puro" da
+S4: (1) convergência de nomenclatura de tokens do BRDATA DS 2.0 e (2)
+construção dos 3 componentes P0 ausentes no sistema `--m3-*` (Dialog,
+Bottom Sheet, Skeleton).
+
+Contexto
+
+A S3.2.7 Readiness Review concluiu ADJUSTMENTS REQUIRED: a fundação
+`--m3-*` é tecnicamente sólida onde existe, mas está fragmentada em 3
+sistemas de token paralelos (`--brd-*`/`--mt-*`/`--m3-*`) e carece de 3
+componentes P0 inteiros. A própria recomendação da auditoria (itens 1
+e 2, ver relatório acima) marcou esses dois gaps como pré-requisito
+antes de expandir a migração às 9 telas P0 restantes — os demais itens
+da recomendação (migração das telas, redução de emoji, testes,
+LeagueTable/ARIA) ficam para a execução da própria S4, não para esta
+demanda.
+
+Decisão de nomenclatura (PM): adotar `--m3-*` como sistema-alvo único.
+Justificativa: é o sistema mais próximo do Material Design 3 oficial
+(nomenclatura de papéis correta, confirmada na auditoria), é o único
+com paleta dinâmica por clube e verificação de contraste automatizada,
+e é o único ativamente usado pelas 3 telas já migradas. O vocabulário
+documentado em `docs/sprints/S3/S3_DS20_FUNDACAO_EXECUTAVEL.md` §6-10
+(`bg.canvas`, `text.primary`, `state.success` etc.) nunca foi
+implementado literalmente no código (confirmado pela auditoria) —
+passa a ser tratado como um **vocabulário conceitual/de documentação**,
+mapeado para os tokens `--m3-*` reais (ex.: `bg.canvas` →
+`--m3-background`, `text.primary` → `--m3-on-surface`, `state.success`
+→ um token `--m3-success`/`--m3-on-success` a ser criado nesta
+demanda, já que a paleta M3 padrão não define "success" nativamente).
+`--brd-*` e `--mt-*` continuam existindo (uso ativo nas telas ainda não
+migradas) sem prazo de remoção definido nesta demanda — descontinuação
+é trabalho da própria S4 (migração tela a tela), não desta demanda.
+
+Problema
+
+Sem esta demanda:
+* qualquer novo componente de overlay (modal/sheet/loading) criado
+  durante a S4 corre o risco de nascer num 4º sistema paralelo, ou de
+  ser construído ad hoc dentro de cada tela migrada (repetindo o
+  problema já identificado no Snackbar/Toast — existe, mas não é um
+  componente formal integrado a nenhum sistema de token);
+* as telas P0 mais críticas para o produto (Mercado, Negociação,
+  Contratos) dependem pesadamente de modal/sheet — migrá-las sem esses
+  componentes prontos significaria reconstruir overlay ad hoc por tela.
+
+Escopo
+
+Claude deve:
+
+1. Formalizar a decisão de nomenclatura acima como adendo (não
+   reescrita) em `docs/sprints/S3/S3_DS20_FUNDACAO_EXECUTAVEL.md`,
+   referenciando esta demanda.
+2. Criar o componente **Dialog** no sistema `--m3-*` (`.m3-dialog*`),
+   cobrindo o objetivo definido em
+   `docs/sprints/S3/S3_2_COMPONENTES_E_CONTRATOS.md` §21 (interromper o
+   fluxo para decisão/confirmação): overlay + container + header/body/
+   footer de ações, foco preso (focus trap), fechamento por Esc/clique
+   fora, `role="dialog"`/`aria-modal`/`aria-labelledby`.
+3. Criar o componente **Bottom Sheet** no sistema `--m3-*`
+   (`.m3-bottom-sheet*`), cobrindo o objetivo do §22 (conteúdo/ações
+   contextuais mobile): abertura por baixo, fechamento por clique fora,
+   `role="dialog"`/`aria-modal`.
+4. Criar o componente **Skeleton** no sistema `--m3-*`
+   (`.m3-skeleton*`), cobrindo o objetivo do §18 (preservar estrutura
+   aproximada do conteúdo final, evitar layout shift), reaproveitando a
+   técnica de shimmer já existente (`adShimmer`/`background-size` em
+   `public/css/style.css:304-306`) em vez de criar uma segunda animação
+   do zero.
+5. Validar os 3 componentes num ponto de uso real já migrado: integrar
+   o Dialog no fluxo `openPlayerCard()` (`public/js/carreira.js:9169`,
+   hoje `.ct-modal-*`), acessível a partir da tela Elenco já migrada
+   para `--m3-*` — sem precisar tocar Mercado/Negociação/Contratos.
+6. Criar 1 teste E2E cobrindo abertura/fechamento/acessibilidade básica
+   de cada componente novo, seguindo o padrão de
+   `tests/e2e/test_m3_bloco1_inicio.js`.
+7. Atualizar este handoff com o relatório desta demanda ao final (mesmo
+   formato do relatório da S3.2.7 acima).
+
+Fora de escopo
+
+* migrar Login, Tática, Treino, Mercado, Negociação, Contratos, Resumo
+  da rodada, Perfil do jogador (fora do ponto de validação do item 5)
+  ou qualquer outra das 9 telas P0 ainda legadas — isso é trabalho da
+  própria S4;
+* remover ou depreciar `--brd-*`/`--mt-*` — continuam em uso enquanto
+  as telas que dependem deles não forem migradas;
+* substituir `.ct-modal-*`/`.mt-sheet-*` em qualquer tela além do ponto
+  de validação do item 5 do escopo;
+* resolver os gaps P1/P2 do relatório da S3.2.7 (emoji, LeagueTable,
+  densidade de ARIA geral, `.icon-btn` 36px, CSS morto) — ficam para a
+  execução da S4, conforme a própria auditoria recomendou;
+* alteração de regra de negócio, Match Engine, Transfer Engine ou
+  Economy.
+
+Dependências
+
+* relatório e decisão do PM da S3.2.7 Readiness Review (§18 acima);
+* fundação `--m3-*` existente (`public/carreira.html:150-179`);
+* `docs/sprints/S3/S3_DS20_FUNDACAO_EXECUTAVEL.md` §18.12/§19,
+  `docs/sprints/S3/S3_2_COMPONENTES_E_CONTRATOS.md` §18/21/22.
+
+Requisitos
+
+Claude deve:
+
+1. inspecionar a fundação `--m3-*` existente antes de criar qualquer
+   token novo (reaproveitar `--m3-shape-*`, escala de elevação etc. já
+   definidos);
+2. mapear o vocabulário `bg.canvas`/`text.primary`/`state.*` para os
+   tokens `--m3-*` reais, criando apenas os tokens de estado que
+   faltarem (confirmar se `danger`/`info` já têm equivalente próximo em
+   M3 `error`/`tertiary` antes de criar tokens novos redundantes);
+3. implementar Dialog, Bottom Sheet e Skeleton reaproveitando padrões
+   já usados no sistema `--m3-*` (`.m3-card`, escala de forma, paleta
+   de elevação);
+4. preservar `.ct-modal-*`/`.mt-sheet-*` funcionando sem alteração em
+   todas as telas que não forem tocadas pelo item 5 do escopo;
+5. testar mobile-first (viewport 390px, mesmo padrão do teste
+   existente);
+6. verificar contraste AA nos novos componentes (reaproveitar
+   `contrastRatio()` já existente);
+7. registrar arquivos avaliados/alterados/criados no relatório final.
+
+Critérios de aceite
+
+A demanda deverá resultar em uma das classificações: APPROVED,
+ADJUSTMENTS REQUIRED ou BLOCKED — sustentada por evidência real
+(arquivo/linha), mesmo formato do relatório da S3.2.7.
+
+Aceite específico:
+* os 3 componentes existem no sistema `--m3-*`, com nomenclatura
+  `.m3-dialog*`/`.m3-bottom-sheet*`/`.m3-skeleton*`;
+* Dialog integrado e funcional em `openPlayerCard()` a partir da tela
+  Elenco, sem regressão no fluxo existente;
+* decisão de nomenclatura formalizada em documento (adendo à S3.1);
+* nenhuma das 9 telas P0 legadas foi tocada;
+* `--brd-*`/`--mt-*` continuam funcionando sem alteração;
+* pelo menos 1 teste E2E novo por componente.
+
+Validações
+
+O PM deverá validar: aderência ao M3, qualidade/acessibilidade dos 3
+componentes novos, ausência de regressão em `openPlayerCard()`/Elenco,
+coerência da decisão de nomenclatura registrada, testes, e que o
+escopo não foi ultrapassado (nenhuma tela legada migrada além do ponto
+de validação).
+
+Riscos
+
+* over-engineering: tentar generalizar demais os 3 componentes antes de
+  terem um segundo caso de uso real (Mercado/Negociação) — mitigar
+  seguindo o padrão mínimo necessário validado no Dialog;
+* criar tokens de estado (`success`/`warning`) que depois conflitem com
+  o que o M3 real usa — verificar contra a paleta M3 oficial antes de
+  nomear;
+* focus trap/Esc mal implementado quebrando acessibilidade de teclado
+  em vez de melhorá-la;
+* `.ct-modal-*` e `.m3-dialog` compartilharem CSS de forma não
+  percebida, criando acoplamento oculto — verificar isolamento.
+
+Observações
+
+Esta demanda é pré-requisito da S4 (roadmap oficial), não é a S4 em si.
+Não expandir escopo para migração de outras telas sem nova
+especificação. Problemas encontrados devem ser registrados e
+classificados, mesmo padrão da S3.2.7. A aprovação formal do PM
+(Murilo) é obrigatória — somente após APROVADO o commit final de
+código está autorizado.
+
+⸻
+
 Histórico
 
 Demanda	Data	Commit	Changelog
