@@ -1225,6 +1225,419 @@ padrão já usado aqui.
 
 ⸻
 
+S4-B3-001 — Criar os componentes TransferCard e ContractCard
+
+Status: PRONTO PARA IMPLEMENTAÇÃO
+Sprint: S4 — Redesign Mobile
+Fase: Batch 3 (Transactional) — pré-requisito, item 1 de 4
+Prioridade: P0
+
+Objetivo
+
+Criar os 2 componentes P0 ainda inexistentes que o Batch 3 inteiro
+depende: **TransferCard** e **ContractCard**, conforme
+`docs/sprints/S3/S3_2_COMPONENTES_E_CONTRATOS.md` §26/§27.
+
+TransferCard — objetivo: representar uma oportunidade ou operação de
+mercado. Pode apresentar jogador, clube, valor, salário, status, ação.
+**O componente não deve calcular valuation** — só apresentação.
+
+ContractCard — objetivo: representar a situação contratual de um
+jogador. Pode apresentar jogador, clube, salário, duração, status,
+proximidade do vencimento, ação. **O componente não deve determinar
+regras de renovação** — só apresentação.
+
+Contexto
+
+Diferente de `S3-DS20-S4-PREP-002` (PlayerCard), que formalizou um
+componente que já existia de fato (dívida retroativa), TransferCard e
+ContractCard **não existem ainda** — a S3.2.7 Readiness Review
+confirmou zero ocorrências dos 6 BRDATA Product Patterns no código, e
+não há indício de equivalente ad hoc pra estes 2 especificamente (ao
+contrário de MatchCard/FinancialSummary, que têm candidatos a
+inspecionar). São trabalho novo, não retroativo.
+
+São o pré-requisito comum de 3 das 4 telas do Batch 3: Mercado e
+Negociação/Proposta dependem de TransferCard; Contratos depende de
+ContractCard. Só Resumo da rodada não depende de nenhum dos dois (essa
+tela segue fora desta rodada de demandas — ver observação no fim).
+
+Escopo
+
+Chapéu implementador deve, quando retomar esta demanda:
+
+1. Inspecionar a implementação atual das 3 telas que vão consumir
+   estes componentes (Mercado, Negociação, Contratos) antes de
+   desenhar os componentes — mesmo sem migrá-las ainda, entender como
+   jogador/clube/valor/salário/status já são hoje apresentados evita
+   um componente que não encaixa no dado real.
+2. Criar o componente **TransferCard** reaproveitando os tokens/
+   primitivas do Design System já disponíveis (fundação de
+   `S3-DS20-S4-PREP-001`, mesmo padrão do PlayerCard).
+3. Criar o componente **ContractCard**, mesma reutilização de base.
+4. Nenhum dos dois deve conter lógica de negócio (valuation, regra de
+   renovação) — são apresentação pura, recebem os dados já calculados.
+5. Documentar o contrato de cada um (Nome/Objetivo/Entradas/Estados),
+   mesmo padrão de PlayerCard/Dialog/Bottom Sheet/Skeleton.
+6. Validar via teste automatizado direto (mesmo padrão usado pra
+   Bottom Sheet/Skeleton em `S3-DS20-S4-PREP-001`, que também não
+   tinham integração em tela real na mesma demanda) — a integração
+   real acontece nas demandas seguintes (`S4-B3-002`/`003`/`004`).
+7. Atualizar `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`
+   marcando os 2 componentes como disponíveis.
+8. Retornar relatório técnico nesta mesma seção do handoff, status
+   `REVISÃO DO PM NECESSÁRIA`.
+
+Fora de escopo
+
+* migrar qualquer tela do Batch 3 — isso é `S4-B3-002`/`003`/`004`;
+* qualquer lógica de valuation, cálculo de proposta, regra de
+  renovação ou qualquer regra de negócio — os componentes só
+  apresentam dado já calculado;
+* MatchCard/FinancialSummary (Resumo da rodada) — continuam pendentes
+  de inspeção própria, não fazem parte desta demanda;
+* alteração do Transfer Engine ou de qualquer regra de mercado/
+  contrato existente.
+
+Dependências
+
+* `S3-DS20-S4-PREP-001` (aprovada, concluída — fundação de tokens e
+  Dialog/Bottom Sheet/Skeleton disponíveis).
+* `docs/sprints/S3/S3_2_COMPONENTES_E_CONTRATOS.md` §26 (TransferCard),
+  §27 (ContractCard).
+* `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`.
+
+Requisitos
+
+Mesma sequência obrigatória de sempre: inspecionar → localizar →
+entender → planejar → alterar → testar → revisar.
+
+Critérios de aceite
+
+* TransferCard e ContractCard existem como componentes nomeados e
+  documentados;
+* nenhum dos dois contém lógica de negócio;
+* nenhuma tela migrada ainda (isso é escopo das próximas demandas);
+* teste automatizado cobrindo os 2 componentes.
+
+Validações
+
+O PM deverá validar: aderência ao Design System, separação correta
+entre apresentação e lógica de negócio (nenhum dos 2 componentes
+calcula nada), contrato documentado, teste.
+
+Riscos
+
+* baixo-médio — são componentes novos (não retroativos), mas
+  conceitualmente simples (apresentação de dado já calculado); o
+  maior risco é desenhar um componente genérico demais ou específico
+  demais sem ver como as 3 telas consumidoras usam o dado hoje — daí o
+  requisito de inspecionar as 3 antes de desenhar.
+
+Observações
+
+**Resumo da rodada fica deliberadamente fora desta rodada de demandas
+do Batch 3** — depende de MatchCard/FinancialSummary, que
+`docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md` §5 (item 2b) já
+registra como "candidatos identificados mas não inspecionados o
+suficiente pra virar demanda" (mesmo problema não resolvido desde a
+especificação do Batch 2). Essa tela vira demanda só depois dessa
+inspeção acontecer — não presumida aqui.
+
+⸻
+
+S4-B3-002 — Migrar tela Mercado para o Design System novo
+
+Status: PRONTO PARA IMPLEMENTAÇÃO
+Sprint: S4 — Redesign Mobile
+Fase: Batch 3 (Transactional) — item 2 de 4
+Prioridade: P0
+
+Objetivo
+
+Migrar a tela de mercado de jogadores para o Design System novo,
+conforme `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 14):
+permitir visualizar oportunidades, buscar jogadores, aplicar filtros,
+visualizar valor, consultar contrato, iniciar negociação, identificar
+status — usando o TransferCard quando apropriado.
+
+Contexto
+
+Primeira tela do Batch 3 a ser migrada, depois de `S4-B3-001`
+(TransferCard/ContractCard). A S3.2.7 Readiness Review identificou
+Mercado como uma das 9 telas P0 ainda fora do sistema novo — e, junto
+com Negociação, é citada no próprio relatório como um dos fluxos
+transacionais mais críticos do produto (toda semana de jogo passa por
+ali).
+
+Escopo
+
+Chapéu implementador deve, quando retomar esta demanda:
+
+1. Inspecionar a implementação atual da tela de Mercado antes de
+   alterar qualquer coisa.
+2. Migrar a apresentação visual para os tokens do Design System novo.
+3. Usar o TransferCard (`S4-B3-001`) para representar cada
+   oportunidade/jogador do mercado.
+4. Garantir que busca, filtros, visualização de valor/contrato/status
+   e o início de negociação continuam todos funcionando.
+5. Usar os componentes já disponíveis (Dialog, Bottom Sheet, Skeleton)
+   onde a tela precisar de overlay/carregamento/filtro — não criar
+   nada novo em paralelo.
+6. Preservar o comportamento funcional (regras de mercado, filtros,
+   busca) — redesign visual, não mudança de regra.
+7. Testar (mobile-first, mesmo padrão das demandas anteriores).
+8. Atualizar `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`
+   marcando esta tela como migrada.
+9. Retornar relatório técnico nesta mesma seção do handoff, status
+   `REVISÃO DO PM NECESSÁRIA`.
+
+Fora de escopo
+
+* qualquer outra tela do Batch 3 (Negociação, Contratos, Resumo da
+  rodada);
+* qualquer mudança de regra de mercado, filtro, busca ou lógica de
+  interesse/oferta (Transfer Engine intocado);
+* qualquer mudança na definição do TransferCard além do que
+  `S4-B3-001` já formalizou — divergência registrada e devolvida ao
+  PM, não decidida unilateralmente;
+* gaps P1/P2 não relacionados a esta tela específica.
+
+Dependências
+
+* `S4-B3-001` (TransferCard) — bloqueante, precisa estar concluída.
+* `S3-DS20-S4-PREP-001` (aprovada, concluída).
+* `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 14).
+* `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`.
+
+Requisitos
+
+Mesma sequência obrigatória de sempre: inspecionar → localizar →
+entender → planejar → alterar → testar → revisar.
+
+Critérios de aceite
+
+* tela usa os tokens do Design System novo, reutilizando o
+  TransferCard;
+* busca, filtros, valor/contrato/status e início de negociação
+  continuam todos funcionando;
+* nenhuma mudança de regra de mercado;
+* nenhuma outra tela tocada;
+* teste mobile-first cobrindo a tela.
+
+Validações
+
+O PM deverá validar: aderência ao Design System, reutilização correta
+do TransferCard, preservação de todas as funcionalidades de mercado,
+teste, escopo respeitado.
+
+Riscos
+
+* médio-alto — é um dos fluxos transacionais mais críticos do
+  produto (toda semana de jogo passa por ali), com bastante
+  interação (busca/filtros/listagem).
+
+Observações
+
+Segunda e terceira telas recomendadas do Batch 3, depois desta:
+Negociação/Proposta (também usa TransferCard) e Contratos (usa
+ContractCard).
+
+⸻
+
+S4-B3-003 — Migrar tela Negociação/Proposta para o Design System novo
+
+Status: PRONTO PARA IMPLEMENTAÇÃO
+Sprint: S4 — Redesign Mobile
+Fase: Batch 3 (Transactional) — item 3 de 4
+Prioridade: P0
+
+Objetivo
+
+Migrar a tela de negociação de jogadores para o Design System novo,
+conforme `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 15):
+apresentar jogador, clube, proposta, valor, salário, duração,
+condições relevantes, status, ações — reduzindo ambiguidades no fluxo.
+
+Contexto
+
+Terceira tela do Batch 3. A S3.2.7 Readiness Review identificou
+Negociação/Proposta como uma das 9 telas P0 ainda fora do sistema
+novo, e como uma das que mais depende de overlay/diálogo pesado — a
+própria demanda `S3-DS20-S4-PREP-001` citou esta tela (junto com
+Mercado e Contratos) como motivação pra ter Dialog pronto antes de
+migrar aqui.
+
+Escopo
+
+Chapéu implementador deve, quando retomar esta demanda:
+
+1. Inspecionar a implementação atual da tela de Negociação antes de
+   alterar qualquer coisa.
+2. Migrar a apresentação visual para os tokens do Design System novo.
+3. Usar o TransferCard (`S4-B3-001`) para representar o jogador/oferta
+   em negociação, e o Dialog (`S3-DS20-S4-PREP-001`) para os fluxos de
+   confirmação/decisão.
+4. Garantir que valor, salário, duração, condições, status e as ações
+   disponíveis continuam todos funcionando, com o fluxo reduzindo
+   ambiguidade (conforme pede a matriz).
+5. Preservar o comportamento funcional (regras de negociação,
+   validações, cálculo de proposta) — redesign visual, não mudança de
+   regra.
+6. Testar (mobile-first, mesmo padrão das demandas anteriores).
+7. Atualizar `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`
+   marcando esta tela como migrada.
+8. Retornar relatório técnico nesta mesma seção do handoff, status
+   `REVISÃO DO PM NECESSÁRIA`.
+
+Fora de escopo
+
+* qualquer outra tela do Batch 3 (Mercado, Contratos, Resumo da
+  rodada);
+* qualquer mudança de regra de negociação, cálculo de proposta ou
+  validação (Transfer Engine intocado);
+* qualquer mudança na definição do TransferCard/Dialog além do que já
+  foi formalizado — divergência registrada e devolvida ao PM;
+* gaps P1/P2 não relacionados a esta tela específica.
+
+Dependências
+
+* `S4-B3-001` (TransferCard) — bloqueante, precisa estar concluída.
+* `S3-DS20-S4-PREP-001` (Dialog) — aprovada, concluída.
+* `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 15).
+* `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`.
+
+Requisitos
+
+Mesma sequência obrigatória de sempre: inspecionar → localizar →
+entender → planejar → alterar → testar → revisar.
+
+Critérios de aceite
+
+* tela usa os tokens do Design System novo, reutilizando TransferCard
+  e Dialog;
+* valor, salário, duração, condições, status e ações continuam todos
+  funcionando;
+* fluxo reduz ambiguidade (critério explícito da matriz);
+* nenhuma mudança de regra de negociação;
+* nenhuma outra tela tocada;
+* teste mobile-first cobrindo a tela.
+
+Validações
+
+O PM deverá validar: aderência ao Design System, reutilização correta
+de TransferCard/Dialog, preservação de todas as funcionalidades de
+negociação, clareza do fluxo, teste, escopo respeitado.
+
+Riscos
+
+* médio-alto — mesmo nível de criticidade de Mercado; fluxo de
+  decisão (aceitar/recusar/contrapropor) é sensível a regressão sutil
+  de comportamento.
+
+Observações
+
+Quarta e última tela recomendada do Batch 3 (excluindo Resumo da
+rodada, fora desta rodada): Contratos, usando ContractCard.
+
+⸻
+
+S4-B3-004 — Migrar tela Contratos para o Design System novo
+
+Status: PRONTO PARA IMPLEMENTAÇÃO
+Sprint: S4 — Redesign Mobile
+Fase: Batch 3 (Transactional) — item 4 de 4
+Prioridade: P0
+
+Objetivo
+
+Migrar a tela de gerenciamento de contratos para o Design System novo,
+conforme `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 16):
+permitir visualizar jogador, duração, salário, situação, proximidade
+do vencimento e ações disponíveis — usando o ContractCard quando
+apropriado.
+
+Contexto
+
+Quarta tela do Batch 3 (a quinta, Resumo da rodada, fica fora desta
+rodada — ver observação em `S4-B3-001`). A S3.2.7 Readiness Review
+identificou Contratos como uma das 9 telas P0 ainda fora do sistema
+novo.
+
+Escopo
+
+Chapéu implementador deve, quando retomar esta demanda:
+
+1. Inspecionar a implementação atual da tela de Contratos antes de
+   alterar qualquer coisa.
+2. Migrar a apresentação visual para os tokens do Design System novo.
+3. Usar o ContractCard (`S4-B3-001`) para representar cada contrato.
+4. Garantir que duração, salário, situação, proximidade do vencimento
+   e as ações disponíveis continuam todos funcionando.
+5. Usar os componentes já disponíveis (Dialog, Bottom Sheet, Skeleton)
+   onde a tela precisar de overlay/carregamento — não criar nada novo
+   em paralelo.
+6. Preservar o comportamento funcional (regras de contrato, renovação,
+   rescisão) — redesign visual, não mudança de regra.
+7. Testar (mobile-first, mesmo padrão das demandas anteriores).
+8. Atualizar `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`
+   marcando esta tela como migrada.
+9. Retornar relatório técnico nesta mesma seção do handoff, status
+   `REVISÃO DO PM NECESSÁRIA`.
+
+Fora de escopo
+
+* qualquer outra tela do Batch 3 (Mercado, Negociação, Resumo da
+  rodada);
+* qualquer mudança de regra de contrato, renovação ou rescisão;
+* qualquer mudança na definição do ContractCard além do que
+  `S4-B3-001` já formalizou — divergência registrada e devolvida ao
+  PM;
+* gaps P1/P2 não relacionados a esta tela específica.
+
+Dependências
+
+* `S4-B3-001` (ContractCard) — bloqueante, precisa estar concluída.
+* `S3-DS20-S4-PREP-001` (aprovada, concluída).
+* `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 16).
+* `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`.
+
+Requisitos
+
+Mesma sequência obrigatória de sempre: inspecionar → localizar →
+entender → planejar → alterar → testar → revisar.
+
+Critérios de aceite
+
+* tela usa os tokens do Design System novo, reutilizando o
+  ContractCard;
+* duração, salário, situação, proximidade do vencimento e ações
+  continuam todos funcionando;
+* nenhuma mudança de regra de contrato;
+* nenhuma outra tela tocada;
+* teste mobile-first cobrindo a tela.
+
+Validações
+
+O PM deverá validar: aderência ao Design System, reutilização correta
+do ContractCard, preservação de todas as funcionalidades de contrato,
+teste, escopo respeitado.
+
+Riscos
+
+* médio — tela transacional mas com menos interação em tempo real
+  que Mercado/Negociação (mais consulta/gestão do que decisão sob
+  pressão de janela de mercado).
+
+Observações
+
+Com esta demanda concluída e aprovada, o Batch 3 estará completo
+**exceto Resumo da rodada** — que continua fora até MatchCard/
+FinancialSummary passarem por inspeção própria (ver
+`S4_REQUISITOS_VIGENTES.md` §5, item 2b).
+
+⸻
+
 Histórico
 
 Demanda	Data	Commit	Changelog

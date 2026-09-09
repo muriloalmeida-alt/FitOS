@@ -180,8 +180,27 @@ for paga agora, antes de replicar o padrão ad hoc em mais telas.
      fica totalmente especificado.
 4. **Batch 3 (Transactional)** — antes de qualquer tela, formalizar
    TransferCard e ContractCard (não existem, sem dívida retroativa
-   aqui, são novos). Depois migrar Mercado, Negociação, Contratos,
-   Resumo da rodada.
+   aqui, são novos). Depois migrar Mercado, Negociação, Contratos.
+   Resumo da rodada fica fora desta rodada (ver item 4e).
+   - Item 1: **TransferCard + ContractCard** (`S4-B3-001`, status
+     `PRONTO PARA IMPLEMENTAÇÃO`) — 2 componentes novos (não
+     retroativos), sem lógica de negócio (valuation/renovação ficam
+     fora dos componentes). Pré-requisito bloqueante dos 3 itens
+     seguintes.
+   - Item 2: **Mercado** (`S4-B3-002`, status `PRONTO PARA
+     IMPLEMENTAÇÃO`) — usa TransferCard; um dos fluxos transacionais
+     mais críticos do produto (toda semana de jogo passa por ali).
+   - Item 3: **Negociação/Proposta** (`S4-B3-003`, status `PRONTO PARA
+     IMPLEMENTAÇÃO`) — usa TransferCard + Dialog; mesmo nível de
+     criticidade de Mercado.
+   - Item 4: **Contratos** (`S4-B3-004`, status `PRONTO PARA
+     IMPLEMENTAÇÃO`) — usa ContractCard. Com esta, o Batch 3 fica
+     completo exceto Resumo da rodada.
+   - Item 4e: **Resumo da rodada** — deliberadamente fora desta rodada
+     de demandas. Depende de MatchCard/FinancialSummary, que continuam
+     "candidatos identificados mas não inspecionados o suficiente"
+     (item 2b abaixo, sem mudança desde a especificação do Batch 2) —
+     não presumido aqui, vira demanda só depois dessa inspeção.
 5. **Batch 4 (Complementary)** — as 7 telas P1, começando por uma
    verificação individual (não foram auditadas na S3.2.7).
 6. **Batch 5 (QA Visual/UX)** — revisão transversal, como já definido
