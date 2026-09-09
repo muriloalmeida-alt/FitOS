@@ -757,7 +757,7 @@ Perfil do jogador por último (depende de `S3-DS20-S4-PREP-002`).
 
 S4-B2-002 — Migrar tela Login/Entrada para o Design System novo
 
-Status: PRONTO PARA IMPLEMENTAÇÃO
+Status: REVISÃO DO PM NECESSÁRIA
 Sprint: S4 — Redesign Mobile
 Fase: Batch 2 (Core) — item 2 de 5
 Prioridade: P0
@@ -868,6 +868,166 @@ Observações
 Terceira e quarta telas recomendadas do Batch 2, depois desta: Tática
 e Treino. Perfil do jogador continua por último, dependente de
 `S3-DS20-S4-PREP-002`.
+
+⸻
+
+Relatório técnico — S4-B2-002
+
+Executado por: Claude · Data: 09/09/2026 · Branch: `claude/s4-b2-002-login`.
+**Nenhuma linha de código de produção alterada** — a inspeção
+determinou que não havia nada a migrar.
+
+1. Resumo executivo
+
+A inspeção obrigatória desta demanda (escopo de compartilhamento) e a
+migração de tokens levaram ao mesmo resultado: **já estava feito**.
+`#screenLoginRequired` (a tela de Login real do Modo Técnico, `carreira.js`/
+`carreira.html`) foi completamente reconstruída numa refatoração
+anterior a esta demanda ("REFATORAÇÃO COMPLETA", comentário preservado
+em `carreira.html` linha ~1116) especificamente pra **parar** de
+reaproveitar `.auth-gate`/`.field` (classes compartilhadas com o site
+principal, `public/css/style.css`) — motivo registrado no próprio
+código: nomes genéricos do design system do designer (`.screen`,
+`.crest`, `.field`) colidiam com classes já existentes em
+`css/style.css`. Depois dessa refatoração, uma migração adicional
+("colocar as primeiras telas — Carregamento e Login — no padrão do
+M3") já trocou todos os tokens dessa estrutura própria (`.mt-screen`,
+`.mt-crest`, `.mt-panel`, `.mt-field`, `.mt-form-error`, `.mt-btn-enter`,
+`.mt-signup`) pra `--m3-*`, confirmado por busca literal: **zero**
+ocorrência de `--mt-*`/`--brd-*` dentro do bloco CSS desta tela
+(linhas ~1116-1217 de `carreira.html`).
+
+`docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md` e a especificação
+desta demanda descreviam a tela como "❌ `--brd-*` (legado)" — estado
+desatualizado, já corrigido na tabela (ver seção 3).
+
+2. Escopo de compartilhamento (requisito obrigatório da especificação)
+
+Confirmado por inspeção direta, não presumido: `#screenLoginRequired`
+é **exclusiva do Modo Técnico**. `.auth-gate`/`.auth-gate-card`
+continuam existindo em `public/css/style.css` e em uso — mas só por
+`public/index.html` (o gate de login/cadastro do site principal, com
+seleção de plano/pagamento), uma tela completamente diferente,
+confirmada por busca literal (`grep "auth-gate"` não retorna nenhuma
+ocorrência dentro de `#screenLoginRequired`/`carreira.html` além de
+comentários históricos explicando por que ela deixou de usar essas
+classes). O risco "médio" declarado na especificação (possível
+compartilhamento) não se confirmou — resultado real é risco baixo,
+igual ao de Loading/Bootstrap.
+
+3. Implementação
+
+Nenhuma. `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md` (§2)
+atualizado corrigindo a linha de Login/Entrada pra ✅ migrada, com a
+observação explicando o estado real encontrado; §5 (ordem de execução)
+atualizado marcando o item concluído sem mudança de código.
+
+4. Os 4 estados (default/loading/erro/sucesso)
+
+Todos já cobertos pelo `submitCtLogin()` existente (`carreira.js`),
+sem necessidade de alteração:
+* **default**: formulário com campos e-mail/senha, `.mt-field`/`.mt-panel`
+  já em `--m3-*`.
+* **loading**: botão desabilitado + texto "Entrando..." durante o
+  `fetchJSON`.
+* **erro**: mensagem inline (`#ctLoginError`/`.mt-form-error`, cor
+  `--m3-error`) — cobre campos vazios, credenciais erradas, e
+  pagamento pendente.
+* **sucesso**: transição pra `enterAfterAuth()`/`#screenLoading` (mesmo
+  padrão de "conclusão via transição" documentado no relatório de
+  `S4-B2-001` — sem estado de sucesso dedicado nesta tela, por design).
+
+5. Componentes (Dialog/Bottom Sheet/Skeleton)
+
+Nenhum aplicável — a tela é um formulário simples com erro inline, sem
+overlay nem lista de conteúdo carregando. Avaliado e descartado pela
+mesma razão do Skeleton em `S4-B2-001`: não força um padrão que não se
+encaixa.
+
+6. Tests
+
+`tests/e2e/test_s4_b2_002_login.js` (novo) — 5 checks, todos `true`:
+1. Default: tela visível, confirmado que NÃO usa `.auth-gate` (prova
+   de que são telas separadas), tokens `--m3-*` computados corretos
+   (painel/campo/botão).
+2. Erro (campos vazios): mensagem com `--m3-error` correto.
+3. Erro (senha errada): mensagem aparece, botão reabilitado.
+4. Carregamento: botão desabilitado + "Entrando..." durante o fetch
+   (interceptado via `page.route` pra dar tempo do teste capturar o
+   estado intermediário).
+5. Sucesso: login válido faz a tela sumir, fluxo completo intacto.
+
+`tests/e2e/test_carreira_login_form.js` (pré-existente, 2 checks
+funcionais básicos) reexecutado — continua passando, sem sobreposição
+com o teste novo.
+
+7. Regression
+
+Nenhuma — zero linha de código alterada. Os 2 testes de login
+(existente + novo) confirmam o fluxo intacto.
+
+8. Gaps
+
+Nenhum gap novo relacionado ao Design System. Fora do escopo desta
+demanda, mas observado: área de toque dos campos/botão não medida
+formalmente (parecem adequados — padding generoso — mas não há
+verificação automatizada de 48dp aqui, mesmo gap geral já registrado
+na S3.2.7).
+
+9. Divergences
+
+**Divergência de estado real registrada**: a especificação e
+`S4_REQUISITOS_VIGENTES.md` descreviam a tela como legada
+(`--brd-*`); a inspeção confirmou que já estava 100% em `--m3-*` desde
+antes desta demanda. Mesmo padrão de divergência já visto em
+`S3-DS20-S4-PREP-002` (especificação desatualizada em relação ao
+código real) — registrado e corrigido na documentação, não corrigido
+"no código" porque não havia nada de errado no código.
+
+10. Risks
+
+Nenhum risco novo. O risco declarado ("médio", por possível
+compartilhamento) foi investigado e não se confirmou — ver seção 2.
+
+11. Arquivos avaliados / alterados / criados
+
+Avaliados: `public/carreira.html` (CSS de `#screenLoginRequired` e
+classes `.mt-*` relacionadas, linhas ~1116-1217), `public/js/carreira.js`
+(`submitCtLogin()`, `boot()`), `public/index.html`/`public/css/style.css`
+(`.auth-gate*`, pra confirmar exclusividade).
+
+Alterados: `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`,
+`docs/HANDOFF_CLAUDE.md` (este relatório). Nenhum arquivo de código de
+produção alterado.
+
+Criados: `tests/e2e/test_s4_b2_002_login.js`. Removidos: nenhum.
+
+12. Resultado final
+
+**APPROVED (proposto)**
+
+Justificativa: todos os 6 critérios de aceite atendidos —
+integralmente já satisfeitos por trabalho anterior, confirmado (não
+presumido) por esta demanda: tokens `--m3-*` em uso; 4 estados
+cobertos e diferenciados; nenhuma mudança de fluxo (nenhuma mudança
+nenhuma); nenhuma tela fora do Modo Técnico afetada (confirmado que
+não há compartilhamento real); nenhuma outra tela do Modo Técnico
+tocada; teste mobile-first novo cobrindo os 4 estados. O trabalho real
+desta demanda foi de verificação e correção de documentação, não de
+código — resultado legítimo quando a inspeção (etapa obrigatória antes
+de qualquer alteração) mostra que não há alteração necessária.
+
+13. Recomendação
+
+Nenhuma pendência gerada por esta demanda. Recomendo que futuras
+atualizações de `S4_REQUISITOS_VIGENTES.md`/especificações de telas
+sempre validem contra o código atual antes de classificar uma tela
+como legada — este é o 2º caso (depois de `S3-DS20-S4-PREP-002`) de
+uma especificação desatualizada em relação a uma migração já feita por
+uma sessão anterior sem essa atualização ter sido refletida na
+documentação de rastreio.
+
+REVISÃO DO PM NECESSÁRIA.
 
 ⸻
 

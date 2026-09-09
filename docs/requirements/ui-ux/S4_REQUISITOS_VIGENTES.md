@@ -34,13 +34,15 @@ Batch 2 — Core (8 telas)
 | Escolha do clube | ✅ migrada `--m3-*` | — |
 | Início / Dashboard | ✅ migrada `--m3-*` (parcial) | — |
 | Elenco | ✅ migrada `--m3-*` | PlayerCard formalizado (`S3-DS20-S4-PREP-002`, ver §3) — `playerRow()` agora tem contrato documentado |
-| Login / Entrada | ❌ `--brd-*` (legado) | — |
+| Login / Entrada | ✅ migrada `--m3-*` (achado de `S4-B2-002`, ver §5) | Estado real desta linha estava desatualizado — inspeção encontrou a tela do Modo Técnico (`#screenLoginRequired`) já 100% migrada por refatoração anterior, não `.auth-gate`/`--brd-*` como aqui registrado. `.auth-gate` continua existindo, mas é exclusivo do site principal (`index.html`) — telas comprovadamente separadas |
 | Loading / Bootstrap | ❌ não identificada como tela própria migrada | — |
 | Perfil do jogador | ❌ `.ct-modal-*` (legado) | overlay vira `.m3-dialog` assim que `S3-DS20-S4-PREP-001` for aprovada (é o próprio ponto de validação dessa demanda) — mas isso NÃO formaliza o PlayerCard nem migra o resto da tela pros tokens `--m3-*`, só o container do modal |
 | Tática / Formação | ❌ `--mt-*` (legado) | — |
 | Treino | ❌ `--mt-*` (legado) | — |
 
-**3 de 8 (37%) migradas.**
+**4 de 8 (50%) migradas** (contando só o que já está em `main` nesta
+branch — `S4-B2-001`/Loading-Bootstrap segue em branch própria,
+aguardando aprovação separada, ver `docs/HANDOFF_CLAUDE.md`).
 
 Batch 3 — Transactional (4 telas, todas P0)
 
@@ -155,12 +157,14 @@ for paga agora, antes de replicar o padrão ad hoc em mais telas.
      IMPLEMENTAÇÃO`) — a mais simples e independente (sem PlayerCard,
      sem formulário, sem regra de negócio própria), primeiro uso real
      do componente Skeleton.
-   - Item 2: **Login/Entrada** (`S4-B2-002`, status `PRONTO PARA
-     IMPLEMENTAÇÃO`) — independente de PlayerCard, sem regra de
-     negócio de jogo, mas com um risco próprio: pode ser compartilhada
-     com outras partes do produto além do Modo Técnico — confirmar
-     escopo de compartilhamento antes de migrar é requisito da
-     demanda, não opcional.
+   - Item 2: **Login/Entrada** (`S4-B2-002`). **Concluída sem mudança de
+     código**: inspeção encontrou a tela (`#screenLoginRequired`) já
+     100% migrada pros tokens `--m3-*` por refatoração anterior, e
+     confirmou que ela é estrutura própria (`.mt-*`), sem
+     compartilhamento nenhum com `.auth-gate` (exclusivo do site
+     principal) — o risco de compartilhamento citado originalmente não
+     se confirmou. Teste novo travando essa evidência contra
+     regressão futura (`tests/e2e/test_s4_b2_002_login.js`).
    - Item 3: **Tática/Formação** (`S4-B2-003`, status `PRONTO PARA
      IMPLEMENTAÇÃO`) — tela interativa, mais complexa que as duas
      anteriores; possível dependência não confirmada do PlayerCard
