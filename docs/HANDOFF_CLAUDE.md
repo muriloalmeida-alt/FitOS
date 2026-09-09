@@ -633,115 +633,6 @@ em uma nova demanda, não como reabertura dessa issue.
 
 ⸻
 
-S3-DS20-S4-PREP-002 — Formalizar PlayerCard (retroativo, Elenco)
-
-Status: REVISÃO DO PM NECESSÁRIA
-Sprint: S3 — BRDATA Design System 2.0 (pré-requisito para S4)
-Fase: S3.2.9 — dívida retroativa de Product Pattern
-Prioridade: P1
-
-Objetivo
-
-Formalizar `playerRow()` (`public/js/carreira.js:8876`) como o
-componente **PlayerCard** exigido pela matriz de telas
-(`S3_S4_MATRIZ_TELAS_MOBILE.md` §20/§525) e pelo contrato de
-`S3_2_COMPONENTES_E_CONTRATOS.md` §23 — hoje ele já cumpre a função,
-mas não tem contrato documentado nem é reconhecido em `docs/` como o
-padrão oficial.
-
-Contexto
-
-A S3.2.7 Readiness Review (`docs/HANDOFF_CLAUDE.md` §18) achou 0
-ocorrências dos 6 BRDATA Product Patterns no código.
-`docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md` §3-4 detalhou o
-risco: Elenco já foi migrada pro `--m3-*` usando `playerRow()`/
-`.m3-list-item` sem nunca formalizar esse padrão — dívida retroativa
-que cresce se repetida nas próximas telas sem correção.
-
-`playerRow()` já é reaproveitado em 3 pontos reais (confirmado por
-inspeção nesta especificação): Elenco (`carreira.js:9012`), o roster
-overlay de ajuste de escalação (`carreira.js:5448`) e o elenco
-somente-leitura de outro clube (`carreira.js:9153`, mesmo fluxo que
-`S3-DS20-S4-PREP-001` usou como ponto de validação do Dialog). Ou seja,
-já É um componente reutilizado na prática — falta só o contrato.
-
-Escopo
-
-1. Adicionar um comentário de contrato formal acima de `playerRow()`
-   (Nome: PlayerCard; Objetivo; Entradas: `p` — shape esperado;
-   Estados suportados/não suportados — hoje não há "loading" próprio,
-   pai decide antes de chamar; "empty" é responsabilidade de
-   `groupedListHTML()`, não desta função).
-2. Registrar em `docs/sprints/S3/S3_2_COMPONENTES_E_CONTRATOS.md`
-   (adendo, não reescrita) que PlayerCard está implementado como
-   `playerRow()`, com link pros 3 pontos de uso reais.
-3. Confirmar (sem alterar, a menos que ache uma quebra real) que os
-   3 pontos de uso continuam funcionando após o comentário adicionado
-   — não deve haver NENHUMA mudança de comportamento, é documentação.
-4. Atualizar `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md` §3
-   marcando PlayerCard como resolvido.
-
-Fora de escopo
-
-* renomear `playerRow()` ou qualquer classe CSS (`.m3-list-item` etc.)
-  — formalizar não é reescrever;
-* qualquer mudança visual ou de comportamento;
-* MatchCard e FinancialSummary — candidatos identificados
-  (`.m3-match-row` em `renderH2H`/`carreira.js:8475`, e
-  `financeCashBarsHTML()`/`carreira.js:8649`) mas **não inspecionados o
-  suficiente** pra confirmar se são de fato os componentes certos a
-  formalizar (`.m3-match-row` parece um widget menor de
-  "confronto direto", não o card de "próxima partida" que a matriz
-  descreve) — ficam para uma demanda própria, depois de uma inspeção
-  dedicada, não presumidos aqui;
-* TransferCard/ContractCard — não existem ainda, são trabalho novo do
-  Batch 3, não desta demanda (ver `S4_REQUISITOS_VIGENTES.md` §5);
-* qualquer tela P0 legada.
-
-Dependências
-
-* `playerRow()`/`groupedListHTML()` já existentes;
-* `docs/sprints/S3/S3_2_COMPONENTES_E_CONTRATOS.md` §23 (contrato
-  esperado do PlayerCard);
-* `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md` §3-4.
-
-Requisitos
-
-Claude deve (chapéu implementador, quando esta demanda for retomada):
-
-1. inspecionar os 3 pontos de uso antes de tocar no arquivo;
-2. adicionar só o comentário de contrato — mudança mínima, sem
-   alteração funcional;
-3. testar os 3 fluxos (Elenco, ajuste de escalação, elenco de outro
-   clube) continuam idênticos;
-4. atualizar a documentação (item 2/4 do escopo);
-5. registrar arquivos avaliados/alterados no relatório final.
-
-Critérios de aceite
-
-* comentário de contrato presente acima de `playerRow()`;
-* `S3_2_COMPONENTES_E_CONTRATOS.md` e `S4_REQUISITOS_VIGENTES.md`
-  atualizados;
-* os 3 fluxos de uso continuam idênticos (nenhuma mudança visual/
-  funcional);
-* nenhuma tela P0 legada tocada.
-
-Riscos
-
-* mínimo — é documentação sobre código já existente e testado, não
-  há mudança funcional pretendida.
-
-Observações
-
-Esta é a menor e mais segura das 3 demandas de Product Pattern
-identificadas (PlayerCard/MatchCard/FinancialSummary) — deliberadamente
-isolada das outras duas, que exigem inspeção própria antes de virarem
-demanda. Não é bloqueada pela aprovação de `S3-DS20-S4-PREP-001` (não
-depende de Dialog/Bottom Sheet/Skeleton), pode ser implementada em
-paralelo.
-
-⸻
-
 S4-B2-001 — Migrar tela Loading/Bootstrap para o Design System novo
 
 Status: PRONTO PARA IMPLEMENTAÇÃO
@@ -1234,3 +1125,19 @@ esta demanda já aprovada — nenhuma alteração de código nova, só a
 integração em `main` do que já estava implementado, testado e
 revisado na branch. A instrução geral de "não mexer em código" desta
 sessão continua valendo pra qualquer outra alteração.
+
+S3-DS20-S4-PREP-002 — Formalizar PlayerCard (`playerRow()`), retroativo em Elenco	09/09/2026	merge de `claude/s3-ds20-s4-prep-002` em `main` (commit de código original `1998f02`)	docs/project/CHANGELOG.md (a atualizar)
+
+APROVADO pelo Murilo em 09/09/2026. Relatório técnico completo (o que
+foi implementado — mudança puramente documental, zero comportamento
+alterado —, testes, a divergência encontrada em relação à
+especificação original, e a regressão pré-existente de
+`S3-DS20-S4-PREP-001` encontrada mas fora de escopo) fica preservado no
+histórico do git — `git show 1998f02:docs/HANDOFF_CLAUDE.md` (commit em
+que este relatório foi registrado) — e não é reproduzido aqui, pelo
+mesmo motivo do item acima.
+
+**Merge do código:** autorizado pela aprovação formal acima
+(`docs/README_HANDOFF.md` §13) — feito nesta mesma sessão, já com
+chapéu implementador (diferente do caso da PREP-001, onde o merge
+ficou pendente de outra sessão).

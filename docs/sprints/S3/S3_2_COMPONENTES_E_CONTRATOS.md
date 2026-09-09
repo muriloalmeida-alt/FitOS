@@ -1112,3 +1112,51 @@ Aderência ao M3
 Componentes devem resolver problemas de interface. Regras de negócio devem continuar nos sistemas de negócio.
 
 O Design System deve servir ao produto sem assumir o controle da arquitetura funcional do jogo.
+
+⸻
+
+60. Adendo — PlayerCard formalizado (S3-DS20-S4-PREP-002)
+
+Adendo, não reescrita: as seções 1-59 acima permanecem como a
+especificação original. Este adendo registra que o BRDATA Product
+Pattern **PlayerCard** (§23-24, §46) já está implementado — não é
+trabalho novo, é reconhecimento formal de código existente.
+
+60.1 Implementação
+
+PlayerCard = `playerRow()` (`public/js/carreira.js`), com contrato
+completo (Nome/Objetivo/Responsabilidade/Entradas/Saídas-eventos/
+Estados/Variações/Responsividade/Acessibilidade/Dependências, formato
+da seção 7) documentado como comentário imediatamente acima da função.
+
+60.2 Pontos de uso reais (confirmados por busca literal no código, não
+presumidos)
+
+1. Elenco (`renderElenco()`) — gestão completa do próprio elenco.
+2. Treino — roster completo do elenco (`trainingRosterList`).
+3. `openClubRoster()` — elenco somente-leitura de outro clube (mesmo
+   fluxo usado por `S3-DS20-S4-PREP-001` como ponto de validação do
+   Dialog).
+
+60.3 Divergência registrada em relação à especificação original da
+demanda
+
+A especificação de `S3-DS20-S4-PREP-002` (`docs/HANDOFF_CLAUDE.md`)
+citava como um dos 3 pontos de uso o "roster overlay de ajuste de
+escalação" (`carreira.js:5448`). Inspeção direta do código mostrou que
+isso está incorreto: `openAdjustLineupModal()` não renderiza uma lista
+própria — ele move o nó DOM existente de `#panel-escalacao`
+(`renderEscalacao()`) pra dentro do modal, e essa tela não usa
+`playerRow()`. O ponto de uso real que a especificação não capturou é
+o roster completo da tela **Treino**. O total continua sendo 3 pontos
+de uso, só o conjunto exato mudou — divergência registrada aqui
+conforme `docs/README.md` regra 4 ("nunca assumir que o código está
+correto" vale nos dois sentidos: aqui foi a especificação, não o
+código, que precisou de correção).
+
+60.4 Estados não contemplados (fora de escopo desta demanda)
+
+`playerRow()` não tem estado "loading" próprio nem atributos ARIA
+explícitos — ambos são gaps já conhecidos (S3.2.7) e ficam para a
+execução geral de acessibilidade da S4, não para esta demanda
+(formalização de contrato, sem mudança funcional).

@@ -33,7 +33,7 @@ Batch 2 — Core (8 telas)
 |---|---|---|
 | Escolha do clube | ✅ migrada `--m3-*` | — |
 | Início / Dashboard | ✅ migrada `--m3-*` (parcial) | — |
-| Elenco | ✅ migrada `--m3-*` | **mas sem PlayerCard formalizado** (ver §3) |
+| Elenco | ✅ migrada `--m3-*` | PlayerCard formalizado (`S3-DS20-S4-PREP-002`, ver §3) — `playerRow()` agora tem contrato documentado |
 | Login / Entrada | ❌ `--brd-*` (legado) | — |
 | Loading / Bootstrap | ❌ não identificada como tela própria migrada | — |
 | Perfil do jogador | ❌ `.ct-modal-*` (legado) | overlay vira `.m3-dialog` assim que `S3-DS20-S4-PREP-001` for aprovada (é o próprio ponto de validação dessa demanda) — mas isso NÃO formaliza o PlayerCard nem migra o resto da tela pros tokens `--m3-*`, só o container do modal |
@@ -79,7 +79,7 @@ específico de 1-2 telas:
 
 | Padrão | Tela(s) que depende dele | Já migrada sem ele? |
 |---|---|---|
-| PlayerCard | Elenco, Perfil do jogador | **Sim — Elenco já foi migrada usando `.m3-list-item` ad hoc, sem nunca formalizar PlayerCard como contrato** |
+| PlayerCard | Elenco, Perfil do jogador | **Resolvido por `S3-DS20-S4-PREP-002`** — `playerRow()` formalizado como PlayerCard, contrato documentado em `carreira.js` e adendo em `S3_2_COMPONENTES_E_CONTRATOS.md` §60. Perfil do jogador continua fora (não migrada — ver linha 39 acima) |
 | MatchCard | Início/Dashboard, Resumo da rodada | Início usa `.m3-score-card`/`.m3-match-row` ad hoc, mesmo padrão |
 | LeagueTable | Início/Dashboard, Histórico | Não migrada — segue tabela HTML tradicional |
 | TransferCard | Mercado, Negociação | Não migrada |
@@ -126,15 +126,18 @@ for paga agora, antes de replicar o padrão ad hoc em mais telas.
 ## 5. Ordem de execução refinada
 
 1. **`S3-DS20-S4-PREP-001`** — Dialog/Bottom Sheet/Skeleton +
-   convergência de nomenclatura. **Aprovada e concluída** (Histórico em
-   `docs/HANDOFF_CLAUDE.md`) — fundação e os 3 componentes disponíveis
-   pras próximas telas do Batch 2.
+   convergência de nomenclatura. **Concluído**: aprovado pelo PM e
+   mesclado em `main` (commit `8dcff10`), registrado no Histórico de
+   `docs/HANDOFF_CLAUDE.md` e em `docs/project/CHANGELOG.md` — fundação
+   e os 3 componentes disponíveis pras próximas telas do Batch 2.
 2. **Formalizar PlayerCard** a partir do que já existe em Elenco
    (`playerRow()`, dívida retroativa, §4 acima) — demanda própria
-   (`S3-DS20-S4-PREP-002`, status `PRONTO PARA IMPLEMENTAÇÃO`),
-   deliberadamente isolada de MatchCard/FinancialSummary (item 2b
-   abaixo) por já ter candidato claro e único (3 pontos de reuso
-   confirmados). Não depende da aprovação da PREP-001.
+   (`S3-DS20-S4-PREP-002`). **Em andamento**, deliberadamente isolada
+   de MatchCard/FinancialSummary (item 2b abaixo) por já ter candidato
+   claro e único (3 pontos de reuso confirmados por inspeção direta —
+   ver adendo em `S3_2_COMPONENTES_E_CONTRATOS.md` §60.3 pra uma
+   correção em relação ao conjunto exato desses 3 pontos). Não
+   dependeu da aprovação da PREP-001.
 2b. **MatchCard e FinancialSummary** — candidatos identificados
    (`.m3-match-row` em `renderH2H`, `financeCashBarsHTML()`) mas
    **ainda não inspecionados o suficiente** pra virar demanda — o
