@@ -1638,6 +1638,142 @@ FinancialSummary passarem por inspeção própria (ver
 
 ⸻
 
+S4-B3-005 — Inspecionar e formalizar MatchCard e FinancialSummary
+
+Status: PRONTO PARA IMPLEMENTAÇÃO
+Sprint: S4 — Redesign Mobile
+Fase: Batch 3 (Transactional) — pré-requisito de Resumo da rodada
+Prioridade: P1
+
+Objetivo
+
+Determinar, com evidência real (não presumida), se os componentes
+**MatchCard** e **FinancialSummary** já existem de fato no código (como
+aconteceu com PlayerCard, formalização retroativa) ou se precisam ser
+construídos do zero (como TransferCard/ContractCard) — e então
+formalizar ou construir de acordo com o que for encontrado. Isso
+desbloqueia a especificação de Resumo da rodada, a última tela do
+Batch 3 ainda sem demanda.
+
+Contexto
+
+Esta lacuna já foi identificada 2 vezes sem ser resolvida:
+
+* na refinação de `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`
+  (§3-4), que registrou candidatos possíveis — uma classe/estilo
+  associado a confronto direto entre clubes (encontrado dentro de uma
+  função de "H2H"/histórico de confrontos) pra MatchCard, e uma função
+  de barras de histórico de caixa pra FinancialSummary — mas marcou
+  ambos como "não inspecionados o suficiente", em particular
+  levantando a suspeita de que o candidato a MatchCard seja um widget
+  menor (confronto direto/H2H), não o card de "próxima partida"/
+  resultado que a matriz de telas descreve;
+* na especificação de `S4-B3-001` (TransferCard/ContractCard), que
+  deliberadamente excluiu estes 2 componentes por causa da mesma
+  incerteza.
+
+Diferente de `S4-B3-001` (onde já sabíamos que os componentes eram
+novos) e de `S3-DS20-S4-PREP-002` (onde já sabíamos que era retroativo
+a partir de um candidato único e claro), aqui a primeira pergunta é
+literalmente "qual desses dois caminhos é o certo" — e a resposta pode
+até ser diferente pra cada um dos dois componentes (ex.: MatchCard
+precisar ser construído novo enquanto FinancialSummary aproveita algo
+existente, ou vice-versa).
+
+Escopo
+
+Chapéu implementador deve, quando retomar esta demanda:
+
+1. Inspecionar a implementação atual de Início/Dashboard (já migrada
+   pro Design System novo) e de Resumo da rodada (ainda legada) em
+   busca de qualquer apresentação de partida (placar, mandante/
+   visitante, status) e de resumo financeiro (caixa, histórico) — não
+   só os candidatos já apontados, considerar que pode haver mais de um
+   lugar candidato.
+2. Para cada um dos 2 componentes, decidir com evidência: (a) já existe
+   um candidato real e único que cobre o objetivo do componente
+   (`docs/sprints/S3/S3_2_COMPONENTES_E_CONTRATOS.md` §24 MatchCard,
+   §28 FinancialSummary) — formalizar como retroativo, mesmo padrão de
+   PlayerCard; ou (b) não existe candidato adequado — construir novo,
+   mesmo padrão de TransferCard/ContractCard.
+3. Documentar o contrato de cada um (Nome/Objetivo/Entradas/Estados).
+4. MatchCard: cobrir os estados definidos na especificação (próxima,
+   em andamento, encerrada, adiada, cancelada) — se o candidato
+   encontrado não cobrir todos, isso é parte da decisão formalizar-vs-
+   construir do item 2, não um detalhe a ignorar.
+5. Nenhuma lógica de negócio nos componentes (nem cálculo de
+   resultado, nem regra financeira) — mesma regra de todos os outros
+   Product Patterns.
+6. Validar via teste automatizado direto (mesmo padrão de
+   `S4-B3-001`/Bottom Sheet/Skeleton — sem integração em tela real
+   nesta demanda).
+7. Atualizar `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`
+   marcando os 2 componentes como resolvidos (e removendo o item 2b
+   como pendência).
+8. Retornar relatório técnico nesta mesma seção do handoff, incluindo
+   explicitamente qual caminho (formalização retroativa vs. construção
+   nova) foi seguido pra cada um dos 2 componentes e por quê — status
+   `REVISÃO DO PM NECESSÁRIA`.
+
+Fora de escopo
+
+* migrar Resumo da rodada (ou qualquer outra tela) — isso é uma
+  demanda futura, depois desta;
+* qualquer lógica de negócio (cálculo de resultado de partida, regra
+  financeira);
+* qualquer alteração em Início/Dashboard além de, se a formalização
+  retroativa for o caminho escolhido, adicionar o comentário de
+  contrato (mesmo tratamento dado a Elenco em `S3-DS20-S4-PREP-002`) —
+  sem mudança visual/funcional ali;
+* LeagueTable — outro Product Pattern ainda pendente, mas fora desta
+  demanda (não faz parte do Batch 3).
+
+Dependências
+
+* `S3-DS20-S4-PREP-001` (aprovada, concluída).
+* `docs/sprints/S3/S3_2_COMPONENTES_E_CONTRATOS.md` §24 (MatchCard),
+  §28 (FinancialSummary).
+* `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md` §3-5.
+
+Requisitos
+
+Mesma sequência obrigatória de sempre: inspecionar → localizar →
+entender → planejar → alterar → testar → revisar. A decisão
+formalizar-vs-construir deve vir com evidência (arquivo/trecho
+relevante) no relatório final, mesmo padrão de rigor da S3.2.7 — não
+uma afirmação sem sustentação.
+
+Critérios de aceite
+
+* MatchCard e FinancialSummary existem como componentes nomeados e
+  documentados, cada um com a decisão (retroativo ou novo)
+  justificada com evidência;
+* nenhum dos dois contém lógica de negócio;
+* nenhuma tela migrada nesta demanda;
+* teste automatizado cobrindo os 2 componentes;
+* `S4_REQUISITOS_VIGENTES.md` atualizado, item 2b resolvido.
+
+Validações
+
+O PM deverá validar: a evidência por trás da decisão formalizar-vs-
+construir pra cada componente, aderência ao Design System, ausência
+de lógica de negócio, contrato documentado, teste.
+
+Riscos
+
+* baixo-médio — escopo é decisão + formalização/construção de
+  componentes de apresentação, não migração de tela; o risco principal
+  é a decisão formalizar-vs-construir sair errada ou mal justificada,
+  não um risco de regressão funcional.
+
+Observações
+
+Ao concluir esta demanda, **Resumo da rodada** (última tela do Batch 3)
+fica pronta pra ser especificada como demanda própria — mesmo padrão
+de todas as outras telas do Batch 2/3.
+
+⸻
+
 Histórico
 
 Demanda	Data	Commit	Changelog

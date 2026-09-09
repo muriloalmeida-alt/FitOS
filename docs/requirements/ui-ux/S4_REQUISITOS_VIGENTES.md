@@ -143,11 +143,13 @@ for paga agora, antes de replicar o padrão ad hoc em mais telas.
    abaixo).
 2b. **MatchCard e FinancialSummary** — candidatos identificados
    (`.m3-match-row` em `renderH2H`, `financeCashBarsHTML()`) mas
-   **ainda não inspecionados o suficiente** pra virar demanda — o
-   candidato a MatchCard parece ser um widget menor (confronto direto),
-   não o card de "próxima partida" que a matriz descreve. Fica como
-   item pendente de inspeção, não presumido, antes de nascer como
-   demanda.
+   **ainda não inspecionados o suficiente** pra virar demanda de
+   migração de tela — o candidato a MatchCard parece ser um widget
+   menor (confronto direto), não o card de "próxima partida" que a
+   matriz descreve. **Agora tem demanda própria**: `S4-B3-005`, status
+   `PRONTO PARA IMPLEMENTAÇÃO` — decide com evidência se cada um dos 2
+   é formalização retroativa (como PlayerCard) ou construção nova
+   (como TransferCard/ContractCard), e resolve os dois de acordo.
 3. **Completar Batch 2** — migrar Login, Bootstrap, Perfil do jogador,
    Tática, Treino (5 telas), reutilizando Dialog (item 1) e PlayerCard
    (item 2) onde aplicável.
@@ -196,11 +198,12 @@ for paga agora, antes de replicar o padrão ad hoc em mais telas.
    - Item 4: **Contratos** (`S4-B3-004`, status `PRONTO PARA
      IMPLEMENTAÇÃO`) — usa ContractCard. Com esta, o Batch 3 fica
      completo exceto Resumo da rodada.
-   - Item 4e: **Resumo da rodada** — deliberadamente fora desta rodada
-     de demandas. Depende de MatchCard/FinancialSummary, que continuam
-     "candidatos identificados mas não inspecionados o suficiente"
-     (item 2b abaixo, sem mudança desde a especificação do Batch 2) —
-     não presumido aqui, vira demanda só depois dessa inspeção.
+   - Item 5: **Inspecionar/formalizar MatchCard e FinancialSummary**
+     (`S4-B3-005`, status `PRONTO PARA IMPLEMENTAÇÃO`) — resolve a
+     pendência do item 2b acima. Pré-requisito de Resumo da rodada.
+   - Item 6: **Resumo da rodada** — ainda sem demanda própria, aguarda
+     a conclusão de `S4-B3-005` (mesma lógica de Perfil do jogador
+     esperando `S3-DS20-S4-PREP-002`).
 5. **Batch 4 (Complementary)** — as 7 telas P1, começando por uma
    verificação individual (não foram auditadas na S3.2.7).
 6. **Batch 5 (QA Visual/UX)** — revisão transversal, como já definido
