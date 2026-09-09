@@ -14,8 +14,9 @@ brasileirao-2026-simulador/
 │   └── nginx.conf.example       → reverse proxy + HTTPS (opção A/B)
 ├── Dockerfile                   → opção B (Docker)
 ├── docker-compose.yml           → opção B (Docker, 1 comando)
-├── README-API-SPORTS.md         → detalhes da integração com a API-Sports
-└── README-INSTALACAO.md         → este arquivo
+└── docs/ops/
+    ├── README-API-SPORTS.md     → detalhes da integração com a API-Sports
+    └── README-INSTALACAO.md     → este arquivo
 ```
 
 Requisito: **Node.js 18 ou superior** no servidor. O backend é quase

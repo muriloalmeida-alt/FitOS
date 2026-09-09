@@ -88,7 +88,7 @@ const PUBLIC_DIR = path.join(__dirname, "..", "public");
 // Sem os 2 valores abaixo configurados, o front-end nem injeta o
 // script do AdSense nem tenta mostrar o modal de anúncio nenhuma vez
 // (nada quebra, a feature só fica "desligada" — ver campo "adsense"
-// em GET /api/health, e o mesmo aviso em README-PAGAMENTOS.md sobre
+// em GET /api/health, e o mesmo aviso em docs/ops/README-PAGAMENTOS.md sobre
 // como o app se comporta sem uma credencial paga configurada). Os 2
 // valores vêm do painel da sua conta AdSense (adsense.google.com):
 //   ADSENSE_CLIENT_ID — o "ID do editor" da conta, formato
