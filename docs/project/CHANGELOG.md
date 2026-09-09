@@ -79,7 +79,7 @@ bump.
 
 ## Histórico completo (mais recente primeiro)
 
-### 2026-09-09 — v7.1.0  (4 commits catalogados + 1 adicionado depois, ver nota)
+### 2026-09-09 — v7.1.0  (4 commits catalogados + 2 adicionados depois, ver nota)
 
 - `c11e61f` Adiciona CHANGELOG.md com histórico completo do projeto
 - `de928ec` Reorganiza documentação em docs/ (project/reqs/library/ops)
@@ -91,17 +91,26 @@ bump.
   sistemas legados (`.ct-modal-*`/`.mt-sheet-overlay` intocados),
   Dialog integrado em `openPlayerCard()`; 12/12 testes automatizados
   (`tests/e2e/test_m3_dialog_sheet_skeleton.js`)
+- `95fc77e` S3-DS20-S4-PREP-002 — Formaliza `playerRow()` como o BRDATA
+  Product Pattern PlayerCard (governança PM↔Claude,
+  `docs/HANDOFF_CLAUDE.md`): comentário de contrato completo (10
+  campos), zero mudança de comportamento; divergência encontrada e
+  registrada entre a especificação original e os 3 pontos de uso reais
+  (`Elenco`/`Treino`/`openClubRoster()` — não "ajuste de escalação"
+  como a spec citava); verificado contra `test_treinos.js` (12/12) e
+  `test_ux_nomes_clicaveis.js`
 
 **Nota (adicionada depois, mesmo dia):** o resto do trabalho de
-09/09/2026 além destes 5 commits — a governança PM↔Claude em si
+09/09/2026 além destes 6 commits — a governança PM↔Claude em si
 (`docs/HANDOFF_CLAUDE.md`/`README_HANDOFF.md`), a S3.2.7 Readiness
 Review, o checkpoint de conclusão da S8, e as demais reorganizações de
 `docs/` — não está catalogado commit a commit nesta entrada ainda
 (ficou registrado em `docs/HANDOFF_CLAUDE.md` e nos documentos de
-`docs/project/`/`docs/requirements/`, não aqui). Adicionar só o commit
-`8dcff10` (não uma re-tabulação completa do dia) foi uma escolha
-deliberada: era o item que motivou esta atualização (conclusão formal
-de uma demanda aprovada), catalogar o resto é um trabalho à parte.
+`docs/project/`/`docs/requirements/`, não aqui). Adicionar só os
+commits `8dcff10`/`95fc77e` (não uma re-tabulação completa do dia) foi
+uma escolha deliberada: eram os itens que motivaram esta atualização
+(conclusão formal de demandas aprovadas), catalogar o resto é um
+trabalho à parte.
 
 ### 2026-09-08 — v7.0.0  (3 commits)
 
