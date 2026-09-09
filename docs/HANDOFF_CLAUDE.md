@@ -742,6 +742,128 @@ paralelo.
 
 ⸻
 
+S4-B2-001 — Migrar tela Loading/Bootstrap para o Design System novo
+
+Status: PRONTO PARA IMPLEMENTAÇÃO
+Sprint: S4 — Redesign Mobile
+Fase: Batch 2 (Core) — item 1 de 5
+Prioridade: P0
+
+Objetivo
+
+Migrar a tela de carregamento inicial do produto (Loading/Bootstrap)
+para o sistema de Design System novo, conforme
+`docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 2): representar o
+carregamento inicial diferenciando claramente carregamento, erro e
+conclusão, usando o componente Skeleton onde apropriado.
+
+Contexto
+
+Com `S3-DS20-S4-PREP-001` aprovada e concluída, a fundação de
+tokens/nomenclatura e os 3 componentes P0 que faltavam (Dialog, Bottom
+Sheet, Skeleton) já existem. A Readiness Review (S3.2.7) tinha
+identificado Loading/Bootstrap como uma das 9 telas P0 ainda fora do
+sistema novo, e o relatório da PREP-001 registrou explicitamente que o
+Skeleton ficou pronto mas sem uso real ainda, por falta de uma tela com
+carregamento assíncrono de verdade dentro do escopo daquela demanda —
+esta é exatamente essa primeira oportunidade real.
+
+É a primeira tela do Batch 2 a ser retomada (as outras 2 do Batch 2 já
+migradas — Escolha do clube e Início/Elenco — foram feitas antes da
+S3.2.7; as 3 restantes depois desta — Perfil do jogador, Tática,
+Treino — ficam para demandas seguintes, Perfil do jogador só depois de
+`S3-DS20-S4-PREP-002`, que formaliza o componente de jogador que ela
+usa).
+
+Escolhida como primeira por ser a mais simples e independente das 5
+telas restantes do Batch 2: sem dependência do componente PlayerCard
+(ainda não formalizado, ver `S3-DS20-S4-PREP-002`), sem formulário,
+sem regra de negócio própria — só apresentação de estado.
+
+Problema
+
+A tela de carregamento hoje está fora do sistema de Design System
+novo. Sem diferenciação clara entre carregamento/erro/conclusão
+usando os padrões definidos, a primeira impressão do produto (é
+literalmente a primeira tela que o usuário vê) fica inconsistente com
+o resto do redesign mobile que já está em produção.
+
+Escopo
+
+Chapéu implementador deve, quando retomar esta demanda:
+
+1. Inspecionar a implementação atual da tela de carregamento antes de
+   alterar qualquer coisa (regra de ouro de sempre — entender o que já
+   existe, reaproveitar, só então estender).
+2. Migrar a apresentação visual para os tokens do Design System novo.
+3. Usar o componente Skeleton (entregue na `S3-DS20-S4-PREP-001`) para
+   representar o carregamento, no lugar do indicador genérico atual,
+   quando fizer sentido pro tipo de conteúdo sendo carregado.
+4. Garantir que os 3 estados (carregamento, erro, conclusão) continuam
+   todos cobertos e claramente diferenciados.
+5. Preservar o comportamento funcional (o que a tela faz, quando
+   aparece, pra onde leva) — este é um redesign visual/de apresentação,
+   não uma mudança de fluxo.
+6. Testar (mobile-first, mesmo padrão das demandas anteriores).
+7. Atualizar `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`
+   marcando esta tela como migrada.
+8. Retornar relatório técnico nesta mesma seção do handoff, status
+   `REVISÃO DO PM NECESSÁRIA`.
+
+Fora de escopo
+
+* qualquer outra das 5 telas do Batch 2 (Perfil do jogador, Tática,
+  Treino, Login) — demandas próprias;
+* qualquer mudança de fluxo, regra de negócio, ou de quando/por que a
+  tela de carregamento aparece;
+* os componentes Dialog/Bottom Sheet — não são relevantes pra esta
+  tela;
+* qualquer gap P1/P2 não relacionado a esta tela específica.
+
+Dependências
+
+* `S3-DS20-S4-PREP-001` (aprovada, concluída — fundação de tokens e
+  componente Skeleton disponíveis).
+* `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 2 — objetivo e
+  requisitos).
+* `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`.
+
+Requisitos
+
+Mesma sequência obrigatória de sempre: inspecionar → localizar →
+entender → planejar → alterar → testar → revisar. Mudança mínima
+necessária — não reconstruir a tela do zero.
+
+Critérios de aceite
+
+* tela usa os tokens do Design System novo;
+* Skeleton usado onde apropriado pro carregamento;
+* os 3 estados (carregamento/erro/conclusão) continuam claros e
+  diferenciados;
+* nenhuma mudança de comportamento/fluxo;
+* nenhuma outra tela tocada;
+* teste mobile-first cobrindo a tela.
+
+Validações
+
+O PM deverá validar: aderência ao Design System, os 3 estados
+continuam cobertos, uso apropriado do Skeleton, preservação funcional,
+teste, escopo respeitado.
+
+Riscos
+
+* baixo — tela pequena, sem regra de negócio própria, sem dependência
+  de componentes ainda não entregues.
+
+Observações
+
+Continuação natural do Batch 2 depois da fundação entregue em
+`S3-DS20-S4-PREP-001`. Ordem recomendada das próximas telas do Batch 2
+(fora desta demanda): Login (independente), depois Tática/Treino, com
+Perfil do jogador por último (depende de `S3-DS20-S4-PREP-002`).
+
+⸻
+
 Histórico
 
 Demanda	Data	Commit	Changelog

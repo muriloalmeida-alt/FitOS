@@ -126,10 +126,9 @@ for paga agora, antes de replicar o padrão ad hoc em mais telas.
 ## 5. Ordem de execução refinada
 
 1. **`S3-DS20-S4-PREP-001`** — Dialog/Bottom Sheet/Skeleton +
-   convergência de nomenclatura. **Implementado** (branch
-   `claude/s4-prep-001-tokens-components`, não mesclada em `main`),
-   status `REVISÃO DO PM NECESSÁRIA` em `docs/HANDOFF_CLAUDE.md`,
-   aguardando decisão.
+   convergência de nomenclatura. **Aprovada e concluída** (Histórico em
+   `docs/HANDOFF_CLAUDE.md`) — fundação e os 3 componentes disponíveis
+   pras próximas telas do Batch 2.
 2. **Formalizar PlayerCard** a partir do que já existe em Elenco
    (`playerRow()`, dívida retroativa, §4 acima) — demanda própria
    (`S3-DS20-S4-PREP-002`, status `PRONTO PARA IMPLEMENTAÇÃO`),
@@ -145,7 +144,13 @@ for paga agora, antes de replicar o padrão ad hoc em mais telas.
    demanda.
 3. **Completar Batch 2** — migrar Login, Bootstrap, Perfil do jogador,
    Tática, Treino (5 telas), reutilizando Dialog (item 1) e PlayerCard
-   (item 2) onde aplicável.
+   (item 2) onde aplicável. Primeira tela retomada: **Loading/Bootstrap**
+   (`S4-B2-001`, status `PRONTO PARA IMPLEMENTAÇÃO`) — escolhida por
+   ser a mais simples e independente (sem PlayerCard, sem formulário,
+   sem regra de negócio própria), e por ser o primeiro uso real do
+   componente Skeleton. Ordem recomendada das seguintes: Login
+   (independente) → Tática/Treino → Perfil do jogador (por último,
+   depende de `S3-DS20-S4-PREP-002`).
 4. **Batch 3 (Transactional)** — antes de qualquer tela, formalizar
    TransferCard e ContractCard (não existem, sem dívida retroativa
    aqui, são novos). Depois migrar Mercado, Negociação, Contratos,
