@@ -635,7 +635,7 @@ em uma nova demanda, não como reabertura dessa issue.
 
 S3-DS20-S4-PREP-002 — Formalizar PlayerCard (retroativo, Elenco)
 
-Status: PRONTO PARA IMPLEMENTAÇÃO
+Status: REVISÃO DO PM NECESSÁRIA
 Sprint: S3 — BRDATA Design System 2.0 (pré-requisito para S4)
 Fase: S3.2.9 — dívida retroativa de Product Pattern
 Prioridade: P1
@@ -745,7 +745,7 @@ paralelo.
 Histórico
 
 Demanda	Data	Commit	Changelog
-S3-DS20-S4-PREP-001 — Dialog/Bottom Sheet/Skeleton (`--m3-*`) + convergência de tokens	09/09/2026	branch `claude/s4-prep-001-tokens-components` (commit `4d80d99`) — **merge em `main` pendente**, ver observação abaixo	docs/project/CHANGELOG.md
+S3-DS20-S4-PREP-001 — Dialog/Bottom Sheet/Skeleton (`--m3-*`) + convergência de tokens	09/09/2026	merge de `claude/s4-prep-001-tokens-components` em `main` (commit de código original `4d80d99`)	docs/project/CHANGELOG.md (a atualizar)
 
 APROVADO pelo Murilo em 09/09/2026. Relatório técnico completo (o que
 foi implementado, testes, gaps, arquivos avaliados/alterados) fica
@@ -755,9 +755,8 @@ aqui, pra manter este documento como o estado operacional atual, não um
 arquivo permanente (esse é o papel do CHANGELOG.md, conforme
 `docs/README.md`).
 
-**Observação sobre o merge do código:** a aprovação autoriza o commit
-final (`docs/README_HANDOFF.md` §13), mas esta sessão está
-temporariamente restrita a não alterar código (instrução do usuário) —
-o merge de `claude/s4-prep-001-tokens-components` em `main` fica
-pendente de uma sessão/chapéu implementador. Nenhum código de produção
-foi tocado ao processar esta aprovação.
+**Merge do código:** exceção pontual aberta pelo Murilo pra concluir
+esta demanda já aprovada — nenhuma alteração de código nova, só a
+integração em `main` do que já estava implementado, testado e
+revisado na branch. A instrução geral de "não mexer em código" desta
+sessão continua valendo pra qualquer outra alteração.

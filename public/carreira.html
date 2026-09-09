@@ -829,6 +829,99 @@
   .ct-rr-score{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:14px; color:var(--mt-ivory-50); white-space:nowrap; text-align:center; font-variant-numeric:tabular-nums; }
   .ct-rr-score small{ color:var(--mt-ink-faint); font-weight:600; }
 
+  /* ---------- M3 Dialog / Bottom Sheet / Skeleton (S3-DS20-S4-PREP-001) ----------
+     Componentes P0 que a S3.2.7 Readiness Review (docs/HANDOFF_CLAUDE.md)
+     achou ausentes no sistema --m3-*. Construídos como componentes NOVOS,
+     montados dinamicamente por JS (ver openM3Dialog/openM3BottomSheet em
+     carreira.js) — não tocam em .ct-modal-*/.mt-sheet-overlay logo abaixo,
+     que continuam servindo TODAS as telas legadas sem nenhuma alteração
+     (regra de escopo da demanda: preservar o que já existe). Reaproveita
+     os tokens/keyframes --m3-* e ctOverlayIn/ctSheetIn já definidos (não
+     duplica animação). z-index 500 fica acima de .ct-modal-overlay (200)
+     e abaixo só de .ct-action-loading (999, overlay de ação de rede —
+     tem que continuar visível por cima de qualquer diálogo). */
+  .m3-dialog-overlay, .m3-bottom-sheet-overlay{
+    position:fixed; inset:0; z-index:500; background:rgba(0,0,0,.55);
+    display:none; justify-content:center; padding:0;
+  }
+  .m3-dialog-overlay{ align-items:center; padding:24px; }
+  .m3-bottom-sheet-overlay{ align-items:flex-end; }
+  .m3-dialog-overlay.open, .m3-bottom-sheet-overlay.open{ display:flex; animation:ctOverlayIn .16s ease-out; }
+  .m3-dialog-overlay.open .m3-dialog,
+  .m3-bottom-sheet-overlay.open .m3-bottom-sheet{ animation:ctSheetIn .22s cubic-bezier(.16,1,.3,1); }
+  @media (prefers-reduced-motion: reduce){
+    .m3-dialog-overlay.open, .m3-bottom-sheet-overlay.open,
+    .m3-dialog-overlay.open .m3-dialog, .m3-bottom-sheet-overlay.open .m3-bottom-sheet{ animation:none; }
+  }
+  .m3-dialog{
+    background:var(--m3-surface-container-high); color:var(--m3-on-surface);
+    border:1px solid var(--m3-outline-variant); border-radius:var(--m3-shape-lg);
+    width:100%; max-width:420px; max-height:86vh; overflow:hidden;
+    display:flex; flex-direction:column; box-shadow:0 12px 40px rgba(0,0,0,.5);
+  }
+  .m3-bottom-sheet{
+    background:var(--m3-surface-container-high); color:var(--m3-on-surface);
+    border:1px solid var(--m3-outline-variant); border-bottom:none;
+    border-radius:var(--m3-shape-xl) var(--m3-shape-xl) 0 0;
+    width:100%; max-height:86vh; overflow:hidden;
+    display:flex; flex-direction:column; box-shadow:0 -12px 40px rgba(0,0,0,.5);
+  }
+  /* Grabber visual — convenção M3 de bottom sheet arrastável (aqui só
+     indicador visual; arraste por gesto não é requisito da demanda). */
+  .m3-bottom-sheet::before{
+    content:""; display:block; width:32px; height:4px; border-radius:var(--m3-shape-full);
+    background:var(--m3-outline-variant); margin:10px auto 0; flex-shrink:0;
+  }
+  .m3-dialog-header, .m3-bottom-sheet-header{
+    display:flex; align-items:center; gap:10px; padding:16px;
+    border-bottom:1px solid var(--m3-outline-variant); flex-shrink:0;
+  }
+  .m3-bottom-sheet-header{ border-bottom:none; padding:16px 20px 4px; }
+  .m3-dialog-icon, .m3-bottom-sheet-icon{ font-size:20px; line-height:1; flex-shrink:0; }
+  .m3-dialog-header-text, .m3-bottom-sheet-header-text{ flex:1; min-width:0; }
+  .m3-dialog-header-text h3, .m3-bottom-sheet-header-text h3{
+    margin:0; font-family:var(--m3-display); font-size:16.5px; font-weight:700;
+    color:var(--m3-on-surface); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .m3-dialog-sub, .m3-bottom-sheet-sub{ font-size:11px; color:var(--m3-on-surface-variant); font-weight:600; margin-top:1px; }
+  /* Achado da S3.2.7: .icon-btn (site principal) mede 36x36 — abaixo do
+     mínimo M3 de 48dp. Aqui já nasce maior (40px), sem esperar por uma
+     demanda separada só pra esse componente. */
+  .m3-dialog-close, .m3-bottom-sheet-close{
+    background:none; border:none; color:var(--m3-on-surface-variant);
+    width:40px; height:40px; min-width:40px; font-size:18px; cursor:pointer; flex-shrink:0;
+    display:flex; align-items:center; justify-content:center; line-height:1; border-radius:var(--m3-shape-full);
+  }
+  .m3-dialog-close:hover, .m3-bottom-sheet-close:hover{ color:var(--m3-on-surface); background:rgba(255,255,255,.08); }
+  .m3-dialog-close:focus-visible, .m3-bottom-sheet-close:focus-visible{
+    outline:2px solid var(--m3-primary); outline-offset:2px;
+  }
+  .m3-dialog-body, .m3-bottom-sheet-body{ padding:18px; overflow-y:auto; }
+  .m3-bottom-sheet-body{ padding:4px 20px calc(20px + env(safe-area-inset-bottom, 0px)); }
+
+  /* ---- Skeleton (m3SkeletonHTML() em carreira.js) ----
+     aria-hidden no container que a recebe (é decorativo — ver função) —
+     linhas/avatar são só forma, não texto real, leitor de tela deve
+     pular. */
+  .m3-skeleton-line{
+    height:14px; border-radius:var(--m3-shape-sm);
+    background:linear-gradient(90deg, var(--m3-surface-container-high) 25%, var(--m3-surface-container-highest) 50%, var(--m3-surface-container-high) 75%);
+    background-size:250% 100%; animation:m3Shimmer 1.6s linear infinite;
+  }
+  .m3-skeleton-line + .m3-skeleton-line{ margin-top:10px; }
+  .m3-skeleton-line.w60{ width:60%; }
+  .m3-skeleton-line.w80{ width:80%; }
+  .m3-skeleton-row{ display:flex; align-items:center; gap:12px; }
+  .m3-skeleton-avatar{
+    width:48px; height:48px; border-radius:50%; flex-shrink:0;
+    background:linear-gradient(90deg, var(--m3-surface-container-high) 25%, var(--m3-surface-container-highest) 50%, var(--m3-surface-container-high) 75%);
+    background-size:250% 100%; animation:m3Shimmer 1.6s linear infinite;
+  }
+  @keyframes m3Shimmer{ from{ background-position:150% 0; } to{ background-position:-150% 0; } }
+  @media (prefers-reduced-motion: reduce){
+    .m3-skeleton-line, .m3-skeleton-avatar{ animation:none; }
+  }
+
   /* ---------- Modal ----------
      Pedido do usuário: layout melhor + header melhor. Cabeçalho
      próprio (ícone + título + subtítulo opcional + fechar), mesma cor
