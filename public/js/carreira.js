@@ -9181,10 +9181,16 @@ function openPlayerCard(id, clubIdHint) {
   if (!p) return;
   const subpos = subPositionOf(p);
   const groupFull = SUBPOS_LABEL[subpos] || "—";
-  document.getElementById("detailIcon").textContent = subpos === "GOL" ? "🧤" : "⚽";
-  document.getElementById("detailName").textContent = "Perfil do jogador";
-  document.getElementById("detailSub").textContent = club ? club.name : "";
-  document.getElementById("detailBody").innerHTML = `
+  // AJUSTE (S3-DS20-S4-PREP-001, issue #10) — ponto de validação real
+  // do Dialog M3 (ver docs/HANDOFF_CLAUDE.md): este é o ÚNICO ramo que
+  // muda de #detailOverlay/.ct-modal-* pro novo #m3PlayerCardOverlay/
+  // .m3-dialog-overlay. openDetail() (jogador do PRÓPRIO elenco, logo
+  // acima, "if (mine)") continua em #detailOverlay sem nenhuma
+  // alteração — não é tocado por esta demanda.
+  document.getElementById("m3PlayerCardIcon").textContent = subpos === "GOL" ? "🧤" : "⚽";
+  document.getElementById("m3PlayerCardTitle").textContent = "Perfil do jogador";
+  document.getElementById("m3PlayerCardSub").textContent = club ? club.name : "";
+  document.getElementById("m3PlayerCardBody").innerHTML = `
     <div class="mt-player-hero">
       <div class="mt-ovr-badge sz-lg ${ovrTierClass(p.overall)}">${p.overall}</div>
       <div class="mt-player-hero-info">
@@ -9201,7 +9207,7 @@ function openPlayerCard(id, clubIdHint) {
     <p class="mt-info-line">Valor de mercado: ${fmtBRL(p.value)} · Salário: ${fmtBRL(p.wage)}/mês · Contrato até: ${p.contractUntil}</p>
     ${playerSeasonHistoryHTML(p)}
     <p class="ct-empty" style="margin-top:8px;">Jogador de outro clube — consulta apenas. Pra negociar, use o Mercado.</p>`;
-  document.getElementById("detailOverlay").classList.add("open");
+  m3OpenOverlay(document.getElementById("m3PlayerCardOverlay"));
 }
 function openDetail(id) {
   const p = CAREER.squad.find((x) => x.id === id);
@@ -13073,6 +13079,97 @@ function confirmModal(text, okLabel = "Confirmar") {
     cancelBtn.addEventListener("click", onCancel);
     overlay.addEventListener("click", onBackdrop);
   });
+}
+
+/* ---------- Componentes M3 P0 (S3-DS20-S4-PREP-001, issue #10) ----------
+   Dialog e Bottom Sheet compartilham o mesmo contrato de abertura/
+   fechamento (m3OpenOverlay) — só o CSS distingue os dois (ver
+   .m3-dialog-overlay/.m3-bottom-sheet-overlay em carreira.html).
+   Contrato: foco preso dentro do overlay (Tab/Shift+Tab não escapam),
+   Esc fecha, clique no backdrop fecha, botão com [data-m3-close]
+   fecha, foco devolvido a quem abriu ao fechar — nenhum desses 4
+   comportamentos existia em nenhum overlay do app antes desta demanda
+   (confirmado na S3.2.7: zero ocorrência de "Escape"/"focus trap"/
+   "role=dialog" no código antes deste commit). Skeleton não precisa
+   desse contrato (não é modal, ver m3SkeletonHTML mais abaixo). */
+function m3FocusableEls(container) {
+  return [...container.querySelectorAll('a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+    .filter((el) => el.offsetParent !== null);
+}
+// Prende Tab/Shift+Tab dentro de `container` enquanto ativo; Esc chama
+// onEscape. Devolve uma função de limpeza (remove o listener) — o
+// mesmo padrão de "devolve cleanup()" já usado em confirmModal() logo
+// acima, só que reaproveitável por qualquer overlay, não só um.
+function m3TrapFocus(container, onEscape) {
+  function onKeydown(e) {
+    if (e.key === "Escape") { onEscape(); return; }
+    if (e.key !== "Tab") return;
+    const focusables = m3FocusableEls(container);
+    if (!focusables.length) return;
+    const first = focusables[0], last = focusables[focusables.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
+  document.addEventListener("keydown", onKeydown, true);
+  return () => document.removeEventListener("keydown", onKeydown, true);
+}
+// Abre um overlay M3 (Dialog OU Bottom Sheet — mesmo contrato pros
+// dois, ver comentário acima). O HTML do overlay já deve trazer
+// role="dialog"/aria-modal="true"/aria-labelledby fixos (ver
+// #m3PlayerCardOverlay/#m3BottomSheetOverlay); esta função cuida só do
+// comportamento: abrir, mover foco pro primeiro elemento focável (ou
+// pro container via tabindex="-1", se o corpo não tiver nenhum),
+// prender Tab, fechar em Esc/backdrop/[data-m3-close], e devolver o
+// foco a quem tinha o foco antes de abrir (requisito de acessibilidade
+// de teclado — sem isso o foco "some" pro topo da página ao fechar).
+function m3OpenOverlay(overlayEl, { closeSelector = "[data-m3-close]", onClose } = {}) {
+  const previouslyFocused = document.activeElement;
+  overlayEl.classList.add("open");
+  const container = overlayEl.querySelector(".m3-dialog, .m3-bottom-sheet");
+  const focusables = m3FocusableEls(overlayEl);
+  (focusables[0] || container || overlayEl).focus();
+  const closeEls = [...overlayEl.querySelectorAll(closeSelector)];
+  function cleanup() {
+    overlayEl.classList.remove("open");
+    untrap();
+    overlayEl.removeEventListener("click", onBackdrop);
+    closeEls.forEach((el) => el.removeEventListener("click", onCloseClick));
+    if (previouslyFocused && typeof previouslyFocused.focus === "function") previouslyFocused.focus();
+    if (onClose) onClose();
+  }
+  function onBackdrop(e) { if (e.target === overlayEl) cleanup(); }
+  function onCloseClick() { cleanup(); }
+  const untrap = m3TrapFocus(overlayEl, cleanup);
+  overlayEl.addEventListener("click", onBackdrop);
+  closeEls.forEach((el) => el.addEventListener("click", onCloseClick));
+  return cleanup;
+}
+// Bottom Sheet genérico (S3_2_COMPONENTES_E_CONTRATOS.md §22) — sem
+// ponto de integração obrigatório nesta demanda (ver escopo), mas
+// pronto pra qualquer tela --m3-* popular título/corpo e abrir. Devolve
+// a função de fechamento (mesmo padrão de m3OpenOverlay).
+function openM3BottomSheet({ title = "", bodyHTML = "" } = {}) {
+  document.getElementById("m3BottomSheetTitle").textContent = title;
+  document.getElementById("m3BottomSheetBody").innerHTML = bodyHTML;
+  return m3OpenOverlay(document.getElementById("m3BottomSheetOverlay"));
+}
+// Skeleton (S3_DS20_FUNDACAO_EXECUTAVEL.md §18.12) — ao contrário do
+// Dialog/Bottom Sheet não é um overlay com estado (não interrompe
+// fluxo nem precisa de foco/Esc): é conteúdo inline que preserva a
+// estrutura aproximada do resultado final enquanto carrega, no mesmo
+// padrão de helper "retorna HTML" já usado em toda a tela (ver
+// attrBarHTML/crestImg/toastStatHTML) — quem chama troca o innerHTML
+// pelo conteúdo real quando os dados chegarem, sem gerenciar overlay
+// nenhum. `variant`: "text" (linha, `count` repete — a última linha
+// nasce mais curta, 70%, pra não parecer um bloco reto de verdade),
+// "block" (retângulo 16:9 — imagem/card) ou "circle" (avatar/escudo).
+function m3SkeletonHTML(variant = "text", count = 1) {
+  if (variant === "block") return '<span class="m3-skeleton m3-skeleton-block"></span>';
+  if (variant === "circle") return '<span class="m3-skeleton m3-skeleton-circle"></span>';
+  const n = Math.max(1, count);
+  return Array.from({ length: n }, (_, i) =>
+    `<span class="m3-skeleton m3-skeleton-text"${i === n - 1 && n > 1 ? ' style="width:70%;"' : ""}></span>`
+  ).join("");
 }
 
 /* ---------- Listeners estáticos (uma vez, no boot) ---------- */

@@ -943,6 +943,111 @@
   .ct-search{ width:100%; padding:11px 12px; border-radius:var(--m3-shape-sm); border:1px solid var(--m3-outline-variant); background:var(--m3-surface-container); color:var(--m3-on-surface); font-family:var(--font); font-size:13px; margin-bottom:10px; }
   .ct-search:focus{ outline:none; border-color:var(--m3-primary); }
 
+  /* ================= M3 Dialog / Bottom Sheet / Skeleton =================
+     S3-DS20-S4-PREP-001 (issue #10) — os 3 componentes P0 que a S3.2.7
+     Readiness Review (issue #9) registrou como ausentes no sistema
+     --m3-*. Contrato: docs/sprints/S3/S3_2_COMPONENTES_E_CONTRATOS.md
+     §21 (Dialog) e §22 (Bottom Sheet); fundação:
+     docs/sprints/S3/S3_DS20_FUNDACAO_EXECUTAVEL.md §18.12/§19.
+
+     Deliberadamente NÃO reaproveita .ct-modal-* (que já existe e
+     continua em uso em ~40 pontos do app, fora de escopo desta
+     demanda) — são componentes novos, nomeados e documentados como o
+     escopo pede, mas reaproveitam os MESMOS tokens de superfície/forma
+     já validados no bridge do .ct-modal (--m3-surface-container-high,
+     --m3-outline-variant, --m3-shape-*) e as MESMAS keyframes de
+     entrada (ctOverlayIn/ctSheetIn, já com prefers-reduced-motion
+     tratado) — zero cor nova introduzida, contraste herdado dos pares
+     já em uso (verificado com contrastRatio(): on-surface/surface-
+     container-high 11.1:1, on-surface-variant/surface-container-high
+     8.4:1, primary/surface-container-high 8.3:1 — todos acima do
+     mínimo AA de 4.5:1 pra texto e 3:1 pra componente não-textual). */
+
+  /* ---- Dialog (.m3-dialog*) — interrompe o fluxo pra decisão/
+     confirmação pontual (§21): centralizado, não ancorado embaixo
+     (diferença visual deliberada em relação ao Bottom Sheet, mesma
+     distinção do documento de contratos). ---- */
+  .m3-dialog-overlay{ position:fixed; inset:0; background:rgba(0,0,0,.55); display:none; align-items:center; justify-content:center; z-index:220; padding:20px; }
+  .m3-dialog-overlay.open{ display:flex; animation:ctOverlayIn .16s ease-out; }
+  .m3-dialog-overlay.open .m3-dialog{ animation:m3DialogIn .22s cubic-bezier(.16,1,.3,1); }
+  @keyframes m3DialogIn{ from{ opacity:.3; transform:translateY(12px) scale(.98); } to{ opacity:1; transform:translateY(0) scale(1); } }
+  @media (prefers-reduced-motion: reduce){
+    .m3-dialog-overlay.open, .m3-dialog-overlay.open .m3-dialog{ animation:none; }
+  }
+  .m3-dialog{
+    background:var(--m3-surface-container-high); border:1px solid var(--m3-outline-variant);
+    border-radius:var(--m3-shape-xl); width:100%; max-width:420px; max-height:86vh;
+    overflow:hidden; display:flex; flex-direction:column; box-shadow:0 20px 48px rgba(0,0,0,.45);
+  }
+  /* :focus (sem -visible) fica sem contorno só pro caso comum (foco
+     inicial cai no botão fechar, que já tem seu próprio indicador) —
+     :focus-visible cobre o caso raro em que o corpo não tem NENHUM
+     elemento focável e o foco cai no container em si (fallback de
+     m3OpenOverlay em carreira.js): aí sim precisa de indicador visível
+     (S3.1 §29 — foco não deve depender só de cor nem ficar invisível). */
+  .m3-dialog:focus{ outline:none; }
+  .m3-dialog:focus-visible{ outline:2px solid var(--m3-primary); outline-offset:-2px; }
+  .m3-dialog-header{ display:flex; align-items:center; gap:10px; padding:16px; background:var(--m3-surface-container-high); border-bottom:1px solid var(--m3-outline-variant); flex-shrink:0; }
+  .m3-dialog-icon{ font-size:20px; line-height:1; flex-shrink:0; }
+  .m3-dialog-header-text{ flex:1; min-width:0; }
+  .m3-dialog-header h3{ margin:0; font-size:16.5px; font-weight:700; color:var(--m3-on-surface); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .m3-dialog-sub{ font-size:11px; color:var(--m3-on-surface-variant); font-weight:600; margin-top:1px; }
+  .m3-dialog-close{ background:none; border:none; color:var(--m3-on-surface-variant); width:32px; height:32px; font-size:18px; cursor:pointer; flex-shrink:0; display:flex; align-items:center; justify-content:center; line-height:1; border-radius:var(--m3-shape-full); }
+  .m3-dialog-close:hover{ color:var(--m3-on-surface); }
+  /* Foco visível não depende só de cor: contorno + deslocamento do
+     próprio botão (outline-offset), perceptível mesmo em alto
+     contraste/monocromático — requisito de acessibilidade explícito
+     da S3.1 §29/§38. Mesmo tratamento em .m3-bottom-sheet-close. */
+  .m3-dialog-close:focus-visible{ outline:2px solid var(--m3-primary); outline-offset:2px; }
+  .m3-dialog-body{ padding:18px; overflow-y:auto; color:var(--m3-on-surface); font-size:13.5px; line-height:1.5; }
+  .m3-dialog-footer{ flex-shrink:0; display:flex; flex-direction:column; gap:8px; padding:14px 18px; border-top:1px solid var(--m3-outline-variant); background:var(--m3-surface-container-high); }
+
+  /* ---- Bottom Sheet (.m3-bottom-sheet*) — conteúdo/ação contextual
+     mobile (§22): ancorado embaixo, cantos de cima arredondados,
+     "handle" (pílula) como affordance visual de arraste, mesma
+     linguagem de qualquer bottom sheet nativo. ---- */
+  .m3-bottom-sheet-overlay{ position:fixed; inset:0; background:rgba(0,0,0,.55); display:none; align-items:flex-end; justify-content:center; z-index:220; padding:0; }
+  .m3-bottom-sheet-overlay.open{ display:flex; animation:ctOverlayIn .16s ease-out; }
+  .m3-bottom-sheet-overlay.open .m3-bottom-sheet{ animation:ctSheetIn .26s cubic-bezier(.16,1,.3,1); }
+  @media (prefers-reduced-motion: reduce){
+    .m3-bottom-sheet-overlay.open, .m3-bottom-sheet-overlay.open .m3-bottom-sheet{ animation:none; }
+  }
+  .m3-bottom-sheet{
+    background:var(--m3-surface-container-high); border:1px solid var(--m3-outline-variant); border-bottom:none;
+    border-radius:var(--m3-shape-xl) var(--m3-shape-xl) 0 0; width:100%; max-width:560px; max-height:86vh;
+    overflow:hidden; display:flex; flex-direction:column; box-shadow:0 -12px 40px rgba(0,0,0,.5);
+  }
+  .m3-bottom-sheet:focus{ outline:none; }
+  .m3-bottom-sheet:focus-visible{ outline:2px solid var(--m3-primary); outline-offset:-2px; }
+  .m3-bottom-sheet-handle{ width:32px; height:4px; border-radius:var(--m3-shape-full); background:var(--m3-outline-variant); margin:10px auto 2px; flex-shrink:0; }
+  .m3-bottom-sheet-header{ padding:6px 20px 4px; flex-shrink:0; }
+  .m3-bottom-sheet-header h3{ margin:0; font-size:16px; font-weight:700; color:var(--m3-on-surface); }
+  .m3-bottom-sheet-close{ position:absolute; top:12px; right:12px; background:none; border:none; color:var(--m3-on-surface-variant); width:32px; height:32px; font-size:18px; cursor:pointer; display:flex; align-items:center; justify-content:center; line-height:1; border-radius:var(--m3-shape-full); }
+  .m3-bottom-sheet-close:hover{ color:var(--m3-on-surface); }
+  .m3-bottom-sheet-close:focus-visible{ outline:2px solid var(--m3-primary); outline-offset:2px; }
+  .m3-bottom-sheet-body{ padding:8px 20px 20px; overflow-y:auto; color:var(--m3-on-surface); font-size:13.5px; line-height:1.5; }
+
+  /* ---- Skeleton (.m3-skeleton*) — placeholder de carregamento que
+     preserva a estrutura aproximada do conteúdo final (§18.12): evita
+     tanto o layout shift (o elemento já nasce do tamanho certo) quanto
+     a percepção de erro (não é um espaço vazio nem uma mensagem).
+     Reaproveita a MESMA técnica de shimmer já usada em .ad-modal-media
+     (public/css/style.css:301-306: gradiente diagonal + background-
+     position animado) — só a keyframe é nova porque o gradiente varre
+     sobre tokens --m3-* (superfícies escuras), não sobre --brd-*. ---- */
+  .m3-skeleton{ display:block; position:relative; overflow:hidden; background:var(--m3-surface-container-high); border-radius:var(--m3-shape-sm); }
+  .m3-skeleton::after{
+    content:""; position:absolute; inset:0;
+    background:linear-gradient(100deg, transparent 30%, rgba(255,255,255,.10) 50%, transparent 70%);
+    background-size:250% 100%; animation:m3Shimmer 1.6s linear infinite;
+  }
+  @keyframes m3Shimmer{ from{ background-position:150% 0; } to{ background-position:-150% 0; } }
+  @media (prefers-reduced-motion: reduce){ .m3-skeleton::after{ animation:none; } }
+  .m3-skeleton-text{ height:13px; width:100%; margin-bottom:8px; border-radius:var(--m3-shape-xs); }
+  .m3-skeleton-text:last-child{ margin-bottom:0; }
+  .m3-skeleton-block{ width:100%; aspect-ratio:16/9; border-radius:var(--m3-shape-md); }
+  .m3-skeleton-circle{ width:44px; height:44px; border-radius:50%; flex-shrink:0; }
+
   /* AJUSTE (pedido do usuário: "gosto da opção 2 [cápsula reforçada]
      mas acho que ela deve ter largura fixa do tamanho do botão ir
      para o jogo") — mockup de comparação (Opção B, ver
@@ -3673,6 +3778,50 @@
       <button class="ct-modal-close" id="detailClose">✕</button>
     </div>
     <div class="ct-modal-body" id="detailBody"></div>
+  </div>
+</div>
+
+<!-- ================= M3 Dialog — ponto de validação real (S3-DS20-S4-PREP-001, issue #10) =================
+     Substitui #detailOverlay/openDetail() SÓ no caminho de
+     openPlayerCard() (jogador de OUTRO clube, consulta somente
+     leitura — ver comentário acima da função em carreira.js). O
+     detalhe do PRÓPRIO elenco (openDetail(), com todas as ações de
+     gestão) continua em #detailOverlay/.ct-modal-*, sem nenhuma
+     alteração — escopo desta demanda é só validar o Dialog num ponto
+     de uso real, não migrar o perfil de jogador inteiro (isso é
+     trabalho da própria S4, ver "Fora de escopo" na especificação).
+     role="dialog"/aria-modal/aria-labelledby + tabindex="-1" no
+     container (âncora de foco quando o corpo não tiver elemento
+     focável) implementados aqui; foco preso/Esc/devolução de foco são
+     genéricos em m3OpenOverlay() (carreira.js). -->
+<div class="m3-dialog-overlay" id="m3PlayerCardOverlay" role="dialog" aria-modal="true" aria-labelledby="m3PlayerCardTitle">
+  <div class="m3-dialog" tabindex="-1">
+    <div class="m3-dialog-header">
+      <span class="m3-dialog-icon" id="m3PlayerCardIcon">⚽</span>
+      <div class="m3-dialog-header-text">
+        <h3 id="m3PlayerCardTitle"></h3>
+        <div class="m3-dialog-sub" id="m3PlayerCardSub"></div>
+      </div>
+      <button class="m3-dialog-close" id="m3PlayerCardClose" data-m3-close aria-label="Fechar">✕</button>
+    </div>
+    <div class="m3-dialog-body" id="m3PlayerCardBody"></div>
+  </div>
+</div>
+
+<!-- ================= M3 Bottom Sheet — componente genérico (S3-DS20-S4-PREP-001, issue #10) =================
+     Sem ponto de integração obrigatório nesta demanda (só o Dialog
+     precisa de um caso de uso real, ver escopo da especificação) —
+     existe pronto pro sistema --m3-*, populado via openM3BottomSheet()
+     (carreira.js), pra qualquer tela migrada usar quando precisar (ex.
+     filtros do Mercado, na própria S4). -->
+<div class="m3-bottom-sheet-overlay" id="m3BottomSheetOverlay" role="dialog" aria-modal="true" aria-labelledby="m3BottomSheetTitle">
+  <div class="m3-bottom-sheet" tabindex="-1">
+    <div class="m3-bottom-sheet-handle"></div>
+    <button class="m3-bottom-sheet-close" id="m3BottomSheetClose" data-m3-close aria-label="Fechar">✕</button>
+    <div class="m3-bottom-sheet-header">
+      <h3 id="m3BottomSheetTitle"></h3>
+    </div>
+    <div class="m3-bottom-sheet-body" id="m3BottomSheetBody"></div>
   </div>
 </div>
 

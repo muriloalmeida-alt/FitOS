@@ -635,7 +635,7 @@ em uma nova demanda, não como reabertura dessa issue.
 
 S3-DS20-S4-PREP-001 — Convergência de tokens + componentes P0 ausentes (pré-requisito da S4)
 
-Status: PRONTO PARA IMPLEMENTAÇÃO
+Status: REVISÃO DO PM NECESSÁRIA
 Sprint: S3 — BRDATA Design System 2.0 (pré-requisito para S4)
 Fase: S3.2.8 — Resolução dos gaps P0 da S3.2.7 Readiness Review
 Prioridade: P0
@@ -812,6 +812,328 @@ especificação. Problemas encontrados devem ser registrados e
 classificados, mesmo padrão da S3.2.7. A aprovação formal do PM
 (Murilo) é obrigatória — somente após APROVADO o commit final de
 código está autorizado.
+
+⸻
+
+Relatório técnico — S3-DS20-S4-PREP-001
+
+Executado por: Claude · Data: 09/09/2026 · Branch: `claude/s3-ds20-s4-prep-001`.
+Implementação real de código (diferente da S3.2.7, que foi auditoria
+de leitura) — commit ainda não autorizado, aguardando revisão do PM
+conforme regra da demanda.
+
+1. Resumo executivo
+
+Os 2 gaps P0 da S3.2.7 foram resolvidos: (1) a decisão de nomenclatura
+de tokens foi formalizada como adendo em
+`docs/sprints/S3/S3_DS20_FUNDACAO_EXECUTAVEL.md` §56-57, e (2) os 3
+componentes ausentes (Dialog, Bottom Sheet, Skeleton) foram
+implementados no sistema `--m3-*`, com foco preso, fechamento por
+Esc/clique fora/botão, `role="dialog"`/`aria-modal`/`aria-labelledby`,
+e contraste AA verificado com `contrastRatio()` — nenhum dos 4
+comportamentos existia em nenhum overlay do app antes deste commit
+(confirmado pela própria S3.2.7: zero ocorrência de "Escape"/"focus
+trap"/"role=dialog" no código). O Dialog foi validado num ponto de uso
+real (`openPlayerCard()`), com regressão zero confirmada tanto por 7
+testes E2E novos dedicados quanto por uma correção necessária (e já
+aplicada) num teste de regressão pré-existente que dependia do
+comportamento antigo. Nenhuma das 9 telas P0 legadas foi tocada;
+`--brd-*`/`--mt-*` continuam funcionando sem alteração.
+
+2. Nomenclatura de tokens (gap 1)
+
+Adendo formal em `docs/sprints/S3/S3_DS20_FUNDACAO_EXECUTAVEL.md`
+§56-57 (arquivo/linha: seções 56.1-56.5 e 57, ao final do documento).
+Registra: `--m3-*` como sistema-alvo único; tabela de mapeamento do
+vocabulário conceitual da S3.1 (`bg.canvas`, `text.primary`,
+`state.success` etc.) para os tokens `--m3-*` reais; decisão consciente
+de **não** criar tokens de estado (`--m3-success`/`--m3-warning`)
+especulativos sem caso de uso real (nenhum dos 3 componentes desta
+demanda precisou deles); `--brd-*`/`--mt-*` preservados sem alteração.
+
+3. Componentes — evidência arquivo/linha
+
+**Dialog** (`.m3-dialog*`) — CSS em `public/carreira.html` (bloco
+inserido após `.ct-search:focus`, linha ~944 antes da inserção); JS
+`m3OpenOverlay()`/`m3TrapFocus()`/`m3FocusableEls()` em
+`public/js/carreira.js` (inseridos logo após `confirmModal()`, antes de
+`wireStaticListeners()`). Markup do ponto de validação:
+`#m3PlayerCardOverlay` em `public/carreira.html` (logo após o
+`#detailOverlay`).
+
+**Bottom Sheet** (`.m3-bottom-sheet*`) — mesmo bloco CSS/JS do Dialog
+(contrato compartilhado via `m3OpenOverlay`). Markup genérico:
+`#m3BottomSheetOverlay`. API: `openM3BottomSheet({title, bodyHTML})`.
+Sem ponto de integração obrigatório nesta demanda (fora de escopo) —
+existe pronto pra qualquer tela migrada usar na S4.
+
+**Skeleton** (`.m3-skeleton*`) — CSS no mesmo bloco (variantes `-text`/
+`-block`/`-circle`, keyframe `m3Shimmer` reaproveitando a técnica de
+`public/css/style.css:301-306`, com `prefers-reduced-motion` tratado).
+Helper `m3SkeletonHTML(variant, count)` em `public/js/carreira.js`, no
+mesmo padrão de `attrBarHTML`/`crestImg` já usado no arquivo.
+
+**Validação real**: `openPlayerCard()` (`public/js/carreira.js`, antes
+em torno da linha 9169) — o ramo de "jogador de outro clube" (consulta
+somente leitura) migrou de `#detailOverlay`/`.ct-modal-*` pro novo
+`#m3PlayerCardOverlay`/`.m3-dialog-overlay`. O ramo `openDetail()`
+(jogador do PRÓPRIO elenco, `if (mine)`) permanece inteiramente
+intocado — nenhuma linha dele foi alterada, confirmado por `git diff`
+(hunks do diff limitados às linhas 9181-9213 e 13081-13178 de
+`carreira.js`, nenhuma delas dentro de `openDetail()`).
+
+4. Contraste (AA) — evidência real, não estimativa
+
+Calculado com a mesma fórmula de `contrastRatio()` (luminância relativa
+WCAG) contra os hex reais dos tokens `--m3-*` (`public/carreira.html:150-179`),
+antes de escrever qualquer CSS novo:
+
+| Par | Uso | Resultado |
+|---|---|---|
+| `--m3-on-surface` (#E7E2DE) / `--m3-surface-container-high` (#2C2A27) | corpo do Dialog/Sheet | 11.13:1 |
+| `--m3-on-surface-variant` (#CBC5BE) / `--m3-surface-container-high` | subtítulo | 8.36:1 |
+| `--m3-on-surface` / `--m3-surface-container-highest` | referência (skeleton) | 9.61:1 |
+| `--m3-primary` (#6DDB94) / `--m3-surface-container-high` | indicador de foco (`:focus-visible`) | 8.32:1 |
+
+Todos acima do mínimo AA (4.5:1 texto, 3:1 componente não-textual).
+Nenhuma cor nova foi introduzida — os 3 componentes reutilizam pares já
+em uso no `.ct-modal` (bridge M3 existente), então o contraste já
+estava implicitamente validado pelo uso prévio; o cálculo acima só
+tornou essa evidência explícita, como pede o requisito 6 da
+especificação.
+
+5. Acessibilidade
+
+* `role="dialog"`/`aria-modal="true"`/`aria-labelledby` fixos no HTML
+  de ambos os overlays (não dependem de JS pra existir).
+* Foco movido pro primeiro elemento focável ao abrir (ou pro container
+  via `tabindex="-1"`, se não houver nenhum — com indicador
+  `:focus-visible` próprio pra esse caso, não suprimido
+  incondicionalmente).
+* Tab/Shift+Tab presos dentro do overlay (`m3TrapFocus`), com
+  wrap-around nos dois sentidos — testado com 1 elemento focável
+  (Dialog) e 2 (Bottom Sheet).
+* Esc fecha; foco devolvido a quem tinha o foco antes de abrir.
+* Foco visível não depende só de cor: `outline` + `outline-offset` nos
+  botões de fechar (`.m3-dialog-close:focus-visible`/`.m3-bottom-sheet-
+  close:focus-visible`), perceptível em alto contraste.
+
+6. Regression
+
+Risco identificado e corrigido durante a implementação (não estava
+previsto no escopo original, mas era necessário pra não introduzir uma
+regressão de verdade): `tests/e2e/test_ux_nomes_clicaveis.js` (teste
+pré-existente, não desta demanda) dependia de `openPlayerCard()`
+abrir especificamente `#detailOverlay`/`#detailBody` — com a migração
+pro Dialog M3, esse teste passou a reportar falso-negativo (`1a`/`1b`
+false, depois timeout travado porque o helper `closeAll()` só fechava
+`.ct-modal-overlay.open`, deixando `.m3-dialog-overlay.open` bloqueando
+cliques seguintes — confirmado rodando o teste antes da correção).
+Corrigido nos 2 helpers (`detailOpenWithName()`/`closeAll()`) pra
+cobrir ambos os overlays — mudança mínima, não expande escopo (não é
+migração de tela legada, é um teste). Após a correção, os 9 checks do
+arquivo voltam a `true` (rodado e confirmado).
+
+Nenhuma outra sobreposição encontrada: nenhum outro arquivo
+`test_*.js` da suíte referencia `openPlayerCard`/`m3PlayerCard`/
+`m3-dialog`/`m3-bottom-sheet`/`m3Skeleton`/`m3OpenOverlay` além dos 3
+testes novos desta demanda e do já corrigido acima (busca literal
+confirmada nos 121 arquivos pré-existentes).
+
+Suíte completa (`node run_parallel.js`, concorrência 6, timeout 120s/
+script, servidor local rodando): **73 de 124 scripts executados** antes
+do wrapper de 590s desta sessão encerrar o processo (limite operacional
+desta auditoria, não da suíte em si — o runner não tem timeout próprio
+de suíte inteira) — **59 PASS / 14 FAIL** entre os 73. Registrado com
+honestidade: não é uma execução completa dos 124, e isso é dito
+explicitamente para o PM não interpretar como "suíte inteira verde".
+
+Dos 14 FAIL, nenhum se sobrepõe ao diff desta demanda — busca literal
+pelos identificadores tocados (`openPlayerCard`/`m3PlayerCard`/`m3-
+dialog`/`m3-bottom-sheet`/`m3Skeleton`/`m3OpenOverlay`/`detailOverlay`)
+nos 14 arquivos retorna zero ocorrências em todos exceto
+`test_contract_renewal.js` (que só referencia `#detailOverlay`, o ramo
+`openDetail()`/próprio elenco, nunca alterado por esta demanda). Uma
+amostra de 4 foi re-executada isoladamente (sem concorrência) pra
+separar falha real de ruído de contenção de recursos do container (6+
+processos Chromium concorrentes no mesmo ambiente):
+
+* `test_coletiva_imprensa.js` — passa 100% isolado (8/8 checks `true`).
+  Falha só sob concorrência pesada: ruído de contenção confirmado, não
+  falha real.
+* `test_contract_renewal.js` — falha mesmo isolado, mas por um evento
+  aleatório de coletiva de imprensa (`#pressOverlay`) sobrepondo o
+  fluxo de renovação de contrato (timeout de clique interceptado) —
+  sistema de eventos aleatórios pré-existente, sem nenhuma relação com
+  `openDetail`/Dialog/Bottom Sheet/Skeleton.
+* `test_cup.js` — falha mesmo isolado, por timeout aguardando
+  `#matchDetailOverlay`/`#roundResultsOverlay` no motor da Copa do
+  Brasil — nenhuma relação com esta demanda.
+* `test_colocar_a_venda.js` — falha mesmo isolado (2 execuções), de
+  forma determinística e reproduzível, em `resolvePendingListingsRound()`
+  (`carreira.js:11300`) não gerando a proposta esperada mesmo com RNG
+  forçado — função do Transfer Engine, a ~2200 linhas de distância de
+  qualquer trecho tocado por este diff (confirmado por `git diff`:
+  hunks restritos às linhas 9181-9213 e 13081-13178). Falha
+  pré-existente real, não uma regressão desta demanda — fora de escopo
+  corrigir aqui (Transfer Engine é explicitamente fora de escopo desta
+  demanda e da S3 como um todo).
+
+As 10 falhas restantes das 14 (não incluídas na amostra de 4
+re-executada isoladamente) — `test_fase2b.js`, `test_events.js`,
+`test_frozen_provider.js`, `test_historico_negociacoes.js`,
+`test_h2h.js`, `test_loans.js`,
+`test_intervalo_noticias_proposta_destino.js`,
+`test_loja_pagamento_real.js`, `test_loan_advanced.js`,
+`test_mercado_negociacao.js` — foram só verificadas por busca de
+identificador (zero sobreposição, ver acima), não re-executadas
+isoladas; ficam registradas como risco residual pra investigação futura
+(seção 10), não como evidência de regressão desta demanda.
+
+Evidência adicional de que a flakiness é da suíte, não do diff: uma
+segunda rodada completa da suíte (mesmo código, nenhuma alteração
+entre as duas execuções) foi iniciada em paralelo pra tentar fechar os
+124/124 — `test_botoes_rodape.js` **passou** na 1ª rodada e **falhou**
+na 2ª, sem nenhuma mudança de código entre as duas (o ramo tocado é
+`openDetail()`/`#detailOverlay`, jogador do PRÓPRIO elenco, nunca
+alterado por esta demanda). O mesmo script, o mesmo código, resultados
+diferentes — prova direta de que a suíte tem flakiness inerente
+independente deste diff, reforçando a leitura da seção 6.
+
+7. Tests
+
+3 testes E2E novos, seguindo o padrão de `test_m3_bloco1_inicio.js`
+(viewport 390×900, mesmo fluxo de signup/onboarding):
+
+* `tests/e2e/test_m3_dialog.js` — 7 checks (role/aria-modal/aria-
+  labelledby, foco movido/preso, Esc, sem regressão no elenco/
+  `detailOverlay`, reabrir, backdrop). Todos `true`.
+* `tests/e2e/test_m3_bottom_sheet.js` — 7 checks (idem + wrap-around de
+  foco nos 2 sentidos, com 2 elementos focáveis). Todos `true`.
+* `tests/e2e/test_m3_skeleton.js` — 4 checks (3 variantes, última linha
+  de texto mais curta, shimmer aplicado, `prefers-reduced-motion`
+  desativa a animação). Todos `true`.
+
+Todos os 3 rodados e confirmados tanto isolados quanto dentro da suíte
+completa (6-way concorrência) — sem flakiness observada em nenhuma das
+execuções.
+
+8. Gaps
+
+Nenhum gap P0 novo introduzido. Gaps remanescentes (herdados da
+S3.2.7, explicitamente fora de escopo desta demanda): migração das 9
+telas P0 legadas, emoji como ícone, LeagueTable não redesenhada,
+densidade de ARIA geral baixa, `.icon-btn` 36px, CSS morto
+(`.mt-bottom-nav`) — todos ficam para a execução da própria S4, como já
+determinado pela decisão do PM em `docs/HANDOFF_CLAUDE.md` §18.
+
+9. Divergences
+
+Nenhuma divergência nova. A única divergência anterior relevante
+(nomenclatura de tokens) foi resolvida pelo adendo (seção 2 acima),
+não permanece como divergência em aberto.
+
+10. Risks
+
+* Risco de over-engineering (registrado na especificação): mitigado —
+  os 3 componentes não geram nenhum token/variante especulativo além
+  do estritamente necessário pro caso de uso validado.
+* Risco de acoplamento oculto entre `.ct-modal-*` e `.m3-dialog`
+  (registrado na especificação): verificado — são seletores CSS
+  totalmente distintos, sem herança nem seletor compartilhado; `git
+  grep` confirma zero ocorrência de `.m3-dialog`/`.m3-bottom-sheet`
+  fora dos 2 blocos novos.
+* Risco residual (novo, baixo): `toastBottomOffset()` (`carreira.js`)
+  calcula a posição do toast checando `.ct-modal-overlay.open`/`.mt-
+  action-bar` — não checa `.m3-dialog-overlay`/`.m3-bottom-sheet-
+  overlay`. Não é regressão (o Dialog do perfil de outro clube é
+  somente leitura, sem ação que dispare toast por baixo dele), mas fica
+  registrado: se um Bottom Sheet futuro (S4) precisar coexistir com
+  toast, `toastBottomOffset()` precisará ser estendida.
+* Falhas pré-existentes da suíte E2E (seção 6) — risco de saúde geral
+  da suíte, não desta demanda; sinalizado, não corrigido (fora de
+  escopo). 4 das 14 foram verificadas isoladamente com causa raiz
+  identificada (3 reais/pré-existentes + 1 ruído de contenção); as
+  outras 10 só tiveram o identificador conferido contra o diff (zero
+  sobreposição) — não confirmadas isoladamente por custo de tempo,
+  então permanecem como risco residual não totalmente investigado, não
+  como regressão confirmada desta demanda.
+* Suíte completa não executada até o fim (73/124, ver seção 6) — a
+  cobertura de regressão desta demanda é forte mas não é 100% da
+  suíte; se o PM quiser a confirmação dos 124/124, é necessário rodar
+  novamente com mais tempo disponível (cada lote de 6 pode levar até
+  ~120s, 124 scripts ÷ 6 ≈ 21 lotes ≈ até ~40min no pior caso).
+
+11. Arquivos avaliados
+
+`public/carreira.html`, `public/js/carreira.js`, `public/css/
+style.css` (referência da técnica de shimmer), `tests/e2e/
+test_m3_bloco1_inicio.js` (padrão de teste), `tests/e2e/
+test_ux_nomes_clicaveis.js` (regressão encontrada e corrigida),
+`docs/sprints/S3/S3_DS20_FUNDACAO_EXECUTAVEL.md`,
+`docs/sprints/S3/S3_2_COMPONENTES_E_CONTRATOS.md`.
+
+12. Arquivos alterados
+
+`public/carreira.html` (CSS + markup dos 2 overlays novos + integração
+do ponto de validação), `public/js/carreira.js` (funções genéricas +
+integração em `openPlayerCard()`), `tests/e2e/
+test_ux_nomes_clicaveis.js` (correção de regressão, seção 6),
+`docs/sprints/S3/S3_DS20_FUNDACAO_EXECUTAVEL.md` (adendo §56-57).
+
+13. Arquivos criados
+
+`tests/e2e/test_m3_dialog.js`, `tests/e2e/test_m3_bottom_sheet.js`,
+`tests/e2e/test_m3_skeleton.js`.
+
+14. Arquivos removidos
+
+Nenhum.
+
+15. Resultado final
+
+**APPROVED (proposto)**
+
+Justificativa: os 6 critérios de aceite explícitos da especificação
+foram atendidos com evidência real — (1) os 3 componentes existem no
+sistema `--m3-*`; (2) Dialog integrado e funcional em
+`openPlayerCard()`, com a única regressão encontrada já corrigida e
+reverificada (9/9 checks voltaram a `true`); (3) decisão de
+nomenclatura formalizada em adendo; (4) nenhuma das 9 telas P0 legadas
+foi tocada (confirmado por `git diff`); (5) `--brd-*`/`--mt-*`
+continuam funcionando sem alteração (confirmado pela suíte: dezenas de
+testes que dependem deles passam); (6) 3 testes E2E novos, 1 por
+componente. Acessibilidade e contraste foram verificados com evidência
+concreta (fórmula real, não estimativa), e nenhum acoplamento de regra
+de negócio foi introduzido.
+
+Ressalva explícita (por isso "proposto", não "aprovado" — a decisão
+final é do PM): a verificação de regressão é forte mas não é 100%
+completa (seção 6/10 — suíte rodada até 73-124/124 em duas tentativas,
+nenhuma falha encontrada sobrepõe o diff desta demanda, mas nem toda
+falha foi individualmente re-executada isolada). Isso descarta BLOCKED
+(nenhum impedimento real encontrado) e ADJUSTMENTS REQUIRED (não há
+nenhum ajuste pendente identificado dentro do escopo desta demanda —
+os únicos itens em aberto, seção 8, são gaps já conhecidos e
+explicitamente adiados para a S4 pela própria decisão do PM em §18).
+
+16. Recomendação
+
+1. Após aprovação, a S4 pode começar a migrar as 9 telas P0 legadas
+   incrementalmente, reaproveitando Dialog/Bottom Sheet/Skeleton nos
+   pontos que precisarem de overlay/loading — sem precisar resolver
+   nenhum outro pré-requisito de fundação antes.
+2. Estender `toastBottomOffset()` pra reconhecer `.m3-dialog-overlay`/
+   `.m3-bottom-sheet-overlay` quando a primeira tela migrada precisar
+   de toast coexistindo com um desses overlays (risco residual, seção
+   10).
+3. Considerar, como parte da própria S4 (não desta demanda), investigar
+   a causa raiz das falhas pré-existentes da suíte E2E listadas na
+   seção 6 — não bloqueiam esta demanda, mas reduzem a confiança geral
+   da suíte de regressão à medida que mais trabalho for empilhado sobre
+   ela.
+
+REVISÃO DO PM NECESSÁRIA.
 
 ⸻
 

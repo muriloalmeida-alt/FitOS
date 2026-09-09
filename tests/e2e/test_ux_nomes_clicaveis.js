@@ -34,14 +34,44 @@ const { chromium } = require("playwright-core");
     await page.evaluate((n) => switchToPanel(n), name);
     await page.waitForTimeout(100);
   }
+  // AJUSTE (S3-DS20-S4-PREP-001, issue #10) — openPlayerCard() (perfil
+  // de jogador de OUTRO clube, os casos testados aqui: Mercado,
+  // artilheiro da liga, indicação de olheiro) migrou de #detailOverlay
+  // pro novo Dialog M3 (#m3PlayerCardOverlay/#m3PlayerCardBody), ponto
+  // de validação real da demanda — ver docs/HANDOFF_CLAUDE.md.
+  // openDetail() (jogador do PRÓPRIO elenco) continua em
+  // #detailOverlay, sem nenhuma alteração. Estes helpers testam "abriu
+  // o perfil do jogador", não uma ID de overlay específica — cobrem
+  // os dois, senão este teste voltaria um falso-negativo por causa de
+  // uma mudança arquitetural intencional e dentro do escopo desta
+  // demanda, não uma regressão de verdade.
   async function detailOpenWithName() {
-    return page.evaluate(() => document.getElementById("detailOverlay").classList.contains("open") ? document.getElementById("detailBody").querySelector(".mt-player-hero-info b")?.textContent : null);
+    return page.evaluate(() => {
+      if (document.getElementById("detailOverlay").classList.contains("open")) {
+        return document.getElementById("detailBody").querySelector(".mt-player-hero-info b")?.textContent;
+      }
+      if (document.getElementById("m3PlayerCardOverlay").classList.contains("open")) {
+        return document.getElementById("m3PlayerCardBody").querySelector(".mt-player-hero-info b")?.textContent;
+      }
+      return null;
+    });
+  }
+  async function openPlayerBodyText() {
+    return page.evaluate(() => {
+      if (document.getElementById("detailOverlay").classList.contains("open")) return document.getElementById("detailBody").textContent;
+      if (document.getElementById("m3PlayerCardOverlay").classList.contains("open")) return document.getElementById("m3PlayerCardBody").textContent;
+      return "";
+    });
   }
   async function clubRosterOpenWithName() {
     return page.evaluate(() => document.getElementById("clubRosterOverlay").classList.contains("open") ? document.getElementById("clubRosterName").textContent : null);
   }
   function closeAll() {
-    return page.evaluate(() => document.querySelectorAll(".ct-modal-overlay.open").forEach((el) => el.classList.remove("open")));
+    // Inclui os novos overlays M3 (.m3-dialog-overlay/.m3-bottom-sheet-
+    // overlay) além de .ct-modal-overlay — sem isso o Dialog do perfil
+    // de outro clube ficava aberto por cima da tela e travava os
+    // cliques seguintes do teste (pointer-events interceptados).
+    return page.evaluate(() => document.querySelectorAll(".ct-modal-overlay.open, .m3-dialog-overlay.open, .m3-bottom-sheet-overlay.open").forEach((el) => el.classList.remove("open")));
   }
 
   // 1) Mercado: nome do jogador de outro clube abre perfil somente-leitura
@@ -56,7 +86,7 @@ const { chromium } = require("playwright-core");
   await page.waitForTimeout(150);
   const marketPlayerName = await detailOpenWithName();
   console.log("1a) Mercado: nome do jogador de outro clube abre Perfil (somente leitura):", !!marketPlayerName, marketPlayerName);
-  const readOnlyNote = await page.evaluate(() => document.getElementById("detailBody").textContent.includes("consulta apenas"));
+  const readOnlyNote = (await openPlayerBodyText()).includes("consulta apenas");
   console.log("1b) Perfil somente-leitura mostra aviso 'consulta apenas' (sem ações de gestão):", readOnlyNote);
   await closeAll();
 

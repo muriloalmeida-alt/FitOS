@@ -1199,3 +1199,124 @@ REVISÃO DO PM NECESSÁRIA
 acompanhado do relatório técnico da implementação, testes, divergências, riscos e arquivos alterados.
 
 A conclusão formal da demanda depende da validação do PM.
+
+⸻
+
+56. Adendo — Convergência de nomenclatura de tokens (S3-DS20-S4-PREP-001)
+
+Adendo, não reescrita: as seções 1-55 acima permanecem como registro
+histórico da especificação original da S3.1. Este adendo documenta uma
+decisão posterior, tomada em decorrência da S3.2.7 Readiness Review
+(issue #9, decisão do PM registrada em `docs/HANDOFF_CLAUDE.md` §18) e
+implementada pela demanda `S3-DS20-S4-PREP-001` (issue #10).
+
+56.1 Constatação
+
+A S3.2.7 confirmou, por auditoria direta do código (`origin/main`), que
+o vocabulário de tokens definido nas seções 6-10 deste documento
+(`bg.canvas`, `bg.surface`, `bg.surfaceElevated`, `border.default`,
+`border.strong`, `text.primary`, `text.secondary`, `text.muted`,
+`brand.primary`, `brand.strong`, `state.success/warning/danger/info`,
+`accent.football`) nunca foi implementado literalmente — zero
+ocorrência dessas strings exatas em `public/`. A implementação real
+usa 3 sistemas de tokens distintos: `--brd-*` (site principal e Login),
+`--mt-*` (Modo Técnico, legado) e `--m3-*` (redesign M3, parcial —
+Início/Escolha do clube/Elenco + componentes compartilhados via
+"bridge").
+
+56.2 Decisão
+
+`--m3-*` (definido em `public/carreira.html:150-179`) passa a ser o
+**sistema-alvo único** do BRDATA Design System 2.0. Justificativa:
+
+* é o sistema com nomenclatura de papéis mais próxima da especificação
+  oficial do Material Design 3 (`primary`/`on-primary`/`primary-
+  container`, `surface-dim` até `surface-container-highest`, `on-
+  surface`, `outline`/`outline-variant`) — os outros 2 usam
+  nomenclatura própria (`--brd-blue`, `--mt-navy` etc.), sem relação
+  direta com M3;
+* é o único com paleta dinâmica por clube (`deriveClubPalette()`/
+  `applyClubPalette()`) e verificação de contraste AA automatizada
+  (`contrastRatio()`), ambas em `public/js/carreira.js`;
+* é o único ativamente usado pelas telas já migradas.
+
+O vocabulário das seções 6-10 (`bg.canvas`, `text.primary`,
+`state.success` etc.) passa a ser tratado como **vocabulário
+conceitual/de documentação** — útil pra comunicar intenção em
+especificações futuras — mapeado aos tokens `--m3-*` reais conforme a
+tabela abaixo. Ele deixa de ser tratado como nomenclatura a implementar
+literalmente no CSS.
+
+56.3 Tabela de mapeamento
+
+| Vocabulário conceitual (S3.1 §6-10) | Token `--m3-*` real |
+|---|---|
+| `bg.canvas` | `--m3-surface-dim` |
+| `bg.surface` | `--m3-surface-container-high` |
+| `bg.surfaceElevated` | `--m3-surface-container-highest` |
+| `border.default` | `--m3-outline-variant` |
+| `border.strong` | `--m3-outline` |
+| `text.primary` | `--m3-on-surface` |
+| `text.secondary` | `--m3-on-surface-variant` |
+| `text.muted` | `--m3-on-surface-variant` (mesma variável — a fundação `--m3-*` não distingue "secondary" de "muted" hoje; ver 56.4) |
+| `brand.primary` | `--m3-primary` |
+| `brand.strong` | `--m3-primary-container` |
+| `state.success` | *criado nesta demanda* — ver 56.4 |
+| `state.warning` | *criado nesta demanda* — ver 56.4 |
+| `state.danger` | `--m3-error` (M3 já define nativamente) |
+| `state.info` | `--m3-tertiary` (papel M3 mais próximo — ver 56.4) |
+| `accent.football` | `--m3-secondary` (papel M3 "acento" configurado com a identidade futebolística do tema padrão "Verde de Campo") |
+
+56.4 Tokens de estado — o que foi criado e o que não foi
+
+A paleta M3 oficial não define nativamente `success`/`warning` (só
+`error`, coberto por `--m3-error`). A demanda `S3-DS20-S4-PREP-001`
+**não criou** `--m3-success`/`--m3-warning` novos — os 3 componentes
+que essa demanda entregou (Dialog, Bottom Sheet, Skeleton) não
+precisaram de nenhum token de estado novo, só dos já existentes
+(`--m3-surface-container-high`, `--m3-outline-variant`, `--m3-on-
+surface`, `--m3-on-surface-variant`, `--m3-primary`, escala
+`--m3-shape-*`) — decisão consciente pra não introduzir tokens
+especulativos sem um caso de uso real que os exija (risco de
+"over-engineering" já registrado na especificação da demanda). Quando
+uma tela migrada precisar de fato de `success`/`warning`/`info`
+semânticos (ex.: status de proposta no Mercado, alerta de contrato
+vencendo), a criação desses tokens fica para o momento em que essa
+tela for migrada na S4 — este adendo só resolve o mapeamento
+conceitual, não antecipa tokens sem uso real.
+
+56.5 O que NÃO muda
+
+`--brd-*` e `--mt-*` continuam existindo e funcionando sem nenhuma
+alteração — nenhuma das 9 telas P0 ainda legadas foi tocada por esta
+demanda. A descontinuação de `--brd-*`/`--mt-*` é trabalho da própria
+S4 (migração tela a tela), não desta demanda nem deste adendo.
+
+⸻
+
+57. Adendo — Componentes P0 entregues (S3-DS20-S4-PREP-001)
+
+A S3.2.7 registrou como gap P0 a ausência de 3 componentes no sistema
+`--m3-*`: Dialog, Bottom Sheet e Skeleton. A demanda `S3-DS20-S4-PREP-001`
+implementou os 3, reaproveitando os tokens de superfície/forma já
+existentes (nenhuma cor nova introduzida — contraste verificado com
+`contrastRatio()`, ver relatório técnico em `docs/HANDOFF_CLAUDE.md`):
+
+* **Dialog** (`.m3-dialog*`) — `public/carreira.html` (CSS) + `public/
+  js/carreira.js` (`m3OpenOverlay`/`m3TrapFocus`). Validado num ponto de
+  uso real: `openPlayerCard()` (perfil de jogador de outro clube,
+  acessível a partir da tela Elenco/Tabela já migradas).
+* **Bottom Sheet** (`.m3-bottom-sheet*`) — mesmo arquivo/mesma função
+  `m3OpenOverlay` (contrato compartilhado com o Dialog). Componente
+  genérico via `openM3BottomSheet()`, sem ponto de integração
+  obrigatório nesta demanda — pronto pra qualquer tela migrada usar na
+  S4.
+* **Skeleton** (`.m3-skeleton*`) — helper `m3SkeletonHTML()` (retorna
+  HTML, mesmo padrão de `attrBarHTML`/`crestImg` já usado no arquivo),
+  reaproveitando a técnica de shimmer já existente em `public/css/
+  style.css:301-306` (nova keyframe `m3Shimmer` só porque o gradiente
+  varre sobre tokens `--m3-*`, não `--brd-*`).
+
+Detalhes de acessibilidade (focus trap, Esc, `role`/`aria-*`, contraste
+verificado) e evidências de teste estão no relatório técnico da
+demanda em `docs/HANDOFF_CLAUDE.md`, não duplicados aqui.
