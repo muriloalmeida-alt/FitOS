@@ -388,12 +388,15 @@ const { chromium } = require("playwright-core");
 
   // 24) schema preservado — CAREER só ganhou o campo temporário e
   // justificado (counterRounds, dentro de um item de pendingOffersOut,
-  // não uma chave nova de CAREER) e o transferLog já usado no teste
-  // 1.3.2 (não é novo desta fase).
+  // não uma chave nova de CAREER), o transferLog já usado no teste
+  // 1.3.2 (não é novo desta fase), e recentDeclines (Fase 1.5 —
+  // cooldown pós-recusa, pequeno e podado a cada rodada, ver
+  // test_transfer_ai_market_dynamics.js).
   const schemaAfter = await page.evaluate(() => Object.keys(CAREER).sort());
   const newTopLevelKeys = schemaAfter.filter((k) => !schemaBefore.includes(k));
-  console.log("24) Nenhuma chave nova em CAREER (schema preservado — counterRounds é campo interno de um item de pendingOffersOut, não do objeto CAREER):",
-    newTopLevelKeys.filter((k) => k !== "transferLog").length === 0, JSON.stringify(newTopLevelKeys));
+  const ALLOWED_NEW_KEYS = ["transferLog", "recentDeclines"];
+  console.log("24) Nenhuma chave nova em CAREER além das já justificadas (transferLog/recentDeclines):",
+    newTopLevelKeys.filter((k) => !ALLOWED_NEW_KEYS.includes(k)).length === 0, JSON.stringify(newTopLevelKeys));
 
   // 25) persistência existente continua funcionando — cria uma oferta
   // de verdade via UI (openOfferModal/confirmOfferFromModal), confirma

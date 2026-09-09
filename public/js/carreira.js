@@ -4309,6 +4309,72 @@ function simulateAiTransfers(round) {
 // nasce, agora decidindo POR QUANTO. Sem competitorCount confiável
 // aqui (não existe conceito de "múltiplas propostas simultâneas" pelo
 // mesmo jogador seu vindas de clubes diferentes) — fica em 0 (default).
+/* ---------- Fase 1.5 — Transfer AI: Market Dynamics ----------
+   Pedido do usuário: fazer o mercado reagir ao que já acontece durante
+   a janela, sem substituir nenhuma lógica das Fases 1.1-1.4. Mapeamento
+   prévio (ver relatório) confirmou que a maior parte do comportamento
+   pedido já acontece de graça, porque squad/leagueSquads são sempre
+   lidos ao vivo:
+   - necessidadeScore/transferScore já recalculam na hora a partir do
+     elenco ATUAL (uma venda ou compra muda squad.length/composição
+     imediatamente, sem precisar de uma 2ª variável de necessidade);
+   - simulateAiTransfers já roda até 2 transferências por rodada lendo
+     leagueSquads FRESCO a cada uma (a 2ª já enxerga o elenco alterado
+     pela 1ª) — um mini efeito cascata já existe e já é limitado (nunca
+     mais que 2 por rodada, nunca entre rodadas diferentes na mesma
+     chamada);
+   - concorrência real já existe (listing.offers.length,
+     competitorCount=1 na oferta rival) — nunca inventada;
+   - multi-divisão/limites de elenco/financeiro já são os das Fases
+     1.3.2/1.4, reaproveitados tal e qual (nenhuma função dali é
+     tocada nesta fase).
+   Só 2 lacunas reais restaram, cobertas pelas funções abaixo:
+   (1) nenhum cooldown depois de uma oferta recusada — o mesmo clube
+       podia reofertar o mesmo jogador pelo mesmo valor rodada após
+       rodada; (2) nenhuma urgência de fim de janela — a chance de
+       oferta era achatada (mesma OFFER_CHANCE_PER_ROUND/
+       offerProbabilityFromScore) do primeiro ao último round da
+       janela, mesmo pra clube com necessidade real ainda não
+       resolvida. */
+
+// (1) Cooldown pós-recusa — item 11. Novo campo temporário
+// (CAREER.recentDeclines), justificado porque não há nada equivalente
+// pra derivar isso (declineOffer nunca registrava nada, CAREER.transferLog
+// só guarda transferências CONCLUÍDAS). Bounded/podado a cada leitura —
+// nunca cresce sem limite, nunca vira histórico permanente.
+const DECLINE_COOLDOWN_ROUNDS = 3; // cobre o resto da janela atual (janelas têm 3 rounds, ver TRANSFER_WINDOWS)
+function pruneRecentDeclines(round) {
+  // "d.round <= round" também descarta entradas de uma temporada
+  // ANTERIOR (currentRound volta pra 1 em advanceSeason — sem essa
+  // checagem, round-d.round ficaria negativo e a entrada nunca seria
+  // podada, crescendo pra sempre no save).
+  CAREER.recentDeclines = (CAREER.recentDeclines || []).filter((d) => d.round <= round && round - d.round < DECLINE_COOLDOWN_ROUNDS);
+  return CAREER.recentDeclines;
+}
+function wasRecentlyDeclined(playerId, clubId, round) {
+  return pruneRecentDeclines(round).some((d) => String(d.playerId) === String(playerId) && String(d.clubId) === String(clubId));
+}
+function recordDecline(playerId, clubId, round) {
+  pruneRecentDeclines(round).push({ playerId: String(playerId), clubId: String(clubId), round });
+}
+
+// (2) Urgência de fim de janela — itens 12/13. Só multiplica a
+// PROBABILIDADE de oferta (opção A do item 13 — "usar o mínimo
+// possível"), nunca o transferScore/pesos nem a tabela de
+// offerProbabilityFromScore em si. Só afeta clube com necessidade
+// REAL (necessidade<=0.15 fica em 1x, sem mudança nenhuma); no
+// primeiro round de qualquer janela sempre 1x (progress=0). Teto de
+// +30% (nunca dobra, nunca "R$10M vira R$50M" — aliás nem toca em
+// valor nenhum, só em chance de a oferta nascer).
+function urgencyMultiplier(necessidade, round) {
+  const win = TRANSFER_WINDOWS.find(([open, close]) => round >= open && round <= close);
+  if (!win) return 1; // fora de janela isto nunca é chamado, defensivo
+  const [open, close] = win;
+  const progress = clamp((round - open) / Math.max(close - open, 1), 0, 1); // 0 no 1º round, 1 no último
+  const needGate = clamp((necessidade - 0.15) / 0.35, 0, 1); // só quem tem necessidade real sente urgência
+  return 1 + progress * needGate * 0.30;
+}
+
 const OFFER_CHANCE_PER_ROUND = 0.18;
 function maybeGenerateOffer(round) {
   if (CAREER.pendingOffer) return; // só 1 proposta pendente por vez
@@ -4322,11 +4388,15 @@ function maybeGenerateOffer(round) {
   if (!eligible.length) return;
   const scored = eligible
     .filter((t) => financeiroScore(player, leagueSquadFor(t.id), t.id) > 0) // elimina quem claramente não pode pagar ANTES do RNG
+    .filter((t) => !wasRecentlyDeclined(player.id, t.id, round)) // Fase 1.5 — não reoferece o mesmo par jogador/clube logo depois de recusado
     .map((t) => ({ item: t, score: transferScore(player, t.id) }));
-  if (!scored.length) return; // nenhum clube consegue bancar esse jogador agora
+  if (!scored.length) return; // nenhum clube consegue bancar esse jogador agora (ou só sobrou quem já foi recusado)
   const club = pickWeightedByScore(scored);
   const score = scored.find((s) => s.item === club).score;
-  if (Math.random() >= offerProbabilityFromScore(score)) return; // score baixo -> raríssimo; score alto -> frequente
+  // Fase 1.5 — urgência de fim de janela (necessidade REAL do clube por
+  // este jogador específico, não um estado de clube inventado).
+  const urgency = urgencyMultiplier(necessidadeScore(player, leagueSquadFor(club.id), club.id), round);
+  if (Math.random() >= offerProbabilityFromScore(score) * urgency) return; // score baixo -> raríssimo; score alto -> frequente
   // Fase 1.4 — a proposta única (transferValuation) vira o PONTO DE
   // PARTIDA de uma negociação interna (reserva do vendedor = você vs.
   // tolerância do comprador = o clube), resolvida antes de qualquer
@@ -11024,7 +11094,9 @@ function maybeSpawnRivalOffer(o) {
   if (!scored.length) return; // nenhum clube consegue bancar esse jogador agora
   const rivalClub = pickWeightedByScore(scored);
   const score = scored.find((s) => s.item === rivalClub).score;
-  if (Math.random() >= offerProbabilityFromScore(score)) return;
+  // Fase 1.5 — mesma urgência de fim de janela dos outros 2 caminhos.
+  const urgency = urgencyMultiplier(necessidadeScore(player, leagueSquadFor(rivalClub.id), rivalClub.id), CAREER.currentRound);
+  if (Math.random() >= offerProbabilityFromScore(score) * urgency) return;
   // Fase 1.4 — mesma negociação interna (vendedor = o clube dono do
   // jogador, o.clubId; comprador = o clube rival) — se o vendedor e o
   // rival não chegam a acordo internamente, simplesmente não nasce
@@ -11195,7 +11267,11 @@ function maybeSpawnListingOffer(listing) {
   if (!scored.length) return; // nenhum clube elegível consegue bancar esse jogador agora
   const club = pickWeightedByScore(scored);
   const score = scored.find((s) => s.item === club).score;
-  if (Math.random() >= offerProbabilityFromScore(score)) return; // score baixo -> raríssimo; score alto -> frequente
+  // Fase 1.5 — mesma urgência de fim de janela de maybeGenerateOffer
+  // (fora da janela, urgencyMultiplier devolve 1x — anúncio de venda
+  // continua liberado o ano inteiro, sem mudança de ritmo fora dela).
+  const urgency = urgencyMultiplier(necessidadeScore(p, leagueSquadFor(club.id), club.id), CAREER.currentRound);
+  if (Math.random() >= offerProbabilityFromScore(score) * urgency) return; // score baixo -> raríssimo; score alto -> frequente
   // Fase 1.4 — mesma negociação interna de maybeGenerateOffer, com
   // askingValue como âncora (item 19 — nunca substituído): passa por
   // context.baseValue tanto pra transferValuation (valor inicial, já
@@ -12282,6 +12358,11 @@ function acceptOffer() {
 }
 function declineOffer() {
   if (!CAREER.pendingOffer) return;
+  // Fase 1.5 — registra a recusa (item 11) pra maybeGenerateOffer não
+  // reofertar o mesmo par jogador/clube nos próximos DECLINE_COOLDOWN_ROUNDS
+  // rounds (sem isso, nada impedia a mesma proposta idêntica reaparecer
+  // rodada após rodada).
+  recordDecline(CAREER.pendingOffer.playerId, CAREER.pendingOffer.clubId, CAREER.currentRound);
   toast("Proposta recusada.");
   CAREER.pendingOffer = null;
   persistCareer();
