@@ -12,6 +12,19 @@ substitui `docs/project/ROADMAP.md` nem `docs/HANDOFF_CLAUDE.md` como
 fonte de verdade — organiza o que já está registrado neles e nos demais
 documentos, aponta lacunas e recomenda ordem de ataque.
 
+**Atualização (mesmo dia, mais tarde):** este documento é um retrato do
+momento em que foi escrito — não é reescrito a cada evento novo. Dois
+marcos avançaram depois dele, registrados nos documentos-fonte
+correspondentes: (1) a S3.2.7 Readiness Review foi executada, revisada
+e decidida `AJUSTES NECESSÁRIOS` (`docs/HANDOFF_CLAUDE.md` §18), com a
+demanda de ajustes já especificada (`S3-DS20-S4-PREP-001`, mesmo
+arquivo); (2) **S8 foi verificada e concluída** — checkpoint completo
+em `docs/project/ROADMAP.md` § "S8 — situação (concluída)", que também
+fecha o achado P0 mencionado na seção 4 abaixo. As referências a "S8 em
+andamento" e à demanda S3.2.7 como pendente, no restante deste
+documento, refletem o estado de quando foi escrito — ver os documentos
+citados para o estado atual.
+
 ⸻
 
 ## 1. Resumo executivo
@@ -83,7 +96,7 @@ prioridade:
 
 | Prioridade | Achado | Situação conhecida hoje |
 |---|---|---|
-| **P0** | IA de transferências (`simulateAiTransfers`/`findInterestedBuyer`) 100% aleatória, sem lógica de necessidade/orçamento/contexto | **Possivelmente em correção** — CHANGELOG 08–09/09 registra "Transfer AI" Fases 1.1–1.5 (seleção, ofertas, valuation, balance check, negociação, market dynamics), e `PROJECT_CONTEXT.md` confirma 1.1–1.4 concluídas e 1.5 "em implementação/validação". **Mas nenhum documento fecha explicitamente o achado P0 da auditoria contra esse trabalho** — não dá pra afirmar que está resolvido sem reabrir a auditoria e comparar. |
+| **P0** | IA de transferências (`simulateAiTransfers`/`findInterestedBuyer`) 100% aleatória, sem lógica de necessidade/orçamento/contexto | **Confirmado resolvido (checkpoint 09/09/2026)** — verificado por leitura direta do código (`transferScore()` em `carreira.js:3642` pondera necessidade/adequação/financeiro/contexto), não só pelo changelog. Adendo registrado em `BRDATA_Auditoria_v1.0.md`, checkpoint completo em `ROADMAP.md` § "S8 — situação (concluída)". |
 | P1 | Match engine não determinístico (`Math.random` cru, sem seed) | Sem evidência documental de correção. |
 | P1 | Ausência de `schemaVersion`/migração formal de save | Sem evidência documental de correção. |
 | P1 | Ausência de Event Engine formal (lógica de evento inline/duplicada) | Sem evidência documental de correção. |

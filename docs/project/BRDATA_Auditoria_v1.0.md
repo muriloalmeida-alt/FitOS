@@ -188,4 +188,34 @@ Antes de tocar em qualquer coisa: confirmar diretamente no código se `applyWeek
 
 ---
 
+## Adendo (09/09/2026) — achado P0 4.3/7.1 confirmado resolvido
+
+Este relatório original é preservado sem alteração acima (registro
+histórico de 08/09/2026). Este adendo documenta uma verificação
+posterior, não uma correção do relatório.
+
+O achado **P0** dos itens **4.3** e **7.1** ("IA de transferências
+100% aleatória, sem lógica de necessidade/orçamento/contexto") foi
+resolvido pelo trabalho de Transfer AI (Fases 1.1-1.5, commits
+`bcf3395` a `472217a`, 08-09/09/2026) — confirmado por leitura direta
+do código em `origin/main`, não apenas pelo changelog:
+
+* `transferScore()` (`public/js/carreira.js:3642`) pondera
+  necessidade/adequação/financeiro/contexto — as 4 dimensões que este
+  relatório apontava como ausentes;
+* `simulateAiTransfers`/`findInterestedBuyer` (citados no achado
+  original) agora consomem esse score em vez de serem puramente
+  aleatórios;
+* 9 arquivos de teste dedicados em `tests/e2e/` cobrem a sequência.
+
+Checkpoint formal e detalhamento completo em
+`docs/project/ROADMAP.md` § "S8 — situação (concluída)".
+
+Os demais achados deste relatório (4.4 determinismo do match engine,
+4.2 `schemaVersion`, 4.1 Event Engine formal, 5.3 persistência em blob
+único, entre outros P1/P2) **não foram reverificados** neste adendo —
+continuam como estavam na auditoria original até nova verificação.
+
+---
+
 ## FIM

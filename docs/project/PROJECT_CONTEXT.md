@@ -76,10 +76,34 @@ Sequência técnica já concluída:
 1.3.1 — Balance Check
 1.3.2 — Balanceamento estrutural
 1.4 — Negociação
+1.5 — Market Dynamics
 
-1.5 — Market Dynamics está em implementação/validação.
+Checkpoint de 09/09/2026 (chapéu PM, ver `docs/project/ROADMAP.md` para
+o registro formal): 1.5 confirmada concluída, não mais "em
+validação" — commit `472217a`, com `urgencyMultiplier()`/
+`CAREER.recentDeclines` implementados e isolados (nunca alteram
+`transferScore`/`transferValuation`/pesos existentes, conforme o
+princípio de mudança mínima), cobertos por 2 arquivos de teste
+dedicados (`test_transfer_ai_market_dynamics.js`,
+`sim_transfer_ai_market_dynamics.js`). A sequência 1.1-1.5 inteira foi
+verificada no código (não só no changelog): `transferScore()`
+(`carreira.js:3642`) pondera necessidade/adequação/financeiro/contexto
+— resolve diretamente o achado P0 de `BRDATA_Auditoria_v1.0.md` §4.3/
+§7.1 ("IA de transferências 100% aleatória").
 
-Depois de concluir S8, o plano é retornar ao roadmap oficial e trabalhar S4.
+S8 está concluída **como a sequência técnica descrita acima** (1.1-1.5,
+o motor de decisão do mercado CPU×CPU). "Mercado + contratos" como
+título da Sprint é mais amplo — evolução de contratos (cláusulas,
+luvas, promessa de titularidade, agente, rescisão; `BRDATA_Auditoria_v1.0.md`
+§2.2/§4.7, prioridade P2) não foi tocada nesta frente e não estava no
+escopo do que motivou avançar S8 antes de S4-S7 (ver `ROADMAP.md`).
+Fica registrada como item de backlog para uma Sprint futura, não como
+pendência que bloqueia o retorno ao roadmap oficial.
+
+Concluída a verificação de S8, o plano volta a valer: retornar ao
+roadmap oficial e trabalhar S4 — já em andamento via
+`S3-DS20-S4-PREP-001` (pré-requisitos de Design System, ver
+`docs/HANDOFF_CLAUDE.md`).
 
 Regra de revisão
 
