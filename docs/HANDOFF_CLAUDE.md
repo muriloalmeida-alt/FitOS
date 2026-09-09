@@ -1,191 +1,192 @@
-# HANDOFF — PM (ChatGPT) ↔ Desenvolvimento (Claude)
+HANDOFF_CLAUDE — Demandas vigentes e histórico
 
-Documento oficial e **bidirecional** de comunicação entre o PM
-(ChatGPT — produto, requisitos, arquitetura funcional, priorização,
-critérios de aceite, governança) e o Desenvolvimento (Claude —
-arquitetura de solução, implementação, testes, regressões).
+As regras de governança deste Handoff estão definidas em
+docs/README_HANDOFF.md. Claude deve consultar o README_HANDOFF.md
+para conhecer as regras (responsabilidades, fluxo, estados, escopo,
+divergências, aprovação) — elas não são repetidas aqui.
 
-Fixado em 09/09/2026, conforme o fluxo oficial de governança do projeto
-BRDATA/FitOS. Ver `docs/README.md` para o restante das regras de
-governança (escopo de escrita, fonte de verdade, etc.).
+⸻
 
-**Escopo de escrita**: o PM só escreve dentro de `docs/` — nunca em
-código de produção, testes, configuração ou `CLAUDE.md`. Claude
-implementa no código e registra o retorno de cada tarefa aqui, na
-mesma seção que o PM abriu.
+Demandas vigentes
 
----
+S3-DS20-S4-READINESS-001 — S3.2.7 Readiness Review
 
-## Como este documento funciona
+Status: PRONTO PARA IMPLEMENTAÇÃO
+Sprint: S3 — BRDATA Design System 2.0
+Fase: S3.2.7 — S4 Readiness Review
+Prioridade: P0
 
-1. O PM abre uma tarefa nova preenchendo o bloco **"PM → CLAUDE"** de
-   uma seção `## TASK-<ID>` (ver template abaixo), com
-   `Status: READY FOR IMPLEMENTATION`.
-2. Claude só inicia implementação quando o status for exatamente
-   `READY FOR IMPLEMENTATION`. Se estiver `DRAFT`, `BLOCKED` ou
-   `ADJUSTMENTS REQUIRED`, aguarda orientação do PM.
-3. Claude lê o handoff inteiro + todos os documentos listados em
-   "Leitura obrigatória" antes de tocar em código — nunca presume
-   conhecer o estado do projeto só pela memória de conversas
-   anteriores (`docs/` no GitHub é a fonte de verdade, ver
-   `docs/README.md` regra 0).
-4. Ao terminar, Claude preenche o bloco **"CLAUDE → PM"** da MESMA
-   seção (não cria uma seção nova) e muda o status pra
-   `PM REVIEW REQUIRED`.
-5. O PM revisa. Se aprovar, status vira `APPROVED` e a tarefa está
-   encerrada. Se pedir ajuste, status vira `ADJUSTMENTS REQUIRED` e
-   Claude repete o ciclo (implementa → testa → atualiza → `PM REVIEW
-   REQUIRED`) até aprovação.
-6. Ao encerrar (`APPROVED`), a seção inteira é movida pra
-   "Histórico de tarefas" no fim deste arquivo, mais recente primeiro
-   — mesma lógica de arquivo append-only já usada em
-   `docs/project/CHANGELOG.md`, pra nunca perder o rastro de uma
-   tarefa concluída.
+Objetivo
 
-### Status possíveis
-`DRAFT` · `READY FOR IMPLEMENTATION` · `IN IMPLEMENTATION` ·
-`PM REVIEW REQUIRED` · `APPROVED` · `ADJUSTMENTS REQUIRED` · `BLOCKED`
+Auditar a implementação atual do BRDATA Design System 2.0 e determinar se a base apresenta maturidade suficiente segundo os critérios definidos na documentação de S3/S4.
 
-### Fluxo resumido
-```
-PM
- ↓
-Atualiza docs/HANDOFF_CLAUDE.md
- ↓
-READY FOR IMPLEMENTATION
- ↓
-CLAUDE LÊ HANDOFF + DOCUMENTOS OBRIGATÓRIOS
- ↓
-INSPECIONA CÓDIGO (INSPECT → IDENTIFY → MAP DEPENDENCIES → PRESERVE →
-                    MINIMAL CHANGE → TEST → VALIDATE SAVE/LOAD → DOCUMENT)
- ↓
-IMPLEMENTA → TESTA → ATUALIZA HANDOFF
- ↓
-PM REVIEW REQUIRED
- ↓
-PM ANALISA ──► APPROVED (fim, arquiva no histórico)
-     │
-     └──► ADJUSTMENTS REQUIRED ──► Claude ajusta ──► PM REVIEW REQUIRED (repete)
-```
+A avaliação deve considerar a implementação real existente e não apenas a documentação.
 
-### Regra de preservação (antes de alterar qualquer código)
-`INSPECT → IDENTIFY EXISTING IMPLEMENTATION → MAP DEPENDENCIES →
-PRESERVE CURRENT BEHAVIOR → IMPLEMENT MINIMAL CHANGE → TEST → VALIDATE
-SAVE/LOAD → DOCUMENT`. Não reconstruir sistema existente só porque há
-forma mais simples de implementá-lo — descobrir primeiro se já existe.
+A demanda não autoriza automaticamente qualquer etapa posterior.
 
-### Regra de divergência
-Se a implementação precisar fugir da especificação do PM, Claude
-**nunca esconde** — registra o quê mudou, por quê, o impacto, e a
-decisão tomada, na seção "Divergências" do retorno. Se a divergência
-afeta produto/escopo (não só detalhe técnico), Claude aguarda decisão
-do PM antes de seguir — não implementa a mudança de especificação por
-conta própria.
+Contexto
 
-### Definition of Done
-Pronto pra revisão (`PM REVIEW REQUIRED`) exige: implementação
-concluída, testes executados, regressões verificadas, arquivos
-alterados registrados, divergências registradas, pendências
-registradas, impacto documental identificado, handoff atualizado.
-Só está **realmente concluída** quando `PM REVIEW REQUIRED → APPROVED`.
+As etapas S3.2.1 a S3.2.6 foram atividades de especificação e documentação realizadas pelo PM e não geram, por si só, demanda de desenvolvimento.
 
----
+A S3.2.7 é a etapa que exige atuação do Dev para auditar a implementação existente e retornar evidências para validação do PM.
 
-## Template de uma tarefa (copiar para abrir uma nova `## TASK-<ID>`)
+Problema
 
-```markdown
-## TASK-<ID> — <título curto>
+É necessário confirmar se a implementação atual:
 
-**Status:** DRAFT
-**Fase/Sprint:** <ex.: Sprint 8>
-**Aberta em:** <data>
+* atende à fundação definida;
+* possui componentes suficientemente consistentes;
+* respeita os contratos definidos;
+* apresenta comportamento responsivo adequado;
+* atende aos requisitos de acessibilidade;
+* cobre adequadamente as telas mobile;
+* preserva as funcionalidades existentes;
+* não possui regressões críticas conhecidas.
 
-### PM → CLAUDE
+Escopo
 
-**Objetivo:**
-<o que deve ser entregue e por quê>
+Claude deve avaliar:
 
-**Documentos novos:**
-- <caminho, se o PM criou algum doc novo em docs/ pra esta tarefa>
+* Foundation;
+* Components;
+* Contracts;
+* Responsive;
+* Accessibility;
+* S4 Coverage;
+* Regression;
+* Tests;
+* Gaps;
+* Divergences;
+* Risks.
 
-**Documentos alterados:**
-- <caminho, se o PM alterou algum doc existente>
+A cobertura deve considerar as 19 telas definidas em:
 
-**Leitura obrigatória:**
-- <lista de docs que Claude PRECISA ler antes de implementar>
+docs/reqs/S3_S4_MATRIZ_TELAS_MOBILE.md
 
-**Documentos de referência:**
-- <docs úteis mas não obrigatórios>
+Fora de escopo
 
-**Escopo:**
-- <o que entra>
+* reconstrução completa do frontend;
+* criação de novos sistemas de jogo;
+* alteração de regras de negócio;
+* alteração do Match Engine;
+* alteração do Transfer Engine;
+* alteração da Economy;
+* refatoração arquitetural oportunista;
+* redesign independente fora do escopo documentado;
+* mudanças de backend/API sem necessidade direta da auditoria.
 
-**Fora de escopo:**
-- <o que NÃO entra nesta tarefa>
+Documentação relacionada
 
-**Dependências:**
-- <outras tarefas/sistemas que isso depende>
+* docs/README_HANDOFF.md
+* docs/project/ROADMAP.md
+* docs/project/PROJECT_CONTEXT.md
+* docs/project/CHANGELOG.md
+* docs/reqs/S3_DS20_FUNDACAO_EXECUTAVEL.md
+* docs/reqs/S3_2_COMPONENTES_E_CONTRATOS.md
+* docs/reqs/S3_S4_MATRIZ_TELAS_MOBILE.md
+* docs/reqs/S3_2_7_READINESS.md
 
-**Critérios de aceite:**
-- <lista verificável>
+Dependências
 
-**Riscos:**
-- <riscos conhecidos pelo PM>
+* implementação atual do BRDATA DS 2.0;
+* documentação S3.1;
+* documentação S3.2;
+* matriz de telas mobile;
+* regras de Material Design 3.
 
-**Restrições:**
-- <restrições de produto/técnicas já conhecidas>
+Requisitos
 
-**Observações importantes:**
-- <qualquer contexto adicional>
+Claude deve:
 
-### CLAUDE → PM
+1. ler a documentação relacionada;
+2. inspecionar a implementação atual;
+3. identificar o que já existe;
+4. mapear dependências;
+5. avaliar a implementação real;
+6. executar os testes necessários;
+7. registrar gaps;
+8. registrar divergências;
+9. registrar riscos;
+10. registrar arquivos avaliados;
+11. produzir relatório técnico;
+12. retornar REVISÃO DO PM NECESSÁRIA.
 
-**Implementação:**
-- O que foi implementado: <resumo>
-- Arquivos alterados: <lista>
-- Arquivos criados: <lista ou "nenhum">
-- Arquivos removidos: <lista ou "nenhum">
-- Documentação alterada: <lista ou "nenhuma">
+O relatório deve apresentar status e evidências para cada categoria avaliada.
 
-**Testes:**
-- Testes executados: <lista>
-- Comandos utilizados: <comandos reais>
-- Resultado de cada teste: <pass/fail por teste>
-- Testes que falharam: <lista ou "nenhum">
-- Motivo das falhas: <se houver>
-- Regressões identificadas: <lista ou "nenhuma">
+Critérios de aceite
 
-**Conformidade:**
-- Requisitos atendidos: <lista>
-- Requisitos parcialmente atendidos: <lista ou "nenhum">
-- Requisitos não atendidos: <lista ou "nenhum">
+A demanda deverá resultar em uma das classificações:
 
-**Divergências:**
-- <o que mudou / por que / impacto / decisão tomada — ou "nenhuma">
+* APPROVED
+* ADJUSTMENTS REQUIRED
+* BLOCKED
 
-**Pendências:**
-- Bugs conhecidos: <lista ou "nenhum">
-- Limitações: <lista ou "nenhuma">
-- Pontos que dependem do PM: <lista ou "nenhum">
-- Itens deliberadamente não implementados: <lista ou "nenhum">
+O resultado deve estar sustentado por evidências da implementação real.
 
-**Git:**
-- Branch: <nome>
-- Commit(s): <hash(es)>
-- PR: <link, se houver>
-- Resultado de CI: <se aplicável>
-```
+O relatório deve incluir:
 
----
+* resumo executivo;
+* Foundation;
+* Components;
+* Contracts;
+* Responsive;
+* Accessibility;
+* S4 Coverage;
+* Regression;
+* Tests;
+* Gaps;
+* Divergences;
+* Risks;
+* arquivos avaliados;
+* arquivos alterados/criados/removidos, se houver;
+* resultado final;
+* recomendação.
 
-## Tarefa ativa
+A demanda somente poderá ser considerada formalmente concluída após revisão e decisão do PM.
 
-_Nenhuma tarefa aberta no momento — aguardando o primeiro handoff do
-PM. Quando o PM abrir uma `## TASK-<ID>` acima desta linha (ou nesta
-seção), ela vira a tarefa ativa até ser arquivada no histórico abaixo._
+Validações
 
----
+O PM deverá validar:
 
-## Histórico de tarefas (mais recente primeiro)
+* aderência ao escopo;
+* aderência ao M3;
+* qualidade da implementação;
+* coerência arquitetural;
+* acessibilidade;
+* responsividade;
+* cobertura;
+* preservação funcional;
+* testes;
+* gaps;
+* riscos;
+* divergências.
 
-_Vazio — nenhuma tarefa concluída sob este fluxo ainda._
+Riscos
+
+* falsa percepção de readiness baseada somente na documentação;
+* componentes duplicados;
+* divergências com M3;
+* acessibilidade insuficiente;
+* comportamento mobile inconsistente;
+* regressões;
+* acoplamento entre UI e regras de negócio;
+* dívida técnica relevante.
+
+Observações
+
+A S3.2.7 é uma auditoria e não deve ser transformada em uma grande refatoração.
+
+Problemas encontrados devem ser registrados e classificados.
+
+Se houver necessidade de ajustes, o PM atualizará o Handoff com os ajustes.
+
+A aprovação formal do PM é obrigatória.
+
+Somente após APROVADO e atualização formal do Handoff o commit final estará autorizado.
+
+⸻
+
+Histórico
+
+Demanda	Data	Commit	Changelog
+(nenhuma demanda concluída sob este fluxo ainda)
