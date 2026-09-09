@@ -3,14 +3,14 @@
 **Data:** 08/09/2026
 **Escopo:** Comparação do código atual do Modo Técnico (`carreira.js`,
 `carreira.html`, `server/`) contra os documentos de especificação —
-`CLAUDE.md` (raiz), `docs/reqs/BRDATA_GDB_v1.0.md`,
-`docs/reqs/BRDATA_GDB_Tecnico_v1.0.md`,
-`docs/reqs/BRDATA_Game_Engine_Spec_v1.0.md`.
+`CLAUDE.md` (raiz), `docs/sprints/S2/S2_GDD.md`,
+`docs/sprints/S2/S2_GDD_TECNICO.md`,
+`docs/sprints/S2/S2_GAME_ENGINE_SPEC.md`.
 
 > Nota (09/09/2026): este relatório foi escrito quando esses arquivos
 > ainda estavam na raiz do repositório — os caminhos acima refletem a
-> reorganização em `docs/` feita depois; o conteúdo abaixo não foi
-> alterado.
+> reorganização em `docs/` feita depois (primeiro pra `docs/reqs/`,
+> depois pra `docs/sprints/S2/`); o conteúdo abaixo não foi alterado.
 
 **Metodologia:** leitura direta do código (`carreira.js` 13.514 linhas,
 `carreira.html` 5.463 linhas, `server/`) cruzada com os 4 documentos de

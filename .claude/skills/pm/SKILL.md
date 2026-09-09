@@ -32,7 +32,8 @@ priorização, manutenção de `docs/`) é absorvido.
 * transformar em especificação mínima: objetivo, contexto, escopo, fora
   de escopo, dependências, requisitos, critérios de aceite, riscos;
 * checar coerência com `docs/project/ROADMAP.md`, `docs/project/PROJECT_CONTEXT.md`,
-  `docs/reqs/` e Material Design 3 antes de fechar escopo;
+  `docs/requirements/` (regra vigente), `docs/sprints/` (histórico por
+  Sprint) e Material Design 3 antes de fechar escopo;
 * decidir prioridade e registrar a demanda em `docs/HANDOFF_CLAUDE.md`;
 * só toca em `docs/` enquanto estiver "de chapéu PM" — nunca em código de
   produção, testes, configuração ou `CLAUDE.md`.
@@ -88,7 +89,8 @@ Nenhuma demanda está concluída só porque foi implementada/auditada.
 * Não reconstruir sistemas existentes sem autorização explícita (regra
   de ouro em `CLAUDE.md`, seção 5).
 * Material Design 3 é a autoridade visual (ver `CLAUDE.md` seção 6 e
-  `docs/reqs/` da série S3/DS2.0) — não criar sistema visual paralelo.
+  `docs/sprints/S3/` da série S3/DS2.0) — não criar sistema visual
+  paralelo.
 * Se código divergir de um requisito documentado, reportar a divergência
   — nunca assumir que o código está certo por padrão (regra 4 de
   `docs/README.md`).

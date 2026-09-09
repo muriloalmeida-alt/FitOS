@@ -14,8 +14,9 @@ server/                → backend Node (proxy + cache da API-Sports)
 deploy/                → arquivos de deploy (systemd, nginx)
 Dockerfile / docker-compose.yml → deploy via Docker + Caddy (HTTPS automático)
 docs/
+  ├── sprints/          → histórico por Sprint (GDD, GDD Técnico, Game Engine Spec, auditorias, specs)
   ├── project/          → governança e gestão do projeto (roadmap, contexto, decisões)
-  ├── reqs/             → requisitos e regras de negócio (GDD, GDD Técnico, Game Engine Spec)
+  ├── requirements/     → requisitos e regras de negócio vigentes (functional/technical/game-design/ui-ux)
   ├── library/          → material de referência (pesquisas, benchmarks, UX/UI, concorrentes)
   └── ops/
       ├── README-INSTALACAO.md   → guia completo de instalação/deploy

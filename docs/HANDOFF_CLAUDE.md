@@ -61,7 +61,7 @@ Claude deve avaliar:
 
 A cobertura deve considerar as 19 telas definidas em:
 
-docs/reqs/S3_S4_MATRIZ_TELAS_MOBILE.md
+docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md
 
 Fora de escopo
 
@@ -81,10 +81,10 @@ Documentação relacionada
 * docs/project/ROADMAP.md
 * docs/project/PROJECT_CONTEXT.md
 * docs/project/CHANGELOG.md
-* docs/reqs/S3_DS20_FUNDACAO_EXECUTAVEL.md
-* docs/reqs/S3_2_COMPONENTES_E_CONTRATOS.md
-* docs/reqs/S3_S4_MATRIZ_TELAS_MOBILE.md
-* docs/reqs/S3_2_7_READINESS.md
+* docs/sprints/S3/S3_DS20_FUNDACAO_EXECUTAVEL.md
+* docs/sprints/S3/S3_2_COMPONENTES_E_CONTRATOS.md
+* docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md
+* docs/sprints/S3/S3_2_7_READINESS.md
 
 Dependências
 
