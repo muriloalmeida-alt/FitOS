@@ -155,8 +155,14 @@ for paga agora, antes de replicar o padrão ad hoc em mais telas.
      com outras partes do produto além do Modo Técnico — confirmar
      escopo de compartilhamento antes de migrar é requisito da
      demanda, não opcional.
-   - Restantes (Tática, Treino, Perfil do jogador) seguem sem demanda
-     própria ainda — Perfil do jogador por último, depende de
+   - Item 3: **Tática/Formação** (`S4-B2-003`, status `PRONTO PARA
+     IMPLEMENTAÇÃO`) — tela interativa, mais complexa que as duas
+     anteriores; possível dependência não confirmada do PlayerCard
+     (a inspecionar, não presumida); as 3 telas P1 relacionadas (Eixos
+     táticos, Marcação individual, Meus esquemas) ficam fora, são
+     Batch 4.
+   - Restantes (Treino, Perfil do jogador) seguem sem demanda própria
+     ainda — Perfil do jogador por último, depende de
      `S3-DS20-S4-PREP-002`.
 4. **Batch 3 (Transactional)** — antes de qualquer tela, formalizar
    TransferCard e ContractCard (não existem, sem dívida retroativa
