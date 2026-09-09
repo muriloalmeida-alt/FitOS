@@ -25,6 +25,10 @@ const { chromium } = require("playwright-core");
   await page.waitForTimeout(150);
   await page.click("#btnConfirmClub");
   await page.click("#btnOnboardSkip", { timeout: 2000 }).catch(() => {});
+  await page.click("#btnWizardSkip", { timeout: 4000 }).catch(() => {});
+  await page.click("#btnWizardSkip", { timeout: 4000 }).catch(() => {});
+  await page.click("#btnWizardSkip", { timeout: 4000 }).catch(() => {});
+  await page.click("#btnWizardSkip", { timeout: 4000 }).catch(() => {});
   await page.click("#btnClaimDailyLogin", { timeout: 3000 }).catch(() => {});
   await page.waitForTimeout(500);
   // Zera a chance de coletiva de imprensa (mesmo hábito de sempre) pra

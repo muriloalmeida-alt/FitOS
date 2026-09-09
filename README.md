@@ -13,18 +13,23 @@ server/                → backend Node (proxy + cache da API-Sports)
   └── server.js
 deploy/                → arquivos de deploy (systemd, nginx)
 Dockerfile / docker-compose.yml → deploy via Docker + Caddy (HTTPS automático)
-README-INSTALACAO.md   → guia completo de instalação/deploy
-README-API-SPORTS.md   → detalhes da integração com a API-Sports
-README-LOGIN.md        → cadastro/login obrigatório, planos e sessão (LEIA — tem um passo obrigatório no Railway)
-README-PAGAMENTOS.md   → pagamento por cartão/PIX via Mercado Pago
-README-DEPLOY-RAILWAY.md → os dois ambientes Railway (HML auto-deploy / PRD manual) e checklist de verificação
-README-CARREIRA.md     → "Modo Técnico" (/carreira) — carreira de técnico estilo Elifoot em cima do elenco do Brasileirão
+docs/
+  ├── project/          → governança e gestão do projeto (roadmap, contexto, decisões)
+  ├── reqs/             → requisitos e regras de negócio (GDD, GDD Técnico, Game Engine Spec)
+  ├── library/          → material de referência (pesquisas, benchmarks, UX/UI, concorrentes)
+  └── ops/
+      ├── README-INSTALACAO.md   → guia completo de instalação/deploy
+      ├── README-API-SPORTS.md   → detalhes da integração com a API-Sports
+      ├── README-LOGIN.md        → cadastro/login obrigatório, planos e sessão (LEIA — tem um passo obrigatório no Railway)
+      ├── README-PAGAMENTOS.md   → pagamento por cartão/PIX via Mercado Pago
+      ├── README-DEPLOY-RAILWAY.md → os dois ambientes Railway (HML auto-deploy / PRD manual) e checklist de verificação
+      └── README-CARREIRA.md     → "Modo Técnico" (/carreira) — carreira de técnico estilo Elifoot em cima do elenco do Brasileirão
 ```
 
 > ⚠️ O site agora exige login pra qualquer acesso (cadastro + escolha
 > de plano + pagamento quando aplicável). Isso guarda dados de conta
 > num arquivo local que **precisa de um Volume no Railway** pra não se
-> perder a cada deploy — detalhes em `README-LOGIN.md`.
+> perder a cada deploy — detalhes em `docs/ops/README-LOGIN.md`.
 
 ## Rodando local
 

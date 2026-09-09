@@ -37,7 +37,7 @@
    estado atual de cada conta em si não se perde, esse é o
    users.json). Anexe um Volume no Railway apontando pra pasta
    `server/data` antes de usar isso pra acompanhar receita de verdade
-   — ver README-LOGIN.md. */
+   — ver docs/ops/README-LOGIN.md. */
 
 const fs = require("fs");
 const path = require("path");

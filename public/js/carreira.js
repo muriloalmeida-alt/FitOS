@@ -3448,13 +3448,497 @@ function maxSquadSizeFor(teamId) {
 function minSquadSizeFor(teamId) {
   return isOwnDivisionTeam(teamId) ? MIN_LEAGUE_SQUAD : MIN_LEAGUE_SQUAD_OTHER_DIVISION;
 }
-function findInterestedBuyer(excludeId) {
+
+/* ---------- Fase 1.1 — Transfer AI (TransferScore) ----------
+   Pedido do usuário ("substituir a lógica essencialmente aleatória de
+   transferências da CPU por uma IA contextual, preservando
+   integralmente os sistemas existentes de mercado, contratos,
+   parcelas, propostas e elenco"). Estas funções só LEEM dados já
+   existentes (elenco, overall, potencial, idade, valor, salário,
+   CAREER.standings) — nada novo é persistido, nenhum schema muda.
+
+   Escopo aprovado desta etapa: só simulateAiTransfers/
+   findInterestedBuyer passam a usar isso. maybeGenerateOffer/
+   maybeSpawnListingOffer/maybeSpawnRivalOffer ficam para a Fase 1.2 —
+   por isso as funções abaixo recebem sempre (candidato, elenco,
+   clubId) de forma genérica, nunca algo específico de
+   simulateAiTransfers, para serem reaproveitadas depois sem alteração. */
+
+// 1) NECESSIDADE (35%) — proporção entre os 4 grupos (GOL/DEF/MEI/ATA)
+// dentro do próprio elenco ATUAL do clube (squad.length), nunca um
+// alvo absoluto de tamanho de elenco. Respeita os limites por divisão
+// de graça: squad.length já é mantido dentro de [minSquadSizeFor,
+// maxSquadSizeFor] pelas checagens de elegibilidade que já existem
+// (ver simulateAiTransfers/buildLeagueSquad) — não precisa de nenhuma
+// regra nova de tamanho de elenco aqui.
+const SQUAD_GROUP_PROPORTION = { G: 0.12, D: 0.32, M: 0.32, F: 0.24 };
+function idealCountForGroup(squad, grp) {
+  return Math.max(1, Math.round(squad.length * SQUAD_GROUP_PROPORTION[grp]));
+}
+// Déficit de GRUPO (comportamento original desta função, preservado
+// tal e qual — Fase 1.3.2 mantém a ideia de grupos/posições, só some
+// como componente dentro do novo necessidadeScore em vez de ser o
+// score inteiro).
+function groupDeficitScore(candidate, squad) {
+  const ideal = idealCountForGroup(squad, candidate.group);
+  const atual = squad.filter((p) => p.group === candidate.group).length;
+  return clamp((ideal - atual) / ideal, 0, 1);
+}
+// Déficit QUALITATIVO (Fase 1.3.2, item 4C do pedido do usuário) — o
+// Balance Check 1.3.1 mostrou que elencos reais quase nunca têm déficit
+// de QUANTIDADE (69% dos casos com groupDeficitScore=0, já que os
+// elencos nascem próximos de SQUAD_GROUP_PROPORTION), então o
+// componente de 35% do transferScore ficava praticamente inerte.
+// Mesmo com o grupo "numericamente cheio", pode existir necessidade
+// REAL se todos os jogadores daquele grupo forem bem mais fracos que o
+// candidato (comprar um upgrade claro, não só preencher vaga). Sem
+// segunda fonte de dado: só overall, já existente em todo jogador.
+// Moderado por construção (contribui uma fração pequena do total, ver
+// necessidadeScore) — nunca "necessidade = overall alto" direto, é
+// necessidade = overall do candidato MENOS a média do que o clube já
+// tem naquele grupo (0 quando o candidato não é melhor que a média;
+// só cresce se ele realmente resolveria um gap de nível).
+function qualityDeficitScore(candidate, squad) {
+  if (candidate.overall == null) return 0; // sem overall (ex.: candidato sintético de teste) — sem sinal, não inventa
+  const peers = squad.filter((p) => p.group === candidate.group && p.overall != null);
+  if (!peers.length) return 1; // grupo vazio — já capturado por groupDeficitScore, reforça igual
+  const avgOverall = peers.reduce((s, p) => s + p.overall, 0) / peers.length;
+  return clamp((candidate.overall - avgOverall) / 20, 0, 1); // 0 até não superar a média; 1 a partir de +20
+}
+// Fator de TAMANHO DE ELENCO (Fase 1.3.2, item 4D) — clube perto do
+// teto da própria divisão (ver maxSquadSizeFor/minSquadSizeFor, já
+// existentes, nenhuma regra nova de limite) tem necessidade reduzida;
+// clube perto do piso tem necessidade ampliada. buyingClubId é
+// OPCIONAL (3º parâmetro novo de necessidadeScore) — chamada antiga de
+// teste/2 argumentos continua funcionando idêntica (retorna neutro 1,
+// sem alterar o comportamento anterior quando o clube não é informado).
+function squadSizeNeedFactor(squad, buyingClubId) {
+  if (buyingClubId == null) return 1;
+  const min = minSquadSizeFor(buyingClubId), max = maxSquadSizeFor(buyingClubId);
+  if (max <= min) return 1;
+  const frac = clamp((squad.length - min) / (max - min), 0, 1); // 0 = no piso, 1 = no teto
+  return 1.25 - frac * 0.55; // no piso -> 1.25x (amplia); no teto -> 0.70x (reduz)
+}
+// necessidadeScore final — déficit de grupo (peso principal, 75%) +
+// déficit qualitativo (item 4C, 25% — "um jogador que resolve um
+// déficit real deve gerar necessidade maior do que um que não
+// resolve", sem reutilizar adequacaoScore diretamente pra não
+// duplicar o peso de 30% que ela já tem no transferScore, ver aviso
+// do usuário contra dupla contagem) modulado pelo tamanho do elenco
+// (item 4D). NÃO implementado nesta fase: déficit por POSIÇÃO
+// ESPECÍFICA dentro do grupo (item 4B do pedido — ex.: lateral vs.
+// zagueiro) — ver nota de bloqueio no relatório da Fase 1.3.2:
+// subPositionOf() é hoje só um alias 1:1 de group->label (GOL/DEF/
+// MEI/ATA), sem nenhum dado real de sub-posição — foi removido de
+// propósito numa fase anterior desta sessão ("as posições não
+// refletem a posição real que o jogador joga"), então dar
+// necessidade diferente pra lateral vs. zagueiro exigiria inventar de
+// novo exatamente o dado que já foi removido por não ser real.
+function necessidadeScore(candidate, squad, buyingClubId) {
+  const groupDeficit = groupDeficitScore(candidate, squad);
+  const qualDeficit = qualityDeficitScore(candidate, squad);
+  const combined = clamp(groupDeficit * 0.75 + qualDeficit * 0.25, 0, 1);
+  return clamp(combined * squadSizeNeedFactor(squad, buyingClubId), 0, 1);
+}
+
+// 2) ADEQUAÇÃO (30%) — nível do candidato vs. nível do elenco
+// comprador, SEM penalizar um jogador muito melhor: curva crescente
+// até +20 de diferença de overall, só decai suavemente depois (nunca
+// abaixo de 0.55) — quem decide se um upgrade grande é inviável de
+// verdade é o financeiro, não esta curva.
+function overallFitCurve(diff) {
+  if (diff <= -15) return 0.15;                              // muito abaixo do nível — baixa, nunca zero
+  if (diff <= 0) return 0.15 + (diff + 15) / 15 * 0.35;       // abaixo do nível — 0.15 a 0.50
+  if (diff <= 8) return 0.50 + diff / 8 * 0.35;               // próximo do nível — 0.50 a 0.85 (bom)
+  if (diff <= 20) return 0.85 + (diff - 8) / 12 * 0.15;       // acima do nível — 0.85 a 1.00 (ótimo)
+  return clamp(1.00 - (diff - 20) * 0.02, 0.55, 1.00);        // absurdamente acima — leve penalização, nunca < 0.55
+}
+function adequacaoScore(candidate, squad, buyingClubId) {
+  const squadAvg = squadAvgOverallOf(buyingClubId);
+  const overallFit = overallFitCurve(candidate.overall - squadAvg);
+  const roomToGrow = candidate.potential != null
+    ? clamp((candidate.potential - candidate.overall) / 20, 0, 1) : 0;
+  const ageFit = candidate.age <= 23 ? 0.8 + roomToGrow * 0.2
+    : candidate.age <= 30 ? 1.0
+    : clamp(1 - (candidate.age - 30) * 0.08, 0.2, 1);
+  return clamp(overallFit * 0.6 + roomToGrow * 0.2 + ageFit * 0.2, 0, 1);
+}
+
+// 3) FINANCEIRO (20%) — orçamento do clube CPU derivado do próprio
+// elenco (mesma fórmula de initialFinances, calculada em tempo real —
+// clubes CPU não têm CAREER.finances próprio, e não ganham nenhum
+// campo novo aqui).
+function clubBudgetProxy(clubId) {
+  const squad = leagueSquadFor(clubId);
+  const wageCap = Math.round(wageBillOf(squad) * 1.35 / 1000) * 1000;
+  const cash = Math.round(wageCap * 6 / 1000) * 1000;
+  return { cash, wageCap };
+}
+// Fase 1.3.2 (item 8/9/10 do pedido do usuário) — o Balance Check 1.3.1
+// mostrou 68,8% dos pares eliminados por financeiroScore=0 e ZERO
+// oportunidades pro tercil financeiro mais pobre dos 60 clubes: a
+// checagem original era um corte binário (cabe/não cabe no
+// salário/valor), então qualquer clube um pouco abaixo da linha virava
+// automaticamente inelegível, mesmo pra jogadores só um pouco acima da
+// sua capacidade. affordabilityRatio() troca o corte por uma RAMPA:
+// dentro da capacidade (ratio<=1) continua exatamente 1 (nenhuma
+// mudança pra quem já cabia — ver Test 7/"forte" preservados);
+// além da capacidade decai LINEARMENTE até 0 só quando fica
+// "claramente inacessível" (2,5x a capacidade, ratio>=2.5) — nunca
+// remove o filtro por completo (item 8: "não simplesmente remova
+// financeiroScore<=0"), só deixa de ser um degrau único. Continua
+// decidido ANTES do RNG de oferta nos 3 chamadores (maybeGenerateOffer/
+// maybeSpawnListingOffer/maybeSpawnRivalOffer, todos já filtram por
+// financeiroScore>0 antes de pontuar/sortear) — nenhuma mudança de
+// ORDEM na pipeline, só o valor que ela produz.
+function affordabilityRatio(ratio) {
+  if (ratio <= 1) return 1;
+  if (ratio >= 2.5) return 0; // claramente fora de alcance — continua bloqueado
+  return clamp(1 - (ratio - 1) / 1.5, 0, 1);
+}
+function financeiroScore(candidate, squad, buyingClubId) {
+  const budget = clubBudgetProxy(buyingClubId);
+  const wageRatio = (wageBillOf(squad) + candidate.wage) / Math.max(1, budget.wageCap);
+  const valueRatio = candidate.value / Math.max(1, budget.cash);
+  // o mais restritivo dos dois decide (mesmo espírito do "&&" original:
+  // precisa caber nos dois pra valer o score cheio) — nunca inflaciona
+  // ao invés de restringir; transferValuation continua responsável
+  // pelo preço (ver finFactor, sem nenhuma mudança nesta fase).
+  return Math.min(affordabilityRatio(wageRatio), affordabilityRatio(valueRatio));
+}
+
+// 4) CONTEXTO (15%) — ambição do clube (posição na tabela quando
+// disponível, MESMO critério de sortedStandings/positionInStandings —
+// nenhuma 2ª lógica de classificação; força relativa dentro da própria
+// competição pra clube de outra divisão, que não tem tabela) cruzada
+// com o quanto o candidato eleva o time.
+function clubPositionFactor(clubId) {
+  if (!isOwnDivisionTeam(clubId)) return null; // sem tabela — clube de outra divisão
+  const ranked = sortedStandings(); // já existe — mesmo critério de desempate de sempre
+  const idx = ranked.findIndex((r) => String(r.id) === String(clubId));
+  if (idx < 0 || ranked.length <= 1) return 0.5;
+  return 1 - idx / (ranked.length - 1); // 1º lugar = 1.0, lanterna = 0.0
+}
+function clubAmbitionFactor(clubId) {
+  const posFactor = clubPositionFactor(clubId);
+  if (posFactor != null) return posFactor;
+  // Fora da própria divisão: sem tabela — usa a MESMA força relativa
+  // (squadAvgOverallOf) já usada em adequação, comparada contra os
+  // pares da própria competição — nenhum dado novo.
+  const team = teamById(clubId);
+  const peers = ALL_TEAMS_FLAT.filter((t) => t.competitionId === team.competitionId);
+  const maxAvg = Math.max(...peers.map((t) => squadAvgOverallOf(t.id)), 1);
+  return clamp(squadAvgOverallOf(clubId) / maxAvg, 0, 1);
+}
+function contextoScore(candidate, squad, buyingClubId) {
+  const squadAvg = squadAvgOverallOf(buyingClubId);
+  const ambicao = clubAmbitionFactor(buyingClubId);
+  const upgrade = clamp((candidate.overall - squadAvg) / 15, -1, 1);
+  return clamp(0.5 + ambicao * upgrade * 0.5, 0, 1);
+}
+
+// TransferScore final — pesos aprovados: necessidade 35% + adequação
+// 30% + financeiro 20% + contexto 15%.
+function transferScore(candidate, buyingClubId) {
+  const squad = leagueSquadFor(buyingClubId);
+  const necessidade = necessidadeScore(candidate, squad, buyingClubId);
+  const adequacao = adequacaoScore(candidate, squad, buyingClubId);
+  const financeiro = financeiroScore(candidate, squad, buyingClubId);
+  const contexto = contextoScore(candidate, squad, buyingClubId);
+  return necessidade * 0.35 + adequacao * 0.30 + financeiro * 0.20 + contexto * 0.15;
+}
+
+// Escolha ponderada entre os melhores candidatos já filtrados/
+// ranqueados — nunca sempre o #1 (mantém variedade), nunca uniforme
+// entre todos (o RNG deixa de ser a inteligência, só decide ENTRE
+// opções plausíveis). Peso = score², acentua a preferência pelos
+// melhores sem eliminar a chance dos próximos.
+function pickWeightedByScore(scoredList) {
+  const top = scoredList.slice().sort((a, b) => b.score - a.score).slice(0, 5);
+  const weights = top.map((x) => x.score * x.score);
+  const total = weights.reduce((s, w) => s + w, 0);
+  if (total <= 0) return top.length ? top[0].item : null;
+  let roll = Math.random() * total;
+  for (let i = 0; i < top.length; i++) {
+    roll -= weights[i];
+    if (roll <= 0) return top[i].item;
+  }
+  return top[top.length - 1].item;
+}
+
+// Fase 1.2 — Transfer AI: geração de ofertas (pedido do usuário:
+// "reduzir ofertas absurdas... sem eliminar a imprevisibilidade").
+// Converte um transferScore (0-1) numa probabilidade de a oferta se
+// concretizar de verdade — nunca um corte binário (if score > X) —
+// tabela de referência dada pelo usuário. Usada por maybeGenerateOffer/
+// maybeSpawnListingOffer/maybeSpawnRivalOffer, sempre como o ÚLTIMO
+// filtro antes do RNG decidir se a oferta nasce.
+function offerProbabilityFromScore(score) {
+  if (score < 0.25) return 0.02;
+  if (score < 0.40) return 0.05;
+  if (score < 0.55) return 0.10;
+  if (score < 0.70) return 0.18;
+  if (score < 0.80) return 0.28;
+  if (score < 0.90) return 0.40;
+  return 0.55;
+}
+
+// Fase 1.3 — Transfer AI: valuation (pedido do usuário: "eliminar
+// valores de proposta pouco coerentes"). VALOR BASE = player.value (ou
+// context.baseValue, quando o chamador já ancora a negociação em outro
+// número — askingValue de um anúncio, marketValue já registrado numa
+// proposta em andamento) — não recalculado aqui: player.value já é
+// não-linear em overall/idade/potencial (ver computeContractFields, a
+// mesma fórmula usada na criação/backfill de todo jogador), então
+// reaplicar esses 3 ajustes por cima duplicaria o efeito. As camadas
+// abaixo são só os sinais que esse valor base NUNCA carrega (contrato,
+// interesse do comprador específico, orçamento dele, contexto,
+// concorrência, quem está vendendo) — cada uma como um multiplicador
+// pequeno (nunca "value * score" cru, ver aviso do usuário: um score
+// baixo não pode transformar um craque numa oferta irrisória).
+// Pura/determinística/sem RNG — a variação aleatória entre ofertas
+// continua vivendo nos 3 chamadores (maybeGenerateOffer/
+// maybeSpawnListingOffer/maybeSpawnRivalOffer), nunca aqui.
+function transferValuation(player, buyingClubId, sellingClubId, context = {}) {
+  const base = context.baseValue != null ? context.baseValue : player.value;
+  const squad = leagueSquadFor(buyingClubId);
+
+  // Contratual — contrato acabando enfraquece o poder de negociação de
+  // quem vende (o comprador sabe que pode esperar o jogador sair de
+  // graça); contrato longo sustenta o preço. Só o dado que já existe
+  // (contractUntil, sempre presente — ver computeContractFields), sem
+  // inventar cláusula/agente/rescisão (fora do escopo desta fase).
+  const yearsLeft = clamp((player.contractUntil || CAREER.seasonYear) - CAREER.seasonYear, 0, 4);
+  const contractFactor = 0.85 + yearsLeft * 0.05; // 0 anos restantes -> 0.85x, 4+ anos -> 1.05x
+
+  // Necessidade do comprador (reaproveita necessidadeScore, Fase 1.1/1.3.2).
+  const necessidade = necessidadeScore(player, squad, buyingClubId);
+  const needFactor = 0.95 + necessidade * 0.10; // 0.95x a 1.05x
+
+  // Interesse do comprador (reaproveita transferScore, Fase 1.1/1.2) —
+  // desloca o preço num range pequeno em torno do valor base, nunca
+  // multiplica o valor pelo score direto.
+  const interesse = transferScore(player, buyingClubId);
+  const scoreFactor = 0.90 + interesse * 0.20; // 0.90x a 1.10x
+
+  // Capacidade financeira (reaproveita financeiroScore/clubBudgetProxy,
+  // Fase 1.1) — só a margem fina; SE o clube pode pagar ou não já foi
+  // decidido antes desta função, nos 3 call sites (financeiroScore > 0).
+  const financeiro = financeiroScore(player, squad, buyingClubId);
+  const finFactor = 0.97 + financeiro * 0.05; // 0.99x (apertado) a 1.02x (folgado)
+
+  // Contexto competitivo (reaproveita contextoScore, Fase 1.1 — já
+  // combina clubAmbitionFactor/clubPositionFactor com o quanto o
+  // jogador eleva o time do comprador).
+  const contexto = contextoScore(player, squad, buyingClubId);
+  const ctxFactor = 0.95 + contexto * 0.10; // 0.95x a 1.05x
+
+  // Concorrência — só quando o chamador sabe de verdade quantos outros
+  // clubes disputam o MESMO jogador agora (listing.offers.length numa
+  // venda anunciada; 1 na oferta rival, que por definição só nasce
+  // enquanto a proposta do técnico já está em andamento). Sem dado
+  // confiável (maybeGenerateOffer não tem conceito de múltiplas
+  // propostas simultâneas por um jogador seu), fica em 0 — documentado
+  // como limitação, sem inventar contagem.
+  const competitorCount = clamp(context.competitorCount || 0, 0, 10);
+  const concFactor = 1 + Math.min(0.10, competitorCount * 0.03); // até +10%
+
+  // Clube vendedor — só quando quem vende é VOCÊ (titularidade real via
+  // CAREER.lineup.starters); clube CPU vendendo não tem titularidade
+  // confiável (pickCpuXI escala uma XI ad-hoc a cada rodada, não um
+  // conceito fixo de titular), fica neutro — documentado como limitação.
+  let sellerFactor = 1;
+  if (String(sellingClubId) === String(CAREER.clubId)) {
+    const isStarter = (CAREER.lineup.starters || []).includes(player.id);
+    sellerFactor = isStarter ? 1.05 : 0.97;
+  }
+
+  const raw = base * contractFactor * needFactor * scoreFactor * finFactor * ctxFactor * concFactor * sellerFactor;
+  return Math.round(clamp(raw, base * 0.70, base * 1.50) / 1000) * 1000;
+}
+
+/* ---------- Fase 1.4 — Transfer AI: Negotiation AI ----------
+   Pedido do usuário: transformar a proposta única (Fase 1.3) numa
+   negociação de verdade — vendedor pode aceitar/rejeitar/contrapor,
+   comprador pode aceitar/aumentar/desistir — reaproveitando o que já
+   existe (transferValuation continua decidindo o valor INICIAL,
+   transferScore/necessidadeScore/financeiroScore continuam decidindo
+   QUEM/QUANTO/SE cabe, nada disso é recalculado aqui).
+
+   Decisão de arquitetura (confirmada com o usuário via AskUserQuestion
+   antes de implementar): SEM UI nova. Nos 2 caminhos em que o CPU
+   compra de VOCÊ (maybeGenerateOffer/maybeSpawnListingOffer), a
+   negociação roda internamente e de forma síncrona (até
+   MAX_NEGOTIATION_ROUNDS rodadas, ver negotiateOffer) ANTES de
+   qualquer coisa aparecer na tela — você continua vendo só
+   Aceitar/Recusar um valor final, só que esse valor agora é fruto de
+   uma negociação real (reserva do vendedor vs. tolerância do
+   comprador), não mais a saída direta e única de transferValuation.
+   No único caminho em que JÁ existe negociação interativa de verdade
+   (CAREER.pendingOffersOut — você compra de um clube CPU, UI de
+   contraproposta/aceitar/retirar já existente), a mudança é só a
+   REGRA DE DECISÃO do vendedor CPU (ver resolvePendingOffersOutRound
+   mais abaixo) — de uma sequência de faixas de ratio ad hoc pra estas
+   mesmas funções puras, testáveis e reaproveitadas em todo o resto. */
+function squadForClub(clubId) {
+  return String(clubId) === String(CAREER.clubId) ? CAREER.squad.filter((p) => p.origin === "principal") : leagueSquadFor(clubId);
+}
+
+// PREÇO DE RESERVA do vendedor — "quanto me custa perder esse
+// jogador", nunca "quanto eu quero comprar". Pura, determinística, sem
+// RNG, sem persistência. Âncora = base (player.value, ou
+// context.baseValue quando já existe uma âncora anterior — mesmo
+// padrão de transferValuation, nunca uma 2ª market value). NÃO
+// re-deriva idade/overall/potencial/contrato — já estão dentro do
+// valor base (ver comentário de transferValuation) — só os 2 sinais
+// que o valor base nunca carrega: titularidade real (só quando a
+// informação é confiável, CAREER.lineup.starters, só pro SEU clube —
+// CPU não tem titular fixo, ver pickCpuXI) e necessidade do PRÓPRIO
+// vendedor por aquele perfil (reaproveita necessidadeScore — o quanto
+// o vendedor também careceria desse jogador, não duplicando
+// adequação/financeiro/contexto, que são sinais do COMPRADOR).
+function calculateSellerReservationValue(player, sellingClubId, context = {}) {
+  const base = context.baseValue != null ? context.baseValue : player.value;
+
+  let titularityFactor = 1;
+  if (String(sellingClubId) === String(CAREER.clubId)) {
+    const isStarter = (CAREER.lineup.starters || []).includes(player.id);
+    titularityFactor = isStarter ? 1.15 : 1.0; // titular de verdade -> +15% de resistência
+  }
+
+  const sellerSquad = squadForClub(sellingClubId);
+  const sellerNeed = necessidadeScore(player, sellerSquad, sellingClubId);
+  const needFactor = 1 + sellerNeed * 0.15; // até +15% quando o próprio vendedor carece desse perfil
+
+  return Math.round(clamp(base * titularityFactor * needFactor, base * 0.95, base * 1.30) / 1000) * 1000;
+}
+
+// Máximo de rodadas de contraproposta (item 15 do pedido) — único
+// controle de limite desta fase, reaproveitado em todo lugar que
+// precisa de um teto (negotiateOffer e resolvePendingOffersOutRound),
+// nunca 2 controles concorrentes.
+const MAX_NEGOTIATION_ROUNDS = 3;
+
+// CONTRAPROPOSTA do vendedor — determinística (item 16: preferir
+// determinismo quando não prejudica o gameplay). Sempre > offerValue
+// (nunca "oferta 5M -> counter 50M sem justificativa"), progride uma
+// fração da distância até a reserva, nunca ultrapassa reserva*1.05.
+function calculateCounterOffer(offerValue, reservationValue) {
+  const gap = Math.max(reservationValue - offerValue, 0);
+  const raw = offerValue + Math.max(gap * 0.6, offerValue * 0.03); // sobe pelo menos 3% ou 60% da distância até a reserva
+  const capped = Math.min(raw, reservationValue * 1.05);
+  return Math.round(Math.max(capped, offerValue + 1000) / 1000) * 1000; // garante estritamente > offerValue mesmo após arredondar
+}
+
+// DECISÃO DO VENDEDOR — item 8: faixas claras e testáveis a partir de
+// offerValue/reservationValue, nunca uma sequência arbitrária de if.
+// RNG só na faixa "perto da reserva" (item 16 — pequena incerteza
+// permitida), nunca pra calcular valuation/preço/escapar da reserva.
+function sellerNegotiationDecision(offerValue, reservationValue, rng = Math.random) {
+  const ratio = reservationValue > 0 ? offerValue / reservationValue : 1;
+  if (ratio < 0.75) return { action: "reject", value: null }; // muito abaixo da reserva
+  if (ratio < 0.95) return { action: "counter", value: calculateCounterOffer(offerValue, reservationValue) }; // perto, mas ainda abaixo
+  if (ratio < 1.05) {
+    // na reserva (com folga de arredondamento pros 2 lados) -> aceita
+    // com alta probabilidade; pequena chance de tentar mais um pouco.
+    if (rng() < 0.85) return { action: "accept", value: offerValue };
+    return { action: "counter", value: calculateCounterOffer(offerValue, reservationValue) };
+  }
+  return { action: "accept", value: offerValue }; // claramente acima da reserva
+}
+
+// TOLERÂNCIA DO COMPRADOR — itens 10/11/12/13. A tolerância vem do
+// transferScore (que JÁ carrega necessidade a 35% de peso, ver
+// transferScore) — necessidade não é reaplicada uma 2ª vez de forma
+// explícita aqui, exatamente pra não duplicar o efeito (item 13:
+// "não aplicar duas vezes de forma agressiva"). Teto financeiro
+// (clubBudgetProxy.cash) é sempre respeitado — nunca aceita/força uma
+// contraproposta acima da capacidade real (item 12); nunca
+// player.value*2 nem qualquer multiplicador solto (item 10).
+// Teto financeiro REAL do comprador (item 12/22 — "nenhuma
+// contraproposta/transferência pode ultrapassar a capacidade
+// financeira real"): capacidade de caixa (clubBudgetProxy, já
+// existente) E o mesmo limite de 150% do valor base que
+// transferValuation já respeita (item 6 — "não permitir que a
+// negociação ignore completamente o valuation da Fase 1.3"). Usada
+// tanto por buyerNegotiationDecision (contraproposta) quanto por
+// negotiateOffer (a PRÓPRIA oferta inicial também nunca pode superar
+// isto — sem este teto ali, um clube com financeiroScore>0 mas
+// "apertado" podia "aceitar" de cara um valor que na prática não cabe
+// no caixa dele, já que financeiroScore só decide ELEGIBILIDADE, não
+// o valor exato da oferta).
+function buyerHardCap(player, buyingClubId, context = {}) {
+  const budget = clubBudgetProxy(buyingClubId);
+  const base = context.baseValue != null ? context.baseValue : player.value;
+  return Math.min(budget.cash, base * 1.50);
+}
+function buyerNegotiationDecision(counterValue, initialOfferValue, player, buyingClubId, context = {}) {
+  const score = transferScore(player, buyingClubId);
+  const hardCap = buyerHardCap(player, buyingClubId, context);
+  const toleranceFromScore = score < 0.40 ? 0.03 : score < 0.60 ? 0.08 : 0.15; // baixo/médio/alto interesse
+  const maxWillingToPay = Math.min(initialOfferValue * (1 + toleranceFromScore), hardCap);
+
+  if (counterValue > hardCap) return { action: "walk", value: null }; // impossível pagar -> desiste, nunca força
+  if (counterValue <= maxWillingToPay) return { action: "accept", value: counterValue };
+  const raised = Math.min(maxWillingToPay, hardCap);
+  if (raised > initialOfferValue) return { action: "raise", value: Math.round(raised / 1000) * 1000 };
+  return { action: "walk", value: null };
+}
+
+// FUNÇÃO CENTRAL (item 18 — "criar uma função central sempre que
+// possível, sem duplicar implementação") — reaproveitada pelos 3
+// caminhos (maybeGenerateOffer/maybeSpawnListingOffer/
+// maybeSpawnRivalOffer). transferValuation continua decidindo o valor
+// INICIAL sem nenhuma alteração (item 17 — "não recalcular"); a
+// negociação só decide o que acontece A PARTIR dele. Finita por
+// construção (item 15 — máximo de MAX_NEGOTIATION_ROUNDS rodadas +
+// corte de "sem progresso" quando o comprador não consegue melhorar a
+// própria oferta, nunca loop infinito).
+function negotiateOffer(player, buyingClubId, sellingClubId, context = {}) {
+  const initialOffer = transferValuation(player, buyingClubId, sellingClubId, context);
+  const reservation = calculateSellerReservationValue(player, sellingClubId, context);
+  // NOTA (item 12) — o teto financeiro (buyerHardCap) protege
+  // explicitamente CONTRAPROPOSTAS ("o comprador nunca pode aceitar
+  // uma contraproposta que ultrapasse sua capacidade financeira
+  // real"), não a oferta INICIAL em si: transferValuation (Fase 1.3)
+  // já não é limitada por caixa — financeiroScore>0 (Fase 1.3.2,
+  // graduado até 2,5x a capacidade) decide só ELEGIBILIDADE pra
+  // pontuar/competir, mesma característica que já existia antes desta
+  // fase (ver outlier documentado no Balance Check 1.3.1/1.3.2: um
+  // clube com financeiro=0.4 já podia gerar uma oferta de dezenas de
+  // milhões). Manter esse comportamento aqui evita uma 2ª mudança de
+  // regra fora do pedido desta fase (alterar quando um clube é
+  // elegível) — só a CONTRAPROPOSTA ganha o teto rígido novo.
+  let currentOffer = initialOffer;
+  let rounds = 0;
+  while (rounds < MAX_NEGOTIATION_ROUNDS) {
+    rounds++;
+    const sellerDecision = sellerNegotiationDecision(currentOffer, reservation);
+    if (sellerDecision.action === "accept") return { outcome: "accepted", finalValue: currentOffer, initialOffer, reservation, rounds };
+    if (sellerDecision.action === "reject") return { outcome: "rejected", finalValue: null, initialOffer, reservation, rounds };
+    const buyerDecision = buyerNegotiationDecision(sellerDecision.value, initialOffer, player, buyingClubId, context);
+    if (buyerDecision.action === "accept") return { outcome: "accepted", finalValue: sellerDecision.value, initialOffer, reservation, rounds };
+    if (buyerDecision.action === "walk" || buyerDecision.value <= currentOffer) return { outcome: "walked", finalValue: null, initialOffer, reservation, rounds };
+    currentOffer = buyerDecision.value; // "raise" com progresso real -> próxima rodada
+  }
+  return { outcome: "walked", finalValue: null, initialOffer, reservation, rounds }; // esgotou o limite -> encerra, nunca loop infinito
+}
+
+function findInterestedBuyer(excludeId, player) {
   const eligible = marketTeamsPool().filter((t) =>
     String(t.id) !== String(excludeId) && leagueSquadFor(t.id).length < maxSquadSizeFor(t.id)
   );
   if (!eligible.length) return null;
   if (Math.random() < 0.2) return null; // 20% de chance de ninguém topar agora, mesmo com vaga
-  return eligible[Math.floor(Math.random() * eligible.length)];
+  // Compat: chamada sem jogador (não deveria acontecer nos 2 call
+  // sites atuais, ambos já passam o jogador) mantém o sorteio uniforme
+  // de sempre em vez de quebrar.
+  if (!player) return eligible[Math.floor(Math.random() * eligible.length)];
+  const scored = eligible
+    .filter((t) => financeiroScore(player, leagueSquadFor(t.id), t.id) > 0)
+    .map((t) => ({ item: t, score: transferScore(player, t.id) }));
+  if (!scored.length) return null; // ninguém consegue bancar nem o salário reduzido do empréstimo
+  return pickWeightedByScore(scored);
 }
 
 /* ---------- Fase 2 do Modo Carreira — empréstimo de jogadores ----------
@@ -3652,7 +4136,7 @@ function openLoanOutModal(id) {
   // interessado, nem abre o modal de configuração — mesmo espírito da
   // venda, evita o técnico configurar duração/cláusula à toa pra um
   // empréstimo que não vai ter pra quem ir.
-  const buyer = findInterestedBuyer(CAREER.clubId);
+  const buyer = findInterestedBuyer(CAREER.clubId, p);
   if (!buyer) {
     toast(`Nenhum time demonstrou interesse em pegar ${abbreviateName(p.name)} emprestado agora.`);
     return;
@@ -3713,7 +4197,7 @@ async function finalizeLoanOut(id, { returnRound, buyOption, buyer: passedBuyer 
   // mostrado ao técnico em openLoanOutModal (pra não trocar quem
   // aparece na confirmação por outro clube no fim); só re-sorteia aqui
   // se chamado direto sem passar por lá (ex: chamada avulsa/teste).
-  const buyer = passedBuyer || findInterestedBuyer(CAREER.clubId);
+  const buyer = passedBuyer || findInterestedBuyer(CAREER.clubId, p);
   if (!buyer) {
     toast(`Nenhum time demonstrou interesse em pegar ${abbreviateName(p.name)} emprestado agora.`);
     return false;
@@ -3787,9 +4271,21 @@ function simulateAiTransfers(round) {
     if (fromSquad.length <= minSquadSizeFor(fromClub.id)) continue; // não esvazia um elenco CPU
     const toClub = pickRandomOtherClub(fromClub.id);
     if (!toClub || String(toClub.id) === String(CAREER.clubId)) continue; // negociação CPU x CPU só, não mexe no SEU elenco sem sua ação
-    if (leagueSquadFor(toClub.id).length >= maxSquadSizeFor(toClub.id)) continue; // elenco de destino já cheio
-    const idx = Math.floor(Math.random() * fromSquad.length);
-    const [player] = fromSquad.splice(idx, 1);
+    const toSquad = leagueSquadFor(toClub.id);
+    if (toSquad.length >= maxSquadSizeFor(toClub.id)) continue; // elenco de destino já cheio
+    // Fase 1.1 — Transfer AI: em vez de sortear um jogador qualquer do
+    // elenco vendedor, ranqueia por transferScore (necessidade do
+    // comprador + adequação ao seu nível + orçamento + contexto
+    // esportivo, ver definições acima) e sorteia PONDERADO entre os
+    // melhores (pickWeightedByScore) — quem vende/compra (fromClub/
+    // toClub) continua escolhido do mesmo jeito de sempre, só QUAL
+    // jogador muda de sorteio uniforme pra contextual.
+    const candidatos = fromSquad
+      .filter((p) => financeiroScore(p, toSquad, toClub.id) > 0)
+      .map((p) => ({ item: p, score: transferScore(p, toClub.id) }));
+    if (!candidatos.length) continue; // nenhum jogador daquele elenco cabe no orçamento do comprador agora
+    const player = pickWeightedByScore(candidatos);
+    fromSquad.splice(fromSquad.indexOf(player), 1);
     (CAREER.leagueSquads[String(toClub.id)] = CAREER.leagueSquads[String(toClub.id)] || []).push(player);
     pushTransferLog(`${toClub.name} contratou ${player.name} (${SUBPOS_LABEL[subPositionOf(player)]}) do ${fromClub.name} por ${fmtBRL(player.value)}.`, round);
   }
@@ -3798,15 +4294,120 @@ function simulateAiTransfers(round) {
 // CPU oferece pra comprar um jogador SEU — usuário decide aceitar ou
 // recusar (ver acceptOffer/declineOffer). Nunca deixa o elenco
 // principal cair abaixo do mínimo jogável (mesma trava de "release").
+//
+// Fase 1.2 — Transfer AI: OFFER_CHANCE_PER_ROUND continua sendo a
+// mesma "janela de exposição" de sempre (decide SE algo pode acontecer
+// nesta rodada, preservando o ritmo geral já calibrado); o que mudou é
+// QUEM se interessa e COM QUE FREQUÊNCIA de verdade vira proposta —
+// reaproveita o mesmo transferScore/pickWeightedByScore da Fase 1.1
+// (o clube é ponderado pela mesma necessidade/adequação/financeiro/
+// contexto, nunca sorteado uniforme) + offerProbabilityFromScore como
+// último filtro antes do RNG.
+// Fase 1.3 — o valor da proposta (fee) passa a vir de transferValuation
+// em vez de um range aleatório sobre player.value — mesmo padrão de
+// interesse/necessidade/financeiro já usado pra decidir SE a oferta
+// nasce, agora decidindo POR QUANTO. Sem competitorCount confiável
+// aqui (não existe conceito de "múltiplas propostas simultâneas" pelo
+// mesmo jogador seu vindas de clubes diferentes) — fica em 0 (default).
+/* ---------- Fase 1.5 — Transfer AI: Market Dynamics ----------
+   Pedido do usuário: fazer o mercado reagir ao que já acontece durante
+   a janela, sem substituir nenhuma lógica das Fases 1.1-1.4. Mapeamento
+   prévio (ver relatório) confirmou que a maior parte do comportamento
+   pedido já acontece de graça, porque squad/leagueSquads são sempre
+   lidos ao vivo:
+   - necessidadeScore/transferScore já recalculam na hora a partir do
+     elenco ATUAL (uma venda ou compra muda squad.length/composição
+     imediatamente, sem precisar de uma 2ª variável de necessidade);
+   - simulateAiTransfers já roda até 2 transferências por rodada lendo
+     leagueSquads FRESCO a cada uma (a 2ª já enxerga o elenco alterado
+     pela 1ª) — um mini efeito cascata já existe e já é limitado (nunca
+     mais que 2 por rodada, nunca entre rodadas diferentes na mesma
+     chamada);
+   - concorrência real já existe (listing.offers.length,
+     competitorCount=1 na oferta rival) — nunca inventada;
+   - multi-divisão/limites de elenco/financeiro já são os das Fases
+     1.3.2/1.4, reaproveitados tal e qual (nenhuma função dali é
+     tocada nesta fase).
+   Só 2 lacunas reais restaram, cobertas pelas funções abaixo:
+   (1) nenhum cooldown depois de uma oferta recusada — o mesmo clube
+       podia reofertar o mesmo jogador pelo mesmo valor rodada após
+       rodada; (2) nenhuma urgência de fim de janela — a chance de
+       oferta era achatada (mesma OFFER_CHANCE_PER_ROUND/
+       offerProbabilityFromScore) do primeiro ao último round da
+       janela, mesmo pra clube com necessidade real ainda não
+       resolvida. */
+
+// (1) Cooldown pós-recusa — item 11. Novo campo temporário
+// (CAREER.recentDeclines), justificado porque não há nada equivalente
+// pra derivar isso (declineOffer nunca registrava nada, CAREER.transferLog
+// só guarda transferências CONCLUÍDAS). Bounded/podado a cada leitura —
+// nunca cresce sem limite, nunca vira histórico permanente.
+const DECLINE_COOLDOWN_ROUNDS = 3; // cobre o resto da janela atual (janelas têm 3 rounds, ver TRANSFER_WINDOWS)
+function pruneRecentDeclines(round) {
+  // "d.round <= round" também descarta entradas de uma temporada
+  // ANTERIOR (currentRound volta pra 1 em advanceSeason — sem essa
+  // checagem, round-d.round ficaria negativo e a entrada nunca seria
+  // podada, crescendo pra sempre no save).
+  CAREER.recentDeclines = (CAREER.recentDeclines || []).filter((d) => d.round <= round && round - d.round < DECLINE_COOLDOWN_ROUNDS);
+  return CAREER.recentDeclines;
+}
+function wasRecentlyDeclined(playerId, clubId, round) {
+  return pruneRecentDeclines(round).some((d) => String(d.playerId) === String(playerId) && String(d.clubId) === String(clubId));
+}
+function recordDecline(playerId, clubId, round) {
+  pruneRecentDeclines(round).push({ playerId: String(playerId), clubId: String(clubId), round });
+}
+
+// (2) Urgência de fim de janela — itens 12/13. Só multiplica a
+// PROBABILIDADE de oferta (opção A do item 13 — "usar o mínimo
+// possível"), nunca o transferScore/pesos nem a tabela de
+// offerProbabilityFromScore em si. Só afeta clube com necessidade
+// REAL (necessidade<=0.15 fica em 1x, sem mudança nenhuma); no
+// primeiro round de qualquer janela sempre 1x (progress=0). Teto de
+// +30% (nunca dobra, nunca "R$10M vira R$50M" — aliás nem toca em
+// valor nenhum, só em chance de a oferta nascer).
+function urgencyMultiplier(necessidade, round) {
+  const win = TRANSFER_WINDOWS.find(([open, close]) => round >= open && round <= close);
+  if (!win) return 1; // fora de janela isto nunca é chamado, defensivo
+  const [open, close] = win;
+  const progress = clamp((round - open) / Math.max(close - open, 1), 0, 1); // 0 no 1º round, 1 no último
+  const needGate = clamp((necessidade - 0.15) / 0.35, 0, 1); // só quem tem necessidade real sente urgência
+  return 1 + progress * needGate * 0.30;
+}
+
+const OFFER_CHANCE_PER_ROUND = 0.18;
 function maybeGenerateOffer(round) {
   if (CAREER.pendingOffer) return; // só 1 proposta pendente por vez
-  if (Math.random() >= 0.18) return;
+  if (Math.random() >= OFFER_CHANCE_PER_ROUND) return;
   const principal = CAREER.squad.filter((p) => p.origin === "principal");
   if (principal.length <= 14) return;
   const player = principal[Math.floor(Math.random() * principal.length)];
-  const club = pickRandomOtherClub(CAREER.clubId);
-  if (!club) return;
-  const fee = Math.round(player.value * (0.85 + Math.random() * 0.4) / 1000) * 1000;
+  const eligible = marketTeamsPool().filter((t) =>
+    String(t.id) !== String(CAREER.clubId) && leagueSquadFor(t.id).length < maxSquadSizeFor(t.id)
+  );
+  if (!eligible.length) return;
+  const scored = eligible
+    .filter((t) => financeiroScore(player, leagueSquadFor(t.id), t.id) > 0) // elimina quem claramente não pode pagar ANTES do RNG
+    .filter((t) => !wasRecentlyDeclined(player.id, t.id, round)) // Fase 1.5 — não reoferece o mesmo par jogador/clube logo depois de recusado
+    .map((t) => ({ item: t, score: transferScore(player, t.id) }));
+  if (!scored.length) return; // nenhum clube consegue bancar esse jogador agora (ou só sobrou quem já foi recusado)
+  const club = pickWeightedByScore(scored);
+  const score = scored.find((s) => s.item === club).score;
+  // Fase 1.5 — urgência de fim de janela (necessidade REAL do clube por
+  // este jogador específico, não um estado de clube inventado).
+  const urgency = urgencyMultiplier(necessidadeScore(player, leagueSquadFor(club.id), club.id), round);
+  if (Math.random() >= offerProbabilityFromScore(score) * urgency) return; // score baixo -> raríssimo; score alto -> frequente
+  // Fase 1.4 — a proposta única (transferValuation) vira o PONTO DE
+  // PARTIDA de uma negociação interna (reserva do vendedor = você vs.
+  // tolerância do comprador = o clube), resolvida antes de qualquer
+  // coisa aparecer na tela (ver negotiateOffer) — você continua vendo
+  // só Aceitar/Recusar um valor final, sem UI nova. Sem acordo
+  // (vendedor rejeitou de vez, ou comprador não teve fôlego pra
+  // fechar): nenhuma proposta nasce nesta rodada, igual a qualquer
+  // outro "return" acima.
+  const deal = negotiateOffer(player, club.id, CAREER.clubId);
+  if (deal.outcome !== "accepted") return;
+  const fee = Math.max(1000, deal.finalValue);
   CAREER.pendingOffer = { playerId: player.id, playerName: player.name, clubId: String(club.id), clubName: club.name, fee, round };
 }
 
@@ -4111,6 +4712,16 @@ async function startCareer(clubId) {
       // recruitProspectToBase): nascem vazios, sem staff nenhum de
       // cara — carreira só ganha isso se o técnico contratar.
       scouts: [], scoutMissionProspects: [],
+      // Assistente de início (pedido do usuário: "criar perguntas
+      // formato onboarding para o treinador montar sua formação
+      // favorita, contratar comissão e olheiros e fazer tudo o que for
+      // necessário para iniciar o jogo") — controla se já rodou NESTA
+      // carreira (persistido, não só em memória — sobrevive a fechar o
+      // navegador no meio do assistente, ver maybeOpenStartupWizard/
+      // showGameScreen). Toda carreira NOVA nasce com isso false —
+      // decisão do usuário: aparece toda vez (1ª carreira, "Reiniciar",
+      // "Escolher outro clube"), não só uma vez por conta.
+      startupWizardSeen: false,
       // FASE 3 (c) — multitemporadas (ver advanceSeason). seasonYear
       // começa em LIVE_SEASON (a temporada real dos dados) e só sobe
       // quando VOCÊ avança de temporada — LIVE_SEASON em si é fixo.
@@ -5498,7 +6109,7 @@ async function closeOnboardingOverlay() {
   document.getElementById("onboardingOverlay").classList.remove("open");
   ME.onboardingSeen = true;
   try { await fetchJSON("/api/account/onboarding-seen", { method: "POST" }); } catch { /* mesmo se falhar, não trava a experiência — só reapareceria de novo na próxima entrada */ }
-  checkDailyLoginOnBoot();
+  maybeOpenStartupWizard();
 }
 async function checkDailyLoginOnBoot() {
   const today = localDateStr();
@@ -5521,6 +6132,154 @@ async function claimDailyLoginNow() {
   } finally {
     btn.disabled = false;
   }
+}
+
+/* ---------- Assistente de início (pedido do usuário: "criar
+   perguntas formato onboarding para o treinador montar sua formação
+   favorita, contratar comissão e olheiros e fazer tudo o que for
+   necessário para iniciar o jogo") ----------
+   Abre em TODA carreira nova (decisão confirmada via AskUserQuestion:
+   "toda carreira nova", inclusive "Reiniciar"/"Escolher outro clube",
+   não só a 1ª da conta) — depois do tutorial de navegação, se essa for
+   a 1ª carreira da conta (ver showGameScreen), e antes do login diário
+   (ver maybeOpenStartupWizard/checkDailyLoginOnBoot). 4 passos, cada
+   um pulável (decisão confirmada: "todas puláveis") — Formação
+   favorita + titulares, Comissão Técnica, Olheiros, Táticas básicas
+   (os 4 eixos já existentes, ver TACTIC_AXES). CAREER.startupWizardSeen
+   controla se já rodou NESTA carreira — persistido (não só em memória)
+   pra sobreviver a fechar o navegador no meio (ver migrateCareerDefaults
+   pro save de antes desta mudança, que nasce sem o assistente).
+
+   Passos 1 e 4 reaproveitam o próprio #panel-escalacao — MESMO nó do
+   DOM movido de verdade pra dentro daqui (mesma técnica já usada por
+   #adjustLineupOverlay, ver openAdjustLineupModal/closeAdjustLineupModal)
+   e devolvido ao lugar exato ao terminar — zero duplicação de id/
+   render/wiring dos controles de Escalação/Tática. Sem "Voltar" nos
+   passos (fluxo só pra frente, mesmo espírito do tutorial de
+   boas-vindas) — os blocos só precisam ser movidos 1x cada. */
+const STARTUP_WIZARD_STEPS = [
+  { id: "formacao", key: "wizardStepFormacao", title: "Monte sua formação favorita", icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1.5"/><circle cx="12" cy="8.5" r="1.6"/><circle cx="7" cy="15" r="1.6"/><circle cx="17" cy="15" r="1.6"/></svg>' },
+  { id: "comissao", key: "wizardStepComissao", title: "Comissão Técnica", icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>' },
+  { id: "olheiros", key: "wizardStepOlheiros", title: "Contrate olheiros", icon: "🔭" },
+  { id: "taticas", key: "wizardStepTaticas", title: "Táticas básicas", icon: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="1.5"/><circle cx="12" cy="8.5" r="1.6"/><circle cx="7" cy="15" r="1.6"/><circle cx="17" cy="15" r="1.6"/></svg>' },
+];
+let WIZARD_STEP = 0;
+let WIZARD_FORMATION_MOUNTED = false;
+let WIZARD_TACTICS_MOUNTED = false;
+function maybeOpenStartupWizard() {
+  if (CAREER.startupWizardSeen === false) {
+    openStartupWizard();
+    return;
+  }
+  checkDailyLoginOnBoot();
+}
+function openStartupWizard() {
+  WIZARD_STEP = 0;
+  WIZARD_FORMATION_MOUNTED = false;
+  WIZARD_TACTICS_MOUNTED = false;
+  renderWizardStep();
+  document.getElementById("startupWizardOverlay").classList.add("open");
+}
+function renderWizardStep() {
+  const step = STARTUP_WIZARD_STEPS[WIZARD_STEP];
+  document.getElementById("wizardStepIcon").innerHTML = step.icon;
+  document.getElementById("wizardStepTitle").textContent = step.title;
+  document.getElementById("wizardStepSub").textContent = `Passo ${WIZARD_STEP + 1} de ${STARTUP_WIZARD_STEPS.length}`;
+  document.getElementById("wizardStepDots").innerHTML = STARTUP_WIZARD_STEPS
+    .map((_, i) => `<span class="mt-onboard-dot${i === WIZARD_STEP ? " active" : ""}"></span>`).join("");
+  STARTUP_WIZARD_STEPS.forEach((s, i) => document.getElementById(s.key).classList.toggle("hidden", i !== WIZARD_STEP));
+  document.getElementById("btnWizardContinue").textContent = WIZARD_STEP === STARTUP_WIZARD_STEPS.length - 1 ? "Começar a temporada" : "Continuar";
+  if (step.id === "formacao") {
+    // Move o bloco só na 1ª vez que este passo é mostrado (sem
+    // "Voltar" no assistente, nunca precisa mover de novo).
+    if (!WIZARD_FORMATION_MOUNTED) {
+      document.getElementById("wizardStepFormacao").appendChild(document.getElementById("escalacaoFormationBlock"));
+      WIZARD_FORMATION_MOUNTED = true;
+    }
+    renderFormationChips();
+    renderPitch();
+    renderBench();
+  } else if (step.id === "comissao") {
+    renderWizardCommissionStep();
+  } else if (step.id === "olheiros") {
+    renderWizardScoutList();
+  } else if (step.id === "taticas") {
+    if (!WIZARD_TACTICS_MOUNTED) {
+      document.getElementById("wizardStepTaticas").appendChild(document.getElementById("escalacaoTacticsBlock"));
+      WIZARD_TACTICS_MOUNTED = true;
+    }
+    renderTacticAxisRows("tacticAxisRows", CAREER.lineup.tactics);
+  }
+}
+// Mesmo texto/custo de #commissionOverlay (ver renderCommissionScreen)
+// — só o estado "ainda não contratada" faz sentido aqui (carreira
+// recém-criada nunca chega com comissão já contratada).
+function renderWizardCommissionStep() {
+  const hired = CAREER.technicalStaff.hired;
+  document.getElementById("wizardCommissionCost").textContent = `${fmtBRL(technicalStaffMonthlyCost())}/mês`;
+  document.getElementById("btnWizardHireCommission").disabled = hired;
+  document.getElementById("btnWizardHireCommission").textContent = hired ? "Comissão já contratada" : "Contratar comissão técnica";
+  document.getElementById("wizardCommissionHiredNote").hidden = !hired;
+}
+// Mesmo catálogo/markup de #scoutMarketOverlay (ver renderScoutMarketScreen)
+// — container próprio (wizardScoutList) pra não colidir com a tela
+// real, que continua existindo em Base e Olheiros pra contratar mais
+// depois. hireScout() já persiste e re-renderiza as telas reais
+// sozinho — só precisa re-renderizar esta lista própria também.
+function renderWizardScoutList() {
+  const hiredIds = new Set((CAREER.scouts || []).map((s) => s.marketId));
+  document.getElementById("wizardScoutList").innerHTML = SCOUT_MARKET.map((c) => {
+    const hired = hiredIds.has(c.id);
+    return `<div class="m3-list-item" style="cursor:default;">
+      <div class="m3-li-avatar">${initials(c.name)}</div>
+      <div class="m3-li-body">
+        <div class="m3-li-name">${escapeHtml(c.name)}</div>
+        <div class="m3-li-meta"><span class="m3-mini-chip">${escapeHtml(c.specialty)}</span></div>
+        <div class="m3-recruit-stars">${starsHTML(c.stars)}</div>
+      </div>
+      ${hired ? `<span class="m3-mini-chip">Contratado</span>` : `<button class="m3-upgrade-buy" data-hire="${c.id}">${fmtBRLShort(c.monthlyCost)}/mês</button>`}
+    </div>`;
+  }).join("");
+  document.getElementById("wizardScoutList").querySelectorAll("[data-hire]").forEach((btn) => {
+    btn.addEventListener("click", () => { hireScout(btn.dataset.hire); renderWizardScoutList(); });
+  });
+}
+// "Continuar" aplica a escolha do passo atual antes de avançar — só o
+// passo de Táticas tem de verdade algo a aplicar aqui (os outros 3 já
+// se aplicam na hora, no próprio clique dentro do passo: chip de
+// formação, troca no campinho, contratar comissão/olheiro).
+function wizardAdvance() {
+  if (STARTUP_WIZARD_STEPS[WIZARD_STEP].id === "taticas") {
+    Object.assign(CAREER.lineup.tactics, readTacticAxisRows("tacticAxisRows"));
+    markLineupDirty();
+  }
+  if (WIZARD_STEP === STARTUP_WIZARD_STEPS.length - 1) { finishStartupWizard(); return; }
+  WIZARD_STEP++;
+  renderWizardStep();
+}
+// "Pular esta etapa" nunca aplica a escolha do passo atual — no passo
+// de Táticas isso significa NÃO ler os eixos editados (fica no que já
+// estava, neutro numa carreira nova); nos outros 3 passos não desfaz
+// nada, já que a ação de cada um lá dentro (chip/troca/contratação) já
+// tinha se aplicado sozinha no clique, não no rodapé.
+function wizardSkipStep() {
+  if (WIZARD_STEP === STARTUP_WIZARD_STEPS.length - 1) { finishStartupWizard(); return; }
+  WIZARD_STEP++;
+  renderWizardStep();
+}
+function finishStartupWizard() {
+  // Devolve os 2 blocos físicos pro #panel-escalacao original — mesmo
+  // padrão de closeAdjustLineupModal() (o conteúdo já renderizado
+  // sobrevive à mudança de pai, sem precisar renderizar de novo).
+  const formationAnchor = document.getElementById("escalacaoFormationAnchor");
+  formationAnchor.parentNode.insertBefore(document.getElementById("escalacaoFormationBlock"), formationAnchor);
+  const tacticsAnchor = document.getElementById("escalacaoTacticsAnchor");
+  tacticsAnchor.parentNode.insertBefore(document.getElementById("escalacaoTacticsBlock"), tacticsAnchor);
+  CAREER.startupWizardSeen = true;
+  persistCareer();
+  renderAll();
+  document.getElementById("startupWizardOverlay").classList.remove("open");
+  checkDailyLoginOnBoot();
 }
 
 /* ---------- Loja (BR_Data_Treinador_Monetizacao.xlsx +
@@ -10305,14 +11064,46 @@ function finalizeIncomingPurchase(o) {
    enquanto a proposta está "countered" (o clube já está negociando
    direto com você nesse estado, sem espaço pra um 3º interessado). */
 const RIVAL_OFFER_CHANCE_PER_ROUND = 0.35;
+// Fase 1.2 — Transfer AI: RIVAL_OFFER_CHANCE_PER_ROUND continua sendo a
+// mesma "janela de exposição" de sempre (será que ALGUÉM aparece
+// disputando esta rodada); dentro dela, QUEM aparece passa a ser
+// ponderado por transferScore (do ponto de vista do clube rival, sobre
+// o jogador que o técnico está tentando comprar) em vez de sorteado
+// uniforme, e só vira concorrência de verdade com probabilidade
+// proporcional a esse score (offerProbabilityFromScore) — clube que
+// claramente não pode pagar nem entra na disputa.
+// Fase 1.3 — o valor da proposta rival passa a vir de transferValuation
+// (base = o.marketValue, o mesmo valor já registrado quando o técnico
+// enviou sua proposta) em vez de um range aleatório; vendedor é o clube
+// CPU dono do jogador (o.clubId), não o técnico, então o ajuste de
+// titularidade fica neutro (sem dado confiável de XI fixa pra CPU) —
+// competitorCount=1 porque essa oferta só nasce enquanto a proposta do
+// técnico já está em andamento (é literalmente o concorrente #1).
 function maybeSpawnRivalOffer(o) {
   if (o.rivalOffer || o.status !== "pending") return;
   if (Math.random() >= RIVAL_OFFER_CHANCE_PER_ROUND) return;
-  const pool = marketTeamsPool().filter((t) => String(t.id) !== String(o.clubId) && String(t.id) !== String(CAREER.clubId));
+  const player = leagueSquadFor(o.clubId).find((x) => String(x.id) === String(o.playerId));
+  if (!player) return; // jogador já não está mais lá — nada a disputar
+  const pool = marketTeamsPool().filter((t) =>
+    String(t.id) !== String(o.clubId) && String(t.id) !== String(CAREER.clubId) && leagueSquadFor(t.id).length < maxSquadSizeFor(t.id)
+  );
   if (!pool.length) return;
-  const rivalClub = pool[Math.floor(Math.random() * pool.length)];
-  const factor = 0.75 + Math.random() * 0.4; // proposta rival entre 75% e 115% do valor de mercado
-  const rivalValue = Math.max(1000, Math.round((o.marketValue * factor) / 1000) * 1000);
+  const scored = pool
+    .filter((t) => financeiroScore(player, leagueSquadFor(t.id), t.id) > 0)
+    .map((t) => ({ item: t, score: transferScore(player, t.id) }));
+  if (!scored.length) return; // nenhum clube consegue bancar esse jogador agora
+  const rivalClub = pickWeightedByScore(scored);
+  const score = scored.find((s) => s.item === rivalClub).score;
+  // Fase 1.5 — mesma urgência de fim de janela dos outros 2 caminhos.
+  const urgency = urgencyMultiplier(necessidadeScore(player, leagueSquadFor(rivalClub.id), rivalClub.id), CAREER.currentRound);
+  if (Math.random() >= offerProbabilityFromScore(score) * urgency) return;
+  // Fase 1.4 — mesma negociação interna (vendedor = o clube dono do
+  // jogador, o.clubId; comprador = o clube rival) — se o vendedor e o
+  // rival não chegam a acordo internamente, simplesmente não nasce
+  // oferta rival nesta rodada (igual a qualquer outro "return" acima).
+  const rivalDeal = negotiateOffer(player, rivalClub.id, o.clubId, { baseValue: o.marketValue, competitorCount: 1 });
+  if (rivalDeal.outcome !== "accepted") return;
+  const rivalValue = Math.max(1000, rivalDeal.finalValue);
   const rivalInstallments = Math.random() < 0.7 ? 1 : 2; // clube CPU quase sempre paga à vista
   o.rivalOffer = { clubId: String(rivalClub.id), clubName: rivalClub.name, offerValue: rivalValue, installments: rivalInstallments };
   toast({ title: "Concorrência pelo alvo", detail: `${rivalClub.name} também quer ${abbreviateName(o.playerName)} — compare as propostas.` }, { type: "warn" });
@@ -10351,12 +11142,32 @@ function resolvePendingOffersOutRound(round) {
       pushTransferLog(`${o.rivalOffer.clubName} venceu a disputa por ${o.playerName} (sua proposta era de ${fmtBRL(o.offerValue)}).`, round);
       return;
     }
-    const ratio = o.offerValue / o.marketValue;
-    const rng = Math.random();
-    if (ratio >= 0.95 && rng < 0.85) { finalizeIncomingPurchase(o); return; }
-    if (ratio >= 0.8 && rng < 0.45) { finalizeIncomingPurchase(o); return; }
-    if (ratio >= 0.6 && rng < 0.5) {
-      o.counterValue = Math.min(o.marketValue, Math.round((o.offerValue + o.marketValue) / 2 / 1000) * 1000);
+    // Fase 1.4 — decisão do vendedor CPU (aceitar/contrapor/recusar a
+    // SUA proposta, digitada livremente em openOfferModal) trocada da
+    // sequência de faixas de ratio ad hoc pras mesmas funções puras
+    // reaproveitadas em todo o resto (calculateSellerReservationValue/
+    // sellerNegotiationDecision) — mesma UI de sempre (contraproposta/
+    // aceitar/retirar em CAREER.pendingOffersOut, nada muda aí).
+    // o.counterRounds (novo campo temporário, só nesta oferta pendente
+    // — não é schema de jogador/clube) limita esta negociação a
+    // MAX_NEGOTIATION_ROUNDS contrapropostas (item 15): sem isso, o
+    // técnico podia aumentar a proposta indefinidamente
+    // (ver increaseOffer) e o vendedor contrapor de novo pra sempre,
+    // sem nenhum teto — um loop sem fim que este item pede pra evitar.
+    const sellerPlayer = leagueSquadFor(o.clubId).find((x) => String(x.id) === String(o.playerId));
+    const reservation = sellerPlayer ? calculateSellerReservationValue(sellerPlayer, o.clubId, { baseValue: o.marketValue }) : o.marketValue;
+    const roundsUsed = o.counterRounds || 0;
+    let decision = sellerNegotiationDecision(o.offerValue, reservation);
+    if (decision.action === "counter" && roundsUsed >= MAX_NEGOTIATION_ROUNDS) {
+      // esgotou o limite de contrapropostas -> decide definitivamente
+      // agora (aceita se ficou razoavelmente perto da reserva, senão
+      // recusa), nunca mais um ciclo.
+      decision = (o.offerValue / reservation) >= 0.85 ? { action: "accept", value: o.offerValue } : { action: "reject", value: null };
+    }
+    if (decision.action === "accept") { finalizeIncomingPurchase(o); return; }
+    if (decision.action === "counter") {
+      o.counterValue = decision.value;
+      o.counterRounds = roundsUsed + 1;
       o.status = "countered";
       stillPending.push(o);
       toast({ title: "Contraproposta recebida", detail: `${o.clubName} quer ${fmtBRL(o.counterValue)} por ${abbreviateName(o.playerName)} — veja em Minhas propostas.` }, { type: "warn" });
@@ -10422,6 +11233,24 @@ function listingFor(playerId) {
 // concorrência do lado da compra (55%-110% do valor PEDIDO, não do de
 // mercado) — de propósito: pedir mais que o valor de mercado é
 // legítimo, mas atrai propostas relativamente mais baixas.
+//
+// Fase 1.2 — Transfer AI: LISTING_OFFER_CHANCE_PER_ROUND continua
+// sendo a mesma "janela de exposição" de sempre (será que o anúncio
+// chama atenção nesta rodada); dentro dela, QUAL clube se interessa
+// passa a ser ponderado por transferScore em vez de sorteado uniforme,
+// e só vira proposta de verdade com probabilidade proporcional ao
+// score (offerProbabilityFromScore) — jogador listado não significa
+// que qualquer clube do mercado quer comprar.
+// Fase 1.3 — o valor da proposta passa a vir de transferValuation
+// (base = listing.askingValue, o que o técnico realmente pediu — pedir
+// acima do valor de mercado continua legítimo e continua puxando a
+// proposta pra cima proporcionalmente, só que agora de forma coerente
+// com necessidade/interesse/financeiro do comprador, não um range
+// solto); competitorCount = quantas propostas esse anúncio já tem (dado
+// que já existe, listing.offers.length) — quanto mais concorrência real
+// já visível, maior o prêmio (até +10%, ver transferValuation). Vendedor
+// é sempre você aqui, então o ajuste de titularidade usa
+// CAREER.lineup.starters de verdade.
 function maybeSpawnListingOffer(listing) {
   if (listing.offers.length >= LISTING_MAX_OFFERS) return;
   if (Math.random() >= LISTING_OFFER_CHANCE_PER_ROUND) return;
@@ -10432,9 +11261,26 @@ function maybeSpawnListingOffer(listing) {
     String(t.id) !== String(CAREER.clubId) && !alreadyOffered.has(String(t.id)) && leagueSquadFor(t.id).length < maxSquadSizeFor(t.id)
   );
   if (!eligible.length) return;
-  const club = eligible[Math.floor(Math.random() * eligible.length)];
-  const factor = 0.55 + Math.random() * 0.55; // entre 55% e 110% do valor PEDIDO
-  const value = Math.max(1000, Math.round((listing.askingValue * factor) / 1000) * 1000);
+  const scored = eligible
+    .filter((t) => financeiroScore(p, leagueSquadFor(t.id), t.id) > 0) // elimina quem claramente não pode pagar ANTES do RNG
+    .map((t) => ({ item: t, score: transferScore(p, t.id) }));
+  if (!scored.length) return; // nenhum clube elegível consegue bancar esse jogador agora
+  const club = pickWeightedByScore(scored);
+  const score = scored.find((s) => s.item === club).score;
+  // Fase 1.5 — mesma urgência de fim de janela de maybeGenerateOffer
+  // (fora da janela, urgencyMultiplier devolve 1x — anúncio de venda
+  // continua liberado o ano inteiro, sem mudança de ritmo fora dela).
+  const urgency = urgencyMultiplier(necessidadeScore(p, leagueSquadFor(club.id), club.id), CAREER.currentRound);
+  if (Math.random() >= offerProbabilityFromScore(score) * urgency) return; // score baixo -> raríssimo; score alto -> frequente
+  // Fase 1.4 — mesma negociação interna de maybeGenerateOffer, com
+  // askingValue como âncora (item 19 — nunca substituído): passa por
+  // context.baseValue tanto pra transferValuation (valor inicial, já
+  // era assim) quanto pra calculateSellerReservationValue (reserva
+  // também ancorada no anúncio, não em player.value).
+  const dealCtx = { baseValue: listing.askingValue, competitorCount: listing.offers.length };
+  const deal = negotiateOffer(p, club.id, CAREER.clubId, dealCtx);
+  if (deal.outcome !== "accepted") return;
+  const value = Math.max(1000, deal.finalValue);
   const installments = Math.random() < 0.6 ? 1 : Math.random() < 0.7 ? 2 : 3; // clube CPU às vezes parcela também
   listing.offers.unshift({
     id: `listingoffer_${Date.now()}_${Math.floor(Math.random() * 1000)}`,
@@ -11512,6 +12358,11 @@ function acceptOffer() {
 }
 function declineOffer() {
   if (!CAREER.pendingOffer) return;
+  // Fase 1.5 — registra a recusa (item 11) pra maybeGenerateOffer não
+  // reofertar o mesmo par jogador/clube nos próximos DECLINE_COOLDOWN_ROUNDS
+  // rounds (sem isso, nada impedia a mesma proposta idêntica reaparecer
+  // rodada após rodada).
+  recordDecline(CAREER.pendingOffer.playerId, CAREER.pendingOffer.clubId, CAREER.currentRound);
   toast("Proposta recusada.");
   CAREER.pendingOffer = null;
   persistCareer();
@@ -11587,8 +12438,10 @@ function showGameScreen() {
   // Retenção/Engajamento — login diário só faz sentido com uma
   // carreira em andamento pra aplicar a recompensa (ver
   // applyDailyLoginReward); picker de competição/clube (sem carreira
-  // ainda) fica de fora de propósito.
-  checkDailyLoginOnBoot();
+  // ainda) fica de fora de propósito. Assistente de início (formação/
+  // comissão/olheiros/táticas) fica na fila logo antes dele, só em
+  // carreira nova — ver maybeOpenStartupWizard.
+  maybeOpenStartupWizard();
 }
 function switchToPanel(name) {
   // Redesign M3 — nav virou .m3-nav-item (pílula, 5 itens), ver
@@ -12241,6 +13094,22 @@ function wireStaticListeners() {
   document.getElementById("btnOnboardNext").addEventListener("click", () => {
     if (ONBOARD_INDEX < ONBOARDING_SLIDES.length - 1) { ONBOARD_INDEX++; renderOnboardingSlide(); }
     else closeOnboardingOverlay();
+  });
+
+  // Assistente de início — "Continuar"/"Pular esta etapa" avançam o
+  // mesmo jeito na maioria dos passos (a ação de cada passo já se
+  // aplica na hora, no próprio clique — chip de formação, troca no
+  // campo, contratar comissão/olheiro); só o passo de Táticas tem de
+  // verdade algo a "não aplicar" quando pulado (ver wizardAdvance/
+  // wizardSkipStep). Contratar comissão é o único botão DENTRO de um
+  // passo (Olheiros já wire os próprios [data-hire] a cada render, ver
+  // renderWizardScoutList).
+  document.getElementById("btnWizardContinue").addEventListener("click", wizardAdvance);
+  document.getElementById("btnWizardSkip").addEventListener("click", wizardSkipStep);
+  document.getElementById("btnWizardHireCommission").addEventListener("click", () => {
+    hireTechnicalStaff();
+    renderWizardCommissionStep();
+    toast("Comissão técnica contratada!", { type: "pos" });
   });
 
   // AJUSTE (Bloco 2 M3) — formationSelect (Escalação) e tacticMentality/
@@ -13217,6 +14086,11 @@ function migrateCareerDefaults() {
   // verdade — a Loja ainda não cobra nada (ver aviso grande em
   // renderLoja). Nasce vazio, sem reconstrução retroativa.
   if (!CAREER.purchaseHistory) CAREER.purchaseHistory = [];
+  // Assistente de início — carreira criada ANTES desta mudança nasce
+  // com o assistente já "visto" (não aparece sozinho no meio de uma
+  // temporada em andamento) — só carreira NOVA a partir de agora passa
+  // por ele (ver startCareer/maybeOpenStartupWizard).
+  if (CAREER.startupWizardSeen === undefined) CAREER.startupWizardSeen = true;
   evaluateAlwaysCheckableAchievements();
 }
 // AJUSTE (pedido do usuário: "acrescentar a Série B, C [ao Modo

@@ -9,7 +9,7 @@
    CONTAS DE USUÁRIO (login parando de funcionar pra todo mundo), não
    só um lead. Anexe um Volume no Railway apontando pra pasta
    `server/data` antes de usar isso com usuários de verdade — ver
-   README-LOGIN.md. */
+   docs/ops/README-LOGIN.md. */
 
 const fs = require("fs");
 const path = require("path");

@@ -3029,32 +3029,47 @@
            sem chrome de card, pra não competir com o campo logo
            abaixo. -->
       <section class="ct-panel" id="panel-escalacao">
-        <div class="m3-filter-row" id="formationChipRow"></div>
-        <div class="m3-lineup-tools">
-          <button class="mt-btn-swap" id="btnAutoLineup" title="Escalar automaticamente — melhores overalls por posição" aria-label="Escalar automaticamente"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></button>
-          <!-- Pedido do usuário: toggle discreto pra incluir (ou não) a
-               categoria de base na escalação automática — default
-               desligado (base costuma ter overall bem menor, não é o
-               que o treinador quer no time principal na maioria das
-               vezes). -->
-          <label class="mt-toggle-row" style="margin:0; flex:1;">
-            <input type="checkbox" id="autoLineupIncludeBase" class="mt-toggle-input">
-            <span class="mt-toggle"><span class="knob"></span></span>
-            <span class="txt">Incluir base ao escalar automaticamente</span>
-          </label>
+        <!-- Assistente de início (pedido do usuário: "criar perguntas
+             formato onboarding para o treinador montar sua formação
+             favorita... e fazer tudo o que for necessário para iniciar
+             o jogo") — os 2 marcadores abaixo (mesmo espírito de
+             #escalacaoPanelAnchor, só que pra PEDAÇOS do painel, não o
+             painel inteiro) deixam openStartupWizard()/
+             finishStartupWizard() moverem de verdade (mesmo nó do DOM)
+             o bloco de formação+campinho+banco pro Passo 1 e o bloco de
+             táticas pro Passo 4, sem duplicar nenhum id/render/wiring
+             dos controles daqui — devolvidos pro lugar exato ao
+             terminar o assistente. -->
+        <div id="escalacaoFormationAnchor" hidden></div>
+        <div id="escalacaoFormationBlock">
+          <div class="m3-filter-row" id="formationChipRow"></div>
+          <div class="m3-lineup-tools">
+            <button class="mt-btn-swap" id="btnAutoLineup" title="Escalar automaticamente — melhores overalls por posição" aria-label="Escalar automaticamente"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></button>
+            <!-- Pedido do usuário: toggle discreto pra incluir (ou não) a
+                 categoria de base na escalação automática — default
+                 desligado (base costuma ter overall bem menor, não é o
+                 que o treinador quer no time principal na maioria das
+                 vezes). -->
+            <label class="mt-toggle-row" style="margin:0; flex:1;">
+              <input type="checkbox" id="autoLineupIncludeBase" class="mt-toggle-input">
+              <span class="mt-toggle"><span class="knob"></span></span>
+              <span class="txt">Incluir base ao escalar automaticamente</span>
+            </label>
+          </div>
+          <div id="pitchLines"></div>
+          <div class="mt-card">
+            <div class="mt-card-head"><div class="mt-card-title">Banco de reservas</div><span class="mt-card-sub" style="margin:0;">até 11</span></div>
+            <div id="benchList"></div>
+          </div>
         </div>
-        <div id="pitchLines"></div>
-        <div class="mt-card">
-          <div class="mt-card-head"><div class="mt-card-title">Banco de reservas</div><span class="mt-card-sub" style="margin:0;">até 11</span></div>
-          <div id="benchList"></div>
-        </div>
+        <div id="escalacaoTacticsAnchor" hidden></div>
         <!-- AJUSTE (Bloco 2 M3) — "Instruções táticas" (3 <select> com
              2-3 opções nomeadas) vira "Instruções de jogo" (mesmo nome
              do mockup), 4 EIXOS REAIS em barra de 5 segmentos — decisão
              confirmada com o usuário antes de implementar ("Expandir
              pra 4 eixos reais", não só um reskin visual do componente).
              Ver TACTIC_AXES/renderTacticAxisRows em carreira.js. -->
-        <div class="mt-card">
+        <div class="mt-card" id="escalacaoTacticsBlock">
           <div class="mt-card-head">
             <div class="mt-card-title">Instruções de jogo</div>
           </div>
@@ -3542,6 +3557,68 @@
       </div>
       <button class="mt-btn-primary-gold" id="btnClaimDailyLogin" style="width:100%;">Coletar</button>
       <p class="mt-streak-warning">Volte amanhã para não perder sua sequência.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ================= Assistente de início (pedido do usuário: "criar
+     perguntas formato onboarding para o treinador montar sua formação
+     favorita, contratar comissão e olheiros e fazer tudo o que for
+     necessário para iniciar o jogo") =================
+     Abre em TODA carreira nova (1ª carreira da conta, "Reiniciar" ou
+     "Escolher outro clube") — depois do tutorial de navegação (se essa
+     for a 1ª carreira da conta) e antes do login diário, ver
+     showGameScreen/closeOnboardingOverlay/maybeOpenStartupWizard em
+     carreira.js. 4 passos, cada um pulável (decisão do usuário via
+     AskUserQuestion): Formação favorita + titulares, Comissão Técnica,
+     Olheiros, Táticas básicas. Os passos 1 e 4 REAPROVEITAM o próprio
+     #panel-escalacao (mesmo nó do DOM movido pra dentro daqui e devolvido
+     ao terminar, mesma técnica já usada por #adjustLineupOverlay) —
+     zero duplicação de id/render/wiring dos controles de Escalação. -->
+<div class="ct-modal-overlay ct-modal-fullscreen" id="startupWizardOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header mt-fullheader">
+      <span class="ct-modal-icon" id="wizardStepIcon"></span>
+      <div class="ct-modal-header-text">
+        <h3 id="wizardStepTitle"></h3>
+        <div class="ct-modal-sub" id="wizardStepSub"></div>
+      </div>
+    </div>
+    <div class="ct-modal-body">
+      <div class="mt-onboard-dots" id="wizardStepDots" style="margin:4px 0 14px;"></div>
+      <!-- Passo 1 — Formação favorita + titulares: recebe o bloco
+           #escalacaoFormationBlock (formação, escalar automaticamente,
+           campinho, banco) vindo de #panel-escalacao. -->
+      <div id="wizardStepFormacao">
+        <p class="mt-card-sub" style="margin:0 0 10px;">Escolha o esquema tático que combina com o seu estilo. Já preenchemos os titulares com o melhor time disponível — toque num jogador no campo pra trocar, ou ajuste tudo de novo depois na aba Tática.</p>
+      </div>
+      <!-- Passo 2 — Comissão Técnica (mesmo texto/custo de
+           #commissionOverlay, ver renderWizardCommissionStep). -->
+      <div id="wizardStepComissao" class="hidden">
+        <div class="mt-card">
+          <div class="mt-card-title">Contratar comissão técnica</div>
+          <p class="mt-card-sub" style="margin-bottom:10px;">Uma equipe de apoio analisa seu elenco, o calendário e o próximo adversário e sugere a melhor escalação, o esquema de treino da semana, o ajuste tático e reforços de mercado — você sempre decide se aplica ou não.</p>
+          <p class="mt-info-line" style="border-bottom:none;">Custo estimado: <b id="wizardCommissionCost"></b></p>
+          <button class="mt-btn-primary-gold" id="btnWizardHireCommission" style="width:100%; margin-top:10px;">Contratar comissão técnica</button>
+          <p class="mt-card-sub" id="wizardCommissionHiredNote" style="margin-top:10px; color:var(--mt-pitch-400);" hidden>✓ Comissão técnica contratada — acompanhe as sugestões dela no Menu, a qualquer momento.</p>
+        </div>
+      </div>
+      <!-- Passo 3 — Olheiros (mesmo catálogo SCOUT_MARKET de
+           #scoutMarketOverlay, ver renderWizardScoutList). -->
+      <div id="wizardStepOlheiros" class="hidden">
+        <p class="mt-card-sub" style="margin:0 0 10px;">Olheiros vasculham a base em busca de promessas — cada um com uma especialidade de região. Contrate quantos quiser, ou pule e contrate depois em Base e Olheiros.</p>
+        <div id="wizardScoutList"></div>
+      </div>
+      <!-- Passo 4 — Táticas básicas: recebe o bloco
+           #escalacaoTacticsBlock (4 eixos de TACTIC_AXES) vindo de
+           #panel-escalacao. -->
+      <div id="wizardStepTaticas" class="hidden">
+        <p class="mt-card-sub" style="margin:0 0 10px;">Defina o estilo de jogo do seu time — dá pra ajustar de novo a qualquer momento na aba Tática.</p>
+      </div>
+    </div>
+    <div class="ct-modal-footer">
+      <button class="mt-btn-primary-gold" id="btnWizardContinue" style="width:100%;"></button>
+      <button class="mt-btn-ghost" id="btnWizardSkip" style="width:100%;">Pular esta etapa</button>
     </div>
   </div>
 </div>

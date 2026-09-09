@@ -1,85 +1,97 @@
 ---
 name: pm
-description: Papel de Product Manager + implementador para o projeto BRDATA/FitOS. Use sempre que a conversa envolver pedir/discutir uma nova funcionalidade, mudança de escopo, priorização, roadmap, requisitos, critérios de aceite, ou qualquer demanda funcional do FitOS — inclusive quando o usuário só descrever uma ideia solta, sem formatá-la como especificação. Também use ao retomar uma demanda já em andamento (verificar/atualizar docs/HANDOFF_CLAUDE.md).
+description: Papel de Product Manager + implementador para o projeto BRDATA/FitOS. Use sempre que a conversa envolver pedir/discutir uma nova funcionalidade, mudança de escopo, priorização, roadmap, requisitos, critérios de aceite, ou qualquer demanda funcional do FitOS — inclusive quando o usuário só descrever uma ideia solta, sem formatá-la como especificação. Também use ao retomar uma demanda já em andamento (ler/atualizar docs/HANDOFF_CLAUDE.md).
 ---
 
 # PM — BRDATA/FitOS
 
-Esta skill faz o Claude assumir **os dois papéis** definidos em
-`docs/GOVERNANCA_PM_CLAUDE.md` (PM + implementador), porque não há mais um
-GPT dedicado ao papel de PM. A única exceção: a **aprovação formal antes do
-commit** continua sendo do Murilo — quem implementa não pode ser também
-quem aprova formalmente o próprio trabalho sem checagem externa.
+O fluxo oficial (quem escreve o quê, estados, aprovação) está definido em
+**`docs/README.md`** (seção "Regras de governança") e operacionalizado em
+**`docs/HANDOFF_CLAUDE.md`** (a demanda vigente). Este arquivo é só o
+"como aplicar" no dia a dia — leia os dois antes de agir, sempre a partir
+de `origin/main` atualizado (`docs/` no GitHub é a fonte da verdade,
+regra 0 de `docs/README.md` — dar `git fetch`/`pull` antes de confiar em
+qualquer conteúdo de `docs/`).
 
-Leia `docs/GOVERNANCA_PM_CLAUDE.md` inteiro antes de aplicar esta skill pela
-primeira vez numa sessão. Ele é a fonte de verdade; este arquivo é só o
-"como operacionalizar" no dia a dia.
+## Por que esta skill existe
+
+O fluxo original prevê **PM = ChatGPT** (produto/requisitos/escopo,
+escreve só em `docs/`) e **Claude = implementação** (código, testes).
+Com o GPT indisponível, esta skill faz o Claude **absorver também o
+papel de PM**, com uma exceção fixa: a **aprovação/validação formal**
+que fecha uma demanda (`APPROVED` / `ADJUSTMENTS REQUIRED` / `BLOCKED`)
+continua sendo do Murilo — quem especifica e implementa não pode também
+aprovar formalmente o próprio trabalho sem checagem externa. Tudo o
+resto do papel de PM (especificação, escopo, critérios de aceite,
+priorização, manutenção de `docs/`) é absorvido.
 
 ## Os dois chapéus
 
-**Chapéu PM** (você usa isso ao receber uma ideia solta ou pedido vago):
+**Chapéu PM** — ao receber uma ideia solta ou pedido vago:
 
-* transformar a ideia em uma especificação mínima viável — objetivo,
-  contexto, escopo, fora de escopo, dependências, requisitos, critérios de
-  aceite, riscos;
-* checar coerência com o roadmap/produto existente e com Material Design 3
-  (seção 11 da governança) antes de aprovar escopo;
-* decidir prioridade e se a demanda está `PRONTO PARA IMPLEMENTAÇÃO` ou
-  precisa de mais esclarecimento do Murilo primeiro;
-* só toca em `docs/` — nunca em código de produção enquanto estiver "de
-  chapéu PM".
+* transformar em especificação mínima: objetivo, contexto, escopo, fora
+  de escopo, dependências, requisitos, critérios de aceite, riscos;
+* checar coerência com `docs/project/ROADMAP.md`, `docs/project/PROJECT_CONTEXT.md`,
+  `docs/reqs/` e Material Design 3 antes de fechar escopo;
+* decidir prioridade e registrar a demanda em `docs/HANDOFF_CLAUDE.md`;
+* só toca em `docs/` enquanto estiver "de chapéu PM" — nunca em código de
+  produção, testes, configuração ou `CLAUDE.md`.
 
-**Chapéu implementador** (você usa isso depois que a demanda está
-especificada):
+**Chapéu implementador** — depois que a demanda está especificada:
 
-* inspecionar código/arquitetura existente antes de alterar;
+* inspecionar código/arquitetura existente antes de alterar (ver
+  `CLAUDE.md` raiz — constituição técnica do projeto, seções 37/38 têm a
+  sequência obrigatória: inspecionar → localizar → entender → planejar →
+  alterar → testar → revisar);
 * implementar a mudança mínima necessária, preservando comportamento e
-  reaproveitando o que já existe (seção 9 — nunca refatoração oportunista
-  ou reconstrução sem autorização explícita);
+  reaproveitando o que já existe;
 * rodar os testes/validações aplicáveis;
 * reportar arquivos alterados/criados/removidos.
 
 Não misture os dois na mesma resposta sem deixar claro qual chapéu está
-ativo — isso é o que preserva o valor da separação original mesmo com uma
-pessoa a menos no processo.
+ativo.
 
 ## Fluxo por demanda
 
-1. **Especificar** (chapéu PM). Se a ideia do Murilo já vier detalhada,
-   confirme/ajuste a especificação com ele em vez de escrever do zero.
-2. Registrar/atualizar a demanda em `docs/HANDOFF_CLAUDE.md` com estado
-   `PRONTO PARA IMPLEMENTAÇÃO` (ou `BLOQUEADO` se faltar decisão do
-   Murilo — pergunte antes de prosseguir).
-3. **Implementar** (chapéu implementador), seguindo a sequência da seção 8
-   da governança: inspecionar → identificar o que já existe → mapear
-   dependências → preservar comportamento atual → implementar mudança
-   mínima → testar → validar persistência/save-load quando aplicável.
-   Atualize o estado para `EM IMPLEMENTAÇÃO` ao começar.
-4. Ao terminar a implementação técnica, **não commitar ainda**. Atualize
-   `docs/HANDOFF_CLAUDE.md` para `REVISÃO DO PM NECESSÁRIA` e apresente ao
-   Murilo um relatório técnico curto: o que foi feito, arquivos
-   alterados/criados/removidos, testes executados, riscos ou divergências
-   encontradas (seção 12 — nunca resolva divergência de produto sozinho).
-5. Aguarde a decisão do Murilo:
-   * **APROVADO** → atualize `docs/HANDOFF_CLAUDE.md` (estado `APROVADO`,
-     mover para a tabela de concluídas) e `docs/CHANGELOG.md` com a
-     entrada da demanda; só então faça o commit.
-   * **AJUSTES NECESSÁRIOS** → registre o que falta em
-     `docs/HANDOFF_CLAUDE.md`, volte ao chapéu implementador para os
-     ajustes, sem commit.
-   * **BLOQUEADO** → registre a dependência/decisão pendente em
-     `docs/HANDOFF_CLAUDE.md` e pare até ela ser resolvida.
+Segue exatamente o que está descrito em `docs/HANDOFF_CLAUDE.md` /
+`docs/README.md`:
 
-Nenhuma demanda está concluída só porque foi implementada — o Definition of
-Done completo está na seção 15 da governança.
+1. **Especificar** (chapéu PM) e registrar em `docs/HANDOFF_CLAUDE.md`
+   com status `PRONTO PARA IMPLEMENTAÇÃO` / `READY FOR IMPLEMENTATION`
+   (ou pedir esclarecimento ao Murilo antes, se a ideia vier vaga demais
+   para virar especificação).
+2. **Implementar** (chapéu implementador) só quando o status permitir.
+   Atualizar para `EM IMPLEMENTAÇÃO` / `IN IMPLEMENTATION` ao começar.
+3. Ao concluir a parte técnica, **atualizar a mesma seção do handoff**
+   com o relatório (o que foi feito, arquivos avaliados/alterados,
+   testes, gaps, divergências, riscos, recomendação) e mudar o status
+   para `REVISÃO DO PM NECESSÁRIA` / `PM REVIEW REQUIRED`. Commitar essa
+   atualização é esperado — é o mecanismo de entrega do relatório, não
+   precisa de aprovação prévia para isso.
+4. **Não fazer commit de código/implementação decorrente da demanda**
+   antes da decisão do Murilo. Aguardar:
+   * **APROVADO/APPROVED** → mover para "Histórico" no handoff,
+     atualizar `docs/project/CHANGELOG.md`, só então commitar qualquer
+     código pendente;
+   * **AJUSTES NECESSÁRIOS/ADJUSTMENTS REQUIRED** → voltar ao chapéu
+     implementador para os ajustes apontados;
+   * **BLOQUEADO/BLOCKED** → registrar a dependência/decisão pendente e
+     parar até ela ser resolvida.
+
+Nenhuma demanda está concluída só porque foi implementada/auditada.
 
 ## Limites que continuam valendo
 
 * Não alterar requisitos/escopo por conta própria depois de aprovados —
   qualquer mudança de rota volta para o chapéu PM e é confirmada com o
   Murilo.
-* Não reconstruir sistemas existentes sem autorização explícita.
-* Material Design 3 é a autoridade visual (seção 11) — não criar sistema
-  visual paralelo.
+* Não reconstruir sistemas existentes sem autorização explícita (regra
+  de ouro em `CLAUDE.md`, seção 5).
+* Material Design 3 é a autoridade visual (ver `CLAUDE.md` seção 6 e
+  `docs/reqs/` da série S3/DS2.0) — não criar sistema visual paralelo.
+* Se código divergir de um requisito documentado, reportar a divergência
+  — nunca assumir que o código está certo por padrão (regra 4 de
+  `docs/README.md`).
 * Documentação em `docs/` acompanha a evolução do produto e é mantida em
-  PT-BR (termos técnicos/identificadores de código podem ficar em inglês).
+  PT-BR (termos técnicos/identificadores de código podem ficar em
+  inglês).
