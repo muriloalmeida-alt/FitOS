@@ -1,29 +1,40 @@
-# docs/ — índice e regras de governança documental
+# docs/ — índice geral
 
 Reorganização de 09/09/2026: os documentos que antes viviam soltos na
 raiz do repositório (especificação de produto, engine, auditoria) e os
 READMEs operacionais foram agrupados aqui, por finalidade.
 
+**Regras de governança entre PM e Claude**: ver
+`docs/README_HANDOFF.md` — este índice não as repete (evita duplicação
+com a fonte oficial).
+
 ## Estrutura
 
 ```
 docs/
-├── HANDOFF_CLAUDE.md   → comunicação oficial PM (ChatGPT) ↔ Desenvolvimento (Claude)
+├── README_HANDOFF.md   → regras permanentes do processo PM ↔ Claude
+├── HANDOFF_CLAUDE.md    → demandas vigentes + índice histórico (operacional)
 ├── project/   → gestão e governança do projeto
 ├── reqs/      → requisitos e regras de negócio
 ├── library/   → material de referência (pesquisas, benchmarks, UX/UI, concorrentes)
 └── ops/       → documentação técnica operacional (deploy, instalação, integrações, testes)
 ```
 
-### docs/HANDOFF_CLAUDE.md — comunicação oficial PM ↔ Claude
-Fluxo formal fixado em 09/09/2026 (ver seção "Regras de governança"
-abaixo para o resumo, e o próprio arquivo para o detalhe completo):
-o PM abre uma tarefa lá com `Status: READY FOR IMPLEMENTATION`, Claude
-só começa a implementar quando ler esse status, e devolve o relatório
-de implementação/testes/divergências/pendências na MESMA seção, mudando
-o status pra `PM REVIEW REQUIRED`. Esse documento é o ponto de entrada
-oficial de qualquer tarefa nova — não presumir o estado do projeto só
-pela conversa ou pelo código.
+### docs/README_HANDOFF.md — regras permanentes (fonte oficial)
+Responsabilidades do PM e do Claude, limites de escrita de cada um,
+fluxo de trabalho, estados de uma demanda, sequência obrigatória antes
+de alterar código, regras de documentação, regras de Material Design 3,
+tratamento de divergências, critérios de aprovação, Definition of Done
+e a regra de idioma (PT-BR). **Fonte única** dessas regras — se algo
+aqui parecer desatualizado, `README_HANDOFF.md` prevalece.
+
+### docs/HANDOFF_CLAUDE.md — operacional (demandas + histórico)
+Documento enxuto, só com 3 partes: (1) referência ao
+`README_HANDOFF.md`; (2) **Demandas vigentes** — cada uma com o
+detalhe necessário pra Claude executar sem ambiguidade; (3)
+**Histórico** — uma linha por demanda concluída (Demanda | Data |
+Commit | Changelog), nunca um segundo changelog. Detalhamento real de
+cada mudança vive no Git e em `docs/project/CHANGELOG.md`.
 
 ### docs/project/ — gestão e governança
 - `BRDATA_Auditoria_v1.0.md` — auditoria completa do código vs. especificação + roadmap de implementação (08/09/2026).
@@ -67,55 +78,3 @@ pesquisa). Se preferir outro nome/local para este grupo, é só pedir.
   para `docs/` separaria a documentação do código/assets que ela
   explica. Esta foi uma decisão minha, não uma leitura literal do "migrar
   tudo" — avise se preferir que eu os mova também.
-
-## Regras de governança (fixadas pelo usuário em 09/09/2026)
-
-0. **A pasta `docs/` tal como está no GitHub (branch remota, não o
-   estado local de uma sessão) é A FONTE DA VERDADE do projeto.** Isso
-   vale em duas direções:
-   - **Ao consultar**: antes de tratar qualquer conteúdo de `docs/`
-     como atual, dar `git fetch`/`pull` primeiro — nunca confiar em
-     memória de conversa ou num checkout local desatualizado. Isso
-     importa especialmente porque terceiros (ex.: o GPT, responsável
-     pela arquitetura funcional/product management) podem empurrar
-     mudanças em `docs/reqs/` direto pro GitHub, fora desta sessão.
-   - **Ao decidir**: uma decisão de governança, requisito ou arquitetura
-     só é real quando está commitada em `docs/` no GitHub — o que foi
-     dito em chat mas não chegou a um arquivo aqui não vale como fonte
-     de verdade pra ninguém além dessa conversa específica.
-1. **Divisão de responsabilidade** (fluxo oficial fixado em 09/09/2026,
-   detalhado em `docs/HANDOFF_CLAUDE.md`):
-   - **PM (ChatGPT)**: produto, requisitos, arquitetura funcional,
-     priorização, escopo, critérios de aceite, decisões de produto,
-     governança, documentação em `docs/`, validação final. Escopo de
-     escrita **somente dentro de `docs/`** — nunca em código de
-     produção, testes, configuração ou `CLAUDE.md`.
-   - **Claude**: arquitetura de solução, implementação, preservação de
-     funcionalidades existentes, testes, identificação de regressões,
-     relato de divergências, atualização do handoff.
-   - **`docs/HANDOFF_CLAUDE.md`** é o documento bidirecional oficial
-     dessa comunicação — Claude só inicia implementação quando o status
-     da tarefa lá estiver `READY FOR IMPLEMENTATION`; uma tarefa só está
-     de fato concluída quando `PM REVIEW REQUIRED → APPROVED`.
-2. **`docs/project/ROADMAP.md`** (quando existir) é a **fonte de verdade**
-   da sequência e do status das Sprints.
-3. **`docs/reqs/`** é a **fonte de verdade** das regras de negócio.
-4. **Se o código divergir de um requisito documentado, a divergência deve
-   ser identificada e reportada — nunca assumir que o código está
-   correto.** Qualquer trabalho futuro que envolva `docs/reqs/` deve
-   comparar código vs. documento e sinalizar discrepâncias explicitamente
-   (mesmo padrão já usado em `BRDATA_Auditoria_v1.0.md`), em vez de tratar
-   o comportamento atual do código como verdade por padrão.
-5. **Conflito entre requisito funcional (docs/reqs/) e viabilidade
-   técnica** (compatibilidade de save, anti-exploit, regra do
-   `CLAUDE.md`, ou simplesmente inviável do jeito que foi escrito):
-   Claude registra a divergência no handoff com a alternativa técnica
-   viável e aguarda decisão do PM quando afeta produto/escopo — nunca
-   implementa nem ajusta o requisito por conta própria nesse caso.
-6. **Mudanças de governança, requisitos ou decisões relevantes devem ser
-   refletidas nos MDs correspondentes** — uma decisão tomada em conversa
-   e não registrada aqui é uma decisão que se perde na próxima sessão.
-   Toda implementação deve verificar impacto documental (arquitetura,
-   comportamento, regras de negócio, persistência, contratos, mercado,
-   economia, UI/UX, APIs, testes, roadmap, decisões técnicas) — nunca
-   deixar o código deliberadamente mais atualizado que a documentação.
