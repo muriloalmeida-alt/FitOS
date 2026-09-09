@@ -1107,6 +1107,124 @@ desse componente.
 
 ⸻
 
+S4-B2-005 — Migrar tela Perfil do jogador para o Design System novo
+
+Status: PRONTO PARA IMPLEMENTAÇÃO
+Sprint: S4 — Redesign Mobile
+Fase: Batch 2 (Core) — item 5 de 5 (último)
+Prioridade: P0
+
+Objetivo
+
+Migrar a tela de perfil detalhado do jogador para o Design System
+novo, conforme `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela
+7): apresentar nome, posição, overall, atributos, idade, clube,
+contrato, salário, evolução e status, priorizando as informações mais
+importantes.
+
+Contexto
+
+Quinta e última tela do Batch 2. Bloqueada até agora pela dependência
+confirmada do componente PlayerCard — `S3-DS20-S4-PREP-002` está
+**aprovada e concluída** (Histórico deste handoff), então esta
+dependência está resolvida e a demanda pode ser especificada.
+
+A S3.2.7 Readiness Review identificou Perfil do jogador como uma das 9
+telas P0 ainda fora do sistema novo.
+
+Nota de escopo herdada do relatório de `S3-DS20-S4-PREP-002`: a
+formalização do PlayerCard encontrou e registrou uma divergência entre
+a especificação original e os pontos de uso reais do componente — o
+relatório daquela demanda (no Histórico deste handoff, e no
+CHANGELOG) detalha isso. Chapéu implementador desta demanda deve
+consultar esse relatório antes de assumir como o PlayerCard se
+encaixa na tela de Perfil do jogador, em vez de reconstruir esse
+entendimento do zero.
+
+Escopo
+
+Chapéu implementador deve, quando retomar esta demanda:
+
+1. Inspecionar a implementação atual da tela de Perfil do jogador
+   antes de alterar qualquer coisa, incluindo como ela hoje se
+   relaciona com a implementação de PlayerCard já formalizada.
+2. Migrar a apresentação visual para os tokens do Design System novo,
+   reutilizando o PlayerCard onde apropriado.
+3. Garantir que nome, posição, overall, atributos, idade, clube,
+   contrato, salário, evolução e status continuam todos apresentados,
+   com a hierarquia de informação priorizada como a matriz pede.
+4. Usar os componentes já disponíveis (Dialog, Bottom Sheet, Skeleton)
+   onde a tela precisar de overlay/carregamento — não criar nada novo
+   em paralelo.
+5. Preservar o comportamento funcional (qualquer ação disponível na
+   tela hoje — ex.: promover, renovar, o que a inspeção encontrar)
+   — redesign visual, não mudança de regra.
+6. Testar (mobile-first, mesmo padrão das demandas anteriores).
+7. Atualizar `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`
+   marcando esta tela como migrada e o Batch 2 (Core) como
+   completo.
+8. Retornar relatório técnico nesta mesma seção do handoff, status
+   `REVISÃO DO PM NECESSÁRIA`.
+
+Fora de escopo
+
+* qualquer tela de outro Batch;
+* qualquer mudança de regra de negócio (contrato, evolução, promoção,
+  etc.);
+* qualquer mudança na definição do PlayerCard além do que
+  `S3-DS20-S4-PREP-002` já formalizou — se a inspeção sugerir que o
+  contrato precisa evoluir pra servir esta tela, registrar como
+  divergência e devolver ao PM, não decidir unilateralmente;
+* gaps P1/P2 não relacionados a esta tela específica.
+
+Dependências
+
+* `S3-DS20-S4-PREP-001` (aprovada, concluída).
+* `S3-DS20-S4-PREP-002` (aprovada, concluída — dependência que
+  bloqueava esta demanda, agora resolvida).
+* `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 7 — objetivo e
+  requisitos).
+* `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`.
+
+Requisitos
+
+Mesma sequência obrigatória de sempre: inspecionar → localizar →
+entender → planejar → alterar → testar → revisar. Mudança mínima
+necessária.
+
+Critérios de aceite
+
+* tela usa os tokens do Design System novo, reutilizando o PlayerCard;
+* todas as informações da tela (nome/posição/overall/atributos/idade/
+  clube/contrato/salário/evolução/status) continuam presentes e
+  priorizadas;
+* nenhuma mudança de regra de negócio;
+* nenhuma outra tela tocada;
+* teste mobile-first cobrindo a tela.
+
+Validações
+
+O PM deverá validar: aderência ao Design System, reutilização correta
+do PlayerCard, preservação de todas as informações/ações da tela,
+teste, escopo respeitado.
+
+Riscos
+
+* baixo-médio — dependência principal (PlayerCard) já resolvida, mas
+  é uma tela de detalhe com potencialmente mais ações/estados que as
+  demais do Batch 2 (a confirmar na inspeção).
+
+Observações
+
+Última tela do Batch 2 (Core). Com esta demanda concluída e aprovada,
+o Batch 2 estará completo — próximo passo do roadmap S4 é o Batch 3
+(Transactional: Mercado, Negociação, Contratos, Resumo da rodada),
+que por sua vez começa formalizando os componentes TransferCard e
+ContractCard (ainda não existentes) antes de qualquer tela, mesmo
+padrão já usado aqui.
+
+⸻
+
 Histórico
 
 Demanda	Data	Commit	Changelog

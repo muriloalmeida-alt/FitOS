@@ -132,12 +132,15 @@ for paga agora, antes de replicar o padrão ad hoc em mais telas.
    e os 3 componentes disponíveis pras próximas telas do Batch 2.
 2. **Formalizar PlayerCard** a partir do que já existe em Elenco
    (`playerRow()`, dívida retroativa, §4 acima) — demanda própria
-   (`S3-DS20-S4-PREP-002`). **Em andamento**, deliberadamente isolada
-   de MatchCard/FinancialSummary (item 2b abaixo) por já ter candidato
+   (`S3-DS20-S4-PREP-002`). **Concluído**: aprovado pelo PM e mesclado
+   em `main`, registrado no Histórico de `docs/HANDOFF_CLAUDE.md` e em
+   `docs/project/CHANGELOG.md` — deliberadamente isolada de
+   MatchCard/FinancialSummary (item 2b abaixo) por já ter candidato
    claro e único (3 pontos de reuso confirmados por inspeção direta —
    ver adendo em `S3_2_COMPONENTES_E_CONTRATOS.md` §60.3 pra uma
    correção em relação ao conjunto exato desses 3 pontos). Não
-   dependeu da aprovação da PREP-001.
+   dependeu da aprovação da PREP-001. Libera Perfil do jogador (item 5
+   abaixo).
 2b. **MatchCard e FinancialSummary** — candidatos identificados
    (`.m3-match-row` em `renderH2H`, `financeCashBarsHTML()`) mas
    **ainda não inspecionados o suficiente** pra virar demanda — o
@@ -170,9 +173,11 @@ for paga agora, antes de replicar o padrão ad hoc em mais telas.
      interação visual complexa que eleva o risco daquele. Com esta
      demanda, o Batch 2 fica totalmente coberto exceto Perfil do
      jogador.
-   - Restante: **Perfil do jogador** — última tela do Batch 2, ainda
-     sem demanda própria, aguarda `S3-DS20-S4-PREP-002` (dependência
-     confirmada, não hipotética, do PlayerCard).
+   - Item 5 (último): **Perfil do jogador** (`S4-B2-005`, status
+     `PRONTO PARA IMPLEMENTAÇÃO`) — dependência do PlayerCard resolvida
+     agora que `S3-DS20-S4-PREP-002` está concluída; reutiliza o
+     PlayerCard já formalizado. Com esta demanda, o Batch 2 (Core)
+     fica totalmente especificado.
 4. **Batch 3 (Transactional)** — antes de qualquer tela, formalizar
    TransferCard e ContractCard (não existem, sem dívida retroativa
    aqui, são novos). Depois migrar Mercado, Negociação, Contratos,
