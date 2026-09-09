@@ -635,7 +635,7 @@ em uma nova demanda, não como reabertura dessa issue.
 
 S3-DS20-S4-PREP-002 — Formalizar PlayerCard (retroativo, Elenco)
 
-Status: PRONTO PARA IMPLEMENTAÇÃO
+Status: REVISÃO DO PM NECESSÁRIA
 Sprint: S3 — BRDATA Design System 2.0 (pré-requisito para S4)
 Fase: S3.2.9 — dívida retroativa de Product Pattern
 Prioridade: P1
@@ -739,6 +739,183 @@ isolada das outras duas, que exigem inspeção própria antes de virarem
 demanda. Não é bloqueada pela aprovação de `S3-DS20-S4-PREP-001` (não
 depende de Dialog/Bottom Sheet/Skeleton), pode ser implementada em
 paralelo.
+
+⸻
+
+Relatório técnico — S3-DS20-S4-PREP-002
+
+Executado por: Claude · Data: 09/09/2026 · Branch:
+`claude/s3-ds20-s4-prep-002`. Mudança puramente documental (comentário
+de contrato) — zero linha de comportamento alterada dentro de
+`playerRow()`.
+
+0. Correção prévia registrada
+
+Antes de iniciar, encontrei o `Status` desta demanda em
+`REVISÃO DO PM NECESSÁRIA` sem nenhum relatório de implementação na
+seção — inconsistente com a especificação original (commit `1a20c01`:
+`PRONTO PARA IMPLEMENTAÇÃO`) e com a issue #11 (criada depois,
+mesmo texto). Rastreei a causa: `git diff 3539c60..8dcff10` mostra
+esse status sendo trocado como efeito colateral não documentado do
+merge manual de `S3-DS20-S4-PREP-001` (issue #10) — a mensagem daquele
+merge só explica a remoção do relatório órfão duplicado, não essa
+troca. Corrigi de volta pra `PRONTO PARA IMPLEMENTAÇÃO` num commit
+isolado (`3431fa0`) antes de começar a implementação de fato, para não
+começar um trabalho sobre um estado que a própria seção não sustenta.
+
+1. Resumo executivo
+
+`playerRow()` (`public/js/carreira.js`) formalizado como o BRDATA
+Product Pattern **PlayerCard** — comentário de contrato completo
+(10 campos, formato de `S3_2_COMPONENTES_E_CONTRATOS.md` §7) adicionado
+imediatamente acima da função. **Zero mudança funcional**: nenhuma
+linha do corpo de `playerRow()` foi alterada. Os 3 pontos de uso reais
+(confirmados por busca literal no código, não presumidos da
+especificação) continuam idênticos — verificado rodando
+`test_ux_nomes_clicaveis.js` e `test_treinos.js` contra o código
+alterado.
+
+Encontrei e registrei uma divergência entre a especificação original e
+o código real (ver seção 3), e uma regressão pré-existente **não
+relacionada a esta demanda**, herdada do merge já aprovado de
+`S3-DS20-S4-PREP-001` (ver seção 6) — nenhuma das duas foi corrigida
+aqui, ambas fora do escopo desta demanda.
+
+2. Implementação
+
+Comentário de contrato inserido em `public/js/carreira.js`, imediatamente
+acima de `function playerRow(p)`, cobrindo os 10 campos exigidos por
+`S3_2_COMPONENTES_E_CONTRATOS.md` §7: Nome, Objetivo, Responsabilidade,
+Entradas, Saídas/eventos, Estados, Variações, Responsividade,
+Acessibilidade, Dependências — e listando os 3 pontos de uso reais.
+
+Adendo (não reescrita) em
+`docs/sprints/S3/S3_2_COMPONENTES_E_CONTRATOS.md` §60, registrando
+PlayerCard = `playerRow()`, os 3 pontos de uso, a divergência da seção
+3 abaixo, e os 2 gaps de acessibilidade fora de escopo (§60.4).
+
+`docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md` atualizado: linha
+da tabela do Elenco (§2) e linha do PlayerCard na tabela de Product
+Patterns (§3) marcadas como resolvidas; item 1-2 da ordem de execução
+(§5) atualizados para refletir o estado real atual (PREP-001 já
+mergeada e aprovada, não mais "aguardando decisão"; PREP-002 "em
+andamento", não mais "pronto para implementação").
+
+3. Divergência registrada: pontos de uso reais ≠ especificação original
+
+A especificação (`docs/HANDOFF_CLAUDE.md`, texto original da demanda)
+e a issue #11 citavam como 1 dos 3 pontos de uso o "roster overlay de
+ajuste de escalação" (`carreira.js:5448`). Inspeção direta mostrou que
+isso está **incorreto**: `openAdjustLineupModal()` (linha ~10349) não
+renderiza lista própria — move o nó DOM existente de
+`#panel-escalacao` (`renderEscalacao()`) pra dentro do modal, e essa
+tela não usa `playerRow()` em nenhum ponto (confirmado por busca
+literal — zero ocorrências de `playerRow` fora da definição e das 3
+chamadas reais). O ponto de uso real que a especificação não capturou
+é o roster completo da tela **Treino** (`trainingRosterList`, linha
+~5546).
+
+Os 3 pontos de uso reais, confirmados por `grep "playerRow"` em todo o
+arquivo:
+1. `renderElenco()` (~linha 9110) — Elenco, gestão completa.
+2. Treino (~linha 5546) — `trainingRosterList`, roster completo.
+3. `openClubRoster()` (~linha 9251) — elenco somente-leitura de outro
+   clube.
+
+O total continua 3, só o conjunto exato mudou. Registrado conforme
+`docs/README.md` regra 4 — aqui foi a especificação, não o código, que
+precisou de correção; nenhuma mudança de código foi feita além do
+comentário de contrato.
+
+4. Verificação dos 3 fluxos (sem mudança de comportamento)
+
+* `test_treinos.js` — 12/12 checks `true`, incluindo #6 ("Lista de
+  elenco mostra barra de condição por jogador") e #6b ("Clicar num
+  jogador do elenco (Treinos) abre o detalhe") — cobre diretamente o
+  ponto de uso 2.
+* `test_ux_nomes_clicaveis.js` — checks que envolvem `playerRow()`/
+  `openClubRoster()` diretamente (2, 3, 3b, 6, 7) todos `true` —
+  cobrem os pontos de uso 1 e 3. (Checks 1a/1b/5 falham, mas por causa
+  não relacionada — ver seção 6.)
+
+Nenhum teste novo foi necessário — os critérios de aceite da demanda
+("os 3 fluxos continuam idênticos") já são cobertos por testes
+existentes, e o próprio risco declarado na especificação ("mínimo —
+documentação sobre código já existente e testado") se confirmou na
+prática.
+
+5. Contracts
+
+`playerRow()` já respeitava a separação UI/regra de negócio antes desta
+demanda (verificado): não decide se um jogador pode ser contratado,
+quanto vale, ou se está disponível no mercado — só apresenta o que
+recebe em `p`. O comentário de contrato formaliza isso por escrito,
+não corrige nada, porque não havia nada pra corrigir nesse aspecto.
+
+6. Regressão pré-existente encontrada (fora de escopo, não corrigida)
+
+Ao rodar `test_ux_nomes_clicaveis.js` pra verificar os pontos de uso 1
+e 3, os checks 1a/1b/5 (Mercado e Indicações dos olheiros — nome de
+jogador de OUTRO clube abrindo o perfil) voltaram `false`. Root cause:
+`openPlayerCard()` (implementado pela `S3-DS20-S4-PREP-001`, já
+aprovada e mesclada em `main` via `8dcff10`) agora abre o Dialog M3
+daquela implementação (`openM3Dialog()`) em vez de `#detailOverlay`, e
+o teste (pré-existente, não tocado por nenhuma das duas demandas)
+ainda verifica só `#detailOverlay`. **Não é causado por esta demanda**
+— `playerRow()` não participa desse fluxo — e está fora do escopo de
+`S3-DS20-S4-PREP-002` corrigir. Registrado aqui porque foi encontrado
+durante a verificação desta demanda; recomendação na seção 9.
+
+7. Gaps
+
+Nenhum gap novo. Os 2 já conhecidos e explicitamente fora de escopo
+(sem "loading" próprio, sem atributos ARIA explícitos) seguem
+registrados no contrato (§60.4 do adendo) para a execução geral de
+acessibilidade da S4.
+
+8. Arquivos avaliados / alterados / criados
+
+Avaliados: `public/js/carreira.js` (`playerRow()` e os 3 pontos de
+uso), `docs/sprints/S3/S3_2_COMPONENTES_E_CONTRATOS.md` §7/§23,
+`docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md` §2-5,
+`tests/e2e/test_treinos.js`, `tests/e2e/test_ux_nomes_clicaveis.js`.
+
+Alterados: `public/js/carreira.js` (comentário de contrato, zero
+mudança funcional), `docs/sprints/S3/S3_2_COMPONENTES_E_CONTRATOS.md`
+(adendo §60), `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`
+(§2/§3/§5 atualizados), `docs/HANDOFF_CLAUDE.md` (correção de status
+prévia + este relatório).
+
+Criados/removidos: nenhum.
+
+9. Recomendação
+
+1. A regressão da seção 6 (`openPlayerCard()`/`#detailOverlay` vs.
+   Dialog M3) já existe em `main` desde o merge de
+   `S3-DS20-S4-PREP-001` — recomendo abrir uma demanda P1 pequena e
+   isolada pra corrigir o teste (mesmo tipo de correção que fiz na
+   minha própria implementação descartada da PREP-001 — atualizar o
+   helper do teste pra reconhecer `openM3Dialog()`), não misturar com
+   PREP-002.
+2. MatchCard/FinancialSummary (candidatos já identificados em
+   `S4_REQUISITOS_VIGENTES.md` §3) seguem precisando de inspeção
+   dedicada antes de virarem demanda — não presumidos aqui.
+
+10. Resultado final
+
+**APPROVED (proposto)**
+
+Justificativa: todos os 4 critérios de aceite explícitos foram
+atendidos com evidência real — comentário de contrato presente;
+`S3_2_COMPONENTES_E_CONTRATOS.md` e `S4_REQUISITOS_VIGENTES.md`
+atualizados; os 3 fluxos de uso confirmados idênticos por teste
+executado (não presumido); nenhuma tela P0 legada tocada. Risco
+realizado na prática exatamente como a especificação previu (mínimo).
+A única ressalva é a divergência da seção 3 (conjunto exato dos 3
+pontos de uso), já corrigida na própria documentação desta entrega, e
+a regressão pré-existente da seção 6, que não é desta demanda.
+
+REVISÃO DO PM NECESSÁRIA.
 
 ⸻
 

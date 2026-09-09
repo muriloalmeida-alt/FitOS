@@ -8971,6 +8971,62 @@ function mtConditionBarHTML(condition) {
   for (let i = 1; i <= 5; i++) segs += `<span class="seg${i <= rating ? " on" : ""}"></span>`;
   return `<div class="mt-condition-bar ${cls}" title="Condição: nota ${rating}/5 (${CONDITION_RATING_LABEL[rating]})">${segs}</div>`;
 }
+// ===== Contrato de componente: PlayerCard (S3-DS20-S4-PREP-002) =====
+// Formaliza playerRow() como o BRDATA Product Pattern "PlayerCard"
+// exigido por S3_S4_MATRIZ_TELAS_MOBILE.md §20/§525 e
+// S3_2_COMPONENTES_E_CONTRATOS.md §23 — a função já cumpria esse papel
+// (reaproveitada em 3 pontos reais desde antes desta demanda), só
+// faltava o contrato documentado. Nenhuma mudança de comportamento
+// feita aqui — só o comentário abaixo.
+//
+// Nome: PlayerCard
+// Objetivo: representar um jogador de forma consistente em qualquer
+//   lista do Modo Técnico (idade/overall/condição/tags de status),
+//   reconhecível pelo usuário independente de qual tela o mostra.
+// Responsabilidade: só apresentação — ícone/nota de overall, nome,
+//   idade, barra de condição e tags de status (contrato vencendo,
+//   pede transferência, lesionado, suspenso, emprestado, gerado, moral
+//   extrema). NÃO decide nada de negócio (não decide se o jogador pode
+//   ser contratado, quanto vale, se está disponível no mercado — regra
+//   de separação UI/negócio de S3_2_COMPONENTES_E_CONTRATOS.md §5).
+// Entradas: `p` (objeto Player) — campos lidos: id, name, age,
+//   overall, condition, morale, origin, real, status, injurySeverity,
+//   outUntilRound, wantsTransfer; e, indiretamente, contractUntil via
+//   isContractExpiring(p) e potencial via scoutedPotentialRange(p).
+// Saídas/eventos: retorna uma string HTML (`<div class="m3-li-*"
+//   data-id="${p.id}">...`); não liga nenhum listener de clique —
+//   quem chama decide a ação (delegação via `[data-id]`, ver os 3
+//   pontos de uso abaixo), então o mesmo componente serve tanto um
+//   clique que abre gestão completa (Elenco) quanto um somente-leitura
+//   (elenco de outro clube) sem precisar de variante própria pra isso.
+// Estados: contempla contundido/suspenso/emprestado/gerado/fim de
+//   contrato/pede transferência/moral extrema (todos via tag ou emoji
+//   com texto/título, nunca só cor). NÃO tem estado "loading" próprio
+//   (quem chama decide antes de renderizar) nem "empty" (isso é
+//   responsabilidade de groupedListHTML(), que nem chega a invocar
+//   playerRow() se a lista estiver vazia).
+// Variações: nenhuma prop de variante — os 3 pontos de uso passam o
+//   MESMO shape de `p` e recebem o mesmo HTML; a diferença de
+//   comportamento (gestão completa vs. somente-leitura) fica inteira
+//   no wiring de clique de quem chama, não no componente.
+// Responsividade: classes `.m3-li-*` do sistema --m3-* (ver bloco de
+//   tokens em carreira.html) — já mobile-first, parte da migração da
+//   tela Elenco.
+// Acessibilidade: tags/estados usam texto+título (tooltip), nunca só
+//   cor. Gap conhecido e FORA DE ESCOPO desta demanda (registrado na
+//   S3.2.7): não há atributos aria explícitos na linha em si — fica
+//   para o trabalho geral de acessibilidade da S4, não é regressão
+//   introduzida aqui.
+// Dependências: groupedListHTML() (agrupamento por posição + estado
+//   empty), ovrTierClass(), mtConditionBarHTML(), isContractExpiring(),
+//   scoutedPotentialRange(), escapeHtml(), abbreviateName().
+//
+// 3 pontos de uso reais confirmados (busca literal por `playerRow` em
+// todo o arquivo, não presumidos da especificação original — ver
+// divergência registrada no relatório desta demanda):
+//   1. Elenco (renderElenco(), gestão completa do próprio time).
+//   2. Treino (roster completo do elenco, lista "trainingRosterList").
+//   3. openClubRoster() (elenco somente-leitura de outro clube).
 function playerRow(p) {
   const tags = [];
   // Pedido do usuário: sem tag "gerado" pra jogador da BASE (a
