@@ -1104,6 +1104,118 @@ quando essa demanda for especificada).
 
 ⸻
 
+S4-B2-004 — Migrar tela Treino para o Design System novo
+
+Status: PRONTO PARA IMPLEMENTAÇÃO
+Sprint: S4 — Redesign Mobile
+Fase: Batch 2 (Core) — item 4 de 5
+Prioridade: P0
+
+Objetivo
+
+Migrar a tela de gerenciamento do treinamento para o Design System
+novo, conforme `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela
+13): apresentar treino atual, opções, impacto esperado, condição dos
+jogadores e confirmação, com a informação organizada para leitura
+rápida.
+
+Contexto
+
+Quarta e última tela do Batch 2 antes de Perfil do jogador (que segue
+por último, dependente de `S3-DS20-S4-PREP-002`). A S3.2.7 Readiness
+Review identificou Treino como uma das 9 telas P0 ainda fora do
+sistema novo.
+
+Mesma cautela de `S4-B2-003` (Tática/Formação) se aplica aqui: a
+matriz cita "condição dos jogadores" entre o que a tela deve
+apresentar, o que sugere alguma forma de lista/exibição de jogador —
+possível dependência do componente PlayerCard (`S3-DS20-S4-PREP-002`,
+ainda não implementado) que não presumo aqui e precisa ser confirmada
+na inspeção, não decidida unilateralmente.
+
+Escopo
+
+Chapéu implementador deve, quando retomar esta demanda:
+
+1. Inspecionar a implementação atual da tela de Treino antes de
+   alterar qualquer coisa, incluindo avaliar e reportar a dependência
+   real (ou não) do componente PlayerCard.
+2. Migrar a apresentação visual para os tokens do Design System novo.
+3. Garantir que treino atual, opções, impacto esperado, condição dos
+   jogadores e confirmação continuam todos funcionando.
+4. Usar os componentes já disponíveis (Dialog, Bottom Sheet, Skeleton)
+   onde a tela precisar de overlay/carregamento — não criar nada novo
+   em paralelo.
+5. Preservar o comportamento funcional (regras de treinamento, cálculo
+   de impacto, evolução) — redesign visual, não mudança de regra de
+   jogo.
+6. Testar (mobile-first, mesmo padrão das demandas anteriores).
+7. Atualizar `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`
+   marcando esta tela como migrada e o Batch 2 como completo (exceto
+   Perfil do jogador).
+8. Retornar relatório técnico nesta mesma seção do handoff, status
+   `REVISÃO DO PM NECESSÁRIA`.
+
+Fora de escopo
+
+* Perfil do jogador (última tela do Batch 2, demanda própria,
+  dependente de `S3-DS20-S4-PREP-002`);
+* qualquer mudança de regra de treinamento, fórmula de impacto ou
+  evolução de jogador;
+* se a inspeção confirmar dependência real do PlayerCard: implementar
+  essa dependência não é desta demanda — registrar e devolver ao PM;
+* gaps P1/P2 não relacionados a esta tela específica.
+
+Dependências
+
+* `S3-DS20-S4-PREP-001` (aprovada, concluída — fundação de tokens e
+  componentes disponíveis).
+* `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 13 — objetivo e
+  requisitos).
+* `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`.
+* Possível dependência de `S3-DS20-S4-PREP-002` — a confirmar na
+  inspeção (ver Contexto acima), não presumida.
+
+Requisitos
+
+Mesma sequência obrigatória de sempre: inspecionar → localizar →
+entender → planejar → alterar → testar → revisar. Mudança mínima
+necessária. Mesma regra de `S4-B2-003`: se a inspeção revelar escopo
+significativamente maior que o esperado, reportar como divergência,
+não absorver silenciosamente.
+
+Critérios de aceite
+
+* tela usa os tokens do Design System novo;
+* treino atual, opções, impacto esperado, condição dos jogadores e
+  confirmação continuam todos funcionando;
+* nenhuma mudança de regra de treinamento/evolução;
+* dependência (ou não) do PlayerCard confirmada e reportada;
+* nenhuma outra tela tocada;
+* teste mobile-first cobrindo a tela.
+
+Validações
+
+O PM deverá validar: aderência ao Design System, preservação de todas
+as funcionalidades de treinamento, confirmação da dependência (ou não)
+do PlayerCard, teste, escopo respeitado.
+
+Riscos
+
+* médio — mesma incerteza de dependência do PlayerCard que
+  `S4-B2-003`, mas sem o componente de interação visual complexa
+  (representação de campo) que eleva o risco daquela tela.
+
+Observações
+
+Com esta demanda especificada, o Batch 2 (Core) fica totalmente
+coberto exceto Perfil do jogador — que aguarda
+`S3-DS20-S4-PREP-002` (formalização do PlayerCard) antes de virar
+demanda própria, por já ter dependência confirmada (não hipotética)
+desse componente.
+
+⸻
+
 Histórico
 
 Demanda	Data	Commit	Changelog
