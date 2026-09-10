@@ -761,7 +761,7 @@ apontar pra este registro assim que esta atualização for commitada.
 
 S4-B3-004 — Criar a tela Contratos (redefinida de "migrar" para "criar do zero")
 
-Status: PRONTO PARA IMPLEMENTAÇÃO
+Status: REVISÃO DO PM NECESSÁRIA
 Sprint: S4 — Redesign Mobile
 Fase: Batch 3 (Transactional) — item 4 de 4
 Prioridade: P0
@@ -781,8 +781,28 @@ https://github.com/muriloalmeida-alt/FitOS/issues/20#issuecomment-5616879047.
 Decisão do PM (Murilo, 10/09/2026): opção 1 escolhida — redefinir a
 demanda como "criar a tela Contratos do zero". Mini-spec abaixo
 substitui integralmente a especificação original (que presumia
-migrar uma tela já existente). Status volta a `PRONTO PARA
-IMPLEMENTAÇÃO`.
+migrar uma tela já existente). Status virou `PRONTO PARA
+IMPLEMENTAÇÃO`, mini-spec completa também postada em
+https://github.com/muriloalmeida-alt/FitOS/issues/20#issuecomment-5617896218.
+
+Implementação reportada (branch `claude/s4-b3-004-contratos`, commits
+`ba88891`+`60eb113`, 10/09/2026): tela nova (`#contratosOverlay`),
+aberta por "☰ Equipe & Treinos" → "📄 Contratos" (mesmo padrão de
+Comissão Técnica/Base e Olheiros). 1 `ContractCard`
+(`contractCardHTML()`, já criado em `S4-B3-001`) por jogador com
+contrato ativo (exclui emprestados) — jogador, salário, "Contrato até
+{ano}", situação (Ativo/Fim de contrato), ordenado por proximidade do
+vencimento. Filtro Todos/Vencendo. Nome do jogador clicável abre o
+Perfil (mesma regra já estabelecida no app). Ações 100% reaproveitadas:
+"Renovar" chama o mesmo `openRenewModal()`/`proposeRenewal()` do
+Perfil; "Dispensar" chama a mesma mutação
+(`handlePlayerAction(id, "release")`) do Perfil — nenhuma regra de
+contrato nova. Estado vazio tratado. Teste novo
+`tests/e2e/test_s4_b3_004_contratos.js` (7/7); regressão
+`test_s4_b2_005_perfil` (4/4), `test_comissao_tecnica` (7/7), `test_menu`
+— todos passando. Nenhum commit mesclado em `main` ainda — aguardando
+aprovação do PM. Relatório completo em
+https://github.com/muriloalmeida-alt/FitOS/issues/20#issuecomment-5624573129.
 
 Objetivo (redefinido)
 
