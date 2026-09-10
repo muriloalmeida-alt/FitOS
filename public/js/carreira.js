@@ -8662,6 +8662,28 @@ function renderCentral() {
   // próprio (m3-hero-card) com mini-gráfico das últimas rodadas (ver
   // pushCashSnapshot/financeCashBarsHTML); financeKpis agora só tem a
   // folha salarial (m3-stat-card, kpiHTML block "m3").
+  //
+  // ---------- BRDATA Product Pattern (S4-B3-005): FinancialSummary ----------
+  // Formalização RETROATIVA (mesmo caminho de PlayerCard, S3-DS20-S4-PREP-002)
+  // — objetivo: apresentar um resumo financeiro (S3_2_COMPONENTES_E_CONTRATOS.md
+  // §28: saldo/receitas/despesas/orçamento/variações/indicadores).
+  // Candidato único e real encontrado por inspeção (não presumido): este
+  // bloco do card "Financeiro" (Início/Dashboard) — já cobre saldo
+  // (financeCashNum), variações (financeCashBars/financeCashBarsHTML(),
+  // sparkline das últimas rodadas) e indicadores (financeKpis/kpiHTML(),
+  // folha salarial vs. teto, com variante "red" quando estourado — mesmo
+  // padrão de alerta já usado em qualquer outro KPI do app). Receitas/
+  // despesas detalhadas por categoria não aparecem aqui (ficam no
+  // ledger, pushLedger()) — o resumo mostra o AGREGADO (saldo líquido),
+  // não o extrato linha a linha, leitura razoável do "pode contemplar"
+  // da especificação (nem todo campo é obrigatório). Nenhuma mudança
+  // visual/funcional feita aqui — só o comentário de contrato, mesmo
+  // tratamento dado a Elenco em S3-DS20-S4-PREP-002 §60. Sem função
+  // própria extraída (ao contrário de playerRow()) porque a composição
+  // é inline em renderCentral() — o contrato descreve o BLOCO
+  // (financeCashNum + financeCashBars + financeKpis + wageCapFill/Label
+  // abaixo), não uma função isolada; extrair seria mudança estrutural
+  // fora do escopo desta demanda (só formalização).
   document.getElementById("financeCashNum").textContent = fmtBRL(cash);
   document.getElementById("financeCashBars").innerHTML = financeCashBarsHTML();
   document.getElementById("financeKpis").innerHTML =
@@ -9070,6 +9092,196 @@ function playerRow(p) {
       ${tags.length ? `<div class="m3-li-meta">${tags.join("")}</div>` : ""}
     </div>
     <div class="m3-li-side"><b>${p.age}</b><br>anos</div>
+  </div>`;
+}
+// ---------- BRDATA Product Pattern novo: TransferCard (S4-B3-001) ----------
+// Nome: TransferCard
+// Objetivo: representar uma oportunidade ou operação de mercado (jogador
+//   disponível pra comprar, proposta enviada/recebida, jogador do próprio
+//   elenco à venda/emprestado) — S3_2_COMPONENTES_E_CONTRATOS.md §26.
+// Responsabilidade: apresentação pura. NÃO calcula valuation, NÃO decide
+//   se uma proposta é aceita/recusada, NÃO sabe de regra de mercado —
+//   recebe os dados já calculados por quem chama e o HTML das ações já
+//   pronto (com os data-* que quem chama vai ligar depois).
+// Entradas: { playerId, playerName, overall, position, clubName, clubId,
+//   value, wage, statusLabel, statusVariant, metaText, actionsHTML,
+//   clickablePlayer, clickableClub } — só playerId/playerName são
+//   obrigatórios. overall/position omitem o badge/chip quando ausentes.
+//   value/wage montam a linha de detalhe padrão ("Salário: X · Valor: Y");
+//   metaText, quando presente, SUBSTITUI essa linha inteira (útil quando
+//   o dado relevante não é value/wage, ex.: uma proposta em andamento —
+//   ver uso previsto em Negociação/Proposta, S4-B3-003). statusLabel/
+//   statusVariant ('neutral'|'gold'|'crimson', mesma paleta de .mt-ptag)
+//   renderizam uma tag de status ao lado do clube. clickablePlayer/
+//   clickableClub (bool) marcam data-openplayer/data-openclub (mesmo
+//   padrão de nomes clicáveis do Mercado/Elenco) — o componente só marca
+//   o atributo, quem chama liga o listener.
+// Saídas/eventos: retorna uma string HTML; nenhum listener embutido —
+//   mesmo padrão de playerRow(), quem chama liga os eventos (inclusive
+//   os que vierem dentro de actionsHTML).
+// Estados: statusLabel/statusVariant é o único estado visual do
+//   componente em si — qualquer estado mais específico (proposta com
+//   concorrência, contraproposta) é decisão de quem monta os dados de
+//   entrada, não do componente. Sem estado "loading" próprio (mesma
+//   lacuna já documentada em PlayerCard, S3-DS20-S4-PREP-002 §60.4).
+// Variações: com/sem badge de overall+posição; com metaText livre no
+//   lugar da linha padrão de valor/salário.
+// Responsividade: mobile-first, mesma densidade de .m3-list-item — ver
+//   divergência registrada no relatório desta demanda (já existiam 2
+//   formatos ad hoc parecidos, .mt-market-row e .mt-sponsor-proposal-row,
+//   que este componente substitui nas demandas seguintes, não nesta).
+// Acessibilidade: mesma lacuna conhecida de ARIA que playerRow() (S3.2.7)
+//   — fora de escopo desta formalização.
+// Dependências: tokens --m3-*, ovrTierClass()/SUBPOS_DIVCLASS (mesmos do
+//   PlayerCard/Elenco), fmtBRLShort(), escapeHtml(), .m3-op-* (carreira.html,
+//   shape compartilhado com ContractCard, ver comentário lá).
+//
+// Nenhum ponto de uso real ainda nesta demanda — S4-B3-001 é
+// deliberadamente só a criação do componente, sem integração em tela
+// (mesmo padrão de Bottom Sheet/Skeleton em S3-DS20-S4-PREP-001).
+// Mercado (S4-B3-002) e Negociação/Proposta (S4-B3-003) são os 2 pontos
+// de uso previstos, em demandas seguintes.
+function transferCardHTML({ playerId, playerName, overall, position, clubName, clubId, value, wage, statusLabel, statusVariant, metaText, actionsHTML, clickablePlayer, clickableClub }) {
+  const badge = (overall != null) ? `<div class="mt-ovr-badge ${ovrTierClass(overall)}">${overall}</div>` : "";
+  const posChip = position ? `<span class="mt-pos-chip ${SUBPOS_DIVCLASS[position] || ""}">${escapeHtml(position)}</span>` : "";
+  const statusTag = statusLabel ? `<span class="mt-ptag ${statusVariant || "neutral"}">${escapeHtml(statusLabel)}</span>` : "";
+  const defaultDetail = (value != null || wage != null)
+    ? `${wage != null ? `Salário: <b>${fmtBRLShort(wage)}/mês</b>` : ""}${wage != null && value != null ? " · " : ""}${value != null ? `Valor: <b>${fmtBRLShort(value)}</b>` : ""}`
+    : "";
+  const detailContent = metaText != null ? metaText : defaultDetail;
+  return `<div class="m3-op-card" data-id="${escapeHtml(String(playerId))}">
+    <div class="m3-op-top">
+      ${badge}
+      <div class="m3-op-info"${clickablePlayer ? ` data-openplayer="${escapeHtml(String(playerId))}"${clubId != null ? ` data-club="${escapeHtml(String(clubId))}"` : ""}` : ""}>
+        <div class="m3-op-name">${escapeHtml(playerName)}</div>
+        <div class="m3-op-tags">${clubName ? `<span class="m3-op-club"${clickableClub && clubId != null ? ` data-openclub="${escapeHtml(String(clubId))}"` : ""}>${escapeHtml(clubName)}</span>` : ""}${posChip}${statusTag}</div>
+      </div>
+      ${actionsHTML ? `<div class="m3-op-actions">${actionsHTML}</div>` : ""}
+    </div>
+    ${detailContent ? `<div class="m3-op-detail">${detailContent}</div>` : ""}
+  </div>`;
+}
+// ---------- BRDATA Product Pattern novo: ContractCard (S4-B3-001) ----------
+// Nome: ContractCard
+// Objetivo: representar a situação contratual de um jogador —
+//   S3_2_COMPONENTES_E_CONTRATOS.md §27.
+// Responsabilidade: apresentação pura. NÃO determina regra de renovação
+//   nem calcula nada — recebe os dados já calculados e o HTML das ações.
+// Entradas: { playerId, playerName, overall, position, clubName, wage,
+//   durationLabel, statusLabel, statusVariant, expiring, actionsHTML,
+//   clickablePlayer } — só playerId/playerName são obrigatórios.
+//   overall/position omitem o badge/chip. durationLabel é texto livre já
+//   formatado por quem chama (ex.: "Contrato até 2027"), cobre qualquer
+//   fraseado (renovado/empréstimo/etc.) sem o componente precisar saber a
+//   diferença. expiring (bool) troca statusVariant pra "crimson"
+//   automaticamente quando nenhum statusVariant é passado — proximidade
+//   do vencimento é o estado mais importante deste componente, por isso
+//   o atalho, mas quem chama pode sobrepor com statusVariant explícito.
+// Saídas/eventos: retorna uma string HTML; nenhum listener embutido —
+//   mesmo padrão de TransferCard/playerRow().
+// Estados: neutral/gold/crimson (mesma paleta de .mt-ptag) — crimson
+//   reservado pra "vence em breve"/"sai de graça", mesma linguagem já
+//   usada em isContractExpiring()/openDetail().
+// Variações: com/sem badge; durationLabel livre.
+// Responsividade/Acessibilidade: mesmas de TransferCard — compartilham a
+//   mesma base CSS (.m3-op-*) por design (ver comentário no CSS).
+// Dependências: mesmas de TransferCard.
+//
+// Nenhum ponto de uso real ainda nesta demanda. Divergência registrada
+// no relatório desta demanda: diferente de Mercado/Negociação (que já
+// existem hoje, com formato ad hoc próprio), a tela "Contratos" que
+// consumiria este componente (S4-B3-004) NÃO existe ainda no app — só
+// existem pontos isolados (tag "fim de contrato" no Elenco, modal de
+// renovação a partir do Perfil do jogador). Construir o componente aqui
+// não presume que essa tela vai ser criada do zero na próxima demanda —
+// isso é decisão de escopo pra S4-B3-004, não desta.
+function contractCardHTML({ playerId, playerName, overall, position, clubName, wage, durationLabel, statusLabel, statusVariant, expiring, actionsHTML, clickablePlayer }) {
+  const badge = (overall != null) ? `<div class="mt-ovr-badge ${ovrTierClass(overall)}">${overall}</div>` : "";
+  const posChip = position ? `<span class="mt-pos-chip ${SUBPOS_DIVCLASS[position] || ""}">${escapeHtml(position)}</span>` : "";
+  const variant = statusVariant || (expiring ? "crimson" : "neutral");
+  const statusTag = statusLabel ? `<span class="mt-ptag ${variant}">${escapeHtml(statusLabel)}</span>` : "";
+  const detailContent = `${wage != null ? `Salário: <b>${fmtBRLShort(wage)}/mês</b>` : ""}${wage != null && durationLabel ? " · " : ""}${durationLabel ? escapeHtml(durationLabel) : ""}`;
+  return `<div class="m3-op-card" data-id="${escapeHtml(String(playerId))}">
+    <div class="m3-op-top">
+      ${badge}
+      <div class="m3-op-info"${clickablePlayer ? ` data-openplayer="${escapeHtml(String(playerId))}"` : ""}>
+        <div class="m3-op-name">${escapeHtml(playerName)}</div>
+        <div class="m3-op-tags">${clubName ? `<span class="m3-op-club">${escapeHtml(clubName)}</span>` : ""}${posChip}${statusTag}</div>
+      </div>
+      ${actionsHTML ? `<div class="m3-op-actions">${actionsHTML}</div>` : ""}
+    </div>
+    ${detailContent ? `<div class="m3-op-detail">${detailContent}</div>` : ""}
+  </div>`;
+}
+// ---------- BRDATA Product Pattern novo: MatchCard (S4-B3-005) ----------
+// Nome: MatchCard
+// Objetivo: representar uma partida — S3_2_COMPONENTES_E_CONTRATOS.md
+//   §24.
+// Responsabilidade: apresentação pura. NÃO calcula resultado nem decide
+//   nada — recebe os dados já calculados (placar, se houver) e monta o
+//   HTML.
+// Entradas: { homeTeam, awayTeam, dateLabel, timeLabel, homeScore,
+//   awayScore, status, statusLabel, competitionLabel, clickableHome,
+//   clickableAway } — homeTeam/awayTeam são objetos de clube (mesmo
+//   shape aceito por crestImg(), campos lidos: id/name/c1/crestUrl
+//   conforme o clube tiver). status ('proxima'|'encerrada'|'andamento'|
+//   'adiada'|'cancelada') decide o que aparece no centro do card:
+//   homeScore/awayScore (quando presentes, ex.: 'encerrada') OU
+//   dateLabel/timeLabel (quando ausentes, ex.: 'proxima'). statusLabel é
+//   o texto livre da tag de status (ex.: "Adiada", "Ao vivo") — omitido
+//   se não fizer sentido pro estado (ex.: 'encerrada' já fica óbvio
+//   pelo placar, não precisa de tag extra). competitionLabel é opcional
+//   (nem toda carreira mostra competição — ver isMulti em
+//   allMarketPlayers()/renderMercado(), mesmo critério de mostrar só
+//   quando há mais de 1 competição na carreira).
+// Saídas/eventos: retorna uma string HTML; nenhum listener embutido —
+//   clickableHome/clickableAway (bool) marcam data-openclub nos 2
+//   lados, quem chama liga o listener (mesmo padrão de TransferCard).
+// Estados: 'proxima'/'andamento'/'encerrada'/'adiada'/'cancelada' —
+//   ver Divergência abaixo: o motor de partidas atual só produz de fato
+//   2 desses 5 (próxima e encerrada); os outros 3 são suportados pelo
+//   componente (não vão quebrar se um dia o motor passar a gerá-los),
+//   mas não têm produtor real hoje.
+// Variações: com/sem placar (decide o que aparece no centro); com/sem
+//   competitionLabel.
+// Responsividade/Acessibilidade: mesmas de TransferCard/ContractCard.
+// Dependências: crestImg(), escapeHtml(), tokens --m3-*, .m3-mc-* (CSS
+//   novo, carreira.html).
+//
+// Divergência registrada (decisão formalizar-vs-construir, com
+// evidência — ver relatório da demanda): NÃO é formalização retroativa.
+// Inspeção encontrou 2 candidatos ad hoc, nenhum adequado sozinho:
+//   1. #nextMatchBox (renderCentral(), Início/Dashboard) — só cobre
+//      "próxima" (escudos+nomes, sem placar/status/competição).
+//   2. .ct-round-result-row — só cobre "encerrada" (2 escudos+placar),
+//      duplicado em 4 lugares diferentes do arquivo (mesma constatação
+//      de N implementações ad hoc do mesmo padrão que motivou os
+//      Product Patterns, agora encontrada de novo, pior que o caso do
+//      TransferCard em S4-B3-001, que tinha só 2 duplicatas).
+// Nenhum dos 2 cobre os 5 estados pedidos pela matriz, e não há
+// candidato único cobrindo o conceito inteiro — construído novo,
+// informado pelos 2 (sem copiar nenhum literalmente), mesmo caminho de
+// TransferCard/ContractCard. Nenhum ponto de uso real nesta demanda
+// (S4-B3-005 é só criação do componente — "Resumo da rodada", que o
+// consumiria de verdade, é demanda futura).
+function matchCardHTML({ homeTeam, awayTeam, dateLabel, timeLabel, homeScore, awayScore, status, statusLabel, competitionLabel, clickableHome, clickableAway }) {
+  const hasScore = homeScore != null && awayScore != null;
+  const centerContent = hasScore
+    ? `<div class="m3-mc-score">${homeScore} <span>x</span> ${awayScore}</div>`
+    : `<div class="m3-mc-when">${dateLabel ? escapeHtml(dateLabel) : ""}${dateLabel && timeLabel ? " · " : ""}${timeLabel ? escapeHtml(timeLabel) : ""}</div>`;
+  const variant = status === "adiada" || status === "cancelada" ? "crimson" : status === "andamento" ? "gold" : "neutral";
+  const statusTag = statusLabel ? `<span class="mt-ptag ${variant}">${escapeHtml(statusLabel)}</span>` : "";
+  const side = (team, clickable) => `<div class="m3-mc-side"${clickable && team?.id != null ? ` data-openclub="${escapeHtml(String(team.id))}"` : ""}>
+    ${crestImg(team, 40)}
+    <span class="m3-mc-name">${escapeHtml(team?.name || "")}</span>
+  </div>`;
+  return `<div class="m3-match-card" data-status="${escapeHtml(status || "")}">
+    ${competitionLabel ? `<div class="m3-mc-comp">${escapeHtml(competitionLabel)}</div>` : ""}
+    <div class="m3-mc-teams">
+      ${side(homeTeam, clickableHome)}
+      <div class="m3-mc-center">${centerContent}${statusTag}</div>
+      ${side(awayTeam, clickableAway)}
+    </div>
   </div>`;
 }
 // Linha da categoria de base (potencial + confiança do olheiro) — igual
@@ -9482,7 +9694,7 @@ function openDetail(id) {
         ? `<p class="mt-info-line" style="text-align:center; border-bottom:none;">📋 Emprestado do ${escapeHtml(teamById(p.loanFromClubId).name)} ${p.loanReturnRound ? `até a rodada ${p.loanReturnRound}` : "até o fim da temporada"}${p.loanBuyOption ? (p.loanBuyOption.mandatory ? ` · compra obrigatória de ${fmtBRL(p.loanBuyOption.value)} ao fim` : ` · opção de compra de ${fmtBRL(p.loanBuyOption.value)} ao fim`) : ""} — só dá pra escalar.</p>`
         : `<button class="mt-btn-danger-outline" data-act="release">Dispensar</button>`}
     </div>
-    ${promoteBlocked ? `<p class="mt-info-line" style="color:var(--mt-crimson-400); border-bottom:none;">⚠️ Promover esse jogador levaria a folha salarial a ${fmtBRL(wageAfterPromote)}, acima do teto de ${fmtBRL(CAREER.finances.wageCap)}.</p>` : ""}`;
+    ${promoteBlocked ? `<p class="mt-info-line" style="color:var(--m3-error); border-bottom:none;">⚠️ Promover esse jogador levaria a folha salarial a ${fmtBRL(wageAfterPromote)}, acima do teto de ${fmtBRL(CAREER.finances.wageCap)}.</p>` : ""}`;
   document.getElementById("detailBody").querySelectorAll("[data-act]").forEach((btn) => {
     btn.addEventListener("click", () => handlePlayerAction(p.id, btn.dataset.act));
   });
@@ -11071,10 +11283,21 @@ const MARKET_ICON = {
    (aceitar o valor pedido ou retirar), sem prazo — não conta como
    "esperando resposta" de novo. */
 const OFFER_WAIT_ROUNDS = 2; // rodadas até o clube vendedor responder
-let OFFER_CTX = null; // { clubId, playerId } enquanto o sheet de nova proposta está aberto
+let OFFER_CTX = null; // { clubId, playerId } enquanto o Dialog de nova proposta está aberto
+let OFFER_DIALOG_ID = null; // id do overlay dinâmico (openM3Dialog), pra fechar depois
 function pendingOfferOutFor(playerId) {
   return (CAREER.pendingOffersOut || []).find((o) => String(o.playerId) === String(playerId));
 }
+// S4-B3-003 — "Fazer proposta" virou um Dialog de verdade
+// (openM3Dialog(), S3-DS20-S4-PREP-001) no lugar do antigo
+// #offerOverlay estático (.ct-modal-overlay fixo no HTML) — ganha foco
+// automático no 1º campo, trap de Tab, fechar com Esc/clique fora e
+// devolução de foco pra quem abriu (mesmo padrão de acessibilidade já
+// usado por openPlayerCard(), único outro ponto de uso do Dialog até
+// aqui). O campo/select/botão são montados no bodyHTML e ligados via
+// listener logo depois de abrir — mesma ideia de openDetail()/
+// handlePlayerAction(), só que agora dentro de um overlay criado em
+// tempo de execução, não um bloco fixo do HTML.
 function openOfferModal(clubId, playerId) {
   if (!transferWindowStatus(CAREER.currentRound).open) {
     toast("Janela de contratações encerrada — não dá pra propor agora.", { type: "warn" });
@@ -11084,19 +11307,46 @@ function openOfferModal(clubId, playerId) {
   const p = leagueSquadFor(clubId).find((x) => x.id === playerId);
   if (!p) return;
   OFFER_CTX = { clubId: String(clubId), playerId };
-  document.getElementById("offerSub").textContent = `${abbreviateName(p.name)} · ${teamById(clubId).name} · valor de mercado ${fmtBRL(p.value)}`;
   // Item 7 da lista de melhorias — "Desconto de Contratação" (boost da
   // Loja, ver applyBoostEffect) só sugere um valor inicial menor; o
   // técnico ainda pode editar a proposta livremente antes de enviar
   // (não existe desconto "garantido" numa negociação que já depende de
   // aceite do outro clube).
   const discountPct = CAREER.nextSigningDiscountPct || 0;
-  document.getElementById("offerValueInput").value = discountPct ? Math.round(p.value * (1 - discountPct / 100)) : p.value;
+  const initialValue = discountPct ? Math.round(p.value * (1 - discountPct / 100)) : p.value;
+  OFFER_DIALOG_ID = openM3Dialog({
+    icon: "💰",
+    title: "Fazer proposta",
+    subtitle: `${abbreviateName(p.name)} · ${teamById(clubId).name} · valor de mercado ${fmtBRL(p.value)}`,
+    bodyHTML: `
+      <div class="mt-field">
+        <label>Sua proposta</label>
+        <input type="number" id="offerValueInput" min="0" step="1000" value="${initialValue}">
+      </div>
+      <div class="mt-field">
+        <label>Parcelamento da taxa</label>
+        <select id="offerInstallmentsSelect" class="mt-select-box">
+          <option value="1">À vista (1x)</option>
+          <option value="2">2x</option>
+          <option value="3">3x</option>
+          <option value="4">4x</option>
+        </select>
+      </div>
+      <p class="mt-card-sub" style="margin-top:10px;">Propor menos que o valor de mercado é possível, mas o clube pode recusar, pedir mais ou demorar pra responder. Você acompanha o andamento em "Minhas propostas".</p>
+      <button type="button" class="mt-btn-primary-gold" id="btnOfferConfirm" style="width:100%; margin-top:14px;">Enviar proposta</button>`,
+  });
   document.getElementById("offerInstallmentsSelect").value = "1";
-  document.getElementById("offerOverlay").classList.add("open");
+  document.getElementById("btnOfferConfirm").addEventListener("click", confirmOfferFromModal);
+  // m3OpenOverlay() por padrão foca o 1º elemento focável (o botão de
+  // fechar, que vem antes no DOM) — aqui o campo de valor é o dado que
+  // o técnico mais provavelmente quer editar primeiro, então focamos
+  // explicitamente nele (agendado num RAF próprio, depois do RAF
+  // interno do overlay, pra não ser sobrescrito).
+  requestAnimationFrame(() => document.getElementById("offerValueInput")?.focus());
 }
 function closeOfferModal() {
-  document.getElementById("offerOverlay").classList.remove("open");
+  if (OFFER_DIALOG_ID) closeM3Overlay(OFFER_DIALOG_ID);
+  OFFER_DIALOG_ID = null;
   OFFER_CTX = null;
 }
 function confirmOfferFromModal() {
@@ -12161,37 +12411,40 @@ function closeTransferHistoryScreen() {
   document.getElementById("transferHistoryOverlay").classList.remove("open");
 }
 
+// S4-B3-003 — cada proposta em "Minhas propostas" agora usa o
+// TransferCard (transferCardHTML(), S4-B3-001) no lugar do antigo
+// .mt-sponsor-proposal-row (reaproveitado de um contexto de
+// patrocínio, sem relação nenhuma com transferência — ver divergência
+// registrada no relatório de S4-B3-001). Sem badge de overall/posição
+// (o registro da proposta não guarda esses dados do jogador) — usa
+// metaText pro texto livre de status da negociação, que é o dado
+// relevante aqui, não valor/salário isolados.
 function myOffersRowHTML(o) {
   if (o.status === "countered") {
-    return `<div class="mt-sponsor-proposal-row">
-      <div>
-        <div class="mt-sponsor-proposal-name">${escapeHtml(abbreviateName(o.playerName))} <span class="mt-badge-gold">Contraproposta</span></div>
-        <div class="mt-sponsor-proposal-detail">${escapeHtml(o.clubName)} pede ${fmtBRL(o.counterValue)} (sua oferta: ${fmtBRL(o.offerValue)})</div>
-      </div>
-      <div style="display:flex; gap:6px; flex-shrink:0;">
-        <button class="mt-btn-ghost" data-withdraw="${o.id}" style="padding:9px 12px;">Retirar</button>
-        <button class="mt-btn-sign" data-acceptcounter="${o.id}">Aceitar</button>
-      </div>
-    </div>`;
+    return transferCardHTML({
+      playerId: o.playerId, playerName: abbreviateName(o.playerName),
+      clubName: o.clubName, clubId: o.clubId,
+      statusLabel: "Contraproposta", statusVariant: "gold",
+      metaText: `${escapeHtml(o.clubName)} pede ${fmtBRL(o.counterValue)} (sua oferta: ${fmtBRL(o.offerValue)})`,
+      actionsHTML: `<button class="mt-btn-ghost" data-withdraw="${o.id}" style="padding:9px 12px;">Retirar</button>
+        <button class="mt-btn-sign" data-acceptcounter="${o.id}">Aceitar</button>`,
+    });
   }
   // Nova feature (Bloco 3, 2/4) — proposta com concorrente real (ver
   // maybeSpawnRivalOffer) ganha um selo + o botão leva pra tela de
   // comparação (openOfferCompareScreen) em vez de aumentar direto —
   // lá o técnico vê os 2 lados antes de decidir se cobre ou não.
-  const rivalBadge = o.rivalOffer ? ` <span class="mt-badge-alert">Concorrência</span>` : "";
   const increaseBtn = o.rivalOffer
     ? `<button class="mt-btn-sign" data-compare="${o.id}">Comparar</button>`
     : `<button class="mt-btn-sign" data-increase="${o.id}" data-value="${Math.round(o.marketValue)}">Aumentar</button>`;
-  return `<div class="mt-sponsor-proposal-row">
-    <div>
-      <div class="mt-sponsor-proposal-name">${escapeHtml(abbreviateName(o.playerName))}${rivalBadge}</div>
-      <div class="mt-sponsor-proposal-detail">${escapeHtml(o.clubName)} · sua oferta ${fmtBRL(o.offerValue)} de ${fmtBRL(o.marketValue)} · aguardando resposta (${o.roundsLeft} rodada${o.roundsLeft === 1 ? "" : "s"})</div>
-    </div>
-    <div style="display:flex; gap:6px; flex-shrink:0;">
-      <button class="mt-btn-ghost" data-withdraw="${o.id}" style="padding:9px 12px;">Retirar</button>
-      ${increaseBtn}
-    </div>
-  </div>`;
+  return transferCardHTML({
+    playerId: o.playerId, playerName: abbreviateName(o.playerName),
+    clubName: o.clubName, clubId: o.clubId,
+    statusLabel: o.rivalOffer ? "Concorrência" : null, statusVariant: "crimson",
+    metaText: `${escapeHtml(o.clubName)} · sua oferta ${fmtBRL(o.offerValue)} de ${fmtBRL(o.marketValue)} · aguardando resposta (${o.roundsLeft} rodada${o.roundsLeft === 1 ? "" : "s"})`,
+    actionsHTML: `<button class="mt-btn-ghost" data-withdraw="${o.id}" style="padding:9px 12px;">Retirar</button>
+      ${increaseBtn}`,
+  });
 }
 function renderMyOffersScreen() {
   const list = CAREER.pendingOffersOut || [];
@@ -12387,51 +12640,38 @@ function renderMercado() {
   document.getElementById("marketResultCount").textContent = list.length
     ? `Mostrando ${capped.length} de ${list.length} jogador${list.length === 1 ? "" : "es"}.`
     : "";
-  // AJUSTE (refatoração completa, Tela 10 — ver
-  // 10-mercado-de-transferencias-restyled.html do designer) — badge de
-  // OVR (mesma faixa de cor do Elenco/Detalhe) + chip de posição
-  // colorido (mesmo mapeamento do banco, Tela 6) em cima; salário/valor
-  // + botões embaixo, alinhados com o badge (padding-left). Ação muda
-  // pra "Vender" quando é jogador do SEU elenco (ver "mine" em
-  // allMarketPlayers).
-  // AJUSTE (pedido do usuário, "Opção B" do mockup de comparação —
-  // ver mercado-row-opcoes.html) — ações saem da própria linha embaixo
-  // (peso visual grande, fundo dourado com brilho no botão comprar) e
-  // sobem pra um canto discreto ao lado do nome (.mt-market-actions-corner,
-  // ícone sem contorno nem preenchimento, só a cor diferencia a ação);
-  // salário/valor ganham a linha de baixo inteira, sozinhos.
+  // S4-B3-002 — cada oportunidade de mercado agora usa o TransferCard
+  // (transferCardHTML(), S4-B3-001) em vez do antigo .mt-market-row ad
+  // hoc — mesma informação (badge de OVR, nome/clube clicáveis, chip de
+  // posição, selo de divisão numa carreira "multi", ações em ícone no
+  // canto, salário+valor na linha de detalhe), só que via componente
+  // nomeado/documentado. Ação muda pra "Vender" quando é jogador do SEU
+  // elenco (ver "mine" em allMarketPlayers) — mesma regra de sempre, só
+  // o HTML das ações é montado aqui e passado como actionsHTML.
   const rows = capped.map(({ p, club, mine }) => {
     const subpos = subPositionOf(p);
     // AJUSTE (pedido do usuário: "o mercado deve trazer jogadores das
     // 3 ligas") — selo de divisão só numa carreira "multi" (numa
     // "single" todo mundo é sempre da mesma competição, o selo não
-    // diria nada de novo) — mesmo estilo de pílula do chip de posição
-    // ao lado, cor neutra (não é uma das cores semânticas do jogo).
-    const compTag = isMulti
-      ? `<span class="mt-pos-chip" style="background:rgba(143,163,191,.14); color:var(--mt-ink-muted); border:1px solid rgba(143,163,191,.3);">${escapeHtml(COMPETITION_SHORT[club.competitionId] || club.competitionId || "")}</span>`
-      : "";
-    return `<div class="mt-market-row">
-    <div class="mt-market-top">
-      <div class="mt-ovr-badge ${ovrTierClass(p.overall)}">${p.overall}</div>
-      <div class="mt-market-info" data-openplayer="${p.id}" data-club="${escapeHtml(String(club.id))}">
-        <div class="mt-market-name">${escapeHtml(abbreviateName(p.name))}</div>
-        <div class="mt-market-tags"><span class="mt-market-club" data-openclub="${escapeHtml(String(club.id))}">${escapeHtml(club.short || club.name)}</span><span class="mt-pos-chip ${SUBPOS_DIVCLASS[subpos]}">${subpos}</span>${compTag}</div>
-      </div>
-      <div class="mt-market-actions-corner">
-        ${mine
-          ? (listingFor(p.id)
-              ? `<button class="mt-btn-loan" data-viewlisting="${p.id}" aria-label="Anúncio em andamento" title="À venda — ver em Minhas vendas">${MARKET_ICON.pendente}</button>
-                 <button class="mt-btn-loan" data-loanout="${p.id}" aria-label="Emprestar" ${loanOutBtnAttrs(p, mktWindow) || `title="Emprestar"`}>${MARKET_ICON.emprestimo}</button>`
-              : `<button class="mt-btn-sell" data-list="${p.id}" aria-label="Colocar à venda" title="Colocar à venda">${MARKET_ICON.saida}</button>
-                 <button class="mt-btn-loan" data-loanout="${p.id}" aria-label="Emprestar" ${loanOutBtnAttrs(p, mktWindow) || `title="Emprestar"`}>${MARKET_ICON.emprestimo}</button>`)
-          : pendingOfferOutFor(p.id)
-            ? `<button class="mt-btn-loan" data-viewoffer="${p.id}" aria-label="Proposta enviada" title="Proposta enviada — ver em Minhas propostas">${MARKET_ICON.pendente}</button>`
-            : `<button class="mt-btn-buy" data-buy="${p.id}" data-club="${escapeHtml(String(club.id))}" aria-label="Propor" ${mktWindow.open ? `title="Fazer proposta"` : `disabled title="Janela de contratações encerrada"`}>${MARKET_ICON.entrada}</button>
-               <button class="mt-btn-loan" data-loanin="${p.id}" data-club="${escapeHtml(String(club.id))}" aria-label="Pegar emprestado" ${loanOutBtnAttrs(p, mktWindow) || `title="Pegar emprestado"`}>${MARKET_ICON.emprestimo}</button>`}
-      </div>
-    </div>
-    <div class="mt-market-detail">Salário: <b>${fmtBRLShort(p.wage)}/mês</b> · Valor: <b>${fmtBRLShort(p.value)}</b></div>
-  </div>`;
+    // diria nada de novo) — usa o slot statusLabel do TransferCard
+    // (variant "neutral", mesma cor neutra de antes).
+    const compTag = isMulti ? (COMPETITION_SHORT[club.competitionId] || club.competitionId || "") : null;
+    const actionsHTML = mine
+      ? (listingFor(p.id)
+          ? `<button class="mt-btn-loan" data-viewlisting="${p.id}" aria-label="Anúncio em andamento" title="À venda — ver em Minhas vendas">${MARKET_ICON.pendente}</button>
+             <button class="mt-btn-loan" data-loanout="${p.id}" aria-label="Emprestar" ${loanOutBtnAttrs(p, mktWindow) || `title="Emprestar"`}>${MARKET_ICON.emprestimo}</button>`
+          : `<button class="mt-btn-sell" data-list="${p.id}" aria-label="Colocar à venda" title="Colocar à venda">${MARKET_ICON.saida}</button>
+             <button class="mt-btn-loan" data-loanout="${p.id}" aria-label="Emprestar" ${loanOutBtnAttrs(p, mktWindow) || `title="Emprestar"`}>${MARKET_ICON.emprestimo}</button>`)
+      : pendingOfferOutFor(p.id)
+        ? `<button class="mt-btn-loan" data-viewoffer="${p.id}" aria-label="Proposta enviada" title="Proposta enviada — ver em Minhas propostas">${MARKET_ICON.pendente}</button>`
+        : `<button class="mt-btn-buy" data-buy="${p.id}" data-club="${escapeHtml(String(club.id))}" aria-label="Propor" ${mktWindow.open ? `title="Fazer proposta"` : `disabled title="Janela de contratações encerrada"`}>${MARKET_ICON.entrada}</button>
+           <button class="mt-btn-loan" data-loanin="${p.id}" data-club="${escapeHtml(String(club.id))}" aria-label="Pegar emprestado" ${loanOutBtnAttrs(p, mktWindow) || `title="Pegar emprestado"`}>${MARKET_ICON.emprestimo}</button>`;
+    return transferCardHTML({
+      playerId: p.id, playerName: abbreviateName(p.name), overall: p.overall, position: subpos,
+      clubName: club.short || club.name, clubId: club.id, value: p.value, wage: p.wage,
+      statusLabel: compTag, statusVariant: "neutral",
+      actionsHTML, clickablePlayer: true, clickableClub: true,
+    });
   }).join("");
   document.getElementById("marketList").innerHTML = rows || `<p class="ct-empty">Nenhum jogador encontrado.</p>`;
   // Nova feature (Bloco 3) — "Comprar" virou "Fazer proposta"
@@ -13877,12 +14117,13 @@ function wireStaticListeners() {
   document.getElementById("loanBuyClauseSelect").addEventListener("change", (e) => {
     document.getElementById("loanBuyValueField").classList.toggle("hidden", e.target.value === "nenhuma");
   });
-  // Nova feature (Bloco 3) — sheet de "Fazer proposta" e tela "Minhas
-  // propostas", mesmo padrão de fechamento das outras (X e clique fora
-  // fecham sem enviar/mudar nada).
-  document.getElementById("offerClose").addEventListener("click", closeOfferModal);
-  document.getElementById("offerOverlay").addEventListener("click", (e) => { if (e.target.id === "offerOverlay") closeOfferModal(); });
-  document.getElementById("btnOfferConfirm").addEventListener("click", confirmOfferFromModal);
+  // Nova feature (Bloco 3) — tela "Minhas propostas", mesmo padrão de
+  // fechamento das outras (X e clique fora fecham sem enviar/mudar
+  // nada). "Fazer proposta" (S4-B3-003) virou Dialog dinâmico
+  // (openM3Dialog) — X/Esc/clique fora/wiring do botão de confirmar
+  // são responsabilidade de m3OpenOverlay()/openOfferModal(), não
+  // precisam de listener fixo aqui (não existe mais #offerOverlay
+  // estático no HTML).
   document.getElementById("btnOpenMyOffers").addEventListener("click", openMyOffersScreen);
   document.getElementById("myOffersClose").addEventListener("click", closeMyOffersScreen);
   document.getElementById("btnMyOffersCloseFooter").addEventListener("click", closeMyOffersScreen);

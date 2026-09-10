@@ -759,1034 +759,6 @@ apontar pra este registro assim que esta atualização for commitada.
 
 ⸻
 
-S4-B2-001 — Migrar tela Loading/Bootstrap para o Design System novo
-
-Status: APROVADO
-Sprint: S4 — Redesign Mobile
-Fase: Batch 2 (Core) — item 1 de 5
-Prioridade: P0
-
-Nota de auditoria (S4-AUDIT-BACKLOG-001, 10/09/2026): implementada.
-Branch `claude/s4-b2-001-loading` (commit `6267fc6`), 1 commit à
-frente de `main`, sem PR aberto. Resultado proposto: APROVADO.
-Relatório completo no comentário do PM em
-https://github.com/muriloalmeida-alt/FitOS/issues/12#issuecomment-5609991100.
-
-Decisão do PM (Murilo, 10/09/2026): APROVADO. Commit final (merge de
-`claude/s4-b2-001-loading` em `main`) formalmente autorizado pela
-governança — execução pendente: esta sessão está sob restrição do
-usuário de não mexer em código até nova exceção explícita (mesmo
-tratamento dado a `S3-DS20-S4-PREP-001`).
-
-Objetivo
-
-Migrar a tela de carregamento inicial do produto (Loading/Bootstrap)
-para o sistema de Design System novo, conforme
-`docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 2): representar o
-carregamento inicial diferenciando claramente carregamento, erro e
-conclusão, usando o componente Skeleton onde apropriado.
-
-Contexto
-
-Com `S3-DS20-S4-PREP-001` aprovada e concluída, a fundação de
-tokens/nomenclatura e os 3 componentes P0 que faltavam (Dialog, Bottom
-Sheet, Skeleton) já existem. A Readiness Review (S3.2.7) tinha
-identificado Loading/Bootstrap como uma das 9 telas P0 ainda fora do
-sistema novo, e o relatório da PREP-001 registrou explicitamente que o
-Skeleton ficou pronto mas sem uso real ainda, por falta de uma tela com
-carregamento assíncrono de verdade dentro do escopo daquela demanda —
-esta é exatamente essa primeira oportunidade real.
-
-É a primeira tela do Batch 2 a ser retomada (as outras 2 do Batch 2 já
-migradas — Escolha do clube e Início/Elenco — foram feitas antes da
-S3.2.7; as 3 restantes depois desta — Perfil do jogador, Tática,
-Treino — ficam para demandas seguintes, Perfil do jogador só depois de
-`S3-DS20-S4-PREP-002`, que formaliza o componente de jogador que ela
-usa).
-
-Escolhida como primeira por ser a mais simples e independente das 5
-telas restantes do Batch 2: sem dependência do componente PlayerCard
-(ainda não formalizado, ver `S3-DS20-S4-PREP-002`), sem formulário,
-sem regra de negócio própria — só apresentação de estado.
-
-Problema
-
-A tela de carregamento hoje está fora do sistema de Design System
-novo. Sem diferenciação clara entre carregamento/erro/conclusão
-usando os padrões definidos, a primeira impressão do produto (é
-literalmente a primeira tela que o usuário vê) fica inconsistente com
-o resto do redesign mobile que já está em produção.
-
-Escopo
-
-Chapéu implementador deve, quando retomar esta demanda:
-
-1. Inspecionar a implementação atual da tela de carregamento antes de
-   alterar qualquer coisa (regra de ouro de sempre — entender o que já
-   existe, reaproveitar, só então estender).
-2. Migrar a apresentação visual para os tokens do Design System novo.
-3. Usar o componente Skeleton (entregue na `S3-DS20-S4-PREP-001`) para
-   representar o carregamento, no lugar do indicador genérico atual,
-   quando fizer sentido pro tipo de conteúdo sendo carregado.
-4. Garantir que os 3 estados (carregamento, erro, conclusão) continuam
-   todos cobertos e claramente diferenciados.
-5. Preservar o comportamento funcional (o que a tela faz, quando
-   aparece, pra onde leva) — este é um redesign visual/de apresentação,
-   não uma mudança de fluxo.
-6. Testar (mobile-first, mesmo padrão das demandas anteriores).
-7. Atualizar `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`
-   marcando esta tela como migrada.
-8. Retornar relatório técnico nesta mesma seção do handoff, status
-   `REVISÃO DO PM NECESSÁRIA`.
-
-Fora de escopo
-
-* qualquer outra das 5 telas do Batch 2 (Perfil do jogador, Tática,
-  Treino, Login) — demandas próprias;
-* qualquer mudança de fluxo, regra de negócio, ou de quando/por que a
-  tela de carregamento aparece;
-* os componentes Dialog/Bottom Sheet — não são relevantes pra esta
-  tela;
-* qualquer gap P1/P2 não relacionado a esta tela específica.
-
-Dependências
-
-* `S3-DS20-S4-PREP-001` (aprovada, concluída — fundação de tokens e
-  componente Skeleton disponíveis).
-* `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 2 — objetivo e
-  requisitos).
-* `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`.
-
-Requisitos
-
-Mesma sequência obrigatória de sempre: inspecionar → localizar →
-entender → planejar → alterar → testar → revisar. Mudança mínima
-necessária — não reconstruir a tela do zero.
-
-Critérios de aceite
-
-* tela usa os tokens do Design System novo;
-* Skeleton usado onde apropriado pro carregamento;
-* os 3 estados (carregamento/erro/conclusão) continuam claros e
-  diferenciados;
-* nenhuma mudança de comportamento/fluxo;
-* nenhuma outra tela tocada;
-* teste mobile-first cobrindo a tela.
-
-Validações
-
-O PM deverá validar: aderência ao Design System, os 3 estados
-continuam cobertos, uso apropriado do Skeleton, preservação funcional,
-teste, escopo respeitado.
-
-Riscos
-
-* baixo — tela pequena, sem regra de negócio própria, sem dependência
-  de componentes ainda não entregues.
-
-Observações
-
-Continuação natural do Batch 2 depois da fundação entregue em
-`S3-DS20-S4-PREP-001`. Ordem recomendada das próximas telas do Batch 2
-(fora desta demanda): Login (independente), depois Tática/Treino, com
-Perfil do jogador por último (depende de `S3-DS20-S4-PREP-002`).
-
-⸻
-
-S4-B2-002 — Migrar tela Login/Entrada para o Design System novo
-
-Status: APROVADO
-Sprint: S4 — Redesign Mobile
-Fase: Batch 2 (Core) — item 2 de 5
-Prioridade: P0
-
-Nota de auditoria (S4-AUDIT-BACKLOG-001, 10/09/2026): implementada
-(nenhuma mudança de código — tela já estava 100% migrada, achado de
-inspeção). Branch `claude/s4-b2-002-login` (commit `7fcb3a7`), 1
-commit à frente de `main`, sem PR aberto. Resultado proposto:
-APROVADO. Relatório completo em
-https://github.com/muriloalmeida-alt/FitOS/issues/13#issuecomment-5610031121.
-
-Decisão do PM (Murilo, 10/09/2026): APROVADO. Commit final (merge de
-`claude/s4-b2-002-login` em `main`) formalmente autorizado pela
-governança — execução pendente: esta sessão está sob restrição do
-usuário de não mexer em código até nova exceção explícita.
-
-Objetivo
-
-Migrar a tela de entrada do usuário no produto para o Design System
-novo, conforme `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela
-1): apresentar identidade BRDATA, hierarquia visual clara, entrada sem
-fricção, feedback de erro, estados de loading, e funcionar bem em
-mobile. Estados exigidos: default, loading, erro, sucesso.
-
-Contexto
-
-Segunda tela retomada do Batch 2, depois de `S4-B2-001` (Loading/
-Bootstrap). A S3.2.7 Readiness Review identificou Login como uma das 9
-telas P0 ainda fora do sistema novo.
-
-Escolhida como segunda por ser, como a de Loading, independente do
-componente PlayerCard (ainda não formalizado, ver
-`S3-DS20-S4-PREP-002`) e sem regra de negócio de jogo — é uma tela de
-autenticação, não de carreira.
-
-Atenção específica desta demanda: a tela de Login pode ser compartilhada
-com outras partes do produto além do Modo Técnico (o site principal
-também tem fluxo de entrada de usuário). Chapéu implementador deve
-confirmar, na inspeção inicial, se a tela é exclusiva do Modo Técnico
-ou compartilhada — se for compartilhada, migrar sem afetar o
-comportamento/visual de qualquer outra parte do produto que dependa
-dela é requisito obrigatório, não opcional, e deve ser tratado com o
-mesmo cuidado do princípio de preservação funcional do CLAUDE.md.
-
-Escopo
-
-Chapéu implementador deve, quando retomar esta demanda:
-
-1. Inspecionar a implementação atual da tela de Login antes de alterar
-   qualquer coisa, incluindo confirmar o escopo de compartilhamento
-   citado acima.
-2. Migrar a apresentação visual para os tokens do Design System novo.
-3. Garantir que os 4 estados (default, loading, erro, sucesso)
-   continuam todos cobertos e claramente diferenciados.
-4. Usar os componentes já disponíveis (Dialog, Bottom Sheet, Skeleton)
-   se a tela precisar de algum overlay ou carregamento — não criar
-   nada novo em paralelo.
-5. Preservar o comportamento funcional (fluxo de autenticação,
-   validações, mensagens de erro) — redesign visual, não mudança de
-   fluxo.
-6. Testar (mobile-first, mesmo padrão das demandas anteriores).
-7. Atualizar `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`
-   marcando esta tela como migrada.
-8. Retornar relatório técnico nesta mesma seção do handoff, status
-   `REVISÃO DO PM NECESSÁRIA`.
-
-Fora de escopo
-
-* qualquer outra das telas do Batch 2 (Tática, Treino, Perfil do
-  jogador);
-* qualquer mudança de fluxo de autenticação, regra de validação, ou
-  de segurança;
-* qualquer alteração em telas fora do Modo Técnico, se a tela de Login
-  for de fato compartilhada — nesse caso, se uma migração completa
-  exigir tocar nelas, a divergência deve ser registrada e devolvida ao
-  PM antes de prosseguir, não decidida unilateralmente;
-* gaps P1/P2 não relacionados a esta tela específica.
-
-Dependências
-
-* `S3-DS20-S4-PREP-001` (aprovada, concluída — fundação de tokens e
-  componentes disponíveis).
-* `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 1 — objetivo e
-  requisitos).
-* `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`.
-
-Requisitos
-
-Mesma sequência obrigatória de sempre: inspecionar → localizar →
-entender → planejar → alterar → testar → revisar. Mudança mínima
-necessária.
-
-Critérios de aceite
-
-* tela usa os tokens do Design System novo;
-* os 4 estados (default/loading/erro/sucesso) continuam claros e
-  diferenciados;
-* nenhuma mudança de fluxo de autenticação;
-* nenhuma tela fora do Modo Técnico afetada (ou, se compartilhada,
-  divergência registrada e decisão do PM obtida antes de prosseguir);
-* nenhuma outra tela do Modo Técnico tocada;
-* teste mobile-first cobrindo a tela, incluindo os 4 estados.
-
-Validações
-
-O PM deverá validar: aderência ao Design System, os 4 estados
-continuam cobertos, preservação funcional do fluxo de autenticação,
-confirmação do escopo de compartilhamento (ou tratamento correto se
-compartilhada), teste, escopo respeitado.
-
-Riscos
-
-* médio — ao contrário de Loading/Bootstrap, esta tela pode ser
-  compartilhada com outras partes do produto; risco baixo se for
-  exclusiva do Modo Técnico, mas precisa ser confirmado antes de
-  migrar, não presumido.
-
-Observações
-
-Terceira e quarta telas recomendadas do Batch 2, depois desta: Tática
-e Treino. Perfil do jogador continua por último, dependente de
-`S3-DS20-S4-PREP-002`.
-
-⸻
-
-S4-B2-003 — Migrar tela Tática/Formação para o Design System novo
-
-Status: APROVADO
-Sprint: S4 — Redesign Mobile
-Fase: Batch 2 (Core) — item 3 de 5
-
-Nota de auditoria (S4-AUDIT-BACKLOG-001, 10/09/2026): parcialmente
-implementada. Branch `claude/s4-b2-003-tatica` (commit `f92a339`), 1
-commit à frente de `main`, sem PR aberto. Resultado proposto:
-ADJUSTMENTS REQUIRED — 2 divergências registradas aguardando decisão
-do PM (unificar `.mt-bench-row` com PlayerCard ou manter padrão
-próprio; classificar tipografia Rajdhani do campinho/banco como
-BRDATA Extension ou migrar). Relatório completo em
-https://github.com/muriloalmeida-alt/FitOS/issues/14#issuecomment-5610156648.
-
-Decisão do PM (Murilo, 10/09/2026): resolvidas as 2 divergências.
-1. `.mt-bench-row` mantido como padrão próprio, documentado
-   deliberadamente (não unificar com PlayerCard) — reconhece o banco
-   de reservas como um contexto de uso genuinamente diferente (linha
-   densa dentro do campinho, não um cartão navegável), não uma
-   duplicação acidental.
-2. Tipografia `Rajdhani` do campinho/banco classificada como
-   **BRDATA Extension** (seção 3.3 de
-   `docs/sprints/S3/S3_DS20_FUNDACAO_EXECUTAVEL.md`) — mesma lógica já
-   usada pro `Bebas Neue` nos escudos: identidade visual deliberada de
-   "placar de estádio" em telas com esse contexto, não uma
-   inconsistência a corrigir. Não precisa migrar pra `--m3-display`.
-
-APROVADO. Commit final (merge de `claude/s4-b2-003-tatica` em `main`)
-formalmente autorizado pela governança — execução pendente: esta
-sessão está sob restrição do usuário de não mexer em código até nova
-exceção explícita.
-Prioridade: P0
-
-Objetivo
-
-Migrar a tela de configuração de formação e escalação para o Design
-System novo, conforme `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md`
-(Tela 9): contemplar formação, titulares, reservas, posições,
-alterações e confirmação, com a representação do campo adaptada ao
-mobile.
-
-Contexto
-
-Terceira tela retomada do Batch 2, depois de `S4-B2-001` (Loading/
-Bootstrap) e `S4-B2-002` (Login/Entrada). A S3.2.7 Readiness Review
-identificou Tática/Formação como uma das 9 telas P0 ainda fora do
-sistema novo.
-
-Diferente das duas anteriores, esta tela é interativa e mais complexa
-(escolha de formação, posicionamento de jogadores em campo,
-titulares/reservas) — não presumo aqui o nível de dependência dela em
-relação ao componente PlayerCard (`S3-DS20-S4-PREP-002`, ainda não
-implementado): a matriz cita "titulares; reservas; posições", o que
-sugere alguma forma de lista/seleção de jogador dentro da tela, mas
-isso precisa ser confirmado na inspeção, não presumido aqui — chapéu
-PM não inspeciona código. Se a inspeção confirmar dependência real do
-componente de jogador, isso é uma divergência a registrar e devolver
-ao PM antes de prosseguir (mesma regra da tela de Login em relação a
-telas compartilhadas), não uma decisão unilateral do implementador.
-
-Escopo
-
-Chapéu implementador deve, quando retomar esta demanda:
-
-1. Inspecionar a implementação atual da tela de Tática/Formação antes
-   de alterar qualquer coisa, incluindo avaliar e reportar a
-   dependência real (ou não) do componente PlayerCard.
-2. Migrar a apresentação visual para os tokens do Design System novo,
-   incluindo a representação do campo adaptada ao mobile.
-3. Garantir que formação, titulares, reservas, posições, alterações e
-   confirmação continuam todos funcionando.
-4. Usar os componentes já disponíveis (Dialog, Bottom Sheet, Skeleton)
-   onde a tela precisar de overlay/carregamento — não criar nada novo
-   em paralelo.
-5. Preservar o comportamento funcional (regras de escalação, validação
-   de posições, etc.) — redesign visual, não mudança de regra de jogo.
-6. Testar (mobile-first, mesmo padrão das demandas anteriores),
-   cobrindo interação com a representação do campo.
-7. Atualizar `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`
-   marcando esta tela como migrada.
-8. Retornar relatório técnico nesta mesma seção do handoff, status
-   `REVISÃO DO PM NECESSÁRIA`.
-
-Fora de escopo
-
-* qualquer outra das telas do Batch 2 (Treino, Perfil do jogador);
-* as 3 telas P1 relacionadas — Eixos táticos, Marcação individual,
-  Meus esquemas (`S3_S4_MATRIZ_TELAS_MOBILE.md` Telas 10-12) — são
-  Batch 4 (Complementary), não fazem parte desta demanda mesmo sendo
-  conceitualmente próximas;
-* qualquer mudança de regra de jogo (força por formação, cálculo
-  tático, validação de escalação);
-* se a inspeção confirmar dependência real do PlayerCard: implementar
-  a migração completa dessa dependência não é desta demanda — registrar
-  e devolver ao PM (pode virar ordem de execução revisada: esta tela
-  esperar `S3-DS20-S4-PREP-002`, como já vale para Perfil do jogador);
-* gaps P1/P2 não relacionados a esta tela específica.
-
-Dependências
-
-* `S3-DS20-S4-PREP-001` (aprovada, concluída — fundação de tokens e
-  componentes disponíveis).
-* `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 9 — objetivo e
-  requisitos).
-* `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`.
-* Possível dependência de `S3-DS20-S4-PREP-002` — a confirmar na
-  inspeção (ver Contexto acima), não presumida.
-
-Requisitos
-
-Mesma sequência obrigatória de sempre: inspecionar → localizar →
-entender → planejar → alterar → testar → revisar. Mudança mínima
-necessária. Dado o risco de escopo maior que as duas telas anteriores,
-se a inspeção revelar que o trabalho é significativamente maior que o
-esperado (ex.: reconstrução da representação de campo, não só
-retoken), isso também é uma divergência a reportar, não a absorver
-silenciosamente.
-
-Critérios de aceite
-
-* tela usa os tokens do Design System novo, incluindo a representação
-  do campo;
-* formação, titulares, reservas, posições, alterações e confirmação
-  continuam todos funcionando;
-* nenhuma mudança de regra de jogo;
-* dependência (ou não) do PlayerCard confirmada e reportada;
-* nenhuma outra tela tocada;
-* teste mobile-first cobrindo a tela e a interação com o campo.
-
-Validações
-
-O PM deverá validar: aderência ao Design System, preservação de todas
-as funcionalidades de escalação, confirmação da dependência (ou não)
-do PlayerCard, teste, escopo respeitado.
-
-Riscos
-
-* médio-alto — tela interativa e mais complexa que as duas anteriores
-  do Batch 2; possível dependência não confirmada do componente
-  PlayerCard; representação do campo pode exigir mais esforço de
-  adaptação mobile do que uma migração de tokens simples.
-
-Observações
-
-Última tela recomendada do Batch 2 antes de Perfil do jogador: Treino
-(mesma cautela sobre dependências deve ser aplicada, a confirmar
-quando essa demanda for especificada).
-
-⸻
-
-S4-B2-004 — Migrar tela Treino para o Design System novo
-
-Status: APROVADO
-Sprint: S4 — Redesign Mobile
-Fase: Batch 2 (Core) — item 4 de 5
-Prioridade: P0
-
-Nota de auditoria (S4-AUDIT-BACKLOG-001, 10/09/2026): implementada.
-Branch `claude/s4-b2-004-treino` (commit `6bf1467`), 1 commit à frente
-de `main`, sem PR aberto. Resultado proposto: APROVADO. Relatório
-completo em
-https://github.com/muriloalmeida-alt/FitOS/issues/15#issuecomment-5611875336.
-
-Decisão do PM (Murilo, 10/09/2026): APROVADO. Commit final (merge de
-`claude/s4-b2-004-treino` em `main`) formalmente autorizado pela
-governança — execução pendente: esta sessão está sob restrição do
-usuário de não mexer em código até nova exceção explícita.
-
-Objetivo
-
-Migrar a tela de gerenciamento do treinamento para o Design System
-novo, conforme `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela
-13): apresentar treino atual, opções, impacto esperado, condição dos
-jogadores e confirmação, com a informação organizada para leitura
-rápida.
-
-Contexto
-
-Quarta e última tela do Batch 2 antes de Perfil do jogador (que segue
-por último, dependente de `S3-DS20-S4-PREP-002`). A S3.2.7 Readiness
-Review identificou Treino como uma das 9 telas P0 ainda fora do
-sistema novo.
-
-Mesma cautela de `S4-B2-003` (Tática/Formação) se aplica aqui: a
-matriz cita "condição dos jogadores" entre o que a tela deve
-apresentar, o que sugere alguma forma de lista/exibição de jogador —
-possível dependência do componente PlayerCard (`S3-DS20-S4-PREP-002`,
-ainda não implementado) que não presumo aqui e precisa ser confirmada
-na inspeção, não decidida unilateralmente.
-
-Escopo
-
-Chapéu implementador deve, quando retomar esta demanda:
-
-1. Inspecionar a implementação atual da tela de Treino antes de
-   alterar qualquer coisa, incluindo avaliar e reportar a dependência
-   real (ou não) do componente PlayerCard.
-2. Migrar a apresentação visual para os tokens do Design System novo.
-3. Garantir que treino atual, opções, impacto esperado, condição dos
-   jogadores e confirmação continuam todos funcionando.
-4. Usar os componentes já disponíveis (Dialog, Bottom Sheet, Skeleton)
-   onde a tela precisar de overlay/carregamento — não criar nada novo
-   em paralelo.
-5. Preservar o comportamento funcional (regras de treinamento, cálculo
-   de impacto, evolução) — redesign visual, não mudança de regra de
-   jogo.
-6. Testar (mobile-first, mesmo padrão das demandas anteriores).
-7. Atualizar `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`
-   marcando esta tela como migrada e o Batch 2 como completo (exceto
-   Perfil do jogador).
-8. Retornar relatório técnico nesta mesma seção do handoff, status
-   `REVISÃO DO PM NECESSÁRIA`.
-
-Fora de escopo
-
-* Perfil do jogador (última tela do Batch 2, demanda própria,
-  dependente de `S3-DS20-S4-PREP-002`);
-* qualquer mudança de regra de treinamento, fórmula de impacto ou
-  evolução de jogador;
-* se a inspeção confirmar dependência real do PlayerCard: implementar
-  essa dependência não é desta demanda — registrar e devolver ao PM;
-* gaps P1/P2 não relacionados a esta tela específica.
-
-Dependências
-
-* `S3-DS20-S4-PREP-001` (aprovada, concluída — fundação de tokens e
-  componentes disponíveis).
-* `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 13 — objetivo e
-  requisitos).
-* `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`.
-* Possível dependência de `S3-DS20-S4-PREP-002` — a confirmar na
-  inspeção (ver Contexto acima), não presumida.
-
-Requisitos
-
-Mesma sequência obrigatória de sempre: inspecionar → localizar →
-entender → planejar → alterar → testar → revisar. Mudança mínima
-necessária. Mesma regra de `S4-B2-003`: se a inspeção revelar escopo
-significativamente maior que o esperado, reportar como divergência,
-não absorver silenciosamente.
-
-Critérios de aceite
-
-* tela usa os tokens do Design System novo;
-* treino atual, opções, impacto esperado, condição dos jogadores e
-  confirmação continuam todos funcionando;
-* nenhuma mudança de regra de treinamento/evolução;
-* dependência (ou não) do PlayerCard confirmada e reportada;
-* nenhuma outra tela tocada;
-* teste mobile-first cobrindo a tela.
-
-Validações
-
-O PM deverá validar: aderência ao Design System, preservação de todas
-as funcionalidades de treinamento, confirmação da dependência (ou não)
-do PlayerCard, teste, escopo respeitado.
-
-Riscos
-
-* médio — mesma incerteza de dependência do PlayerCard que
-  `S4-B2-003`, mas sem o componente de interação visual complexa
-  (representação de campo) que eleva o risco daquela tela.
-
-Observações
-
-Com esta demanda especificada, o Batch 2 (Core) fica totalmente
-coberto exceto Perfil do jogador — que aguarda
-`S3-DS20-S4-PREP-002` (formalização do PlayerCard) antes de virar
-demanda própria, por já ter dependência confirmada (não hipotética)
-desse componente.
-
-⸻
-
-S4-B2-005 — Migrar tela Perfil do jogador para o Design System novo
-
-Status: APROVADO
-Sprint: S4 — Redesign Mobile
-Fase: Batch 2 (Core) — item 5 de 5 (último)
-
-Nota de auditoria (S4-AUDIT-BACKLOG-001, 10/09/2026): implementada.
-Branch `claude/s4-b2-005-perfil` (commit `13c0991`), 1 commit à frente
-de `main`, sem PR aberto. Resultado proposto: APROVADO. Com esta, as 5
-demandas do Batch 2 (Core) estão tecnicamente prontas — só faltam
-aprovação/merge. Relatório completo em
-https://github.com/muriloalmeida-alt/FitOS/issues/16#issuecomment-5611971572.
-
-Decisão do PM (Murilo, 10/09/2026): APROVADO. Commit final (merge de
-`claude/s4-b2-005-perfil` em `main`) formalmente autorizado pela
-governança — execução pendente: esta sessão está sob restrição do
-usuário de não mexer em código até nova exceção explícita.
-Prioridade: P0
-
-Objetivo
-
-Migrar a tela de perfil detalhado do jogador para o Design System
-novo, conforme `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela
-7): apresentar nome, posição, overall, atributos, idade, clube,
-contrato, salário, evolução e status, priorizando as informações mais
-importantes.
-
-Contexto
-
-Quinta e última tela do Batch 2. Bloqueada até agora pela dependência
-confirmada do componente PlayerCard — `S3-DS20-S4-PREP-002` está
-**aprovada e concluída** (Histórico deste handoff), então esta
-dependência está resolvida e a demanda pode ser especificada.
-
-A S3.2.7 Readiness Review identificou Perfil do jogador como uma das 9
-telas P0 ainda fora do sistema novo.
-
-Nota de escopo herdada do relatório de `S3-DS20-S4-PREP-002`: a
-formalização do PlayerCard encontrou e registrou uma divergência entre
-a especificação original e os pontos de uso reais do componente — o
-relatório daquela demanda (no Histórico deste handoff, e no
-CHANGELOG) detalha isso. Chapéu implementador desta demanda deve
-consultar esse relatório antes de assumir como o PlayerCard se
-encaixa na tela de Perfil do jogador, em vez de reconstruir esse
-entendimento do zero.
-
-Escopo
-
-Chapéu implementador deve, quando retomar esta demanda:
-
-1. Inspecionar a implementação atual da tela de Perfil do jogador
-   antes de alterar qualquer coisa, incluindo como ela hoje se
-   relaciona com a implementação de PlayerCard já formalizada.
-2. Migrar a apresentação visual para os tokens do Design System novo,
-   reutilizando o PlayerCard onde apropriado.
-3. Garantir que nome, posição, overall, atributos, idade, clube,
-   contrato, salário, evolução e status continuam todos apresentados,
-   com a hierarquia de informação priorizada como a matriz pede.
-4. Usar os componentes já disponíveis (Dialog, Bottom Sheet, Skeleton)
-   onde a tela precisar de overlay/carregamento — não criar nada novo
-   em paralelo.
-5. Preservar o comportamento funcional (qualquer ação disponível na
-   tela hoje — ex.: promover, renovar, o que a inspeção encontrar)
-   — redesign visual, não mudança de regra.
-6. Testar (mobile-first, mesmo padrão das demandas anteriores).
-7. Atualizar `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`
-   marcando esta tela como migrada e o Batch 2 (Core) como
-   completo.
-8. Retornar relatório técnico nesta mesma seção do handoff, status
-   `REVISÃO DO PM NECESSÁRIA`.
-
-Fora de escopo
-
-* qualquer tela de outro Batch;
-* qualquer mudança de regra de negócio (contrato, evolução, promoção,
-  etc.);
-* qualquer mudança na definição do PlayerCard além do que
-  `S3-DS20-S4-PREP-002` já formalizou — se a inspeção sugerir que o
-  contrato precisa evoluir pra servir esta tela, registrar como
-  divergência e devolver ao PM, não decidir unilateralmente;
-* gaps P1/P2 não relacionados a esta tela específica.
-
-Dependências
-
-* `S3-DS20-S4-PREP-001` (aprovada, concluída).
-* `S3-DS20-S4-PREP-002` (aprovada, concluída — dependência que
-  bloqueava esta demanda, agora resolvida).
-* `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 7 — objetivo e
-  requisitos).
-* `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`.
-
-Requisitos
-
-Mesma sequência obrigatória de sempre: inspecionar → localizar →
-entender → planejar → alterar → testar → revisar. Mudança mínima
-necessária.
-
-Critérios de aceite
-
-* tela usa os tokens do Design System novo, reutilizando o PlayerCard;
-* todas as informações da tela (nome/posição/overall/atributos/idade/
-  clube/contrato/salário/evolução/status) continuam presentes e
-  priorizadas;
-* nenhuma mudança de regra de negócio;
-* nenhuma outra tela tocada;
-* teste mobile-first cobrindo a tela.
-
-Validações
-
-O PM deverá validar: aderência ao Design System, reutilização correta
-do PlayerCard, preservação de todas as informações/ações da tela,
-teste, escopo respeitado.
-
-Riscos
-
-* baixo-médio — dependência principal (PlayerCard) já resolvida, mas
-  é uma tela de detalhe com potencialmente mais ações/estados que as
-  demais do Batch 2 (a confirmar na inspeção).
-
-Observações
-
-Última tela do Batch 2 (Core). Com esta demanda concluída e aprovada,
-o Batch 2 estará completo — próximo passo do roadmap S4 é o Batch 3
-(Transactional: Mercado, Negociação, Contratos, Resumo da rodada),
-que por sua vez começa formalizando os componentes TransferCard e
-ContractCard (ainda não existentes) antes de qualquer tela, mesmo
-padrão já usado aqui.
-
-⸻
-
-S4-B3-001 — Criar os componentes TransferCard e ContractCard
-
-Status: APROVADO
-Sprint: S4 — Redesign Mobile
-Fase: Batch 3 (Transactional) — pré-requisito, item 1 de 4
-Prioridade: P0
-
-Nota de auditoria (S4-AUDIT-BACKLOG-001, 10/09/2026): implementada.
-Branch `claude/s4-b3-001-transfer-contract-card` (commit `44edc50`), 1
-commit à frente de `main`, sem PR aberto. Resultado proposto:
-APROVADO. Componentes já integrados de verdade em `S4-B3-002`/`003`
-(branches empilhadas em cima desta). Relatório completo em
-https://github.com/muriloalmeida-alt/FitOS/issues/17#issuecomment-5616235050.
-
-Decisão do PM (Murilo, 10/09/2026): APROVADO. Commit final (merge de
-`claude/s4-b3-001-transfer-contract-card` em `main`) formalmente
-autorizado pela governança — execução pendente: esta sessão está sob
-restrição do usuário de não mexer em código até nova exceção
-explícita. Nota: esta branch é a base das branches empilhadas de
-`S4-B3-002`/`003`/`004`/`005` — o merge precisa considerar a ordem de
-dependência entre elas.
-
-Objetivo
-
-Criar os 2 componentes P0 ainda inexistentes que o Batch 3 inteiro
-depende: **TransferCard** e **ContractCard**, conforme
-`docs/sprints/S3/S3_2_COMPONENTES_E_CONTRATOS.md` §26/§27.
-
-TransferCard — objetivo: representar uma oportunidade ou operação de
-mercado. Pode apresentar jogador, clube, valor, salário, status, ação.
-**O componente não deve calcular valuation** — só apresentação.
-
-ContractCard — objetivo: representar a situação contratual de um
-jogador. Pode apresentar jogador, clube, salário, duração, status,
-proximidade do vencimento, ação. **O componente não deve determinar
-regras de renovação** — só apresentação.
-
-Contexto
-
-Diferente de `S3-DS20-S4-PREP-002` (PlayerCard), que formalizou um
-componente que já existia de fato (dívida retroativa), TransferCard e
-ContractCard **não existem ainda** — a S3.2.7 Readiness Review
-confirmou zero ocorrências dos 6 BRDATA Product Patterns no código, e
-não há indício de equivalente ad hoc pra estes 2 especificamente (ao
-contrário de MatchCard/FinancialSummary, que têm candidatos a
-inspecionar). São trabalho novo, não retroativo.
-
-São o pré-requisito comum de 3 das 4 telas do Batch 3: Mercado e
-Negociação/Proposta dependem de TransferCard; Contratos depende de
-ContractCard. Só Resumo da rodada não depende de nenhum dos dois (essa
-tela segue fora desta rodada de demandas — ver observação no fim).
-
-Escopo
-
-Chapéu implementador deve, quando retomar esta demanda:
-
-1. Inspecionar a implementação atual das 3 telas que vão consumir
-   estes componentes (Mercado, Negociação, Contratos) antes de
-   desenhar os componentes — mesmo sem migrá-las ainda, entender como
-   jogador/clube/valor/salário/status já são hoje apresentados evita
-   um componente que não encaixa no dado real.
-2. Criar o componente **TransferCard** reaproveitando os tokens/
-   primitivas do Design System já disponíveis (fundação de
-   `S3-DS20-S4-PREP-001`, mesmo padrão do PlayerCard).
-3. Criar o componente **ContractCard**, mesma reutilização de base.
-4. Nenhum dos dois deve conter lógica de negócio (valuation, regra de
-   renovação) — são apresentação pura, recebem os dados já calculados.
-5. Documentar o contrato de cada um (Nome/Objetivo/Entradas/Estados),
-   mesmo padrão de PlayerCard/Dialog/Bottom Sheet/Skeleton.
-6. Validar via teste automatizado direto (mesmo padrão usado pra
-   Bottom Sheet/Skeleton em `S3-DS20-S4-PREP-001`, que também não
-   tinham integração em tela real na mesma demanda) — a integração
-   real acontece nas demandas seguintes (`S4-B3-002`/`003`/`004`).
-7. Atualizar `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`
-   marcando os 2 componentes como disponíveis.
-8. Retornar relatório técnico nesta mesma seção do handoff, status
-   `REVISÃO DO PM NECESSÁRIA`.
-
-Fora de escopo
-
-* migrar qualquer tela do Batch 3 — isso é `S4-B3-002`/`003`/`004`;
-* qualquer lógica de valuation, cálculo de proposta, regra de
-  renovação ou qualquer regra de negócio — os componentes só
-  apresentam dado já calculado;
-* MatchCard/FinancialSummary (Resumo da rodada) — continuam pendentes
-  de inspeção própria, não fazem parte desta demanda;
-* alteração do Transfer Engine ou de qualquer regra de mercado/
-  contrato existente.
-
-Dependências
-
-* `S3-DS20-S4-PREP-001` (aprovada, concluída — fundação de tokens e
-  Dialog/Bottom Sheet/Skeleton disponíveis).
-* `docs/sprints/S3/S3_2_COMPONENTES_E_CONTRATOS.md` §26 (TransferCard),
-  §27 (ContractCard).
-* `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`.
-
-Requisitos
-
-Mesma sequência obrigatória de sempre: inspecionar → localizar →
-entender → planejar → alterar → testar → revisar.
-
-Critérios de aceite
-
-* TransferCard e ContractCard existem como componentes nomeados e
-  documentados;
-* nenhum dos dois contém lógica de negócio;
-* nenhuma tela migrada ainda (isso é escopo das próximas demandas);
-* teste automatizado cobrindo os 2 componentes.
-
-Validações
-
-O PM deverá validar: aderência ao Design System, separação correta
-entre apresentação e lógica de negócio (nenhum dos 2 componentes
-calcula nada), contrato documentado, teste.
-
-Riscos
-
-* baixo-médio — são componentes novos (não retroativos), mas
-  conceitualmente simples (apresentação de dado já calculado); o
-  maior risco é desenhar um componente genérico demais ou específico
-  demais sem ver como as 3 telas consumidoras usam o dado hoje — daí o
-  requisito de inspecionar as 3 antes de desenhar.
-
-Observações
-
-**Resumo da rodada fica deliberadamente fora desta rodada de demandas
-do Batch 3** — depende de MatchCard/FinancialSummary, que
-`docs/sprints/S4/S4_REQUISITOS_VIGENTES.md` §5 (item 2b) já
-registra como "candidatos identificados mas não inspecionados o
-suficiente pra virar demanda" (mesmo problema não resolvido desde a
-especificação do Batch 2). Essa tela vira demanda só depois dessa
-inspeção acontecer — não presumida aqui.
-
-⸻
-
-S4-B3-002 — Migrar tela Mercado para o Design System novo
-
-Status: APROVADO
-Sprint: S4 — Redesign Mobile
-Fase: Batch 3 (Transactional) — item 2 de 4
-Prioridade: P0
-
-Nota de auditoria (S4-AUDIT-BACKLOG-001, 10/09/2026): implementada.
-Branch `claude/s4-b3-002-mercado` (a partir de `claude/s4-b3-001-...`,
-3 commits à frente de `main` no total), sem PR aberto. Resultado
-proposto: APROVADO. Relatório completo em
-https://github.com/muriloalmeida-alt/FitOS/issues/18#issuecomment-5616433109.
-
-Decisão do PM (Murilo, 10/09/2026): APROVADO. Commit final (merge de
-`claude/s4-b3-002-mercado`, empilhada sobre `claude/s4-b3-001-...`,
-em `main`) formalmente autorizado pela governança — execução
-pendente: esta sessão está sob restrição do usuário de não mexer em
-código até nova exceção explícita.
-
-Objetivo
-
-Migrar a tela de mercado de jogadores para o Design System novo,
-conforme `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 14):
-permitir visualizar oportunidades, buscar jogadores, aplicar filtros,
-visualizar valor, consultar contrato, iniciar negociação, identificar
-status — usando o TransferCard quando apropriado.
-
-Contexto
-
-Primeira tela do Batch 3 a ser migrada, depois de `S4-B3-001`
-(TransferCard/ContractCard). A S3.2.7 Readiness Review identificou
-Mercado como uma das 9 telas P0 ainda fora do sistema novo — e, junto
-com Negociação, é citada no próprio relatório como um dos fluxos
-transacionais mais críticos do produto (toda semana de jogo passa por
-ali).
-
-Escopo
-
-Chapéu implementador deve, quando retomar esta demanda:
-
-1. Inspecionar a implementação atual da tela de Mercado antes de
-   alterar qualquer coisa.
-2. Migrar a apresentação visual para os tokens do Design System novo.
-3. Usar o TransferCard (`S4-B3-001`) para representar cada
-   oportunidade/jogador do mercado.
-4. Garantir que busca, filtros, visualização de valor/contrato/status
-   e o início de negociação continuam todos funcionando.
-5. Usar os componentes já disponíveis (Dialog, Bottom Sheet, Skeleton)
-   onde a tela precisar de overlay/carregamento/filtro — não criar
-   nada novo em paralelo.
-6. Preservar o comportamento funcional (regras de mercado, filtros,
-   busca) — redesign visual, não mudança de regra.
-7. Testar (mobile-first, mesmo padrão das demandas anteriores).
-8. Atualizar `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`
-   marcando esta tela como migrada.
-9. Retornar relatório técnico nesta mesma seção do handoff, status
-   `REVISÃO DO PM NECESSÁRIA`.
-
-Fora de escopo
-
-* qualquer outra tela do Batch 3 (Negociação, Contratos, Resumo da
-  rodada);
-* qualquer mudança de regra de mercado, filtro, busca ou lógica de
-  interesse/oferta (Transfer Engine intocado);
-* qualquer mudança na definição do TransferCard além do que
-  `S4-B3-001` já formalizou — divergência registrada e devolvida ao
-  PM, não decidida unilateralmente;
-* gaps P1/P2 não relacionados a esta tela específica.
-
-Dependências
-
-* `S4-B3-001` (TransferCard) — bloqueante, precisa estar concluída.
-* `S3-DS20-S4-PREP-001` (aprovada, concluída).
-* `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 14).
-* `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`.
-
-Requisitos
-
-Mesma sequência obrigatória de sempre: inspecionar → localizar →
-entender → planejar → alterar → testar → revisar.
-
-Critérios de aceite
-
-* tela usa os tokens do Design System novo, reutilizando o
-  TransferCard;
-* busca, filtros, valor/contrato/status e início de negociação
-  continuam todos funcionando;
-* nenhuma mudança de regra de mercado;
-* nenhuma outra tela tocada;
-* teste mobile-first cobrindo a tela.
-
-Validações
-
-O PM deverá validar: aderência ao Design System, reutilização correta
-do TransferCard, preservação de todas as funcionalidades de mercado,
-teste, escopo respeitado.
-
-Riscos
-
-* médio-alto — é um dos fluxos transacionais mais críticos do
-  produto (toda semana de jogo passa por ali), com bastante
-  interação (busca/filtros/listagem).
-
-Observações
-
-Segunda e terceira telas recomendadas do Batch 3, depois desta:
-Negociação/Proposta (também usa TransferCard) e Contratos (usa
-ContractCard).
-
-⸻
-
-S4-B3-003 — Migrar tela Negociação/Proposta para o Design System novo
-
-Status: APROVADO
-Sprint: S4 — Redesign Mobile
-Fase: Batch 3 (Transactional) — item 3 de 4
-Prioridade: P0
-
-Nota de auditoria (S4-AUDIT-BACKLOG-001, 10/09/2026): implementada,
-com um achado importante. Branch `claude/s4-b3-003-negociacao` (4
-commits à frente de `main` no total), sem PR aberto. Resultado
-proposto: APROVADO. **Encontrou e corrigiu um bug crítico
-pré-existente** (desde `S3-DS20-S4-PREP-001`) que deixava TODO
-Dialog/Bottom Sheet do app sem `position:fixed`/`z-index` de verdade —
-ver relatório completo pro detalhe técnico e o efeito colateral
-positivo (resolveu um gap P1 documentado desde `S4-B2-002` em
-`test_ux_nomes_clicaveis.js`). Relatório completo em
-https://github.com/muriloalmeida-alt/FitOS/issues/19#issuecomment-5616857836.
-
-Decisão do PM (Murilo, 10/09/2026): APROVADO. Commit final (merge de
-`claude/s4-b3-003-negociacao`, empilhada sobre `s4-b3-001`/`002`, em
-`main`) formalmente autorizado pela governança — execução pendente:
-esta sessão está sob restrição do usuário de não mexer em código até
-nova exceção explícita. Inclui a correção do bug crítico de
-Dialog/Bottom Sheet — merge deve preservar essa correção.
-
-Objetivo
-
-Migrar a tela de negociação de jogadores para o Design System novo,
-conforme `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 15):
-apresentar jogador, clube, proposta, valor, salário, duração,
-condições relevantes, status, ações — reduzindo ambiguidades no fluxo.
-
-Contexto
-
-Terceira tela do Batch 3. A S3.2.7 Readiness Review identificou
-Negociação/Proposta como uma das 9 telas P0 ainda fora do sistema
-novo, e como uma das que mais depende de overlay/diálogo pesado — a
-própria demanda `S3-DS20-S4-PREP-001` citou esta tela (junto com
-Mercado e Contratos) como motivação pra ter Dialog pronto antes de
-migrar aqui.
-
-Escopo
-
-Chapéu implementador deve, quando retomar esta demanda:
-
-1. Inspecionar a implementação atual da tela de Negociação antes de
-   alterar qualquer coisa.
-2. Migrar a apresentação visual para os tokens do Design System novo.
-3. Usar o TransferCard (`S4-B3-001`) para representar o jogador/oferta
-   em negociação, e o Dialog (`S3-DS20-S4-PREP-001`) para os fluxos de
-   confirmação/decisão.
-4. Garantir que valor, salário, duração, condições, status e as ações
-   disponíveis continuam todos funcionando, com o fluxo reduzindo
-   ambiguidade (conforme pede a matriz).
-5. Preservar o comportamento funcional (regras de negociação,
-   validações, cálculo de proposta) — redesign visual, não mudança de
-   regra.
-6. Testar (mobile-first, mesmo padrão das demandas anteriores).
-7. Atualizar `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`
-   marcando esta tela como migrada.
-8. Retornar relatório técnico nesta mesma seção do handoff, status
-   `REVISÃO DO PM NECESSÁRIA`.
-
-Fora de escopo
-
-* qualquer outra tela do Batch 3 (Mercado, Contratos, Resumo da
-  rodada);
-* qualquer mudança de regra de negociação, cálculo de proposta ou
-  validação (Transfer Engine intocado);
-* qualquer mudança na definição do TransferCard/Dialog além do que já
-  foi formalizado — divergência registrada e devolvida ao PM;
-* gaps P1/P2 não relacionados a esta tela específica.
-
-Dependências
-
-* `S4-B3-001` (TransferCard) — bloqueante, precisa estar concluída.
-* `S3-DS20-S4-PREP-001` (Dialog) — aprovada, concluída.
-* `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 15).
-* `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`.
-
-Requisitos
-
-Mesma sequência obrigatória de sempre: inspecionar → localizar →
-entender → planejar → alterar → testar → revisar.
-
-Critérios de aceite
-
-* tela usa os tokens do Design System novo, reutilizando TransferCard
-  e Dialog;
-* valor, salário, duração, condições, status e ações continuam todos
-  funcionando;
-* fluxo reduz ambiguidade (critério explícito da matriz);
-* nenhuma mudança de regra de negociação;
-* nenhuma outra tela tocada;
-* teste mobile-first cobrindo a tela.
-
-Validações
-
-O PM deverá validar: aderência ao Design System, reutilização correta
-de TransferCard/Dialog, preservação de todas as funcionalidades de
-negociação, clareza do fluxo, teste, escopo respeitado.
-
-Riscos
-
-* médio-alto — mesmo nível de criticidade de Mercado; fluxo de
-  decisão (aceitar/recusar/contrapropor) é sensível a regressão sutil
-  de comportamento.
-
-Observações
-
-Quarta e última tela recomendada do Batch 3 (excluindo Resumo da
-rodada, fora desta rodada): Contratos, usando ContractCard.
-
-⸻
-
 S4-B3-004 — Criar a tela Contratos (redefinida de "migrar" para "criar do zero")
 
 Status: PRONTO PARA IMPLEMENTAÇÃO
@@ -1962,155 +934,81 @@ Com esta demanda concluída e aprovada, o Batch 3 estará completo
 **exceto Resumo da rodada** — que segue fora até virar demanda
 própria (pré-requisito `S4-B3-005` já concluído e aprovado).
 
-⸻
+Relatório técnico (inspeção — implementação NÃO iniciada)
 
-S4-B3-005 — Inspecionar e formalizar MatchCard e FinancialSummary
+Branch: `claude/s4-b3-004-contratos` (a partir de `claude/s4-b3-003-negociacao`).
+Nenhum código alterado nesta demanda.
 
-Status: APROVADO
-Sprint: S4 — Redesign Mobile
-Fase: Batch 3 (Transactional) — pré-requisito de Resumo da rodada
-Prioridade: P1
+1. Inspeção prévia (obrigatória) — divergência de escopo confirmada,
+   não presumida
 
-Nota de auditoria (S4-AUDIT-BACKLOG-001, 10/09/2026): implementada.
-Branch `claude/s4-b3-005-matchcard-financialsummary` (6 commits à
-frente de `main` no total), sem PR aberto. Resultado proposto:
-APROVADO — MatchCard construído novo, FinancialSummary formalizado
-retroativamente. Com isso, "Resumo da rodada" fica desbloqueada e pode
-virar demanda própria a qualquer momento. Relatório completo em
-https://github.com/muriloalmeida-alt/FitOS/issues/21#issuecomment-5616998983.
+Esta divergência já havia sido sinalizada como observação no
+relatório de `S4-B3-001` (quando `ContractCard` foi criado) e
+reforçada no de `S4-B3-003`. Nesta demanda ela foi verificada de
+propósito, com evidência, antes de decidir como proceder — 3 buscas
+independentes, todas confirmando a mesma conclusão:
 
-Decisão do PM (Murilo, 10/09/2026): APROVADO. Commit final (merge de
-`claude/s4-b3-005-matchcard-financialsummary`, empilhada sobre
-`s4-b3-001`/`002`/`003`/`004`, em `main`) formalmente autorizado pela
-governança — execução pendente: esta sessão está sob restrição do
-usuário de não mexer em código até nova exceção explícita.
+* `grep -in "contrato"` em `public/carreira.html` inteiro: as únicas
+  ocorrências são a tag "Fim de contrato" inline no Elenco/Treino
+  (`playerRow()`), o aviso de vencimento + botão "Renovar contrato"
+  dentro do Perfil do jogador (`openDetail()`/`openRenewModal()`), e
+  comentários de código — nenhuma tela própria.
+* Painel "Clube" (`#panel-clube`) inspecionado por completo: contém
+  um resumo AGREGADO de teto salarial (`wageCapFill`/`wageCapLabel`),
+  não uma lista de contratos por jogador.
+* Árvore inteira do menu (`#topbarMenu`, todos os 5 submenus —
+  Competição/Tática avançada/Equipe & Treinos/Progresso/Imprensa +
+  itens soltos na raiz) inspecionada item por item: nenhum item
+  "Contratos" ou equivalente.
 
-Objetivo
+**Conclusão com evidência (não presunção): a tela "Contratos" (Tela 16
+da matriz — visualizar jogador/duração/salário/situação/proximidade
+do vencimento/ações DE TODO O ELENCO numa lista própria) não existe no
+app hoje.** O que existe são pontos de contrato isolados POR JOGADOR,
+dentro de outras telas (Elenco, Perfil). `S4-B3-004`, como
+especificada, pressupõe uma tela existente pra "migrar" (redesign
+visual) — não há nada para migrar. Implementar essa tela do zero é
+uma decisão de escopo/produto (o que ela mostra além do que a matriz
+já lista, onde no app ela é aberta, se substitui ou complementa os
+pontos já existentes no Elenco/Perfil) — não uma migração visual, e
+está fora do que `S4-B3-001` (que só criou o componente `ContractCard`,
+deliberadamente sem integração de tela) e esta própria demanda
+autorizam decidir sozinho.
 
-Determinar, com evidência real (não presumida), se os componentes
-**MatchCard** e **FinancialSummary** já existem de fato no código (como
-aconteceu com PlayerCard, formalização retroativa) ou se precisam ser
-construídos do zero (como TransferCard/ContractCard) — e então
-formalizar ou construir de acordo com o que for encontrado. Isso
-desbloqueia a especificação de Resumo da rodada, a última tela do
-Batch 3 ainda sem demanda.
+2. Por que não implementei mesmo assim
 
-Contexto
+Regra explícita de `docs/README.md` (nunca assumir que a especificação
+está certa sem verificar — vale nos 2 sentidos) e do próprio CLAUDE.md
+(§37, §47: "se a inspeção revelar escopo significativamente maior que
+o esperado, reportar como divergência, não absorver silenciosamente";
+"não construir sistemas que já existem" — mas também não inventar um
+sistema novo por conta própria quando a demanda pressupõe que ele já
+existe). Construir uma tela nova de gestão de contratos, sem
+especificação própria de conteúdo/navegação/ações, seria uma decisão
+de produto unilateral — o tipo de decisão que este processo pede pra
+registrar e devolver ao PM, não resolver sozinho.
 
-Esta lacuna já foi identificada 2 vezes sem ser resolvida:
+3. Opções pro PM decidir (nenhuma escolhida por mim)
 
-* na refinação de `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`
-  (§3-4), que registrou candidatos possíveis — uma classe/estilo
-  associado a confronto direto entre clubes (encontrado dentro de uma
-  função de "H2H"/histórico de confrontos) pra MatchCard, e uma função
-  de barras de histórico de caixa pra FinancialSummary — mas marcou
-  ambos como "não inspecionados o suficiente", em particular
-  levantando a suspeita de que o candidato a MatchCard seja um widget
-  menor (confronto direto/H2H), não o card de "próxima partida"/
-  resultado que a matriz de telas descreve;
-* na especificação de `S4-B3-001` (TransferCard/ContractCard), que
-  deliberadamente excluiu estes 2 componentes por causa da mesma
-  incerteza.
+a. **Redefinir `S4-B3-004`** como "criar a tela Contratos" (não
+   "migrar") — com uma especificação mínima de conteúdo (provavelmente:
+   lista do elenco principal com `ContractCard` por jogador, ação de
+   renovar reaproveitando `openRenewModal()` já existente) e de onde
+   ela é aberta (aba própria? item de menu? dentro de Clube?).
+b. **Descartar `S4-B3-004`** por ora — os pontos de contrato já
+   existentes (Elenco/Perfil) continuam servindo o usuário; a tela
+   dedicada vira prioridade P1/P2 futura, fora do Batch 3.
+c. **Redirecionar o `ContractCard`** pra reforçar os pontos que já
+   existem (ex.: usá-lo dentro do Perfil do jogador na seção de
+   contrato, em vez de numa tela nova) — mudança pequena, mas também é
+   decisão de produto, não presumida aqui.
 
-Diferente de `S4-B3-001` (onde já sabíamos que os componentes eram
-novos) e de `S3-DS20-S4-PREP-002` (onde já sabíamos que era retroativo
-a partir de um candidato único e claro), aqui a primeira pergunta é
-literalmente "qual desses dois caminhos é o certo" — e a resposta pode
-até ser diferente pra cada um dos dois componentes (ex.: MatchCard
-precisar ser construído novo enquanto FinancialSummary aproveita algo
-existente, ou vice-versa).
+Nenhuma dessas 3 foi decidida por mim — todas exigem uma escolha do
+PM sobre o que o usuário deve ver, não uma inspeção técnica adicional.
 
-Escopo
-
-Chapéu implementador deve, quando retomar esta demanda:
-
-1. Inspecionar a implementação atual de Início/Dashboard (já migrada
-   pro Design System novo) e de Resumo da rodada (ainda legada) em
-   busca de qualquer apresentação de partida (placar, mandante/
-   visitante, status) e de resumo financeiro (caixa, histórico) — não
-   só os candidatos já apontados, considerar que pode haver mais de um
-   lugar candidato.
-2. Para cada um dos 2 componentes, decidir com evidência: (a) já existe
-   um candidato real e único que cobre o objetivo do componente
-   (`docs/sprints/S3/S3_2_COMPONENTES_E_CONTRATOS.md` §24 MatchCard,
-   §28 FinancialSummary) — formalizar como retroativo, mesmo padrão de
-   PlayerCard; ou (b) não existe candidato adequado — construir novo,
-   mesmo padrão de TransferCard/ContractCard.
-3. Documentar o contrato de cada um (Nome/Objetivo/Entradas/Estados).
-4. MatchCard: cobrir os estados definidos na especificação (próxima,
-   em andamento, encerrada, adiada, cancelada) — se o candidato
-   encontrado não cobrir todos, isso é parte da decisão formalizar-vs-
-   construir do item 2, não um detalhe a ignorar.
-5. Nenhuma lógica de negócio nos componentes (nem cálculo de
-   resultado, nem regra financeira) — mesma regra de todos os outros
-   Product Patterns.
-6. Validar via teste automatizado direto (mesmo padrão de
-   `S4-B3-001`/Bottom Sheet/Skeleton — sem integração em tela real
-   nesta demanda).
-7. Atualizar `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`
-   marcando os 2 componentes como resolvidos (e removendo o item 2b
-   como pendência).
-8. Retornar relatório técnico nesta mesma seção do handoff, incluindo
-   explicitamente qual caminho (formalização retroativa vs. construção
-   nova) foi seguido pra cada um dos 2 componentes e por quê — status
-   `REVISÃO DO PM NECESSÁRIA`.
-
-Fora de escopo
-
-* migrar Resumo da rodada (ou qualquer outra tela) — isso é uma
-  demanda futura, depois desta;
-* qualquer lógica de negócio (cálculo de resultado de partida, regra
-  financeira);
-* qualquer alteração em Início/Dashboard além de, se a formalização
-  retroativa for o caminho escolhido, adicionar o comentário de
-  contrato (mesmo tratamento dado a Elenco em `S3-DS20-S4-PREP-002`) —
-  sem mudança visual/funcional ali;
-* LeagueTable — outro Product Pattern ainda pendente, mas fora desta
-  demanda (não faz parte do Batch 3).
-
-Dependências
-
-* `S3-DS20-S4-PREP-001` (aprovada, concluída).
-* `docs/sprints/S3/S3_2_COMPONENTES_E_CONTRATOS.md` §24 (MatchCard),
-  §28 (FinancialSummary).
-* `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md` §3-5.
-
-Requisitos
-
-Mesma sequência obrigatória de sempre: inspecionar → localizar →
-entender → planejar → alterar → testar → revisar. A decisão
-formalizar-vs-construir deve vir com evidência (arquivo/trecho
-relevante) no relatório final, mesmo padrão de rigor da S3.2.7 — não
-uma afirmação sem sustentação.
-
-Critérios de aceite
-
-* MatchCard e FinancialSummary existem como componentes nomeados e
-  documentados, cada um com a decisão (retroativo ou novo)
-  justificada com evidência;
-* nenhum dos dois contém lógica de negócio;
-* nenhuma tela migrada nesta demanda;
-* teste automatizado cobrindo os 2 componentes;
-* `S4_REQUISITOS_VIGENTES.md` atualizado, item 2b resolvido.
-
-Validações
-
-O PM deverá validar: a evidência por trás da decisão formalizar-vs-
-construir pra cada componente, aderência ao Design System, ausência
-de lógica de negócio, contrato documentado, teste.
-
-Riscos
-
-* baixo-médio — escopo é decisão + formalização/construção de
-  componentes de apresentação, não migração de tela; o risco principal
-  é a decisão formalizar-vs-construir sair errada ou mal justificada,
-  não um risco de regressão funcional.
-
-Observações
-
-Ao concluir esta demanda, **Resumo da rodada** (última tela do Batch 3)
-fica pronta pra ser especificada como demanda própria — mesmo padrão
-de todas as outras telas do Batch 2/3.
+Resultado proposto: **BLOQUEADO** — não há escopo técnico executável
+sem uma decisão de produto prévia. Nenhum código alterado, nenhuma
+tela tocada, nenhuma regra de negócio mexida.
 
 ⸻
 
@@ -2325,6 +1223,17 @@ branches já com relatório fechado estaria fora do escopo desta
 auditoria — é um ajuste mecânico pro momento do merge, não uma
 mudança de conteúdo).
 
+Decisão do PM (Murilo, 10/09/2026): aprovadas 8 das 10 demandas
+auditadas (#12, #13, #15, #16, #17, #18, #19, #21) — todas mescladas
+em `main` nesta sessão, ver `Histórico` abaixo. `S4-B2-003` (#14)
+ficou como `AJUSTES NECESSÁRIOS` até o PM decidir as 2 divergências
+registradas — decidido em seguida (mesma sessão do usuário) e também
+mesclada. `S4-B3-004` (#20) ficou `BLOQUEADO` até decisão de produto
+sobre a tela Contratos — o PM escolheu "criar do zero"; implementada
+e aguardando revisão (ver seção própria acima). Risco de coordenação
+do rename de `S4_REQUISITOS_VIGENTES.md` confirmado e resolvido
+manualmente em cada merge, sem perda de conteúdo.
+
 ⸻
 
 Histórico
@@ -2361,3 +1270,91 @@ mesmo motivo do item acima.
 (`docs/README_HANDOFF.md` §13) — feito nesta mesma sessão, já com
 chapéu implementador (diferente do caso da PREP-001, onde o merge
 ficou pendente de outra sessão).
+
+S4-B2-001 — Migrar tela Loading/Bootstrap para o Design System novo	10/09/2026	merge de `claude/s4-b2-001-loading` em `main` (commit de código original `6267fc6`)	docs/project/CHANGELOG.md (a atualizar)
+
+APROVADO pelo Murilo em 10/09/2026 (issue #12, junto com #13/#15/#16/
+#17/#18/#19/#21). Relatório técnico completo fica preservado no
+histórico do git — `git show 6267fc6:docs/HANDOFF_CLAUDE.md` — e não é
+reproduzido aqui, mesmo motivo dos itens acima.
+
+**Merge do código:** autorizado pela aprovação formal do PM na issue
+#12, executado nesta sessão junto com as outras 7 demandas aprovadas
+no mesmo lote.
+
+S4-B2-002 — Migrar tela Login/Entrada para o Design System novo	10/09/2026	merge de `claude/s4-b2-002-login` em `main` (commit de código original `7fcb3a7`)	docs/project/CHANGELOG.md (a atualizar)
+
+APROVADO pelo Murilo em 10/09/2026 (issue #13). Achado de inspeção: a
+tela já estava migrada (`#screenLoginRequired`) — mudança puramente
+documental, zero código de produção alterado. Relatório técnico
+completo em `git show 7fcb3a7:docs/HANDOFF_CLAUDE.md`.
+
+**Merge do código:** autorizado pela aprovação formal do PM na issue
+#13, executado nesta sessão junto com o lote de 8 demandas.
+
+S4-B2-003 — Migrar tela Tática/Formação para o Design System novo	10/09/2026	merge de `claude/s4-b2-003-tatica` em `main` (commit de código original `f92a339`)	docs/project/CHANGELOG.md (a atualizar)
+
+APROVADO pelo Murilo em 10/09/2026 (issue #14), depois de resolvidas
+as 2 divergências registradas na inspeção original (`.mt-bench-row`
+mantido como padrão próprio; tipografia `Rajdhani` classificada como
+BRDATA Extension). Relatório técnico completo em
+`git show f92a339:docs/HANDOFF_CLAUDE.md`.
+
+**Merge do código:** autorizado pela aprovação formal do PM na issue
+#14, executado nesta sessão.
+
+S4-B2-004 — Migrar tela Treino para o Design System novo	10/09/2026	merge de `claude/s4-b2-004-treino` em `main` (commit de código original `6bf1467`)	docs/project/CHANGELOG.md (a atualizar)
+
+APROVADO pelo Murilo em 10/09/2026 (issue #15). Relatório técnico
+completo em `git show 6bf1467:docs/HANDOFF_CLAUDE.md`.
+
+**Merge do código:** autorizado pela aprovação formal do PM na issue
+#15, executado nesta sessão junto com o lote de 8 demandas.
+
+S4-B2-005 — Migrar tela Perfil do jogador para o Design System novo	10/09/2026	merge de `claude/s4-b2-005-perfil` em `main` (commit de código original `13c0991`)	docs/project/CHANGELOG.md (a atualizar)
+
+APROVADO pelo Murilo em 10/09/2026 (issue #16). Relatório técnico
+completo (inclui a divergência registrada sobre as setas de tendência
+▲/▼ não migradas, sem token `--m3-*` equivalente) em
+`git show 13c0991:docs/HANDOFF_CLAUDE.md`.
+
+**Merge do código:** autorizado pela aprovação formal do PM na issue
+#16, executado nesta sessão junto com o lote de 8 demandas.
+
+S4-B3-001 — Criar os componentes TransferCard e ContractCard	10/09/2026	merge de `claude/s4-b3-001-transfer-contract-card` em `main` (commit de código original `44edc50`)	docs/project/CHANGELOG.md (a atualizar)
+
+APROVADO pelo Murilo em 10/09/2026 (issue #17). Relatório técnico
+completo em `git show 44edc50:docs/HANDOFF_CLAUDE.md`.
+
+**Merge do código:** autorizado pela aprovação formal do PM na issue
+#17, executado nesta sessão junto com o lote de 8 demandas.
+
+S4-B3-002 — Migrar tela Mercado para o Design System novo	10/09/2026	merge de `claude/s4-b3-002-mercado` em `main` (commit de código original `48289d1`)	docs/project/CHANGELOG.md (a atualizar)
+
+APROVADO pelo Murilo em 10/09/2026 (issue #18). Relatório técnico
+completo em `git show 48289d1:docs/HANDOFF_CLAUDE.md`.
+
+**Merge do código:** autorizado pela aprovação formal do PM na issue
+#18, executado nesta sessão junto com o lote de 8 demandas.
+
+S4-B3-003 — Migrar tela Negociação/Proposta para o Design System novo	10/09/2026	merge de `claude/s4-b3-003-negociacao` em `main` (commit de código original `4d3f703`)	docs/project/CHANGELOG.md (a atualizar)
+
+APROVADO pelo Murilo em 10/09/2026 (issue #19). Relatório técnico
+completo — inclui o bug crítico pré-existente de CSS (Dialog/Bottom
+Sheet sem `position:fixed`/`z-index` de verdade desde
+`S3-DS20-S4-PREP-001`) encontrado e corrigido nesta demanda — em
+`git show 4d3f703:docs/HANDOFF_CLAUDE.md`.
+
+**Merge do código:** autorizado pela aprovação formal do PM na issue
+#19, executado nesta sessão junto com o lote de 8 demandas.
+
+S4-B3-005 — Inspecionar e formalizar MatchCard e FinancialSummary	10/09/2026	merge de `claude/s4-b3-005-matchcard-financialsummary` em `main` (commit de código original `7ef29b6`)	docs/project/CHANGELOG.md (a atualizar)
+
+APROVADO pelo Murilo em 10/09/2026 (issue #21). Relatório técnico
+completo (MatchCard construído novo — motor de partidas só produz 2
+dos 5 estados suportados pelo componente; FinancialSummary formalizado
+retroativamente sobre o card "Financeiro" já existente) em
+`git show 7ef29b6:docs/HANDOFF_CLAUDE.md`.
+
+**Merge do código:** autorizado pela aprovação formal do PM na issue
+#21, executado nesta sessão junto com o lote de 8 demandas.

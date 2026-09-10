@@ -73,7 +73,7 @@ const { chromium } = require("playwright-core");
   await page.click("#btnOpenMyOffers");
   await page.waitForTimeout(200);
   const check3 = await page.evaluate(() => {
-    const row = [...document.querySelectorAll("#myOffersList .mt-sponsor-proposal-row")].find((r) => r.querySelector('[data-compare="test_rival_spawn"]'));
+    const row = [...document.querySelectorAll("#myOffersList .m3-op-card")].find((r) => r.querySelector('[data-compare="test_rival_spawn"]'));
     return {
       hasBadge: row ? row.textContent.includes("Concorrência") : false,
       hasCompareBtn: !!row?.querySelector('[data-compare="test_rival_spawn"]'),

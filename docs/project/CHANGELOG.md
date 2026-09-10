@@ -1,7 +1,7 @@
 # BRDATA — CHANGELOG
-**Gerado em:** 09/09/2026
-**Cobertura:** 2026-08-14 até 2026-09-09 (227 commits em 16 dias, branch `main`)
-**Versão atual:** v7.1.0
+**Gerado em:** 09/09/2026 (atualizado em 10/09/2026)
+**Cobertura:** 2026-08-14 até 2026-09-10 (236 commits em 17 dias, branch `main`)
+**Versão atual:** v8.0.0
 
 ## Metodologia
 
@@ -78,6 +78,40 @@ bump.
 ---
 
 ## Histórico completo (mais recente primeiro)
+
+### 2026-09-10 — v8.0.0  (9 commits de merge)
+
+> **Bump MAJOR porque:** fecha o Batch 2 (Core) do redesign mobile S4
+> por completo (8/8 telas) e leva o Batch 3 (Transactional) a 3/4
+> mescladas — governança PM↔Claude (`docs/HANDOFF_CLAUDE.md`), issues
+> #12, #13, #15, #16, #17, #18, #19, #21 aprovadas pelo Murilo no
+> mesmo lote, mais `S4-B2-003` (#14) aprovada em seguida depois de
+> resolvidas 2 divergências de design registradas.
+
+- `e894c78` S4-B2-001 — Loading/Bootstrap migrada pro Design System `--m3-*`
+- `1ea5bd1` S4-B2-002 — Login/Entrada: achado de inspeção (já estava
+  migrada, mudança puramente documental)
+- `83dc57e` S4-B2-003 — Tática/Formação migrada (parcial): 2 tokens de
+  cor legados; 2 divergências de design decididas pelo PM
+  (`.mt-bench-row` mantido como padrão próprio; tipografia `Rajdhani`
+  classificada como BRDATA Extension)
+- `fc84582` S4-B2-004 — Treino migrada pro Design System `--m3-*`
+- `0002afc` S4-B2-005 — Perfil do jogador migrado pro Design System
+  `--m3-*`
+- `3aeb1e0` S4-B3-001 — Cria os componentes TransferCard e ContractCard
+  (BRDATA Product Patterns novos)
+- `26c6331` S4-B3-002 — Mercado migrado pro TransferCard/Design System
+  novo
+- `f956e43` S4-B3-003 — Negociação/Proposta migrada pro
+  TransferCard+Dialog; **achado e corrigido bug crítico pré-existente**
+  de CSS que deixava todo Dialog/Bottom Sheet sem `position:fixed`/
+  `z-index` de verdade desde `S3-DS20-S4-PREP-001`
+- `70ac576` S4-B3-005 — Cria MatchCard e formaliza FinancialSummary
+  (retroativo, mesmo caminho de PlayerCard)
+
+**Nota:** `S4-B3-004` (Contratos, issue #20) segue fora desta entrada —
+implementada em branch própria (`claude/s4-b3-004-contratos`),
+aguardando revisão do PM antes do merge em `main`.
 
 ### 2026-09-09 — v7.1.0  (4 commits catalogados + 2 adicionados depois, ver nota)
 

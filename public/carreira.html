@@ -243,7 +243,22 @@
      já vem de .mt-body (ver adiante); só faltava texto/spinner na
      paleta M3 — sem clube "dono" aqui, mesmo raciocínio do Login. */
   #screenLoading{ background:var(--m3-surface-dim); }
-  #screenLoading h1{ font-family:var(--m3-display); color:var(--m3-on-surface); }
+  /* AJUSTE (S4-B2-001, issue #12) — "#screenLoading h1" removida: as 3
+     variações de conteúdo desta tela (markup estático, splashLoadingHTML,
+     splashErrorHTML — ver carreira.js) nunca renderizam um <h1> aqui, só
+     <p>/.mt-error-title — regra morta desde antes desta demanda,
+     confirmada por busca literal, removida como parte da limpeza
+     mínima necessária pra migrar este bloco. Skeleton (entregue na
+     S3-DS20-S4-PREP-001) avaliado e não usado aqui de propósito: as 3
+     chamadas que mostram esta tela (boot/enterAfterAuth/chooseCompetition)
+     são transições de tela inteira pra destinos totalmente diferentes
+     (login, escolha de clube, o próprio jogo) — não existe "formato de
+     conteúdo" nenhum conhecido de antemão pra Skeleton pré-visualizar
+     (diferente de uma lista de jogador carregando, por exemplo). O
+     spinner já migrado pro --m3-* na linha abaixo é o "indicador
+     definido pelo Design System" que a própria matriz de telas permite
+     como alternativa ao Skeleton (S3_S4_MATRIZ_TELAS_MOBILE.md §7:
+     "Skeleton OU indicador definido pelo Design System"). */
   #screenLoading p{ color:var(--m3-on-surface-variant); font-weight:600; }
   #screenLoading .ct-spinner{ border-color:var(--m3-surface-container-highest); border-top-color:var(--m3-primary); }
   /* Nova feature — overlay genérico "ação demorada" (ver fetchJSON em
@@ -833,13 +848,33 @@
      Componentes P0 que a S3.2.7 Readiness Review (docs/HANDOFF_CLAUDE.md)
      achou ausentes no sistema --m3-*. Construídos como componentes NOVOS,
      montados dinamicamente por JS (ver openM3Dialog/openM3BottomSheet em
-     carreira.js) — não tocam em .ct-modal-*/.mt-sheet-overlay logo abaixo,
-     que continuam servindo TODAS as telas legadas sem nenhuma alteração
-     (regra de escopo da demanda: preservar o que já existe). Reaproveita
-     os tokens/keyframes --m3-* e ctOverlayIn/ctSheetIn já definidos (não
-     duplica animação). z-index 500 fica acima de .ct-modal-overlay (200)
-     e abaixo só de .ct-action-loading (999, overlay de ação de rede —
-     tem que continuar visível por cima de qualquer diálogo). */
+     carreira.js) — não tocam em .ct-modal-* nem em .mt-sheet-overlay logo
+     abaixo, que continuam servindo TODAS as telas legadas sem nenhuma
+     alteração (regra de escopo da demanda: preservar o que já existe).
+     Reaproveita os tokens/keyframes --m3-* e ctOverlayIn/ctSheetIn já
+     definidos (não duplica animação). z-index 500 fica acima de
+     .ct-modal-overlay (200) e abaixo só de .ct-action-loading (999,
+     overlay de ação de rede — tem que continuar visível por cima de
+     qualquer diálogo).
+     BUG CORRIGIDO (S4-B3-003, achado ao integrar o 1º Dialog interativo
+     de verdade — até aqui só openPlayerCard(), somente leitura, usava
+     este componente): a versão antiga deste comentário escrevia dois
+     nomes de classe separados só por uma barra, sem espaço (algo como
+     "ct-modal-X" imediatamente seguido de barra e "mt-sheet-overlay").
+     Como o primeiro nome termina em asterisco, essa junção formava sem
+     querer o par de caracteres que ENCERRA um comentário CSS ali no
+     meio — tudo que vinha depois virava "código" real, até o próximo
+     par igual (que por acaso também existia mais abaixo, no fim deste
+     texto). O parser descartava a regra de baixo inteira como
+     consequência (engolida junto com o texto solto). Na prática, TODO
+     diálogo/bottom sheet já aberto no app (incluindo openPlayerCard, em
+     produção desde S3-DS20-S4-PREP-001) estava sem position:fixed/
+     z-index/display:none — só não regredia visivelmente porque o
+     backdrop escurece via keyframe (ctOverlayIn), mascarando o
+     position:static por baixo. Corrigido separando os 2 nomes com
+     "nem" em vez de barra colada (ver acima). Lição: nunca colar um
+     nome de classe terminado em asterisco direto numa barra dentro de
+     um comentário CSS. */
   .m3-dialog-overlay, .m3-bottom-sheet-overlay{
     position:fixed; inset:0; z-index:500; background:rgba(0,0,0,.55);
     display:none; justify-content:center; padding:0;
@@ -1441,18 +1476,18 @@
   .mt-dur-val{ font-family:var(--m3-display); font-weight:700; font-size:13px; min-width:52px; text-align:center; color:var(--m3-on-surface); }
 
   .mt-training-warning{
-    display:flex; gap:8px; align-items:flex-start; background:rgba(214,69,69,.12); border:1px solid rgba(214,69,69,.4);
-    border-radius:8px; padding:10px 12px; font-size:12px; color:var(--mt-crimson-400); line-height:1.4; margin-bottom:14px;
+    display:flex; gap:8px; align-items:flex-start; background:rgba(255,84,73,.14); border:1px solid rgba(255,84,73,.4);
+    border-radius:8px; padding:10px 12px; font-size:12px; color:var(--m3-error); line-height:1.4; margin-bottom:14px;
   }
   .mt-training-warning svg{ width:16px; height:16px; flex-shrink:0; margin-top:1px; }
 
   .mt-individual-picker-btn{
     display:flex; align-items:center; justify-content:space-between; width:100%;
-    background:var(--mt-navy-900); border:1px solid var(--mt-navy-600); border-radius:8px;
-    padding:11px 13px; color:var(--mt-ivory-50); font-family:'Rajdhani', var(--font); font-weight:600; font-size:13.5px;
+    background:var(--m3-surface-container-high); border:1px solid var(--m3-outline-variant); border-radius:8px;
+    padding:11px 13px; color:var(--m3-on-surface); font-family:'Rajdhani', var(--font); font-weight:600; font-size:13.5px;
     cursor:pointer; margin-bottom:2px;
   }
-  .mt-individual-picker-btn .placeholder{ color:var(--mt-ink-faint); }
+  .mt-individual-picker-btn .placeholder{ color:var(--m3-on-surface-variant); }
   .mt-individual-picker-btn svg{ flex-shrink:0; opacity:.6; }
 
   /* ---- Retenção/Engajamento (BRDataRetencaoEspecificacao) — Objetivos
@@ -1576,8 +1611,8 @@
      escopado só a essas 2 (não mexe no .ct-modal-overlay base). */
   .mt-player-hero{ display:flex; align-items:center; gap:14px; padding:16px 4px 4px; }
   .mt-ovr-badge.sz-lg{ width:56px; height:56px; font-size:21px; }
-  .mt-player-hero-info b{ display:block; font-size:19px; font-family:'Bebas Neue', var(--font); letter-spacing:.4px; color:var(--mt-ivory-50); }
-  .mt-player-hero-info span{ font-family:'Rajdhani', var(--font); font-size:12.5px; color:var(--mt-ink-muted); font-weight:600; }
+  .mt-player-hero-info b{ display:block; font-size:19px; font-family:'Bebas Neue', var(--font); letter-spacing:.4px; color:var(--m3-on-surface); }
+  .mt-player-hero-info span{ font-family:'Rajdhani', var(--font); font-size:12.5px; color:var(--m3-on-surface-variant); font-weight:600; }
 
   .mt-attr-grid{ display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:18px 0; }
   .mt-attr-block{ background:var(--m3-surface-container-high); border:1px solid var(--m3-outline-variant); border-radius:var(--m3-shape-md); padding:14px 10px; text-align:center; }
@@ -1957,13 +1992,27 @@
 
   /* Sistema — splash/loading com marca (crest do app) e tela de erro
      de rede (ambos reaproveitam #screenLoading já existente, ver
-     splashLoadingHTML/splashErrorHTML em carreira.js). */
-  .mt-splash-crest{ width:56px; height:56px; border-radius:18px; background:linear-gradient(160deg, var(--mt-navy-700), var(--mt-navy-950)); display:flex; align-items:center; justify-content:center; margin-bottom:4px; box-shadow:0 8px 22px rgba(0,0,0,.35); }
+     splashLoadingHTML/splashErrorHTML em carreira.js). AJUSTE (S4-B2-001,
+     issue #12) — .mt-splash-crest/.mt-error-icon eram os 2 últimos
+     pedaços desta tela ainda em tokens --mt-*/valor solto; migrados
+     pros --m3-* já usados no resto do bloco (.mt-error-title/-sub e o
+     próprio #screenLoading já estavam em --m3-* desde antes, ver
+     comentário mais acima na folha de estilo). Exclusivo desta tela —
+     nenhuma outra usa .mt-splash-crest/.mt-error-icon/.mt-error-screen
+     (confirmado por busca literal), então a migração não afeta mais
+     nada. */
+  .mt-splash-crest{ width:56px; height:56px; border-radius:18px; background:var(--m3-surface-container-high); border:1px solid var(--m3-outline-variant); display:flex; align-items:center; justify-content:center; margin-bottom:4px; }
   .mt-splash-crest img{ width:34px; height:34px; object-fit:contain; }
   .mt-error-screen{ display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:32px; height:100%; }
-  .mt-error-icon{ width:56px; height:56px; border-radius:16px; background:rgba(255,84,73,.16); color:var(--mt-crimson-400); display:flex; align-items:center; justify-content:center; margin-bottom:16px; }
+  .mt-error-icon{ width:56px; height:56px; border-radius:16px; background:rgba(255,84,73,.16); color:var(--m3-error); display:flex; align-items:center; justify-content:center; margin-bottom:16px; }
   .mt-error-title{ font-family:var(--m3-display); font-weight:700; font-size:16px; color:var(--m3-on-surface); margin-bottom:6px; }
   .mt-error-sub{ font-size:12px; color:var(--m3-on-surface-variant); line-height:1.5; max-width:280px; }
+  /* .ct-sub é utilitária compartilhada por ~29 pontos do app (cor
+     --text-2, sistema --brd-*) — não pode ser alterada na base sem
+     tocar todas elas. Override escopado só pra dentro de
+     #screenLoading (mesmo padrão já usado por #screenLoading p logo
+     abaixo), onde ela carrega o detalhe técnico do erro de rede. */
+  #screenLoading .ct-sub{ color:var(--m3-on-surface-variant); }
 
   .mt-live-action-row{ display:flex; gap:10px; }
   .mt-btn-secondary{
@@ -2102,13 +2151,26 @@
     position:relative;
   }
   .mt-pitch-badge.empty{ background:rgba(255,255,255,.18); border:2px dashed rgba(255,255,255,.4); box-shadow:none; color:rgba(255,255,255,.7); }
-  .mt-pitch-badge.problem{ box-shadow:0 0 0 2px var(--mt-crimson-400), 0 2px 6px rgba(0,0,0,.35); }
+  /* AJUSTE (S4-B2-003, issue #14) — --mt-crimson-400 tinha o MESMO
+     papel semântico ("problema/erro") já coberto por --m3-error em
+     todo o resto do app (badge de erro do Login/Loading, .mt-form-
+     error etc.) — migrado por ser uma duplicação real de token, não
+     uma decisão de produto nova. */
+  .mt-pitch-badge.problem{ box-shadow:0 0 0 2px var(--m3-error), 0 2px 6px rgba(0,0,0,.35); }
   .mt-pos-slot .name{ font-family:'Rajdhani', var(--font); font-weight:600; font-size:11.5px; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.5); max-width:64px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  /* AJUSTE (S4-B2-003) — --mt-gold-400 tinha o MESMO papel semântico
+     ("acento dourado/identidade futebolística") já mapeado pra
+     --m3-secondary no adendo de nomenclatura da S3-DS20-S4-PREP-001
+     (S3_DS20_FUNDACAO_EXECUTAVEL.md §56.3: accent.football ->
+     --m3-secondary) — migrado pelo mesmo motivo do badge acima.
+     --mt-navy-950 (borda) -> --m3-surface-container-lowest (superfície
+     --m3-* mais escura disponível, mesmo papel de "recorte" contra o
+     fundo). */
   .mt-injury-flag{
     position:absolute; bottom:-4px; right:-4px; width:15px; height:15px; border-radius:50%;
-    background:var(--mt-gold-400); display:flex; align-items:center; justify-content:center; border:1.5px solid var(--mt-navy-950);
+    background:var(--m3-secondary); display:flex; align-items:center; justify-content:center; border:1.5px solid var(--m3-surface-container-lowest);
   }
-  .mt-injury-flag svg{ width:9px; height:9px; color:#3A2A03; }
+  .mt-injury-flag svg{ width:9px; height:9px; color:var(--m3-on-secondary); }
 
   /* ---- banco de reservas ---- */
   .mt-bench-row{ display:flex; align-items:center; gap:12px; padding:10px 2px; border-bottom:1px solid var(--m3-outline-variant); cursor:pointer; }
@@ -2208,37 +2270,23 @@
      AJUSTE (refatoração completa, ver 10-mercado-de-transferencias-
      restyled.html do designer) — .mt-search-box (Tela 7) e
      .mt-select-box (Tela 6) reaproveitados; .mt-pos-chip (Tela 6)
-     reaproveitado nas tags. */
-  .mt-market-row{ padding:14px 0; border-bottom:1px solid var(--m3-outline-variant); }
-  .mt-market-row:last-child{ border-bottom:none; }
-  /* AJUSTE (pedido do usuário, "Opção B" do mockup de comparação —
-     linha mais calma, sem destacar o botão comprar) — ações sobem
-     pra um canto discreto ao lado do nome (.mt-market-actions-corner,
-     ícone sem contorno/preenchimento, só a cor do ícone diferencia a
-     ação) em vez de ocupar sua própria linha embaixo, cheia de peso
-     visual (fundo dourado com brilho); salário/valor ganham a linha
-     inteira sozinhos. align-items:flex-start porque nome+tags às
-     vezes ocupam mais altura que os 2 ícones ao lado. */
-  .mt-market-top{ display:flex; align-items:flex-start; gap:12px; margin-bottom:8px; }
-  .mt-market-info{ flex:1; min-width:0; cursor:pointer; }
-  .mt-market-name{ font-weight:600; font-size:14px; color:var(--m3-on-surface); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .mt-market-tags{ display:flex; gap:6px; margin-top:4px; }
-  .mt-market-club{
-    font-family:'Rajdhani', var(--font); font-weight:700; font-size:10.5px; letter-spacing:.3px;
-    color:var(--mt-ink-muted); background:var(--mt-navy-900); border:1px solid var(--mt-navy-600);
-    padding:2px 7px; border-radius:4px; cursor:pointer;
-  }
-  .mt-market-detail{ font-size:12px; color:var(--mt-ink-faint); padding-left:50px; }
-  .mt-market-detail b{ color:var(--mt-ink-muted); }
-  .mt-market-actions-corner{ display:flex; gap:4px; flex-shrink:0; margin-left:auto; }
+     reaproveitado nas tags.
+     S4-B3-002 — cada linha do Mercado virou um TransferCard
+     (transferCardHTML(), S4-B3-001, shape .m3-op-* já definido acima)
+     no lugar do antigo .mt-market-row/.mt-market-top/-info/-name/-tags/
+     -club/-detail/-actions-corner ad hoc — classes removidas daqui por
+     ficarem sem nenhum uso (confirmado: exclusivas desta tela). Os
+     botões de ação em ícone (.mt-btn-buy/-loan/-sell) continuam —
+     entram dentro do actionsHTML do TransferCard, sem mudança de
+     comportamento, só migrados pros tokens --m3-* que faltavam. */
   .mt-btn-buy, .mt-btn-loan, .mt-btn-sell{
     width:30px; height:30px; flex-shrink:0; display:flex; align-items:center; justify-content:center;
     border-radius:8px; cursor:pointer; background:transparent; border:none;
   }
   .mt-btn-buy svg, .mt-btn-loan svg, .mt-btn-sell svg{ width:16px; height:16px; }
   .mt-btn-buy{ color:var(--m3-primary); }
-  .mt-btn-loan{ color:var(--mt-ink-muted); }
-  .mt-btn-sell{ color:var(--mt-crimson-400); }
+  .mt-btn-loan{ color:var(--m3-on-surface-variant); }
+  .mt-btn-sell{ color:var(--m3-error); }
   .mt-btn-buy:disabled, .mt-btn-loan:disabled, .mt-btn-sell:disabled{ opacity:.4; cursor:not-allowed; }
 
   /* ================= Loja (BR_Data_Treinador_Monetizacao.xlsx +
@@ -2530,7 +2578,39 @@
   .m3-li-rating.t-mid{ background:var(--m3-surface-container-highest); color:var(--m3-on-surface); }
   .m3-li-side{ font-size:9.5px; color:var(--m3-on-surface-variant); text-align:center; flex-shrink:0; line-height:1.4; }
   .m3-li-side b{ color:var(--m3-on-surface); font-size:13px; font-family:var(--m3-display); }
+
+  /* BRDATA Product Patterns novos (S4-B3-001) — TransferCard e
+     ContractCard compartilham este shape base (.m3-op-*, "op" de
+     operação): jogador + clube + dinheiro + status + ação, o mesmo
+     "formato de cartão" pras 2 operações que envolvem jogador+clube+
+     valor (ver contrato de transferCardHTML()/contractCardHTML() em
+     carreira.js). Reaproveita .mt-ovr-badge/.mt-pos-chip/.mt-ptag já
+     existentes (mesmos do PlayerCard/Elenco/Mercado) em vez de duplicar. */
+  .m3-op-card{ background:var(--m3-surface-container-high); border:1px solid var(--m3-outline-variant); border-radius:var(--m3-shape-md); padding:12px; margin-bottom:10px; }
+  .m3-op-top{ display:flex; align-items:flex-start; gap:10px; }
+  .m3-op-info{ flex:1; min-width:0; }
+  .m3-op-info[data-openplayer]{ cursor:pointer; }
+  .m3-op-name{ font-size:13.5px; font-weight:700; color:var(--m3-on-surface); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .m3-op-tags{ display:flex; gap:6px; align-items:center; margin-top:4px; flex-wrap:wrap; }
+  .m3-op-club{ font-size:11px; font-weight:600; color:var(--m3-on-surface-variant); }
+  .m3-op-club[data-openclub]{ cursor:pointer; }
+  .m3-op-actions{ display:flex; gap:6px; flex-shrink:0; margin-left:auto; }
+  .m3-op-detail{ font-size:11.5px; color:var(--m3-on-surface-variant); margin-top:9px; padding-top:9px; border-top:1px solid var(--m3-outline-variant); }
+  .m3-op-detail b{ color:var(--m3-on-surface); }
   .m3-empty{ text-align:center; font-size:12px; color:var(--m3-on-surface-variant); padding:24px 12px; }
+
+  /* BRDATA Product Pattern novo: MatchCard (S4-B3-005) — ver contrato
+     de matchCardHTML() em carreira.js. Nenhum ponto de uso real ainda
+     (S4-B3-005 é só criação do componente). */
+  .m3-match-card{ background:var(--m3-surface-container-high); border:1px solid var(--m3-outline-variant); border-radius:var(--m3-shape-md); padding:14px 12px; }
+  .m3-mc-comp{ font-size:10px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; color:var(--m3-on-surface-variant); text-align:center; margin-bottom:10px; }
+  .m3-mc-teams{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .m3-mc-side{ display:flex; flex-direction:column; align-items:center; gap:6px; flex:1; min-width:0; }
+  .m3-mc-name{ font-size:11px; font-weight:600; color:var(--m3-on-surface); text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+  .m3-mc-center{ display:flex; flex-direction:column; align-items:center; gap:6px; flex-shrink:0; padding:0 6px; }
+  .m3-mc-score{ font-family:var(--m3-display); font-weight:700; font-size:19px; color:var(--m3-on-surface); white-space:nowrap; }
+  .m3-mc-score span{ color:var(--m3-on-surface-variant); font-size:14px; }
+  .m3-mc-when{ font-size:11px; font-weight:600; color:var(--m3-on-surface-variant); white-space:nowrap; }
 
   /* ---- Ao Vivo: placar + domínio de jogo + lance a lance ---- */
   .m3-score-card{ background:var(--m3-surface-container-high); border-radius:var(--m3-shape-xl); padding:20px 16px; text-align:center; margin-bottom:14px; }
@@ -3397,10 +3477,13 @@
       <!-- AJUSTE (refatoração completa, Tela 10 — ver
            10-mercado-de-transferencias-restyled.html do designer) —
            .mt-search-box (Tela 7) e .mt-select-box (Tela 6)
-           reaproveitados; linha de jogador (.mt-market-row) com badge
-           de OVR + chip de posição + tags de time, botões coloridos
-           por ação (comprar/pegar emprestado = dourado/ghost, vender/
-           emprestar = ghost/crimson-outline). -->
+           reaproveitados; linha de jogador com badge de OVR + chip de
+           posição + tags de time, botões coloridos por ação (comprar/
+           pegar emprestado = dourado/ghost, vender/emprestar =
+           ghost/crimson-outline).
+           S4-B3-002 — linha de jogador migrada pro TransferCard
+           (transferCardHTML(), S4-B3-001, ver renderMercado() em
+           carreira.js) no lugar do antigo .mt-market-row ad hoc. -->
       <section class="ct-panel" id="panel-mercado">
         <div class="mt-card" id="pendingOfferCard" style="display:none;">
           <div class="mt-card-title">💰 Proposta recebida</div>
@@ -3871,38 +3954,11 @@
      valor (pode ser menor) + parcelamento, e o clube vendedor demora
      algumas rodadas pra responder (ver openOfferModal/
      confirmOfferFromModal/resolvePendingOffersOutRound em
-     carreira.js). Mesmo padrão do modal de empréstimo logo abaixo. -->
-<div class="ct-modal-overlay" id="offerOverlay">
-  <div class="ct-modal">
-    <div class="ct-modal-header">
-      <span class="ct-modal-icon">💰</span>
-      <div class="ct-modal-header-text">
-        <h3>Fazer proposta</h3>
-        <div class="ct-modal-sub" id="offerSub"></div>
-      </div>
-      <button class="ct-modal-close" id="offerClose">✕</button>
-    </div>
-    <div class="ct-modal-body">
-      <div class="ct-field" style="margin-bottom:12px;">
-        <label>Sua proposta</label>
-        <input type="number" class="ct-search" id="offerValueInput" style="margin-bottom:0;" min="0" step="1000">
-      </div>
-      <div class="ct-field">
-        <label>Parcelamento da taxa</label>
-        <select id="offerInstallmentsSelect">
-          <option value="1">À vista (1x)</option>
-          <option value="2">2x</option>
-          <option value="3">3x</option>
-          <option value="4">4x</option>
-        </select>
-      </div>
-      <p class="mt-card-sub" style="margin-top:10px;">Propor menos que o valor de mercado é possível, mas o clube pode recusar, pedir mais ou demorar pra responder. Você acompanha o andamento em "Minhas propostas".</p>
-    </div>
-    <div class="ct-modal-footer">
-      <button class="mt-btn-primary-gold" id="btnOfferConfirm">Enviar proposta</button>
-    </div>
-  </div>
-</div>
+     carreira.js).
+     S4-B3-003 — este modal virou um Dialog dinâmico (openM3Dialog(),
+     S3-DS20-S4-PREP-001), montado por inteiro em JS — não sobra mais
+     nenhum bloco fixo de HTML aqui (era #offerOverlay/.ct-modal-overlay
+     estático; ver openOfferModal() em carreira.js). -->
 
 <!-- Nova feature (Bloco 3) — "Minhas propostas": acompanha as
      negociações de compra em andamento (ver renderMyOffersScreen em
