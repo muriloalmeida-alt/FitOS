@@ -9482,7 +9482,7 @@ function openDetail(id) {
         ? `<p class="mt-info-line" style="text-align:center; border-bottom:none;">📋 Emprestado do ${escapeHtml(teamById(p.loanFromClubId).name)} ${p.loanReturnRound ? `até a rodada ${p.loanReturnRound}` : "até o fim da temporada"}${p.loanBuyOption ? (p.loanBuyOption.mandatory ? ` · compra obrigatória de ${fmtBRL(p.loanBuyOption.value)} ao fim` : ` · opção de compra de ${fmtBRL(p.loanBuyOption.value)} ao fim`) : ""} — só dá pra escalar.</p>`
         : `<button class="mt-btn-danger-outline" data-act="release">Dispensar</button>`}
     </div>
-    ${promoteBlocked ? `<p class="mt-info-line" style="color:var(--mt-crimson-400); border-bottom:none;">⚠️ Promover esse jogador levaria a folha salarial a ${fmtBRL(wageAfterPromote)}, acima do teto de ${fmtBRL(CAREER.finances.wageCap)}.</p>` : ""}`;
+    ${promoteBlocked ? `<p class="mt-info-line" style="color:var(--m3-error); border-bottom:none;">⚠️ Promover esse jogador levaria a folha salarial a ${fmtBRL(wageAfterPromote)}, acima do teto de ${fmtBRL(CAREER.finances.wageCap)}.</p>` : ""}`;
   document.getElementById("detailBody").querySelectorAll("[data-act]").forEach((btn) => {
     btn.addEventListener("click", () => handlePlayerAction(p.id, btn.dataset.act));
   });

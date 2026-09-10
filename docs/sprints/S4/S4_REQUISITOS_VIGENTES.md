@@ -49,14 +49,15 @@ Batch 2 — Core (8 telas)
 | Elenco | ✅ migrada `--m3-*` | PlayerCard formalizado (`S3-DS20-S4-PREP-002`, ver §3) — `playerRow()` agora tem contrato documentado |
 | Login / Entrada | ✅ migrada `--m3-*` (achado de `S4-B2-002`, ver §5) | Estado real desta linha estava desatualizado — inspeção encontrou a tela do Modo Técnico (`#screenLoginRequired`) já 100% migrada por refatoração anterior, não `.auth-gate`/`--brd-*` como aqui registrado. `.auth-gate` continua existindo, mas é exclusivo do site principal (`index.html`) — telas comprovadamente separadas |
 | Loading / Bootstrap | ✅ migrada `--m3-*` (`S4-B2-001`) | Skeleton avaliado e não usado (sem formato de conteúdo conhecido nas 3 transições desta tela — ver relatório); spinner já migrado é o "indicador definido pelo Design System" alternativo previsto pela matriz |
-| Perfil do jogador | ❌ `.ct-modal-*` (legado) | overlay vira `.m3-dialog` assim que `S3-DS20-S4-PREP-001` for aprovada (é o próprio ponto de validação dessa demanda) — mas isso NÃO formaliza o PlayerCard nem migra o resto da tela pros tokens `--m3-*`, só o container do modal |
+| Perfil do jogador | ✅ migrada `--m3-*` (`S4-B2-005`) | Correção em relação à nota anterior: o overlay (`#detailOverlay`/`.ct-modal-overlay`) já estava com tokens `--m3-*` mesmo ANTES de `S3-DS20-S4-PREP-001` — a implementação de Dialog daquela demanda migrou o fluxo DIFERENTE de visualização somente-leitura de jogador de outro clube (`openPlayerCard()`/`.m3-dialog`), não este. Migrados nesta demanda os 2 seletores exclusivos de `openDetail()` que restavam legados (hero nome/subtítulo, aviso de teto salarial). Setas de tendência (▲/▼) NÃO migradas — token `--brd-*` sem equivalente `--m3-*` estabelecido, registrado como divergência aberta |
 | Tática / Formação | ❌ `--mt-*` (legado) | — |
 | Treino | ✅ migrada `--m3-*` | Maioria já estava `--m3-*` (`.mt-scheme-card`, `.mt-dur-stepper`, `.mt-seg-group`, `.mt-card`/`.mt-stat-grid`/`.mt-week-strip`) antes desta demanda (`S4-B2-004`) — migrados 2 seletores legados restantes (aviso de folga protegida sobrescrita e botão "escolher jogador" do treino individual). Lista de elenco confirmada reaproveitando `playerRow()`/PlayerCard (`S3-DS20-S4-PREP-002`), sem mudança necessária. Paleta categórica de foco de treino (técnico/físico/tático) NÃO migrada — classificada como BRDATA Extension, mesmo tratamento de `.mt-pos-chip` (`S4-B2-003`). Botão de treino individual usa tipografia Rajdhani — mesma divergência já registrada em `S4-B2-003` (não resolvida aqui, seção 4) |
 
-**6 de 8 (75%) migradas** (Escolha do clube, Início, Elenco, Login,
-Loading/Bootstrap, Treino — todas mescladas em `main`). Restam Perfil
-do jogador (`S4-B2-005`, aprovada, merge pendente) e Tática/Formação
-(`S4-B2-003`, `AJUSTES NECESSÁRIOS`, aguardando decisão do PM).
+**7 de 8 (87%) migradas** (Escolha do clube, Início, Elenco, Login,
+Loading/Bootstrap, Treino, Perfil do jogador — todas mescladas em
+`main`). Resta só Tática/Formação (`S4-B2-003`, `AJUSTES NECESSÁRIOS`,
+aguardando decisão do PM sobre 2 divergências de design) — com essa
+decisão, o Batch 2 (Core) fecha por completo.
 
 Batch 3 — Transactional (4 telas, todas P0)
 
@@ -95,7 +96,7 @@ específico de 1-2 telas:
 
 | Padrão | Tela(s) que depende dele | Já migrada sem ele? |
 |---|---|---|
-| PlayerCard | Elenco, Perfil do jogador | **Resolvido por `S3-DS20-S4-PREP-002`** — `playerRow()` formalizado como PlayerCard, contrato documentado em `carreira.js` e adendo em `S3_2_COMPONENTES_E_CONTRATOS.md` §60. Perfil do jogador continua fora (não migrada — ver linha 39 acima) |
+| PlayerCard | Elenco, Treino, `openClubRoster()` | **Resolvido por `S3-DS20-S4-PREP-002`** — `playerRow()` formalizado como PlayerCard, contrato documentado em `carreira.js` e adendo em `S3_2_COMPONENTES_E_CONTRATOS.md` §60. Correção: Perfil do jogador NÃO é um ponto de uso do PlayerCard (é uma tela de detalhe própria, `openDetail()`, visualmente maior — o componente PlayerCard é a linha compacta de LISTA) — ver `S3_2_COMPONENTES_E_CONTRATOS.md` §60.2. Perfil do jogador migrada em `S4-B2-005` (ver linha 39 acima) sem depender do PlayerCard |
 | MatchCard | Início/Dashboard, Resumo da rodada | Início usa `.m3-score-card`/`.m3-match-row` ad hoc, mesmo padrão |
 | LeagueTable | Início/Dashboard, Histórico | Não migrada — segue tabela HTML tradicional |
 | TransferCard | Mercado, Negociação | Não migrada |
