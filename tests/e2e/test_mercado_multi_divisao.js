@@ -62,7 +62,7 @@ const { chromium } = require("playwright-core");
   // 4) Filtrar por Série C some com Série A/B da lista renderizada.
   await page.selectOption("#marketCompFilter", "serie_c");
   await page.waitForTimeout(200);
-  const filteredClubs = await page.evaluate(() => [...document.querySelectorAll("#marketList .mt-market-tags")].map((el) => el.textContent));
+  const filteredClubs = await page.evaluate(() => [...document.querySelectorAll("#marketList .m3-op-tags")].map((el) => el.textContent));
   const onlySerieC = filteredClubs.length > 0 && filteredClubs.every((t) => t.includes("Série C"));
   console.log("4) Filtro 'Série C' só mostra jogadores dessa divisão:", onlySerieC, filteredClubs.length, "linhas");
   await page.selectOption("#marketCompFilter", "");

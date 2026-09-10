@@ -148,7 +148,7 @@ async function openLojaBoosts(page) {
   await page2.waitForTimeout(400);
   await page2.click(".m3-nav-item[data-panel='mercado']");
   await page2.waitForTimeout(400);
-  const marketRow = await page2.$(".mt-market-row [data-openplayer]");
+  const marketRow = await page2.$(".m3-op-card [data-openplayer]");
   let discountApplied = null;
   if (marketRow) {
     const playerId = await marketRow.getAttribute("data-openplayer");
@@ -156,7 +156,7 @@ async function openLojaBoosts(page) {
       const found = allMarketPlayers().find(({ p }) => p.id === id);
       return found ? found.p.value : null;
     }, playerId);
-    await page2.click(`.mt-market-actions-corner [data-buy="${playerId}"]`).catch(() => {});
+    await page2.click(`.m3-op-actions [data-buy="${playerId}"]`).catch(() => {});
     await page2.waitForTimeout(300);
     const offerOpen = await page2.evaluate(() => document.getElementById("offerOverlay").classList.contains("open"));
     if (offerOpen) {

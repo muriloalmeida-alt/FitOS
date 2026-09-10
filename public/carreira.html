@@ -2237,37 +2237,23 @@
      AJUSTE (refatoração completa, ver 10-mercado-de-transferencias-
      restyled.html do designer) — .mt-search-box (Tela 7) e
      .mt-select-box (Tela 6) reaproveitados; .mt-pos-chip (Tela 6)
-     reaproveitado nas tags. */
-  .mt-market-row{ padding:14px 0; border-bottom:1px solid var(--m3-outline-variant); }
-  .mt-market-row:last-child{ border-bottom:none; }
-  /* AJUSTE (pedido do usuário, "Opção B" do mockup de comparação —
-     linha mais calma, sem destacar o botão comprar) — ações sobem
-     pra um canto discreto ao lado do nome (.mt-market-actions-corner,
-     ícone sem contorno/preenchimento, só a cor do ícone diferencia a
-     ação) em vez de ocupar sua própria linha embaixo, cheia de peso
-     visual (fundo dourado com brilho); salário/valor ganham a linha
-     inteira sozinhos. align-items:flex-start porque nome+tags às
-     vezes ocupam mais altura que os 2 ícones ao lado. */
-  .mt-market-top{ display:flex; align-items:flex-start; gap:12px; margin-bottom:8px; }
-  .mt-market-info{ flex:1; min-width:0; cursor:pointer; }
-  .mt-market-name{ font-weight:600; font-size:14px; color:var(--m3-on-surface); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .mt-market-tags{ display:flex; gap:6px; margin-top:4px; }
-  .mt-market-club{
-    font-family:'Rajdhani', var(--font); font-weight:700; font-size:10.5px; letter-spacing:.3px;
-    color:var(--mt-ink-muted); background:var(--mt-navy-900); border:1px solid var(--mt-navy-600);
-    padding:2px 7px; border-radius:4px; cursor:pointer;
-  }
-  .mt-market-detail{ font-size:12px; color:var(--mt-ink-faint); padding-left:50px; }
-  .mt-market-detail b{ color:var(--mt-ink-muted); }
-  .mt-market-actions-corner{ display:flex; gap:4px; flex-shrink:0; margin-left:auto; }
+     reaproveitado nas tags.
+     S4-B3-002 — cada linha do Mercado virou um TransferCard
+     (transferCardHTML(), S4-B3-001, shape .m3-op-* já definido acima)
+     no lugar do antigo .mt-market-row/.mt-market-top/-info/-name/-tags/
+     -club/-detail/-actions-corner ad hoc — classes removidas daqui por
+     ficarem sem nenhum uso (confirmado: exclusivas desta tela). Os
+     botões de ação em ícone (.mt-btn-buy/-loan/-sell) continuam —
+     entram dentro do actionsHTML do TransferCard, sem mudança de
+     comportamento, só migrados pros tokens --m3-* que faltavam. */
   .mt-btn-buy, .mt-btn-loan, .mt-btn-sell{
     width:30px; height:30px; flex-shrink:0; display:flex; align-items:center; justify-content:center;
     border-radius:8px; cursor:pointer; background:transparent; border:none;
   }
   .mt-btn-buy svg, .mt-btn-loan svg, .mt-btn-sell svg{ width:16px; height:16px; }
   .mt-btn-buy{ color:var(--m3-primary); }
-  .mt-btn-loan{ color:var(--mt-ink-muted); }
-  .mt-btn-sell{ color:var(--mt-crimson-400); }
+  .mt-btn-loan{ color:var(--m3-on-surface-variant); }
+  .mt-btn-sell{ color:var(--m3-error); }
   .mt-btn-buy:disabled, .mt-btn-loan:disabled, .mt-btn-sell:disabled{ opacity:.4; cursor:not-allowed; }
 
   /* ================= Loja (BR_Data_Treinador_Monetizacao.xlsx +
@@ -2570,9 +2556,11 @@
   .m3-op-card{ background:var(--m3-surface-container-high); border:1px solid var(--m3-outline-variant); border-radius:var(--m3-shape-md); padding:12px; margin-bottom:10px; }
   .m3-op-top{ display:flex; align-items:flex-start; gap:10px; }
   .m3-op-info{ flex:1; min-width:0; }
+  .m3-op-info[data-openplayer]{ cursor:pointer; }
   .m3-op-name{ font-size:13.5px; font-weight:700; color:var(--m3-on-surface); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
   .m3-op-tags{ display:flex; gap:6px; align-items:center; margin-top:4px; flex-wrap:wrap; }
   .m3-op-club{ font-size:11px; font-weight:600; color:var(--m3-on-surface-variant); }
+  .m3-op-club[data-openclub]{ cursor:pointer; }
   .m3-op-actions{ display:flex; gap:6px; flex-shrink:0; margin-left:auto; }
   .m3-op-detail{ font-size:11.5px; color:var(--m3-on-surface-variant); margin-top:9px; padding-top:9px; border-top:1px solid var(--m3-outline-variant); }
   .m3-op-detail b{ color:var(--m3-on-surface); }
@@ -3443,10 +3431,13 @@
       <!-- AJUSTE (refatoração completa, Tela 10 — ver
            10-mercado-de-transferencias-restyled.html do designer) —
            .mt-search-box (Tela 7) e .mt-select-box (Tela 6)
-           reaproveitados; linha de jogador (.mt-market-row) com badge
-           de OVR + chip de posição + tags de time, botões coloridos
-           por ação (comprar/pegar emprestado = dourado/ghost, vender/
-           emprestar = ghost/crimson-outline). -->
+           reaproveitados; linha de jogador com badge de OVR + chip de
+           posição + tags de time, botões coloridos por ação (comprar/
+           pegar emprestado = dourado/ghost, vender/emprestar =
+           ghost/crimson-outline).
+           S4-B3-002 — linha de jogador migrada pro TransferCard
+           (transferCardHTML(), S4-B3-001, ver renderMercado() em
+           carreira.js) no lugar do antigo .mt-market-row ad hoc. -->
       <section class="ct-panel" id="panel-mercado">
         <div class="mt-card" id="pendingOfferCard" style="display:none;">
           <div class="mt-card-title">💰 Proposta recebida</div>

@@ -12506,51 +12506,38 @@ function renderMercado() {
   document.getElementById("marketResultCount").textContent = list.length
     ? `Mostrando ${capped.length} de ${list.length} jogador${list.length === 1 ? "" : "es"}.`
     : "";
-  // AJUSTE (refatoração completa, Tela 10 — ver
-  // 10-mercado-de-transferencias-restyled.html do designer) — badge de
-  // OVR (mesma faixa de cor do Elenco/Detalhe) + chip de posição
-  // colorido (mesmo mapeamento do banco, Tela 6) em cima; salário/valor
-  // + botões embaixo, alinhados com o badge (padding-left). Ação muda
-  // pra "Vender" quando é jogador do SEU elenco (ver "mine" em
-  // allMarketPlayers).
-  // AJUSTE (pedido do usuário, "Opção B" do mockup de comparação —
-  // ver mercado-row-opcoes.html) — ações saem da própria linha embaixo
-  // (peso visual grande, fundo dourado com brilho no botão comprar) e
-  // sobem pra um canto discreto ao lado do nome (.mt-market-actions-corner,
-  // ícone sem contorno nem preenchimento, só a cor diferencia a ação);
-  // salário/valor ganham a linha de baixo inteira, sozinhos.
+  // S4-B3-002 — cada oportunidade de mercado agora usa o TransferCard
+  // (transferCardHTML(), S4-B3-001) em vez do antigo .mt-market-row ad
+  // hoc — mesma informação (badge de OVR, nome/clube clicáveis, chip de
+  // posição, selo de divisão numa carreira "multi", ações em ícone no
+  // canto, salário+valor na linha de detalhe), só que via componente
+  // nomeado/documentado. Ação muda pra "Vender" quando é jogador do SEU
+  // elenco (ver "mine" em allMarketPlayers) — mesma regra de sempre, só
+  // o HTML das ações é montado aqui e passado como actionsHTML.
   const rows = capped.map(({ p, club, mine }) => {
     const subpos = subPositionOf(p);
     // AJUSTE (pedido do usuário: "o mercado deve trazer jogadores das
     // 3 ligas") — selo de divisão só numa carreira "multi" (numa
     // "single" todo mundo é sempre da mesma competição, o selo não
-    // diria nada de novo) — mesmo estilo de pílula do chip de posição
-    // ao lado, cor neutra (não é uma das cores semânticas do jogo).
-    const compTag = isMulti
-      ? `<span class="mt-pos-chip" style="background:rgba(143,163,191,.14); color:var(--mt-ink-muted); border:1px solid rgba(143,163,191,.3);">${escapeHtml(COMPETITION_SHORT[club.competitionId] || club.competitionId || "")}</span>`
-      : "";
-    return `<div class="mt-market-row">
-    <div class="mt-market-top">
-      <div class="mt-ovr-badge ${ovrTierClass(p.overall)}">${p.overall}</div>
-      <div class="mt-market-info" data-openplayer="${p.id}" data-club="${escapeHtml(String(club.id))}">
-        <div class="mt-market-name">${escapeHtml(abbreviateName(p.name))}</div>
-        <div class="mt-market-tags"><span class="mt-market-club" data-openclub="${escapeHtml(String(club.id))}">${escapeHtml(club.short || club.name)}</span><span class="mt-pos-chip ${SUBPOS_DIVCLASS[subpos]}">${subpos}</span>${compTag}</div>
-      </div>
-      <div class="mt-market-actions-corner">
-        ${mine
-          ? (listingFor(p.id)
-              ? `<button class="mt-btn-loan" data-viewlisting="${p.id}" aria-label="Anúncio em andamento" title="À venda — ver em Minhas vendas">${MARKET_ICON.pendente}</button>
-                 <button class="mt-btn-loan" data-loanout="${p.id}" aria-label="Emprestar" ${loanOutBtnAttrs(p, mktWindow) || `title="Emprestar"`}>${MARKET_ICON.emprestimo}</button>`
-              : `<button class="mt-btn-sell" data-list="${p.id}" aria-label="Colocar à venda" title="Colocar à venda">${MARKET_ICON.saida}</button>
-                 <button class="mt-btn-loan" data-loanout="${p.id}" aria-label="Emprestar" ${loanOutBtnAttrs(p, mktWindow) || `title="Emprestar"`}>${MARKET_ICON.emprestimo}</button>`)
-          : pendingOfferOutFor(p.id)
-            ? `<button class="mt-btn-loan" data-viewoffer="${p.id}" aria-label="Proposta enviada" title="Proposta enviada — ver em Minhas propostas">${MARKET_ICON.pendente}</button>`
-            : `<button class="mt-btn-buy" data-buy="${p.id}" data-club="${escapeHtml(String(club.id))}" aria-label="Propor" ${mktWindow.open ? `title="Fazer proposta"` : `disabled title="Janela de contratações encerrada"`}>${MARKET_ICON.entrada}</button>
-               <button class="mt-btn-loan" data-loanin="${p.id}" data-club="${escapeHtml(String(club.id))}" aria-label="Pegar emprestado" ${loanOutBtnAttrs(p, mktWindow) || `title="Pegar emprestado"`}>${MARKET_ICON.emprestimo}</button>`}
-      </div>
-    </div>
-    <div class="mt-market-detail">Salário: <b>${fmtBRLShort(p.wage)}/mês</b> · Valor: <b>${fmtBRLShort(p.value)}</b></div>
-  </div>`;
+    // diria nada de novo) — usa o slot statusLabel do TransferCard
+    // (variant "neutral", mesma cor neutra de antes).
+    const compTag = isMulti ? (COMPETITION_SHORT[club.competitionId] || club.competitionId || "") : null;
+    const actionsHTML = mine
+      ? (listingFor(p.id)
+          ? `<button class="mt-btn-loan" data-viewlisting="${p.id}" aria-label="Anúncio em andamento" title="À venda — ver em Minhas vendas">${MARKET_ICON.pendente}</button>
+             <button class="mt-btn-loan" data-loanout="${p.id}" aria-label="Emprestar" ${loanOutBtnAttrs(p, mktWindow) || `title="Emprestar"`}>${MARKET_ICON.emprestimo}</button>`
+          : `<button class="mt-btn-sell" data-list="${p.id}" aria-label="Colocar à venda" title="Colocar à venda">${MARKET_ICON.saida}</button>
+             <button class="mt-btn-loan" data-loanout="${p.id}" aria-label="Emprestar" ${loanOutBtnAttrs(p, mktWindow) || `title="Emprestar"`}>${MARKET_ICON.emprestimo}</button>`)
+      : pendingOfferOutFor(p.id)
+        ? `<button class="mt-btn-loan" data-viewoffer="${p.id}" aria-label="Proposta enviada" title="Proposta enviada — ver em Minhas propostas">${MARKET_ICON.pendente}</button>`
+        : `<button class="mt-btn-buy" data-buy="${p.id}" data-club="${escapeHtml(String(club.id))}" aria-label="Propor" ${mktWindow.open ? `title="Fazer proposta"` : `disabled title="Janela de contratações encerrada"`}>${MARKET_ICON.entrada}</button>
+           <button class="mt-btn-loan" data-loanin="${p.id}" data-club="${escapeHtml(String(club.id))}" aria-label="Pegar emprestado" ${loanOutBtnAttrs(p, mktWindow) || `title="Pegar emprestado"`}>${MARKET_ICON.emprestimo}</button>`;
+    return transferCardHTML({
+      playerId: p.id, playerName: abbreviateName(p.name), overall: p.overall, position: subpos,
+      clubName: club.short || club.name, clubId: club.id, value: p.value, wage: p.wage,
+      statusLabel: compTag, statusVariant: "neutral",
+      actionsHTML, clickablePlayer: true, clickableClub: true,
+    });
   }).join("");
   document.getElementById("marketList").innerHTML = rows || `<p class="ct-empty">Nenhum jogador encontrado.</p>`;
   // Nova feature (Bloco 3) — "Comprar" virou "Fazer proposta"

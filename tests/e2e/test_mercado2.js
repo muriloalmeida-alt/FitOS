@@ -159,7 +159,7 @@ const { chromium } = require("playwright-core");
   // Filtro por posição
   await page.selectOption("#marketPosFilter", "G");
   await page.waitForTimeout(200);
-  const rows = await page.$$eval(".mt-market-row", (els) => els.map((e) => e.querySelector(".mt-pos-chip").textContent));
+  const rows = await page.$$eval(".m3-op-card", (els) => els.map((e) => e.querySelector(".mt-pos-chip").textContent));
   console.log("Filtro GOL - posições encontradas:", [...new Set(rows)]);
   await page.screenshot({ path: "mercado2-filtro-gol.png" });
 
