@@ -635,10 +635,17 @@ em uma nova demanda, não como reabertura dessa issue.
 
 S4-B2-001 — Migrar tela Loading/Bootstrap para o Design System novo
 
-Status: PRONTO PARA IMPLEMENTAÇÃO
+Status: REVISÃO DO PM NECESSÁRIA
 Sprint: S4 — Redesign Mobile
 Fase: Batch 2 (Core) — item 1 de 5
 Prioridade: P0
+
+Nota de auditoria (S4-AUDIT-BACKLOG-001, 10/09/2026): implementada.
+Branch `claude/s4-b2-001-loading` (commit `6267fc6`), 1 commit à
+frente de `main`, sem PR aberto. Resultado proposto: APROVADO.
+Relatório completo no comentário do PM em
+https://github.com/muriloalmeida-alt/FitOS/issues/12#issuecomment-5609991100.
+Nenhuma resposta/aprovação do usuário ainda — aguardando revisão.
 
 Objetivo
 
@@ -757,10 +764,18 @@ Perfil do jogador por último (depende de `S3-DS20-S4-PREP-002`).
 
 S4-B2-002 — Migrar tela Login/Entrada para o Design System novo
 
-Status: PRONTO PARA IMPLEMENTAÇÃO
+Status: REVISÃO DO PM NECESSÁRIA
 Sprint: S4 — Redesign Mobile
 Fase: Batch 2 (Core) — item 2 de 5
 Prioridade: P0
+
+Nota de auditoria (S4-AUDIT-BACKLOG-001, 10/09/2026): implementada
+(nenhuma mudança de código — tela já estava 100% migrada, achado de
+inspeção). Branch `claude/s4-b2-002-login` (commit `7fcb3a7`), 1
+commit à frente de `main`, sem PR aberto. Resultado proposto:
+APROVADO. Relatório completo em
+https://github.com/muriloalmeida-alt/FitOS/issues/13#issuecomment-5610031121.
+Nenhuma resposta/aprovação do usuário ainda.
 
 Objetivo
 
@@ -873,9 +888,21 @@ e Treino. Perfil do jogador continua por último, dependente de
 
 S4-B2-003 — Migrar tela Tática/Formação para o Design System novo
 
-Status: PRONTO PARA IMPLEMENTAÇÃO
+Status: AJUSTES NECESSÁRIOS
 Sprint: S4 — Redesign Mobile
 Fase: Batch 2 (Core) — item 3 de 5
+
+Nota de auditoria (S4-AUDIT-BACKLOG-001, 10/09/2026): parcialmente
+implementada. Branch `claude/s4-b2-003-tatica` (commit `f92a339`), 1
+commit à frente de `main`, sem PR aberto. Resultado proposto:
+ADJUSTMENTS REQUIRED — 2 divergências registradas aguardando decisão
+do PM (unificar `.mt-bench-row` com PlayerCard ou manter padrão
+próprio; classificar tipografia Rajdhani do campinho/banco como
+BRDATA Extension ou migrar). Relatório completo em
+https://github.com/muriloalmeida-alt/FitOS/issues/14#issuecomment-5610156648.
+Nenhuma resposta/decisão do usuário ainda — esta é a única das 10 com
+decisão de produto pendente ANTES de poder ser aprovada (as outras só
+aguardam revisão).
 Prioridade: P0
 
 Objetivo
@@ -997,10 +1024,17 @@ quando essa demanda for especificada).
 
 S4-B2-004 — Migrar tela Treino para o Design System novo
 
-Status: PRONTO PARA IMPLEMENTAÇÃO
+Status: REVISÃO DO PM NECESSÁRIA
 Sprint: S4 — Redesign Mobile
 Fase: Batch 2 (Core) — item 4 de 5
 Prioridade: P0
+
+Nota de auditoria (S4-AUDIT-BACKLOG-001, 10/09/2026): implementada.
+Branch `claude/s4-b2-004-treino` (commit `6bf1467`), 1 commit à frente
+de `main`, sem PR aberto. Resultado proposto: APROVADO. Relatório
+completo em
+https://github.com/muriloalmeida-alt/FitOS/issues/15#issuecomment-5611875336.
+Nenhuma resposta/aprovação do usuário ainda.
 
 Objetivo
 
@@ -1109,9 +1143,17 @@ desse componente.
 
 S4-B2-005 — Migrar tela Perfil do jogador para o Design System novo
 
-Status: PRONTO PARA IMPLEMENTAÇÃO
+Status: REVISÃO DO PM NECESSÁRIA
 Sprint: S4 — Redesign Mobile
 Fase: Batch 2 (Core) — item 5 de 5 (último)
+
+Nota de auditoria (S4-AUDIT-BACKLOG-001, 10/09/2026): implementada.
+Branch `claude/s4-b2-005-perfil` (commit `13c0991`), 1 commit à frente
+de `main`, sem PR aberto. Resultado proposto: APROVADO. Com esta, as 5
+demandas do Batch 2 (Core) estão tecnicamente prontas — só faltam
+aprovação/merge. Relatório completo em
+https://github.com/muriloalmeida-alt/FitOS/issues/16#issuecomment-5611971572.
+Nenhuma resposta/aprovação do usuário ainda.
 Prioridade: P0
 
 Objetivo
@@ -1227,10 +1269,18 @@ padrão já usado aqui.
 
 S4-B3-001 — Criar os componentes TransferCard e ContractCard
 
-Status: PRONTO PARA IMPLEMENTAÇÃO
+Status: REVISÃO DO PM NECESSÁRIA
 Sprint: S4 — Redesign Mobile
 Fase: Batch 3 (Transactional) — pré-requisito, item 1 de 4
 Prioridade: P0
+
+Nota de auditoria (S4-AUDIT-BACKLOG-001, 10/09/2026): implementada.
+Branch `claude/s4-b3-001-transfer-contract-card` (commit `44edc50`), 1
+commit à frente de `main`, sem PR aberto. Resultado proposto:
+APROVADO. Componentes já integrados de verdade em `S4-B3-002`/`003`
+(branches empilhadas em cima desta). Relatório completo em
+https://github.com/muriloalmeida-alt/FitOS/issues/17#issuecomment-5616235050.
+Nenhuma resposta/aprovação do usuário ainda.
 
 Objetivo
 
@@ -1348,10 +1398,17 @@ inspeção acontecer — não presumida aqui.
 
 S4-B3-002 — Migrar tela Mercado para o Design System novo
 
-Status: PRONTO PARA IMPLEMENTAÇÃO
+Status: REVISÃO DO PM NECESSÁRIA
 Sprint: S4 — Redesign Mobile
 Fase: Batch 3 (Transactional) — item 2 de 4
 Prioridade: P0
+
+Nota de auditoria (S4-AUDIT-BACKLOG-001, 10/09/2026): implementada.
+Branch `claude/s4-b3-002-mercado` (a partir de `claude/s4-b3-001-...`,
+3 commits à frente de `main` no total), sem PR aberto. Resultado
+proposto: APROVADO. Relatório completo em
+https://github.com/muriloalmeida-alt/FitOS/issues/18#issuecomment-5616433109.
+Nenhuma resposta/aprovação do usuário ainda.
 
 Objetivo
 
@@ -1447,10 +1504,22 @@ ContractCard).
 
 S4-B3-003 — Migrar tela Negociação/Proposta para o Design System novo
 
-Status: PRONTO PARA IMPLEMENTAÇÃO
+Status: REVISÃO DO PM NECESSÁRIA
 Sprint: S4 — Redesign Mobile
 Fase: Batch 3 (Transactional) — item 3 de 4
 Prioridade: P0
+
+Nota de auditoria (S4-AUDIT-BACKLOG-001, 10/09/2026): implementada,
+com um achado importante. Branch `claude/s4-b3-003-negociacao` (4
+commits à frente de `main` no total), sem PR aberto. Resultado
+proposto: APROVADO. **Encontrou e corrigiu um bug crítico
+pré-existente** (desde `S3-DS20-S4-PREP-001`) que deixava TODO
+Dialog/Bottom Sheet do app sem `position:fixed`/`z-index` de verdade —
+ver relatório completo pro detalhe técnico e o efeito colateral
+positivo (resolveu um gap P1 documentado desde `S4-B2-002` em
+`test_ux_nomes_clicaveis.js`). Relatório completo em
+https://github.com/muriloalmeida-alt/FitOS/issues/19#issuecomment-5616857836.
+Nenhuma resposta/aprovação do usuário ainda.
 
 Objetivo
 
@@ -1544,10 +1613,23 @@ rodada, fora desta rodada): Contratos, usando ContractCard.
 
 S4-B3-004 — Migrar tela Contratos para o Design System novo
 
-Status: PRONTO PARA IMPLEMENTAÇÃO
+Status: BLOQUEADO
 Sprint: S4 — Redesign Mobile
 Fase: Batch 3 (Transactional) — item 4 de 4
 Prioridade: P0
+
+Nota de auditoria (S4-AUDIT-BACKLOG-001, 10/09/2026): inspecionada,
+NÃO implementada — nenhum código alterado, de propósito. Branch
+`claude/s4-b3-004-contratos` existe só com o relatório de bloqueio (5
+commits à frente de `main` no total, herdados das branches
+anteriores). **A tela "Contratos" não existe no app** (confirmado por
+3 buscas independentes) — `S4-B3-004`, como especificada, pressupõe
+migrar uma tela existente, mas não há nenhuma. Decisão do PM
+necessária antes de qualquer implementação (3 opções levantadas: criar
+do zero / descartar por ora / redirecionar o ContractCard pra um ponto
+já existente). Relatório completo em
+https://github.com/muriloalmeida-alt/FitOS/issues/20#issuecomment-5616879047.
+Nenhuma resposta/decisão do usuário ainda.
 
 Objetivo
 
@@ -1640,10 +1722,19 @@ FinancialSummary passarem por inspeção própria (ver
 
 S4-B3-005 — Inspecionar e formalizar MatchCard e FinancialSummary
 
-Status: PRONTO PARA IMPLEMENTAÇÃO
+Status: REVISÃO DO PM NECESSÁRIA
 Sprint: S4 — Redesign Mobile
 Fase: Batch 3 (Transactional) — pré-requisito de Resumo da rodada
 Prioridade: P1
+
+Nota de auditoria (S4-AUDIT-BACKLOG-001, 10/09/2026): implementada.
+Branch `claude/s4-b3-005-matchcard-financialsummary` (6 commits à
+frente de `main` no total), sem PR aberto. Resultado proposto:
+APROVADO — MatchCard construído novo, FinancialSummary formalizado
+retroativamente. Com isso, "Resumo da rodada" fica desbloqueada e pode
+virar demanda própria a qualquer momento. Relatório completo em
+https://github.com/muriloalmeida-alt/FitOS/issues/21#issuecomment-5616998983.
+Nenhuma resposta/aprovação do usuário ainda.
 
 Objetivo
 
@@ -1776,7 +1867,7 @@ de todas as outras telas do Batch 2/3.
 
 S4-AUDIT-BACKLOG-001 — Auditoria de prontidão das demandas #12 a #21
 
-Status: PRONTO PARA IMPLEMENTAÇÃO
+Status: REVISÃO DO PM NECESSÁRIA
 Sprint: S4 — Redesign Mobile
 Fase: pós-implementação transversal (Batch 2 + Batch 3) — auditoria de
 consolidação. Substitui a demanda anterior desta seção, que era
@@ -1911,6 +2002,72 @@ que ele acontecer. Especificar novas demandas em cima das #12-#21 não
 precisa esperar esta auditoria — ela existe pra manter o handoff
 alinhado com a realidade à medida que implementações forem
 acontecendo, não pra travar o fluxo até rodar.
+
+Relatório consolidado (auditoria, 10/09/2026)
+
+Todas as 10 demandas tinham progresso real no momento desta auditoria
+— nenhuma foi encontrada "sem progresso" (não existe o caso "sem
+progresso, spec continua válida"/"sem progresso, spec precisa de
+ajuste" nesta rodada). Evidência coletada por demanda: `git branch -r`
++ `git log origin/main..origin/<branch>` (confirma cada branch existe,
+o commit exato, e quantos commits à frente de `main`), `list_pull_requests`
+(nenhum PR aberto pra nenhuma das 10 — confirmado 2x, antes e depois
+desta auditoria) e `get_comments` em cada uma das 10 issues (exatamente
+1 comentário em cada — o meu próprio relatório técnico; nenhuma
+resposta ou aprovação do usuário ainda em nenhuma delas).
+
+| # | Demanda | Branch | Commits à frente de `main` | Veredito |
+|---|---|---|---|---|
+| #12 | `S4-B2-001` | `claude/s4-b2-001-loading` | 1 | Progresso externo encontrado — implementada, aguardando revisão. Proposto: APROVADO |
+| #13 | `S4-B2-002` | `claude/s4-b2-002-login` | 1 | Progresso externo encontrado — implementada (sem mudança de código), aguardando revisão. Proposto: APROVADO |
+| #14 | `S4-B2-003` | `claude/s4-b2-003-tatica` | 1 | Progresso externo encontrado — parcial, 2 divergências aguardando decisão do PM. Proposto: ADJUSTMENTS REQUIRED |
+| #15 | `S4-B2-004` | `claude/s4-b2-004-treino` | 1 | Progresso externo encontrado — implementada, aguardando revisão. Proposto: APROVADO |
+| #16 | `S4-B2-005` | `claude/s4-b2-005-perfil` | 1 | Progresso externo encontrado — implementada, aguardando revisão. Proposto: APROVADO |
+| #17 | `S4-B3-001` | `claude/s4-b3-001-transfer-contract-card` | 1 | Progresso externo encontrado — implementada, aguardando revisão. Proposto: APROVADO |
+| #18 | `S4-B3-002` | `claude/s4-b3-002-mercado` | 3 (empilhada sobre #17) | Progresso externo encontrado — implementada, aguardando revisão. Proposto: APROVADO |
+| #19 | `S4-B3-003` | `claude/s4-b3-003-negociacao` | 4 (empilhada sobre #17/#18) | Progresso externo encontrado — implementada, corrigiu bug crítico pré-existente. Proposto: APROVADO |
+| #20 | `S4-B3-004` | `claude/s4-b3-004-contratos` | 5 (empilhada, só docs) | Progresso externo encontrado — bloqueada por decisão de produto, nenhum código alterado. Proposto: BLOQUEADO |
+| #21 | `S4-B3-005` | `claude/s4-b3-005-matchcard-financialsummary` | 6 (empilhada sobre as anteriores) | Progresso externo encontrado — implementada, aguardando revisão. Proposto: APROVADO |
+
+("Progresso externo" no sentido da demanda original — trabalho que
+esta auditoria encontrou pronto, não necessariamente de uma sessão
+diferente; nestes 10 casos específicos, o trabalho foi feito pela
+mesma linha de sessões deste handoff, mas a auditoria trata a
+verificação do mesmo jeito independente de quem implementou, que é o
+ponto do processo.)
+
+Cadeia de dependências revalidada:
+
+* `S4-B3-002`/`003` dependiam de `S4-B3-001` (TransferCard) como
+  bloqueante — confirmado: ambas as branches partem de
+  `claude/s4-b3-001-transfer-contract-card` (empilhadas de propósito,
+  não paralelas), então o TransferCard que elas consomem já é o mesmo
+  código, sem risco de divergência entre "o que `S4-B3-001` propôs" e
+  "o que `S4-B3-002`/`003` realmente usam".
+* `S4-B3-004` dependia de `ContractCard` (`S4-B3-001`) — o componente
+  existe, mas a dependência real que bloqueia é outra (a tela em si
+  não existe), então a conclusão de `S4-B3-001` não desbloqueia
+  `S4-B3-004` sozinha, como o relatório daquela demanda já registrou.
+* `S4-B3-005` era o pré-requisito declarado de "Resumo da rodada" —
+  confirmado concluído; "Resumo da rodada" pode ser especificada como
+  demanda própria a qualquer momento agora, não depende de mais nada.
+* Nenhuma dependência quebrada ou invalidada foi encontrada — a ordem
+  de execução usada (Batch 2 em sequência, depois `S4-B3-001` antes de
+  `002`/`003`/`004`, `S4-B3-005` em paralelo por ser independente)
+  continua fazendo sentido.
+
+Risco de coordenação identificado (não é sobre as 10 demandas em si):
+`docs/sprints/S4/S4_REQUISITOS_VIGENTES.md` foi movido de
+`docs/requirements/ui-ux/` pra `docs/sprints/S4/` por uma sessão
+paralela (commit `ce2a25b`, depois de todas as 10 branches acima terem
+sido criadas) — as 10 branches ainda editam o arquivo no caminho
+antigo. Isso vai gerar um conflito de rename no merge (não um
+conflito de conteúdo — o `git mv` deve resolver automaticamente na
+maioria dos casos, mas quem for mesclar deve conferir). Registrado
+aqui, não corrigido nas branches (mudar o caminho editado em 9
+branches já com relatório fechado estaria fora do escopo desta
+auditoria — é um ajuste mecânico pro momento do merge, não uma
+mudança de conteúdo).
 
 ⸻
 
