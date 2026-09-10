@@ -9072,6 +9072,125 @@ function playerRow(p) {
     <div class="m3-li-side"><b>${p.age}</b><br>anos</div>
   </div>`;
 }
+// ---------- BRDATA Product Pattern novo: TransferCard (S4-B3-001) ----------
+// Nome: TransferCard
+// Objetivo: representar uma oportunidade ou operação de mercado (jogador
+//   disponível pra comprar, proposta enviada/recebida, jogador do próprio
+//   elenco à venda/emprestado) — S3_2_COMPONENTES_E_CONTRATOS.md §26.
+// Responsabilidade: apresentação pura. NÃO calcula valuation, NÃO decide
+//   se uma proposta é aceita/recusada, NÃO sabe de regra de mercado —
+//   recebe os dados já calculados por quem chama e o HTML das ações já
+//   pronto (com os data-* que quem chama vai ligar depois).
+// Entradas: { playerId, playerName, overall, position, clubName, clubId,
+//   value, wage, statusLabel, statusVariant, metaText, actionsHTML,
+//   clickablePlayer, clickableClub } — só playerId/playerName são
+//   obrigatórios. overall/position omitem o badge/chip quando ausentes.
+//   value/wage montam a linha de detalhe padrão ("Salário: X · Valor: Y");
+//   metaText, quando presente, SUBSTITUI essa linha inteira (útil quando
+//   o dado relevante não é value/wage, ex.: uma proposta em andamento —
+//   ver uso previsto em Negociação/Proposta, S4-B3-003). statusLabel/
+//   statusVariant ('neutral'|'gold'|'crimson', mesma paleta de .mt-ptag)
+//   renderizam uma tag de status ao lado do clube. clickablePlayer/
+//   clickableClub (bool) marcam data-openplayer/data-openclub (mesmo
+//   padrão de nomes clicáveis do Mercado/Elenco) — o componente só marca
+//   o atributo, quem chama liga o listener.
+// Saídas/eventos: retorna uma string HTML; nenhum listener embutido —
+//   mesmo padrão de playerRow(), quem chama liga os eventos (inclusive
+//   os que vierem dentro de actionsHTML).
+// Estados: statusLabel/statusVariant é o único estado visual do
+//   componente em si — qualquer estado mais específico (proposta com
+//   concorrência, contraproposta) é decisão de quem monta os dados de
+//   entrada, não do componente. Sem estado "loading" próprio (mesma
+//   lacuna já documentada em PlayerCard, S3-DS20-S4-PREP-002 §60.4).
+// Variações: com/sem badge de overall+posição; com metaText livre no
+//   lugar da linha padrão de valor/salário.
+// Responsividade: mobile-first, mesma densidade de .m3-list-item — ver
+//   divergência registrada no relatório desta demanda (já existiam 2
+//   formatos ad hoc parecidos, .mt-market-row e .mt-sponsor-proposal-row,
+//   que este componente substitui nas demandas seguintes, não nesta).
+// Acessibilidade: mesma lacuna conhecida de ARIA que playerRow() (S3.2.7)
+//   — fora de escopo desta formalização.
+// Dependências: tokens --m3-*, ovrTierClass()/SUBPOS_DIVCLASS (mesmos do
+//   PlayerCard/Elenco), fmtBRLShort(), escapeHtml(), .m3-op-* (carreira.html,
+//   shape compartilhado com ContractCard, ver comentário lá).
+//
+// Nenhum ponto de uso real ainda nesta demanda — S4-B3-001 é
+// deliberadamente só a criação do componente, sem integração em tela
+// (mesmo padrão de Bottom Sheet/Skeleton em S3-DS20-S4-PREP-001).
+// Mercado (S4-B3-002) e Negociação/Proposta (S4-B3-003) são os 2 pontos
+// de uso previstos, em demandas seguintes.
+function transferCardHTML({ playerId, playerName, overall, position, clubName, clubId, value, wage, statusLabel, statusVariant, metaText, actionsHTML, clickablePlayer, clickableClub }) {
+  const badge = (overall != null) ? `<div class="mt-ovr-badge ${ovrTierClass(overall)}">${overall}</div>` : "";
+  const posChip = position ? `<span class="mt-pos-chip ${SUBPOS_DIVCLASS[position] || ""}">${escapeHtml(position)}</span>` : "";
+  const statusTag = statusLabel ? `<span class="mt-ptag ${statusVariant || "neutral"}">${escapeHtml(statusLabel)}</span>` : "";
+  const defaultDetail = (value != null || wage != null)
+    ? `${wage != null ? `Salário: <b>${fmtBRLShort(wage)}/mês</b>` : ""}${wage != null && value != null ? " · " : ""}${value != null ? `Valor: <b>${fmtBRLShort(value)}</b>` : ""}`
+    : "";
+  const detailContent = metaText != null ? metaText : defaultDetail;
+  return `<div class="m3-op-card" data-id="${escapeHtml(String(playerId))}">
+    <div class="m3-op-top">
+      ${badge}
+      <div class="m3-op-info"${clickablePlayer ? ` data-openplayer="${escapeHtml(String(playerId))}"${clubId != null ? ` data-club="${escapeHtml(String(clubId))}"` : ""}` : ""}>
+        <div class="m3-op-name">${escapeHtml(playerName)}</div>
+        <div class="m3-op-tags">${clubName ? `<span class="m3-op-club"${clickableClub && clubId != null ? ` data-openclub="${escapeHtml(String(clubId))}"` : ""}>${escapeHtml(clubName)}</span>` : ""}${posChip}${statusTag}</div>
+      </div>
+      ${actionsHTML ? `<div class="m3-op-actions">${actionsHTML}</div>` : ""}
+    </div>
+    ${detailContent ? `<div class="m3-op-detail">${detailContent}</div>` : ""}
+  </div>`;
+}
+// ---------- BRDATA Product Pattern novo: ContractCard (S4-B3-001) ----------
+// Nome: ContractCard
+// Objetivo: representar a situação contratual de um jogador —
+//   S3_2_COMPONENTES_E_CONTRATOS.md §27.
+// Responsabilidade: apresentação pura. NÃO determina regra de renovação
+//   nem calcula nada — recebe os dados já calculados e o HTML das ações.
+// Entradas: { playerId, playerName, overall, position, clubName, wage,
+//   durationLabel, statusLabel, statusVariant, expiring, actionsHTML,
+//   clickablePlayer } — só playerId/playerName são obrigatórios.
+//   overall/position omitem o badge/chip. durationLabel é texto livre já
+//   formatado por quem chama (ex.: "Contrato até 2027"), cobre qualquer
+//   fraseado (renovado/empréstimo/etc.) sem o componente precisar saber a
+//   diferença. expiring (bool) troca statusVariant pra "crimson"
+//   automaticamente quando nenhum statusVariant é passado — proximidade
+//   do vencimento é o estado mais importante deste componente, por isso
+//   o atalho, mas quem chama pode sobrepor com statusVariant explícito.
+// Saídas/eventos: retorna uma string HTML; nenhum listener embutido —
+//   mesmo padrão de TransferCard/playerRow().
+// Estados: neutral/gold/crimson (mesma paleta de .mt-ptag) — crimson
+//   reservado pra "vence em breve"/"sai de graça", mesma linguagem já
+//   usada em isContractExpiring()/openDetail().
+// Variações: com/sem badge; durationLabel livre.
+// Responsividade/Acessibilidade: mesmas de TransferCard — compartilham a
+//   mesma base CSS (.m3-op-*) por design (ver comentário no CSS).
+// Dependências: mesmas de TransferCard.
+//
+// Nenhum ponto de uso real ainda nesta demanda. Divergência registrada
+// no relatório desta demanda: diferente de Mercado/Negociação (que já
+// existem hoje, com formato ad hoc próprio), a tela "Contratos" que
+// consumiria este componente (S4-B3-004) NÃO existe ainda no app — só
+// existem pontos isolados (tag "fim de contrato" no Elenco, modal de
+// renovação a partir do Perfil do jogador). Construir o componente aqui
+// não presume que essa tela vai ser criada do zero na próxima demanda —
+// isso é decisão de escopo pra S4-B3-004, não desta.
+function contractCardHTML({ playerId, playerName, overall, position, clubName, wage, durationLabel, statusLabel, statusVariant, expiring, actionsHTML, clickablePlayer }) {
+  const badge = (overall != null) ? `<div class="mt-ovr-badge ${ovrTierClass(overall)}">${overall}</div>` : "";
+  const posChip = position ? `<span class="mt-pos-chip ${SUBPOS_DIVCLASS[position] || ""}">${escapeHtml(position)}</span>` : "";
+  const variant = statusVariant || (expiring ? "crimson" : "neutral");
+  const statusTag = statusLabel ? `<span class="mt-ptag ${variant}">${escapeHtml(statusLabel)}</span>` : "";
+  const detailContent = `${wage != null ? `Salário: <b>${fmtBRLShort(wage)}/mês</b>` : ""}${wage != null && durationLabel ? " · " : ""}${durationLabel ? escapeHtml(durationLabel) : ""}`;
+  return `<div class="m3-op-card" data-id="${escapeHtml(String(playerId))}">
+    <div class="m3-op-top">
+      ${badge}
+      <div class="m3-op-info"${clickablePlayer ? ` data-openplayer="${escapeHtml(String(playerId))}"` : ""}>
+        <div class="m3-op-name">${escapeHtml(playerName)}</div>
+        <div class="m3-op-tags">${clubName ? `<span class="m3-op-club">${escapeHtml(clubName)}</span>` : ""}${posChip}${statusTag}</div>
+      </div>
+      ${actionsHTML ? `<div class="m3-op-actions">${actionsHTML}</div>` : ""}
+    </div>
+    ${detailContent ? `<div class="m3-op-detail">${detailContent}</div>` : ""}
+  </div>`;
+}
 // Linha da categoria de base (potencial + confiança do olheiro) — igual
 // ao mockup: nome+idade, faixa de potencial com barra, overall ATUAL
 // (pequeno, o jogador ainda não chegou lá) e confiança em 3 pontos.
