@@ -761,7 +761,7 @@ apontar pra este registro assim que esta atualização for commitada.
 
 S4-B2-001 — Migrar tela Loading/Bootstrap para o Design System novo
 
-Status: REVISÃO DO PM NECESSÁRIA
+Status: APROVADO
 Sprint: S4 — Redesign Mobile
 Fase: Batch 2 (Core) — item 1 de 5
 Prioridade: P0
@@ -771,7 +771,12 @@ Branch `claude/s4-b2-001-loading` (commit `6267fc6`), 1 commit à
 frente de `main`, sem PR aberto. Resultado proposto: APROVADO.
 Relatório completo no comentário do PM em
 https://github.com/muriloalmeida-alt/FitOS/issues/12#issuecomment-5609991100.
-Nenhuma resposta/aprovação do usuário ainda — aguardando revisão.
+
+Decisão do PM (Murilo, 10/09/2026): APROVADO. Commit final (merge de
+`claude/s4-b2-001-loading` em `main`) formalmente autorizado pela
+governança — execução pendente: esta sessão está sob restrição do
+usuário de não mexer em código até nova exceção explícita (mesmo
+tratamento dado a `S3-DS20-S4-PREP-001`).
 
 Objetivo
 
@@ -890,7 +895,7 @@ Perfil do jogador por último (depende de `S3-DS20-S4-PREP-002`).
 
 S4-B2-002 — Migrar tela Login/Entrada para o Design System novo
 
-Status: REVISÃO DO PM NECESSÁRIA
+Status: APROVADO
 Sprint: S4 — Redesign Mobile
 Fase: Batch 2 (Core) — item 2 de 5
 Prioridade: P0
@@ -901,7 +906,11 @@ inspeção). Branch `claude/s4-b2-002-login` (commit `7fcb3a7`), 1
 commit à frente de `main`, sem PR aberto. Resultado proposto:
 APROVADO. Relatório completo em
 https://github.com/muriloalmeida-alt/FitOS/issues/13#issuecomment-5610031121.
-Nenhuma resposta/aprovação do usuário ainda.
+
+Decisão do PM (Murilo, 10/09/2026): APROVADO. Commit final (merge de
+`claude/s4-b2-002-login` em `main`) formalmente autorizado pela
+governança — execução pendente: esta sessão está sob restrição do
+usuário de não mexer em código até nova exceção explícita.
 
 Objetivo
 
@@ -1150,7 +1159,7 @@ quando essa demanda for especificada).
 
 S4-B2-004 — Migrar tela Treino para o Design System novo
 
-Status: REVISÃO DO PM NECESSÁRIA
+Status: APROVADO
 Sprint: S4 — Redesign Mobile
 Fase: Batch 2 (Core) — item 4 de 5
 Prioridade: P0
@@ -1160,7 +1169,11 @@ Branch `claude/s4-b2-004-treino` (commit `6bf1467`), 1 commit à frente
 de `main`, sem PR aberto. Resultado proposto: APROVADO. Relatório
 completo em
 https://github.com/muriloalmeida-alt/FitOS/issues/15#issuecomment-5611875336.
-Nenhuma resposta/aprovação do usuário ainda.
+
+Decisão do PM (Murilo, 10/09/2026): APROVADO. Commit final (merge de
+`claude/s4-b2-004-treino` em `main`) formalmente autorizado pela
+governança — execução pendente: esta sessão está sob restrição do
+usuário de não mexer em código até nova exceção explícita.
 
 Objetivo
 
@@ -1269,7 +1282,7 @@ desse componente.
 
 S4-B2-005 — Migrar tela Perfil do jogador para o Design System novo
 
-Status: REVISÃO DO PM NECESSÁRIA
+Status: APROVADO
 Sprint: S4 — Redesign Mobile
 Fase: Batch 2 (Core) — item 5 de 5 (último)
 
@@ -1279,7 +1292,11 @@ de `main`, sem PR aberto. Resultado proposto: APROVADO. Com esta, as 5
 demandas do Batch 2 (Core) estão tecnicamente prontas — só faltam
 aprovação/merge. Relatório completo em
 https://github.com/muriloalmeida-alt/FitOS/issues/16#issuecomment-5611971572.
-Nenhuma resposta/aprovação do usuário ainda.
+
+Decisão do PM (Murilo, 10/09/2026): APROVADO. Commit final (merge de
+`claude/s4-b2-005-perfil` em `main`) formalmente autorizado pela
+governança — execução pendente: esta sessão está sob restrição do
+usuário de não mexer em código até nova exceção explícita.
 Prioridade: P0
 
 Objetivo
@@ -1395,7 +1412,7 @@ padrão já usado aqui.
 
 S4-B3-001 — Criar os componentes TransferCard e ContractCard
 
-Status: REVISÃO DO PM NECESSÁRIA
+Status: APROVADO
 Sprint: S4 — Redesign Mobile
 Fase: Batch 3 (Transactional) — pré-requisito, item 1 de 4
 Prioridade: P0
@@ -1406,7 +1423,14 @@ commit à frente de `main`, sem PR aberto. Resultado proposto:
 APROVADO. Componentes já integrados de verdade em `S4-B3-002`/`003`
 (branches empilhadas em cima desta). Relatório completo em
 https://github.com/muriloalmeida-alt/FitOS/issues/17#issuecomment-5616235050.
-Nenhuma resposta/aprovação do usuário ainda.
+
+Decisão do PM (Murilo, 10/09/2026): APROVADO. Commit final (merge de
+`claude/s4-b3-001-transfer-contract-card` em `main`) formalmente
+autorizado pela governança — execução pendente: esta sessão está sob
+restrição do usuário de não mexer em código até nova exceção
+explícita. Nota: esta branch é a base das branches empilhadas de
+`S4-B3-002`/`003`/`004`/`005` — o merge precisa considerar a ordem de
+dependência entre elas.
 
 Objetivo
 
@@ -1524,7 +1548,7 @@ inspeção acontecer — não presumida aqui.
 
 S4-B3-002 — Migrar tela Mercado para o Design System novo
 
-Status: REVISÃO DO PM NECESSÁRIA
+Status: APROVADO
 Sprint: S4 — Redesign Mobile
 Fase: Batch 3 (Transactional) — item 2 de 4
 Prioridade: P0
@@ -1534,7 +1558,12 @@ Branch `claude/s4-b3-002-mercado` (a partir de `claude/s4-b3-001-...`,
 3 commits à frente de `main` no total), sem PR aberto. Resultado
 proposto: APROVADO. Relatório completo em
 https://github.com/muriloalmeida-alt/FitOS/issues/18#issuecomment-5616433109.
-Nenhuma resposta/aprovação do usuário ainda.
+
+Decisão do PM (Murilo, 10/09/2026): APROVADO. Commit final (merge de
+`claude/s4-b3-002-mercado`, empilhada sobre `claude/s4-b3-001-...`,
+em `main`) formalmente autorizado pela governança — execução
+pendente: esta sessão está sob restrição do usuário de não mexer em
+código até nova exceção explícita.
 
 Objetivo
 
@@ -1630,7 +1659,7 @@ ContractCard).
 
 S4-B3-003 — Migrar tela Negociação/Proposta para o Design System novo
 
-Status: REVISÃO DO PM NECESSÁRIA
+Status: APROVADO
 Sprint: S4 — Redesign Mobile
 Fase: Batch 3 (Transactional) — item 3 de 4
 Prioridade: P0
@@ -1645,7 +1674,13 @@ ver relatório completo pro detalhe técnico e o efeito colateral
 positivo (resolveu um gap P1 documentado desde `S4-B2-002` em
 `test_ux_nomes_clicaveis.js`). Relatório completo em
 https://github.com/muriloalmeida-alt/FitOS/issues/19#issuecomment-5616857836.
-Nenhuma resposta/aprovação do usuário ainda.
+
+Decisão do PM (Murilo, 10/09/2026): APROVADO. Commit final (merge de
+`claude/s4-b3-003-negociacao`, empilhada sobre `s4-b3-001`/`002`, em
+`main`) formalmente autorizado pela governança — execução pendente:
+esta sessão está sob restrição do usuário de não mexer em código até
+nova exceção explícita. Inclui a correção do bug crítico de
+Dialog/Bottom Sheet — merge deve preservar essa correção.
 
 Objetivo
 
@@ -1848,7 +1883,7 @@ FinancialSummary passarem por inspeção própria (ver
 
 S4-B3-005 — Inspecionar e formalizar MatchCard e FinancialSummary
 
-Status: REVISÃO DO PM NECESSÁRIA
+Status: APROVADO
 Sprint: S4 — Redesign Mobile
 Fase: Batch 3 (Transactional) — pré-requisito de Resumo da rodada
 Prioridade: P1
@@ -1860,7 +1895,12 @@ APROVADO — MatchCard construído novo, FinancialSummary formalizado
 retroativamente. Com isso, "Resumo da rodada" fica desbloqueada e pode
 virar demanda própria a qualquer momento. Relatório completo em
 https://github.com/muriloalmeida-alt/FitOS/issues/21#issuecomment-5616998983.
-Nenhuma resposta/aprovação do usuário ainda.
+
+Decisão do PM (Murilo, 10/09/2026): APROVADO. Commit final (merge de
+`claude/s4-b3-005-matchcard-financialsummary`, empilhada sobre
+`s4-b3-001`/`002`/`003`/`004`, em `main`) formalmente autorizado pela
+governança — execução pendente: esta sessão está sob restrição do
+usuário de não mexer em código até nova exceção explícita.
 
 Objetivo
 
