@@ -2710,6 +2710,82 @@ Com esta demanda concluída e aprovada, o Batch 3 estará completo
 FinancialSummary passarem por inspeção própria (ver
 `S4_REQUISITOS_VIGENTES.md` §5, item 2b).
 
+Relatório técnico (inspeção — implementação NÃO iniciada)
+
+Branch: `claude/s4-b3-004-contratos` (a partir de `claude/s4-b3-003-negociacao`).
+Nenhum código alterado nesta demanda.
+
+1. Inspeção prévia (obrigatória) — divergência de escopo confirmada,
+   não presumida
+
+Esta divergência já havia sido sinalizada como observação no
+relatório de `S4-B3-001` (quando `ContractCard` foi criado) e
+reforçada no de `S4-B3-003`. Nesta demanda ela foi verificada de
+propósito, com evidência, antes de decidir como proceder — 3 buscas
+independentes, todas confirmando a mesma conclusão:
+
+* `grep -in "contrato"` em `public/carreira.html` inteiro: as únicas
+  ocorrências são a tag "Fim de contrato" inline no Elenco/Treino
+  (`playerRow()`), o aviso de vencimento + botão "Renovar contrato"
+  dentro do Perfil do jogador (`openDetail()`/`openRenewModal()`), e
+  comentários de código — nenhuma tela própria.
+* Painel "Clube" (`#panel-clube`) inspecionado por completo: contém
+  um resumo AGREGADO de teto salarial (`wageCapFill`/`wageCapLabel`),
+  não uma lista de contratos por jogador.
+* Árvore inteira do menu (`#topbarMenu`, todos os 5 submenus —
+  Competição/Tática avançada/Equipe & Treinos/Progresso/Imprensa +
+  itens soltos na raiz) inspecionada item por item: nenhum item
+  "Contratos" ou equivalente.
+
+**Conclusão com evidência (não presunção): a tela "Contratos" (Tela 16
+da matriz — visualizar jogador/duração/salário/situação/proximidade
+do vencimento/ações DE TODO O ELENCO numa lista própria) não existe no
+app hoje.** O que existe são pontos de contrato isolados POR JOGADOR,
+dentro de outras telas (Elenco, Perfil). `S4-B3-004`, como
+especificada, pressupõe uma tela existente pra "migrar" (redesign
+visual) — não há nada para migrar. Implementar essa tela do zero é
+uma decisão de escopo/produto (o que ela mostra além do que a matriz
+já lista, onde no app ela é aberta, se substitui ou complementa os
+pontos já existentes no Elenco/Perfil) — não uma migração visual, e
+está fora do que `S4-B3-001` (que só criou o componente `ContractCard`,
+deliberadamente sem integração de tela) e esta própria demanda
+autorizam decidir sozinho.
+
+2. Por que não implementei mesmo assim
+
+Regra explícita de `docs/README.md` (nunca assumir que a especificação
+está certa sem verificar — vale nos 2 sentidos) e do próprio CLAUDE.md
+(§37, §47: "se a inspeção revelar escopo significativamente maior que
+o esperado, reportar como divergência, não absorver silenciosamente";
+"não construir sistemas que já existem" — mas também não inventar um
+sistema novo por conta própria quando a demanda pressupõe que ele já
+existe). Construir uma tela nova de gestão de contratos, sem
+especificação própria de conteúdo/navegação/ações, seria uma decisão
+de produto unilateral — o tipo de decisão que este processo pede pra
+registrar e devolver ao PM, não resolver sozinho.
+
+3. Opções pro PM decidir (nenhuma escolhida por mim)
+
+a. **Redefinir `S4-B3-004`** como "criar a tela Contratos" (não
+   "migrar") — com uma especificação mínima de conteúdo (provavelmente:
+   lista do elenco principal com `ContractCard` por jogador, ação de
+   renovar reaproveitando `openRenewModal()` já existente) e de onde
+   ela é aberta (aba própria? item de menu? dentro de Clube?).
+b. **Descartar `S4-B3-004`** por ora — os pontos de contrato já
+   existentes (Elenco/Perfil) continuam servindo o usuário; a tela
+   dedicada vira prioridade P1/P2 futura, fora do Batch 3.
+c. **Redirecionar o `ContractCard`** pra reforçar os pontos que já
+   existem (ex.: usá-lo dentro do Perfil do jogador na seção de
+   contrato, em vez de numa tela nova) — mudança pequena, mas também é
+   decisão de produto, não presumida aqui.
+
+Nenhuma dessas 3 foi decidida por mim — todas exigem uma escolha do
+PM sobre o que o usuário deve ver, não uma inspeção técnica adicional.
+
+Resultado proposto: **BLOQUEADO** — não há escopo técnico executável
+sem uma decisão de produto prévia. Nenhum código alterado, nenhuma
+tela tocada, nenhuma regra de negócio mexida.
+
 ⸻
 
 S4-B3-005 — Inspecionar e formalizar MatchCard e FinancialSummary
@@ -2859,6 +2935,105 @@ Observações
 Ao concluir esta demanda, **Resumo da rodada** (última tela do Batch 3)
 fica pronta pra ser especificada como demanda própria — mesmo padrão
 de todas as outras telas do Batch 2/3.
+
+Relatório técnico (implementação)
+
+Branch: `claude/s4-b3-005-matchcard-financialsummary` (a partir de
+`claude/s4-b3-004-contratos` — só pra manter a sequência das branches
+desta rodada; esta demanda é independente de `S4-B3-001/004`, não
+depende do conteúdo delas).
+
+1. Inspeção (obrigatória — evidência por componente, não presunção)
+
+* **Início/Dashboard** (`renderCentral()`, já migrada `--m3-*`)
+  inspecionada por completo em busca de qualquer apresentação de
+  partida ou resumo financeiro, não só os candidatos já apontados em
+  `S4_REQUISITOS_VIGENTES.md` §3-5.
+* **MatchCard** — 2 candidatos reais encontrados, nenhum adequado
+  sozinho:
+  1. `#nextMatchBox` (`renderCentral()`): escudos + nomes dos 2 times,
+     clicável (abre H2H) — mas só existe pro estado "próxima"; não
+     mostra placar, status ou competição, e alterna pra uma mensagem
+     de texto solto quando não há jogo/quando a temporada acaba (não
+     é um "estado" do card, é a ausência dele).
+  2. `.ct-round-result-row`: 2 escudos + placar + destaque pro próprio
+     time — mas só existe pro estado "encerrada", e está **duplicado
+     em 4 lugares diferentes do arquivo** (linhas ~10819, ~13147,
+     ~13208, ~13253 antes desta demanda) — pior que a duplicação de 2
+     lugares já encontrada pro TransferCard em `S4-B3-001`.
+  3. Busca por "adiada"/"cancelada"/estado "em andamento" persistente
+     de uma partida: **nenhuma ocorrência real** — o motor de
+     partidas resolve a rodada inteira de uma vez (comentário no
+     próprio código: "este motor só tem RODADA, não dia"), não produz
+     partida parcialmente resolvida nem adiamento/cancelamento. Os
+     outros 2 estados do "Modo Live" (ver CLAUDE.md §14) são um MODO
+     de visualização temporário de uma partida sendo jogada, não um
+     estado persistente de um card numa lista.
+  **Decisão: construir novo** (caminho b) — nenhum candidato único
+  cobre o conceito nem os 5 estados; os 2 existentes cobrem só 1
+  estado cada, com shapes diferentes. Componente novo informado pelos
+  2 (crestImg() + destaque do próprio time reaproveitados), sem copiar
+  nenhum literalmente — mesmo caminho de TransferCard/ContractCard.
+* **FinancialSummary** — 1 candidato real e único encontrado: o card
+  "Financeiro" de `renderCentral()` (Início/Dashboard) — caixa em
+  destaque (`financeCashNum`), sparkline das últimas rodadas
+  (`financeCashBars`/`financeCashBarsHTML()`), KPI de folha salarial
+  vs. teto (`financeKpis`/`kpiHTML()`, variante "red" quando estourado)
+  e barra de progresso do teto (`wageCapFill`/`wageCapLabel`). Cobre
+  saldo/variações/indicadores da especificação (`S3_2_COMPONENTES_E_CONTRATOS.md`
+  §28) — não cobre receitas/despesas linha a linha (isso é o ledger,
+  `pushLedger()`/extrato, um conceito diferente: transação individual,
+  não resumo agregado). **Decisão: formalização retroativa** (caminho
+  a) — mesmo critério de PlayerCard.
+
+2. Trabalho feito
+
+* **MatchCard** (`matchCardHTML()`, `public/js/carreira.js`, logo após
+  `contractCardHTML()`): jogador mandante/visitante (via `crestImg()`,
+  já reaproveitado, não duplicado), placar OU data/horário (decide
+  pelo que foi passado), tag de status (`mt-ptag`, mesma paleta de
+  sempre) pros estados que precisam dela (andamento/adiada/cancelada —
+  "próxima"/"encerrada" não precisam, o próprio conteúdo já deixa
+  claro), competição opcional, times clicáveis via `data-openclub`.
+  CSS novo `.m3-match-card`/`.m3-mc-*` em `carreira.html`, tokens
+  `--m3-*`. Puro (sem ler `CAREER`), sem lógica de negócio.
+* **FinancialSummary**: nenhuma função nova extraída (a composição é
+  inline em `renderCentral()`, extrair seria mudança estrutural fora
+  do escopo de uma formalização — mesmo raciocínio que impediu
+  refatorar `renderMercado()` em outras demandas). Adicionado
+  comentário de contrato completo (Nome/Objetivo/Entradas/Estados)
+  imediatamente acima do bloco que já monta o card, mesmo tratamento
+  dado a Elenco em `S3-DS20-S4-PREP-002` §60 — **zero mudança visual
+  ou funcional**, só documentação.
+* `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md` atualizado: §3
+  (tabela de Product Patterns) com os 2 componentes resolvidos e a
+  evidência de cada decisão; §2 (Resumo da rodada) e §5 (item 2b/6)
+  marcados como desbloqueados.
+
+3. Testes
+
+* Criado `tests/e2e/test_s4_b3_005_matchcard_financialsummary.js` (5
+  checks): MatchCard "próxima" (sem placar, com data/horário, sem tag
+  de status, times clicáveis); MatchCard "encerrada" (com placar, sem
+  tag); estados adiada/cancelada/andamento (tag de status com variant
+  certa — suportados mesmo sem produtor real, conforme divergência
+  documentada); MatchCard é puro (mesma entrada → mesma saída, sem
+  tocar `CAREER`); card "Financeiro" real continua funcionando sem
+  nenhuma mudança (saldo/indicadores presentes). **5 de 5 passaram.**
+* Regressão: `test_m3_bloco1_inicio.js` (7 checks, cobre o card
+  Financeiro relocado pra Clube) — **100% passou**. `test_reputacao_propostas.js`
+  falhou num timeout do wizard de onboarding, **confirmado pré-existente
+  em `main` sem nenhuma alteração desta demanda** (reproduzido
+  isoladamente via `git stash`) — nada a ver com FinancialSummary (a
+  única mudança nesta demanda ali foi um comentário).
+* `node -c public/js/carreira.js` sem erro de sintaxe.
+
+Resultado proposto: **APROVADO** — os 2 componentes existem,
+documentados com evidência da decisão formalizar-vs-construir pra cada
+um, nenhum contém lógica de negócio, nenhuma tela migrada (como o
+escopo pedia), testados isoladamente. `S4_REQUISITOS_VIGENTES.md`
+atualizado, item 2b resolvido — "Resumo da rodada" pode virar demanda
+própria a qualquer momento agora.
 
 ⸻
 
