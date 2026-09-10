@@ -48,12 +48,12 @@ Batch 2 — Core (8 telas)
 | Início / Dashboard | ✅ migrada `--m3-*` (parcial) | — |
 | Elenco | ✅ migrada `--m3-*` | PlayerCard formalizado (`S3-DS20-S4-PREP-002`, ver §3) — `playerRow()` agora tem contrato documentado |
 | Login / Entrada | ❌ `--brd-*` (legado) | — |
-| Loading / Bootstrap | ❌ não identificada como tela própria migrada | — |
+| Loading / Bootstrap | ✅ migrada `--m3-*` (`S4-B2-001`) | Skeleton avaliado e não usado (sem formato de conteúdo conhecido nas 3 transições desta tela — ver relatório); spinner já migrado é o "indicador definido pelo Design System" alternativo previsto pela matriz |
 | Perfil do jogador | ❌ `.ct-modal-*` (legado) | overlay vira `.m3-dialog` assim que `S3-DS20-S4-PREP-001` for aprovada (é o próprio ponto de validação dessa demanda) — mas isso NÃO formaliza o PlayerCard nem migra o resto da tela pros tokens `--m3-*`, só o container do modal |
 | Tática / Formação | ❌ `--mt-*` (legado) | — |
 | Treino | ❌ `--mt-*` (legado) | — |
 
-**3 de 8 (37%) migradas.**
+**4 de 8 (50%) migradas.**
 
 Batch 3 — Transactional (4 telas, todas P0)
 
@@ -166,10 +166,12 @@ for paga agora, antes de replicar o padrão ad hoc em mais telas.
 3. **Completar Batch 2** — migrar Login, Bootstrap, Perfil do jogador,
    Tática, Treino (5 telas), reutilizando Dialog (item 1) e PlayerCard
    (item 2) onde aplicável.
-   - Item 1: **Loading/Bootstrap** (`S4-B2-001`, status `PRONTO PARA
-     IMPLEMENTAÇÃO`) — a mais simples e independente (sem PlayerCard,
-     sem formulário, sem regra de negócio própria), primeiro uso real
-     do componente Skeleton.
+   - Item 1: **Loading/Bootstrap** (`S4-B2-001`). **Concluída** — tokens
+     migrados nos 3 estados (carregamento/erro/conclusão); Skeleton
+     avaliado e não usado (sem formato de conteúdo conhecido nas 3
+     transições desta tela — decisão registrada no relatório técnico),
+     spinner já migrado cobre o "indicador definido pelo Design System"
+     alternativo que a matriz também permite.
    - Item 2: **Login/Entrada** (`S4-B2-002`, status `PRONTO PARA
      IMPLEMENTAÇÃO`) — independente de PlayerCard, sem regra de
      negócio de jogo, mas com um risco próprio: pode ser compartilhada

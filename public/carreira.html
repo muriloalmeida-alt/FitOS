@@ -243,7 +243,22 @@
      já vem de .mt-body (ver adiante); só faltava texto/spinner na
      paleta M3 — sem clube "dono" aqui, mesmo raciocínio do Login. */
   #screenLoading{ background:var(--m3-surface-dim); }
-  #screenLoading h1{ font-family:var(--m3-display); color:var(--m3-on-surface); }
+  /* AJUSTE (S4-B2-001, issue #12) — "#screenLoading h1" removida: as 3
+     variações de conteúdo desta tela (markup estático, splashLoadingHTML,
+     splashErrorHTML — ver carreira.js) nunca renderizam um <h1> aqui, só
+     <p>/.mt-error-title — regra morta desde antes desta demanda,
+     confirmada por busca literal, removida como parte da limpeza
+     mínima necessária pra migrar este bloco. Skeleton (entregue na
+     S3-DS20-S4-PREP-001) avaliado e não usado aqui de propósito: as 3
+     chamadas que mostram esta tela (boot/enterAfterAuth/chooseCompetition)
+     são transições de tela inteira pra destinos totalmente diferentes
+     (login, escolha de clube, o próprio jogo) — não existe "formato de
+     conteúdo" nenhum conhecido de antemão pra Skeleton pré-visualizar
+     (diferente de uma lista de jogador carregando, por exemplo). O
+     spinner já migrado pro --m3-* na linha abaixo é o "indicador
+     definido pelo Design System" que a própria matriz de telas permite
+     como alternativa ao Skeleton (S3_S4_MATRIZ_TELAS_MOBILE.md §7:
+     "Skeleton OU indicador definido pelo Design System"). */
   #screenLoading p{ color:var(--m3-on-surface-variant); font-weight:600; }
   #screenLoading .ct-spinner{ border-color:var(--m3-surface-container-highest); border-top-color:var(--m3-primary); }
   /* Nova feature — overlay genérico "ação demorada" (ver fetchJSON em
@@ -1957,13 +1972,27 @@
 
   /* Sistema — splash/loading com marca (crest do app) e tela de erro
      de rede (ambos reaproveitam #screenLoading já existente, ver
-     splashLoadingHTML/splashErrorHTML em carreira.js). */
-  .mt-splash-crest{ width:56px; height:56px; border-radius:18px; background:linear-gradient(160deg, var(--mt-navy-700), var(--mt-navy-950)); display:flex; align-items:center; justify-content:center; margin-bottom:4px; box-shadow:0 8px 22px rgba(0,0,0,.35); }
+     splashLoadingHTML/splashErrorHTML em carreira.js). AJUSTE (S4-B2-001,
+     issue #12) — .mt-splash-crest/.mt-error-icon eram os 2 últimos
+     pedaços desta tela ainda em tokens --mt-*/valor solto; migrados
+     pros --m3-* já usados no resto do bloco (.mt-error-title/-sub e o
+     próprio #screenLoading já estavam em --m3-* desde antes, ver
+     comentário mais acima na folha de estilo). Exclusivo desta tela —
+     nenhuma outra usa .mt-splash-crest/.mt-error-icon/.mt-error-screen
+     (confirmado por busca literal), então a migração não afeta mais
+     nada. */
+  .mt-splash-crest{ width:56px; height:56px; border-radius:18px; background:var(--m3-surface-container-high); border:1px solid var(--m3-outline-variant); display:flex; align-items:center; justify-content:center; margin-bottom:4px; }
   .mt-splash-crest img{ width:34px; height:34px; object-fit:contain; }
   .mt-error-screen{ display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:32px; height:100%; }
-  .mt-error-icon{ width:56px; height:56px; border-radius:16px; background:rgba(255,84,73,.16); color:var(--mt-crimson-400); display:flex; align-items:center; justify-content:center; margin-bottom:16px; }
+  .mt-error-icon{ width:56px; height:56px; border-radius:16px; background:rgba(255,84,73,.16); color:var(--m3-error); display:flex; align-items:center; justify-content:center; margin-bottom:16px; }
   .mt-error-title{ font-family:var(--m3-display); font-weight:700; font-size:16px; color:var(--m3-on-surface); margin-bottom:6px; }
   .mt-error-sub{ font-size:12px; color:var(--m3-on-surface-variant); line-height:1.5; max-width:280px; }
+  /* .ct-sub é utilitária compartilhada por ~29 pontos do app (cor
+     --text-2, sistema --brd-*) — não pode ser alterada na base sem
+     tocar todas elas. Override escopado só pra dentro de
+     #screenLoading (mesmo padrão já usado por #screenLoading p logo
+     abaixo), onde ela carrega o detalhe técnico do erro de rede. */
+  #screenLoading .ct-sub{ color:var(--m3-on-surface-variant); }
 
   .mt-live-action-row{ display:flex; gap:10px; }
   .mt-btn-secondary{

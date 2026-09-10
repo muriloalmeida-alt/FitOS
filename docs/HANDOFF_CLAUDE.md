@@ -893,6 +893,140 @@ Perfil do jogador por último (depende de `S3-DS20-S4-PREP-002`).
 
 ⸻
 
+Relatório técnico — S4-B2-001
+
+Executado por: Claude · Data: 09/09/2026 · Branch: `claude/s4-b2-001-loading`.
+
+1. Resumo executivo
+
+`#screenLoading` (tela de carregamento inicial — 3 estados: markup
+estático, `splashLoadingHTML()`, `splashErrorHTML()`, todos em
+`public/js/carreira.js`/`public/carreira.html`) migrada integralmente
+pros tokens `--m3-*`. A tela já estava **parcialmente** migrada antes
+desta demanda (achado da inspeção, não presumido pela especificação):
+um ajuste anterior já tinha trocado a cor de fundo, texto e spinner
+pra `--m3-*`; restavam 2 elementos ainda em tokens legados —
+`.mt-splash-crest` (gradiente `--mt-navy-700/950`) e `.mt-error-icon`
+(cor `--mt-crimson-400`) — ambos migrados agora. Removida também 1
+regra CSS morta (`#screenLoading h1`, confirmada por busca literal:
+nenhum dos 3 estados desta tela jamais renderiza um `<h1>`).
+
+**Skeleton avaliado e não usado, com justificativa registrada**: as 3
+chamadas que mostram esta tela (`boot()`, `enterAfterAuth()`,
+`chooseCompetition()`) são transições de tela inteira pra destinos
+totalmente diferentes entre si (login, escolha de clube, o próprio
+jogo) — não existe formato de conteúdo conhecido de antemão pra um
+Skeleton pré-visualizar, diferente de uma lista carregando (ex.:
+Elenco). O spinner (já migrado pro `--m3-*`) cobre a alternativa que a
+própria matriz permite: "Skeleton OU indicador definido pelo Design
+System" (`S3_S4_MATRIZ_TELAS_MOBILE.md` §7).
+
+2. Implementação
+
+`public/carreira.html` (CSS, ~30 linhas alteradas): `.mt-splash-crest`
+(fundo `linear-gradient(--mt-navy-700, --mt-navy-950)` →
+`var(--m3-surface-container-high)` + borda `var(--m3-outline-variant)`,
+mesmo tratamento visual já usado em outros containers `--m3-*`);
+`.mt-error-icon` (cor `var(--mt-crimson-400)` → `var(--m3-error)`, fundo
+rgba mantido — já numericamente idêntico ao hex de `--m3-error`);
+adicionado `#screenLoading .ct-sub{ color:var(--m3-on-surface-variant); }`
+(override escopado — `.ct-sub` é utilitária compartilhada por ~29
+pontos do app, não podia ser alterada na base); removida a regra morta
+`#screenLoading h1`. Nenhuma linha de `public/js/carreira.js` alterada
+— mudança 100% CSS.
+
+Confirmado por busca literal antes de editar: `.mt-splash-crest` e
+`.mt-error-icon`/`.mt-error-screen` são exclusivos desta tela (nenhum
+outro elemento do app os usa) — migração não afeta nenhuma outra tela,
+critério de aceite explícito da demanda.
+
+`docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md` atualizado: linha
+da tabela do Batch 2 (§2, Loading/Bootstrap → ✅ migrada), contador
+"4 de 8 (50%)", e item 1 da ordem de execução (§5) marcado concluído.
+
+3. Tests
+
+`tests/e2e/test_s4_b2_001_loading.js` (novo) — 4 checks, todos `true`:
+1. Estado "carregamento": tokens computados corretos (`background-color`
+   = `--m3-surface-dim`, `border-top-color` do spinner = `--m3-primary`).
+2. `#screenLoading h1` não existe em nenhum estado (confirma a remoção
+   da regra morta não quebrou nada, porque nunca havia elemento pra
+   quebrar).
+3. Estado "erro" (`splashErrorHTML()` chamada diretamente — mesma
+   técnica já usada pra Bottom Sheet/Skeleton em
+   `S3-DS20-S4-PREP-001`, apropriada aqui porque o diff é 100% CSS):
+   ícone/título/subtítulo/detalhe técnico com as cores `--m3-*`
+   corretas, botão "Tentar novamente" presente.
+4. Estado "conclusão" + preservação funcional: fluxo completo
+   signup → login → `carreira.html` continua saindo de
+   `#screenLoading` e chegando na tela seguinte real (picker ou jogo),
+   sem erro de console.
+
+4. Regression
+
+Nenhuma regressão esperada (mudança CSS isolada a 2 seletores
+exclusivos desta tela + 1 override escopado) e nenhuma encontrada:
+`test_s4_b2_001_loading.js` cobre o fluxo completo de boot, sem erro
+de console/página.
+
+5. Gaps
+
+Nenhum gap novo. Nenhum estado de "sucesso" dedicado nesta tela — é
+comportamento pré-existente e intencional (a tela desaparece quando o
+próximo destino está pronto, não exibe uma confirmação própria);
+mencionado aqui só pra registro, não é um gap.
+
+6. Divergences
+
+Nenhuma divergência da especificação — ao contrário da S3-DS20-S4-PREP-002,
+os pontos citados na especificação desta demanda batem com o que a
+inspeção encontrou (a única correção foi de estado real: a tela já
+estava parcialmente migrada, não "fora do sistema novo" por completo
+como o texto original sugeria — refletido no resumo executivo acima e
+na tabela de `S4_REQUISITOS_VIGENTES.md`).
+
+7. Risks
+
+Nenhum risco novo identificado. Risco declarado na especificação
+("baixo") confirmado na prática.
+
+8. Arquivos avaliados / alterados / criados
+
+Avaliados: `public/carreira.html` (CSS de `#screenLoading` e classes
+relacionadas), `public/js/carreira.js` (`boot()`, `enterAfterAuth()`,
+`chooseCompetition()`, `splashLoadingHTML()`, `splashErrorHTML()`,
+`show()`).
+
+Alterados: `public/carreira.html` (CSS), `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`,
+`docs/HANDOFF_CLAUDE.md` (este relatório).
+
+Criados: `tests/e2e/test_s4_b2_001_loading.js`. Removidos: nenhum
+arquivo (só 1 regra CSS morta dentro de `carreira.html`).
+
+9. Resultado final
+
+**APPROVED (proposto)**
+
+Justificativa: todos os 6 critérios de aceite explícitos atendidos com
+evidência real — tokens `--m3-*` aplicados (incluindo os 2 elementos
+que a inspeção revelou ainda pendentes); Skeleton avaliado com
+justificativa documentada para não uso; os 3 estados continuam claros
+e diferenciados; zero mudança de comportamento (mudança 100% CSS);
+nenhuma outra tela tocada (confirmado por busca literal de exclusividade
+das classes alteradas); teste mobile-first (390×900) cobrindo os 3
+estados + preservação funcional.
+
+10. Recomendação
+
+Nenhuma pendência gerada por esta demanda. Próxima tela recomendada da
+sequência (`S4-B2-002`, Login/Entrada) já especificada e com uma
+atenção própria registrada (possível compartilhamento com o site
+principal) — não presumir resolvida por esta demanda.
+
+REVISÃO DO PM NECESSÁRIA.
+
+⸻
+
 S4-B2-002 — Migrar tela Login/Entrada para o Design System novo
 
 Status: APROVADO
