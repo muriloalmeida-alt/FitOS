@@ -1774,6 +1774,130 @@ de todas as outras telas do Batch 2/3.
 
 ⸻
 
+S4-B4-000 — Auditoria das 7 telas do Batch 4 (Complementary)
+
+Status: PRONTO PARA IMPLEMENTAÇÃO
+Sprint: S4 — Redesign Mobile
+Fase: Batch 4 (Complementary) — pré-requisito, auditoria
+Prioridade: P1
+
+Objetivo
+
+Determinar, com evidência real, o estado atual de cada uma das 7 telas
+P1 do Batch 4 — Onboarding, Comparar jogadores, Eixos táticos,
+Marcação individual, Meus esquemas, Notícias/Eventos, Histórico/
+Estatísticas (`docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md`, Telas 4,
+8, 10, 11, 12, 18, 19) — migrada ou legada, dependências de
+componentes (PlayerCard/TransferCard/ContractCard/MatchCard/
+FinancialSummary/LeagueTable), e riscos específicos — pra que cada
+uma possa depois virar uma demanda de migração própria, especificada
+com a mesma base de evidência usada em todas as telas do Batch 2/3, em
+vez de presumida.
+
+Contexto
+
+A S3.2.7 Readiness Review avaliou as 12 telas P0 em detalhe, mas foi
+explícita sobre as 7 telas P1: "não foram verificadas individualmente
+(fora do foco de atenção especial pedido pelo documento, dado o gap já
+encontrado em P0)". `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`
+§2 registrou isso como "tratar como desconhecido, não como ok por
+omissão" — essa auditoria existe pra resolver esse "desconhecido" antes
+que qualquer demanda de migração do Batch 4 seja especificada.
+
+Diferente da S3.2.7 original (auditoria de todo o Design System —
+Foundation, Components, Contracts, etc., escopo amplo), esta é
+deliberadamente mais estreita: por tela, apenas o que for necessário
+pra especificar a migração dela depois — estado atual, dependência de
+componente, e riscos específicos — não uma reavaliação da fundação
+inteira (essa já foi feita e não mudou).
+
+Escopo
+
+Claude deve, por cada uma das 7 telas, avaliar e registrar:
+
+* Estado atual: migrada pro Design System novo ou ainda legada (e qual
+  sistema legado, se aplicável);
+* Dependência de componente: a tela usa (ou deveria usar, pela
+  matriz) algum dos Product Patterns já formalizados (PlayerCard) ou
+  ainda pendentes (TransferCard/ContractCard — já formalizados na
+  prática desde que `S4-B3-001` seja concluída; MatchCard/
+  FinancialSummary — idem, `S4-B3-005`; LeagueTable — ainda sem
+  nenhuma demanda, nem inspeção) — sem presumir, confirmar por
+  inspeção real;
+* Complexidade/risco aparente da migração (tela simples de
+  apresentação vs. interativa/com regra de negócio própria — mesmo
+  critério usado pra classificar risco em `S4-B2-003` Tática vs.
+  `S4-B2-001` Loading);
+* Se a tela está de fato ligada ao Modo Técnico ou se pode ser
+  compartilhada com outras partes do produto (mesma checagem que
+  `S4-B2-002` fez pra Login — não presumir exclusividade).
+
+Fora de escopo
+
+* migrar qualquer uma das 7 telas — isso é trabalho de demandas
+  futuras, uma por tela (ou agrupadas, se a auditoria justificar);
+* reavaliar Foundation/Components/Contracts/Responsive/Accessibility
+  do Design System em geral — isso já foi feito na S3.2.7 e não é o
+  objetivo aqui;
+* inspecionar/formalizar LeagueTable — se alguma das 7 telas depender
+  dela, registrar como achado, mas não resolver a lacuna nesta
+  demanda (seria escopo comparável a `S4-B3-005`, seu próprio ciclo);
+* qualquer mudança de código.
+
+Dependências
+
+* `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Telas 4, 8, 10, 11,
+  12, 18, 19 — objetivo e requisitos de cada uma).
+* `docs/HANDOFF_CLAUDE.md` §S3.2.7 (metodologia de auditoria de
+  referência).
+* `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`.
+
+Requisitos
+
+Claude deve:
+
+1. ler a documentação relacionada;
+2. inspecionar a implementação atual de cada uma das 7 telas;
+3. registrar estado, dependências, complexidade/risco e escopo de
+   compartilhamento por tela, com evidência (arquivo/trecho relevante,
+   mesmo rigor da S3.2.7);
+4. identificar telas que podem ser agrupadas numa mesma demanda futura
+   (ex.: por semelhança ou por dependerem do mesmo componente) vs. as
+   que precisam de demanda isolada;
+5. atualizar `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md` com
+   uma tabela de estado real do Batch 4, mesmo formato da tabela já
+   existente pros Batches 2/3;
+6. produzir relatório técnico nesta mesma seção do handoff;
+7. retornar `REVISÃO DO PM NECESSÁRIA`.
+
+Critérios de aceite
+
+* as 7 telas têm estado, dependências, complexidade/risco e escopo de
+  compartilhamento registrados com evidência real;
+* nenhuma tela migrada (é auditoria, não implementação);
+* `S4_REQUISITOS_VIGENTES.md` atualizado com a tabela do Batch 4;
+* recomendação de agrupamento/ordem pras demandas de migração
+  seguintes.
+
+Validações
+
+O PM deverá validar: cobertura das 7 telas, qualidade da evidência
+(não presunção), recomendação de agrupamento/ordem, ausência de
+alteração de código.
+
+Riscos
+
+* baixo — é auditoria de leitura, mesmo perfil de risco da S3.2.7
+  original (nenhuma alteração de código no escopo).
+
+Observações
+
+Mesmo princípio da S3.2.7: esta é uma auditoria, não deve virar
+refatoração nem migração parcial disfarçada. Problemas encontrados
+devem ser registrados e classificados, não corrigidos aqui.
+
+⸻
+
 Histórico
 
 Demanda	Data	Commit	Changelog

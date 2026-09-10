@@ -205,7 +205,13 @@ for paga agora, antes de replicar o padrão ad hoc em mais telas.
      a conclusão de `S4-B3-005` (mesma lógica de Perfil do jogador
      esperando `S3-DS20-S4-PREP-002`).
 5. **Batch 4 (Complementary)** — as 7 telas P1, começando por uma
-   verificação individual (não foram auditadas na S3.2.7).
+   verificação individual (não foram auditadas na S3.2.7). **Agora tem
+   demanda própria**: `S4-B4-000`, status `PRONTO PARA IMPLEMENTAÇÃO`
+   — auditoria (estado, dependências, complexidade/risco, escopo de
+   compartilhamento) de Onboarding, Comparar jogadores, Eixos táticos,
+   Marcação individual, Meus esquemas, Notícias/Eventos e Histórico/
+   Estatísticas. Produz a base de evidência pra cada tela virar demanda
+   de migração própria depois, mesmo padrão usado no Batch 2/3.
 6. **Batch 5 (QA Visual/UX)** — revisão transversal, como já definido
    na matriz original.
 
