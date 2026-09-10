@@ -1572,6 +1572,113 @@ coberto exceto Perfil do jogador — que aguarda
 demanda própria, por já ter dependência confirmada (não hipotética)
 desse componente.
 
+Relatório técnico (implementação)
+
+Branch: `claude/s4-b2-004-treino` (a partir de `main`, sem nenhuma
+outra demanda pendente empilhada).
+
+1. Inspeção prévia (obrigatória pela especificação)
+
+* A tela de Treino (`#panel-treinos`) já estava, em grande parte,
+  migrada pro Design System novo ANTES desta demanda — divergência
+  em relação à Readiness Review original (que marcava a tela inteira
+  como `❌ --mt-*` legado). Já usavam tokens `--m3-*`: `.mt-scheme-card`
+  (cartão de esquema de treino, incl. estado `.active`), `.mt-seg-group`/
+  `.mt-seg-btn` (segmented control Foco/Intensidade/Grupo, exceto as 3
+  cores categóricas — ver item 3), `.mt-dur-stepper`/`.mt-dur-step-btn`/
+  `.mt-dur-val` (stepper de duração), `.mt-field-label`, `.mt-card`/
+  `.mt-stat-grid`/`.mt-week-strip`/`.mt-day-cell` (exceto os
+  indicadores de foco — mesmo caso do item 3).
+* Restavam 2 seletores com tokens `--mt-*` legados que duplicavam
+  papel semântico já coberto por `--m3-*` — mesmo critério mecânico
+  aplicado em `S4-B2-001/002/003`.
+* Dependência do PlayerCard (citada na especificação como "a
+  confirmar, não presumida"): CONFIRMADA sem gap. `renderTreinos()`
+  já reaproveita `playerRow()`/`groupedListHTML()` pra montar
+  `#trainingRosterList` (comentário no próprio código, linha ~5541:
+  "reaproveita playerRow/groupedListHTML da Tela 4 (Elenco) sem
+  duplicar marcação nenhuma"), clicando num jogador abre o mesmo
+  `openDetail()` de sempre. Diferente de `S4-B2-003` (onde o banco
+  usava `.mt-bench-row`, não PlayerCard), aqui a tela já usa o
+  componente formalizado em `S3-DS20-S4-PREP-002` corretamente — nada
+  a implementar ou registrar como divergência neste ponto.
+
+2. Migração feita (mecânica, sem decisão de produto pendente)
+
+* `.mt-training-warning` (aviso "você está sobrescrevendo uma folga
+  protegida..."): `background:rgba(214,69,69,.12)` → `rgba(255,84,73,.14)`;
+  `border` → `rgba(255,84,73,.4)`; `color:var(--mt-crimson-400)` →
+  `var(--m3-error)`. Mesmo padrão já usado em outros lugares do app
+  pra caixa de erro/perigo (`.mt-badge-alert`, `.mt-ptag.crimson`,
+  `.mt-confirm-overlay .ct-modal-icon.danger`) — 255,84,73 é o RGB
+  exato de `--m3-error` (#FF5449); os valores antigos (214,69,69)
+  correspondiam a `--mt-crimson-500`, uma cor de outro token, não mais
+  usada em nenhum lugar migrado do app.
+* `.mt-individual-picker-btn` (botão "Escolher jogador..." do treino
+  individual): `background:var(--mt-navy-900)` → `var(--m3-surface-container-high)`;
+  `border:var(--mt-navy-600)` → `var(--m3-outline-variant)`;
+  `color:var(--mt-ivory-50)` → `var(--m3-on-surface)`; `.placeholder`
+  `color:var(--mt-ink-faint)` → `var(--m3-on-surface-variant)`. Mesmo
+  padrão exato já estabelecido pro campo de formulário do app
+  (`.mt-field input`, linha ~1189 de `carreira.html`) — este botão é
+  funcionalmente um campo/seletor, não um botão de ação.
+
+3. Divergência já registrada em `S4-B2-003`, NÃO uma nova (não
+   resolvida aqui — apenas confirmado que recorre)
+
+* `.mt-individual-picker-btn` usa `font-family:'Rajdhani', var(--font)`
+  diretamente, igual ao campinho/banco da Tática. Mesma pergunta já
+  registrada (BRDATA Extension tipográfico vs. débito legado) —
+  aguardando decisão do PM em `S4-B2-003`, não duplicada aqui.
+
+4. Classificado como BRDATA Extension, NÃO migrado (decisão tomada,
+   não é divergência aberta)
+
+* Paleta categórica de foco de treino (técnico=`--mt-sky-400`,
+  físico=`--mt-crimson-400`, tático=`--mt-violet-400`, jogo=já
+  `--m3-primary`), usada de forma consistente em 3 lugares
+  (`.mt-scheme-preview .dot.*`, `.mt-seg-btn[data-seg="foco"].active[data-value=*]`,
+  `.mt-day-cell.foco-*.dind`). Mesmo tratamento dado a `.mt-pos-chip.gol/def/mei/ata`
+  em `S4-B2-003`: é uma paleta categórica deliberada (4 focos = 4
+  cores fixas, sem papel de erro/sucesso/aviso que justifique um
+  token semântico `--m3-*`), não um duplicado semântico — migrar
+  quebraria a única forma visual de distinguir os 4 focos à primeira
+  vista. Classificação, não uma pergunta em aberto.
+
+5. Fora de escopo, não tocado (observação, não bloqueio)
+
+* `.ct-help-btn` (botão de ajuda "?", usa `var(--border)`/`var(--text-2)`,
+  tokens de um 3º sistema legado — nem `--mt-*` nem `--m3-*`) aparece
+  15 vezes no arquivo, em várias telas além de Treino — migrá-lo aqui
+  seria uma mudança cross-cutting fora do escopo desta demanda
+  (violaria "nenhuma outra tela tocada"). Registrado como candidato a
+  uma demanda própria futura (P1/P2), não implementado.
+* Nenhuma mudança de regra de treinamento, fórmula de fadiga/evolução
+  ou fluxo de aplicar treino semanal.
+
+6. Testes
+
+* Criado `tests/e2e/test_s4_b2_004_treino.js` (4 checks): aviso de
+  folga protegida usa `--m3-error` computado; botão de escolher
+  jogador usa os 4 tokens do campo padrão (`--m3-surface-container-high`/
+  `--m3-outline-variant`/`--m3-on-surface`/`--m3-on-surface-variant`,
+  valores estáticos, comparação por hex já que não variam por clube);
+  lista de elenco do Treino confirmada usando `.m3-list-item`
+  (PlayerCard); trocar esquema de treino continua aplicando o plano
+  inteiro. **4 de 4 passaram.**
+* Regressão: `tests/e2e/test_treinos.js` (13 checks, cobre esquemas,
+  edição manual de dia, violação de folga protegida, picker de
+  treino individual, aplicar treino, idempotência) e
+  `tests/e2e/test_bloco5_treino.js` (10 checks, cobre resumo semanal,
+  aviso de risco, stepper de duração, histórico de fadiga). **Ambos
+  100% passaram**, nenhuma regressão.
+
+Resultado proposto: **APROVADO** — escopo cumprido integralmente,
+dependência do PlayerCard confirmada sem gap, nenhuma divergência nova
+em aberto (a única citada — tipografia Rajdhani — já está registrada
+em `S4-B2-003` aguardando decisão do PM, comum às duas telas), toda a
+funcionalidade de treinamento preservada e testada.
+
 ⸻
 
 S4-B2-005 — Migrar tela Perfil do jogador para o Design System novo
