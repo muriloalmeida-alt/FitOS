@@ -44,9 +44,12 @@ const { chromium } = require("playwright-core");
   await page.click("#marketList [data-buy]");
   await page.waitForTimeout(200);
   const modalInfo = await page.evaluate(() => ({
-    open: document.getElementById("offerOverlay").classList.contains("open"),
+    // S4-B3-003 — "Fazer proposta" virou Dialog dinâmico
+    // (.m3-dialog-overlay, S3-DS20-S4-PREP-001), não mais #offerOverlay
+    // estático.
+    open: !!document.querySelector(".m3-dialog-overlay.open"),
     value: Number(document.getElementById("offerValueInput").value),
-    sub: document.getElementById("offerSub").textContent,
+    sub: document.querySelector(".m3-dialog-overlay.open .m3-dialog-sub")?.textContent || "",
   }));
   console.log("1) Clicar 'Comprar' abre a modal de proposta com o valor de mercado pré-preenchido:",
     modalInfo.open && modalInfo.value > 0 && modalInfo.sub.length > 5, JSON.stringify(modalInfo));
@@ -67,7 +70,7 @@ const { chromium } = require("playwright-core");
       cashUnchanged: CAREER.finances.cash === info.cashBefore,
       offer: o ? { offerValue: o.offerValue, installments: o.installments, roundsLeft: o.roundsLeft, status: o.status } : null,
       pendingIconShown: !!document.querySelector(`#marketList [data-viewoffer="${info.playerId}"]`),
-      modalClosed: !document.getElementById("offerOverlay").classList.contains("open"),
+      modalClosed: !document.querySelector(".m3-dialog-overlay.open"),
     };
   }, { playerId: buyBtnInfo.playerId, cashBefore });
   console.log("2) Propor valor menor (70%) parcelado em 2x cria a proposta, cash não muda ainda, ícone vira 'pendente':",
@@ -85,7 +88,7 @@ const { chromium } = require("playwright-core");
   await page.waitForTimeout(200);
   const myOffersInfo = await page.evaluate(() => ({
     open: document.getElementById("myOffersOverlay").classList.contains("open"),
-    rowCount: document.querySelectorAll("#myOffersList .mt-sponsor-proposal-row").length,
+    rowCount: document.querySelectorAll("#myOffersList .m3-op-card").length,
     badgeText: document.getElementById("myOffersBadge").textContent,
     badgeHidden: document.getElementById("myOffersBadge").classList.contains("hidden"),
   }));

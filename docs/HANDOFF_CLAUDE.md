@@ -2481,6 +2481,126 @@ Observações
 Quarta e última tela recomendada do Batch 3 (excluindo Resumo da
 rodada, fora desta rodada): Contratos, usando ContractCard.
 
+Relatório técnico (implementação)
+
+Branch: `claude/s4-b3-003-negociacao` (a partir de `claude/s4-b3-002-mercado`,
+que por sua vez carrega `S4-B3-001` — cadeia de dependência real, não
+só documental).
+
+1. Inspeção prévia
+
+* "Negociação/Proposta" (Tela 15) já existe hoje como 2 fluxos
+  conectados, não 1 tela única: `openOfferModal()` (enviar proposta —
+  valor + parcelamento, `#offerOverlay` estático) e "Minhas propostas"
+  (`renderMyOffersScreen()`/`myOffersRowHTML()`, acompanhar/retirar/
+  aumentar/aceitar contraproposta/comparar com concorrente,
+  `.mt-sponsor-proposal-row` — reaproveitado de um contexto de
+  patrocínio sem relação com transferência, mesmo achado já registrado
+  em `S4-B3-001`). "Comparar propostas" (`.mt-offercmp-*`) já estava
+  100% `--m3-*`, sem nenhuma mudança necessária.
+* Verificado (mesma checagem de coordenação de `S4-B3-002`): nenhuma
+  branch/PR externo tocando Negociação.
+
+2. Migração feita
+
+* `openOfferModal()`: convertido de `#offerOverlay`/`.ct-modal-overlay`
+  estático para `openM3Dialog()` (Dialog dinâmico, `S3-DS20-S4-PREP-001`)
+  — primeiro uso real do Dialog com formulário interativo (campo +
+  select + botão de confirmar), diferente do único uso anterior
+  (`openPlayerCard()`, só leitura). Campo/select/botão montados no
+  `bodyHTML`, wiring do botão de confirmar feito logo após abrir (mesmo
+  padrão de `openDetail()`/ações). Bloco HTML fixo antigo removido de
+  `carreira.html`; listeners fixos de `#offerClose`/`#offerOverlay`/
+  `#btnOfferConfirm` removidos do bloco de inicialização (`boot()`).
+* `myOffersRowHTML()`: convertido pra `transferCardHTML()` (`S4-B3-001`)
+  — sem badge (a proposta não guarda overall/posição do jogador),
+  usando `metaText` pro texto de status da negociação (valor/prazo/
+  concorrência), exatamente o caso de uso que motivou esse campo no
+  contrato do componente. Estado "contraproposta" vira `statusLabel`
+  "Contraproposta"/`gold`; concorrência vira "Concorrência"/`crimson`
+  — mesma paleta de antes (`.mt-badge-gold`/`.mt-badge-alert`), agora
+  via `.mt-ptag`.
+* Fora de escopo, confirmado e não tocado: `mySalesOfferRowHTML()`
+  ("Minhas vendas", lado do vendedor) e a função de indicações dos
+  olheiros também usam `.mt-sponsor-proposal-row` — são telas
+  diferentes (Mercado/Base), não "Negociação/Proposta".
+
+3. **Bug crítico pré-existente encontrado e corrigido** (fora do
+   escopo nominal desta demanda, mas bloqueava a própria entrega —
+   sem ele o Dialog não funciona de verdade)
+
+* Ao integrar o Dialog pela primeira vez com um formulário clicável de
+  verdade (não só leitura), o botão "Enviar proposta" ficava
+  inacessível — clique interceptado pela navbar inferior. Investigação
+  (bisecção do CSS parseado via CSSOM) encontrou a causa raiz: o bloco
+  de comentário que documenta `.m3-dialog-overlay`/`.m3-bottom-sheet-overlay`
+  (escrito durante `S3-DS20-S4-PREP-001`) continha 2 nomes de classe
+  colados só por uma barra, sem espaço — como o primeiro termina em
+  asterisco, a junção formava sem querer o par de caracteres que
+  ENCERRA um comentário CSS no meio do texto. Tudo depois virava
+  "código" CSS real (texto solto em português, interpretado como
+  seletor/declaração inválida) até o próximo par igual — que por
+  coincidência também existia mais adiante, no fim do texto pretendido
+  do comentário. O parser descartava a regra `position:fixed;
+  z-index:500; ...` inteira como consequência (engolida junto com o
+  texto solto entre os 2 pares).
+* **Impacto real**: desde que `S3-DS20-S4-PREP-001` foi mesclada,
+  literalmente TODO Dialog/Bottom Sheet aberto no app (o único uso até
+  agora, `openPlayerCard()`) renderizava com `position:static`/
+  `z-index:auto` em vez de `position:fixed`/`z-index:500` — não
+  regredia visivelmente porque o escurecimento do fundo (`rgba(0,0,0,.55)`)
+  é aplicado via a animação `ctOverlayIn` (não pela regra quebrada),
+  então o backdrop "parecia" certo mesmo com o overlay fora do lugar
+  — só ficava evidente ao tentar clicar em algo posicionado onde um
+  elemento fixo de verdade (como a navbar) pudesse competir.
+* Corrigido reescrevendo o comentário pra não conter mais essa
+  sequência (separando os 2 nomes com "nem" em vez de barra colada).
+  Verificado via CSSOM (`document.styleSheets`) que a regra agora
+  aparece corretamente parseada, com `position:fixed`/`z-index:500`.
+* **Efeito colateral positivo**: esse mesmo bug, ao ser corrigido,
+  expôs (por tornar o Dialog um overlay de verdade, que agora
+  realmente intercepta cliques) uma falha JÁ CONHECIDA e documentada
+  desde `S4-B2-002`/PREP-002 em `tests/e2e/test_ux_nomes_clicaveis.js`
+  (`closeAll()`/`detailOpenWithName()` só sabiam fechar/ler
+  `.ct-modal-overlay`, nunca foram atualizados pro Dialog dinâmico
+  quando `openPlayerCard()` migrou). Corrigidos os 2 helpers nesse
+  teste pra tratar também `.m3-dialog-overlay` — **as checagens 1a/1b/5
+  daquele teste, que falhavam há 2 demandas, agora passam (8 de 8,
+  100%)**. Gap P1 registrado como pendente em relatórios anteriores
+  fica resolvido como efeito colateral desta investigação.
+
+4. Testes
+
+* Criado `tests/e2e/test_s4_b3_003_negociacao.js` (6 checks): "Fazer
+  proposta" abre Dialog dinâmico (não mais `#offerOverlay`) com foco
+  automático no campo de valor; Esc fecha sem enviar; **regressão do
+  bug crítico** (overlay é `position:fixed`/`z-index:500` de verdade,
+  botão de confirmar é o elemento clicável no seu próprio ponto);
+  confirmar envia a proposta e fecha sozinho; "Minhas propostas" usa
+  TransferCard (zero `.mt-sponsor-proposal-row`); retirar proposta
+  continua funcionando. **6 de 6 passaram.**
+* Regressão: `test_m3_dialog_sheet_skeleton.js` (12 checks, toda a
+  suíte de Dialog/Bottom Sheet/Skeleton) — **100% passou**, confirmando
+  que o bug corrigido não quebrou nada que dependia do comportamento
+  anterior (focus trap, ARIA, Esc, clique no backdrop). `test_mercado_negociacao.js`
+  (7 checks, +3 seletores corrigidos pra `.m3-dialog-overlay`/`.m3-op-card`)
+  — 6 de 7 passaram, a falha restante (contraproposta por RNG)
+  confirmada pré-existente em `main` sem nenhuma alteração desta
+  demanda (reproduzida isoladamente, mesmo padrão de `S4-B3-002`).
+  `test_mercado_concorrencia.js` (7 checks, 1 seletor corrigido) —
+  **100%**. `test_historico_negociacoes.js` (1 seletor corrigido) —
+  1 falha restante também confirmada pré-existente em `main`.
+  `test_ux_nomes_clicaveis.js` (2 helpers corrigidos, ver item 3
+  acima) — **8 de 8, 100%** (era 5 de 8 antes desta demanda).
+* `node -c public/js/carreira.js` sem erro de sintaxe.
+
+Resultado proposto: **APROVADO** — escopo cumprido (TransferCard +
+Dialog integrados de verdade, valor/parcelamento/status/ações
+preservados e testados), mais um bug crítico pré-existente (fora do
+escopo nominal, mas bloqueante pra esta própria entrega) encontrado,
+corrigido e testado, com efeito colateral positivo de resolver um gap
+P1 documentado há 2 demandas. Nenhuma mudança de regra de negociação.
+
 ⸻
 
 S4-B3-004 — Migrar tela Contratos para o Design System novo
