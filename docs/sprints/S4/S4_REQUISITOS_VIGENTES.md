@@ -99,8 +99,8 @@ específico de 1-2 telas:
 | PlayerCard | Elenco, Treino, `openClubRoster()` | **Resolvido por `S3-DS20-S4-PREP-002`** — `playerRow()` formalizado como PlayerCard, contrato documentado em `carreira.js` e adendo em `S3_2_COMPONENTES_E_CONTRATOS.md` §60. Correção: Perfil do jogador NÃO é um ponto de uso do PlayerCard (é uma tela de detalhe própria, `openDetail()`, visualmente maior — o componente PlayerCard é a linha compacta de LISTA) — ver `S3_2_COMPONENTES_E_CONTRATOS.md` §60.2. Perfil do jogador migrada em `S4-B2-005` (ver linha 39 acima) sem depender do PlayerCard |
 | MatchCard | Início/Dashboard, Resumo da rodada | Início usa `.m3-score-card`/`.m3-match-row` ad hoc, mesmo padrão |
 | LeagueTable | Início/Dashboard, Histórico | Não migrada — segue tabela HTML tradicional |
-| TransferCard | Mercado, Negociação | Não migrada |
-| ContractCard | Contratos | Não migrada |
+| TransferCard | Mercado, Negociação | **Componente disponível (`S4-B3-001`)** — `transferCardHTML()` em `carreira.js`, contrato documentado. Correção: já existiam 2 formatos ad hoc próximos (`.mt-market-row` no Mercado, `.mt-sponsor-proposal-row` em "Minhas propostas") — TransferCard não parte do zero conceitualmente, mas nenhuma tela foi migrada nesta demanda (ver §5, item 3). Mercado/Negociação continuam fora (não migradas) |
+| ContractCard | Contratos | **Componente disponível (`S4-B3-001`)** — `contractCardHTML()` em `carreira.js`, contrato documentado. Divergência maior: a tela "Contratos" (Tela 16 da matriz) **não existe no app hoje** — só há pontos isolados (tag "fim de contrato" no Elenco, modal de renovação a partir do Perfil). Migrar essa tela em `S4-B3-004` significa CRIAR uma tela nova, não re-estilizar uma existente — registrado como divergência de escopo, decisão do PM antes de prosseguir (ver `docs/HANDOFF_CLAUDE.md`) |
 | FinancialSummary | Início/Dashboard, Resumo da rodada | Início usa `.m3-fin-bar`/`.m3-finance-num` ad hoc, mesmo padrão |
 
 **O risco concreto:** o precedente já aconteceu 3 vezes (Elenco,

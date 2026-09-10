@@ -2074,6 +2074,104 @@ suficiente pra virar demanda" (mesmo problema não resolvido desde a
 especificação do Batch 2). Essa tela vira demanda só depois dessa
 inspeção acontecer — não presumida aqui.
 
+Relatório técnico (implementação)
+
+Branch: `claude/s4-b3-001-transfer-contract-card` (a partir de `main`).
+
+1. Inspeção prévia (obrigatória — as 3 telas consumidoras, antes de
+   desenhar os componentes)
+
+* **Mercado** (`renderMercado()`/`.mt-market-row`): já existe e
+  funciona — badge de overall, nome, clube, chip de posição, ações em
+  ícone no canto (comprar/vender/emprestar/ver proposta/ver anúncio),
+  linha de detalhe com salário+valor. Já é quase inteiramente
+  `--m3-*` (só `.mt-market-club`/`.mt-market-detail`/`.mt-btn-loan`/
+  `.mt-btn-sell` ainda legados — fora de escopo aqui, tocar isso é
+  `S4-B3-002`).
+* **Negociação/Proposta**: 2 fluxos reais — `openOfferModal()`
+  (enviar proposta: valor + parcelas) e "Minhas propostas"
+  (`renderMyOffersScreen()`/`myOffersRowHTML()`/`.mt-sponsor-proposal-row`,
+  reaproveitado de um contexto de patrocínio) — acompanhar/retirar/
+  aumentar/aceitar contraproposta/comparar com concorrente. Já
+  totalmente `--m3-*`.
+* **Divergência registrada em relação à especificação**: a
+  especificação afirma que "não há indício de equivalente ad hoc" pra
+  TransferCard, ao contrário de MatchCard/FinancialSummary. Inspeção
+  direta encontrou **2** formatos ad hoc próximos, não zero:
+  `.mt-market-row` (Mercado) e `.mt-sponsor-proposal-row` (Minhas
+  propostas) — ambos já representam jogador+clube+valor+status+ação,
+  só que com 2 shapes visuais DIFERENTES pro mesmo conceito (o
+  problema que os Product Patterns existem pra evitar, `S4_REQUISITOS_VIGENTES.md`
+  §4). Não é um caso "retroativo" limpo como PlayerCard (1 candidato
+  único servindo 3 pontos) nem "zero candidato" como a especificação
+  assumia — por isso o componente aqui foi desenhado do zero
+  (informado pelos 2 candidatos, sem copiar nenhum literalmente),
+  deixando a migração de fato (substituir os 2 formatos antigos pelo
+  novo) para `S4-B3-002`/`S4-B3-003`, como o próprio escopo desta
+  demanda já previa ("nenhuma tela migrada ainda").
+* **Contratos**: buscado exaustivamente (grep por "contrato" em todo
+  `carreira.html`, checado o painel "Clube" inteiro) — **não existe
+  tela dedicada de gestão de contratos no app hoje**. Só existem: a
+  tag "Fim de contrato" inline no Elenco/Treino (`playerRow()`), o
+  aviso de vencimento e botão "Renovar contrato" dentro do Perfil do
+  jogador (`openDetail()`/`openRenewModal()`), e a barra agregada de
+  teto salarial no painel Clube — nenhum desses é uma LISTA de
+  contratos por jogador, como a matriz descreve pra Tela 16. Isso é
+  uma divergência maior que as anteriores: `S4-B3-004` ("migrar tela
+  Contratos") pressupõe uma tela existente pra migrar, mas não há
+  nenhuma — construí-la do zero é decisão de escopo/produto, não uma
+  migração visual. Registrado aqui e repetido no início do relatório
+  de `S4-B3-004` — decisão do PM antes de prosseguir naquela demanda.
+
+2. Componentes criados (`public/js/carreira.js`, logo após
+   `playerRow()`)
+
+* **TransferCard** (`transferCardHTML()`): badge de overall+posição
+  (opcionais), nome, clube (clicáveis via `data-openplayer`/
+  `data-openclub`, mesmo padrão do Mercado/Elenco), tag de status
+  (`neutral`/`gold`/`crimson`, mesma paleta de `.mt-ptag`), ações
+  (HTML já pronto, sem lógica embutida), linha de detalhe com salário+
+  valor OU `metaText` livre (pra casos como "proposta em andamento",
+  onde valor/salário isolados não são o dado relevante).
+* **ContractCard** (`contractCardHTML()`): mesmo shape base, com
+  `durationLabel` livre (cobre "contrato até X"/"renovado até Y"/
+  "empréstimo até a rodada Z" sem o componente precisar saber a
+  diferença) e atalho `expiring` → status vira "crimson" automático
+  (sobrepesável com `statusVariant` explícito).
+* Ambos compartilham a mesma base CSS nova (`.m3-op-*`,
+  `public/carreira.html`, logo após o bloco `.m3-li-*` do PlayerCard)
+  — "op" de operação: jogador+clube+dinheiro+status+ação é o mesmo
+  "formato de cartão" pras 2 situações, evitando duplicar CSS (regra
+  §6.3 do CLAUDE.md). Reaproveitam `.mt-ovr-badge`/`.mt-pos-chip`/
+  `.mt-ptag` já existentes, não criam nenhum token de cor novo.
+* Nenhum dos dois lê `CAREER` nem qualquer estado global — só
+  transformam a entrada recebida em HTML (confirmado no teste, item
+  5).
+
+3. Testes
+
+* Criado `tests/e2e/test_s4_b3_001_transfer_contract_card.js` (5
+  checks, mesmo padrão de "testar a API do componente direto" usado
+  pra Bottom Sheet/Skeleton em `S3-DS20-S4-PREP-001`, já que nenhuma
+  tela real consome os componentes ainda): TransferCard completo
+  (badge/nome/clube/status/detalhe/ação, tokens computados);
+  TransferCard sem badge + `metaText`; ContractCard completo com
+  atalho `expiring` → `crimson`; ContractCard com `statusVariant`
+  explícito sobrepondo o atalho; pureza dos 2 componentes (mesma
+  entrada → mesma saída, sem tocar `CAREER`). **5 de 5 passaram.**
+* `node -c public/js/carreira.js` sem erro de sintaxe (única mudança
+  de JS desta demanda é aditiva — 2 funções novas, nenhuma função
+  existente alterada).
+
+Resultado proposto: **APROVADO** — os 2 componentes existem, documentados,
+sem lógica de negócio, testados isoladamente, nenhuma tela tocada (como
+o escopo pedia). Duas divergências registradas para as próximas
+demandas: (a) TransferCard tem 2 predecessores ad hoc a substituir, não
+zero — informativo, não bloqueia `S4-B3-002`/`003`; (b) a tela
+"Contratos" que `S4-B3-004` pressupõe migrar **não existe** — isso
+bloqueia o início dessa demanda até o PM decidir se ela deve ser criada
+do zero (e com que escopo) ou se a demanda precisa ser redefinida.
+
 ⸻
 
 S4-B3-002 — Migrar tela Mercado para o Design System novo
