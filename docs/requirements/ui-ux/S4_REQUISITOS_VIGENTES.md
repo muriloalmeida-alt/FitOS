@@ -205,15 +205,21 @@ for paga agora, antes de replicar o padrão ad hoc em mais telas.
      a conclusão de `S4-B3-005` (mesma lógica de Perfil do jogador
      esperando `S3-DS20-S4-PREP-002`).
 5. **Batch 4 (Complementary)** — as 7 telas P1, começando por uma
-   verificação individual (não foram auditadas na S3.2.7). **Agora tem
-   demanda própria**: `S4-B4-000`, status `PRONTO PARA IMPLEMENTAÇÃO`
-   — auditoria (estado, dependências, complexidade/risco, escopo de
-   compartilhamento) de Onboarding, Comparar jogadores, Eixos táticos,
-   Marcação individual, Meus esquemas, Notícias/Eventos e Histórico/
-   Estatísticas. Produz a base de evidência pra cada tela virar demanda
-   de migração própria depois, mesmo padrão usado no Batch 2/3.
+   verificação individual (não foram auditadas na S3.2.7). Ainda **sem
+   demanda própria** — a demanda que cobria isso (`S4-B4-000`) foi
+   reescopada a pedido do Murilo pra virar `S4-AUDIT-BACKLOG-001` (ver
+   item 7 abaixo), então esta auditoria específica do Batch 4 volta a
+   ficar pendente de nova especificação.
 6. **Batch 5 (QA Visual/UX)** — revisão transversal, como já definido
    na matriz original.
+7. **Auditoria de prontidão do backlog** (`S4-AUDIT-BACKLOG-001`,
+   status `PRONTO PARA IMPLEMENTAÇÃO`) — verifica o estado real das 10
+   demandas já especificadas (itens 3-4 acima, issues #12-#21) antes de
+   qualquer implementação ou nova especificação: confirma se alguma já
+   teve progresso externo (mesmo padrão que aconteceu 2 vezes com
+   `S3-DS20-S4-PREP-001`/`002`) e revalida a cadeia de dependências
+   entre elas. Pré-requisito transversal, não é um item sequencial do
+   Batch 2/3 em si.
 
 Cada um dos passos 2-5 deve nascer como uma demanda própria em
 `docs/HANDOFF_CLAUDE.md` (mesmo formato de `S3-DS20-S4-PREP-001`), não

@@ -1774,127 +1774,133 @@ de todas as outras telas do Batch 2/3.
 
 ⸻
 
-S4-B4-000 — Auditoria das 7 telas do Batch 4 (Complementary)
+S4-AUDIT-BACKLOG-001 — Auditoria de prontidão das demandas #12 a #21
 
 Status: PRONTO PARA IMPLEMENTAÇÃO
 Sprint: S4 — Redesign Mobile
-Fase: Batch 4 (Complementary) — pré-requisito, auditoria
+Fase: pré-requisito transversal (Batch 2 + Batch 3) — substitui a
+demanda anterior desta seção, que era `S4-B4-000` (auditoria das 7
+telas do Batch 4) — reescopada a pedido do Murilo antes de qualquer
+implementação.
 Prioridade: P1
 
 Objetivo
 
-Determinar, com evidência real, o estado atual de cada uma das 7 telas
-P1 do Batch 4 — Onboarding, Comparar jogadores, Eixos táticos,
-Marcação individual, Meus esquemas, Notícias/Eventos, Histórico/
-Estatísticas (`docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md`, Telas 4,
-8, 10, 11, 12, 18, 19) — migrada ou legada, dependências de
-componentes (PlayerCard/TransferCard/ContractCard/MatchCard/
-FinancialSummary/LeagueTable), e riscos específicos — pra que cada
-uma possa depois virar uma demanda de migração própria, especificada
-com a mesma base de evidência usada em todas as telas do Batch 2/3, em
-vez de presumida.
+Auditar o estado real de todas as 10 demandas já especificadas e
+abertas como issue — `S4-B2-001` (#12), `S4-B2-002` (#13),
+`S4-B2-003` (#14), `S4-B2-004` (#15), `S4-B2-005` (#16), `S4-B3-001`
+(#17), `S4-B3-002` (#18), `S4-B3-003` (#19), `S4-B3-004` (#20),
+`S4-B3-005` (#21) — antes de qualquer uma delas ser implementada ou de
+qualquer demanda nova ser especificada em cima das que já existem.
 
 Contexto
 
-A S3.2.7 Readiness Review avaliou as 12 telas P0 em detalhe, mas foi
-explícita sobre as 7 telas P1: "não foram verificadas individualmente
-(fora do foco de atenção especial pedido pelo documento, dado o gap já
-encontrado em P0)". `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`
-§2 registrou isso como "tratar como desconhecido, não como ok por
-omissão" — essa auditoria existe pra resolver esse "desconhecido" antes
-que qualquer demanda de migração do Batch 4 seja especificada.
+Esta sessão especificou as 10 demandas acima em sequência, sem
+implementar nenhuma delas diretamente — mas já se confirmou 2 vezes
+que sessões de implementação externas pegam demandas do handoff e as
+executam sem avisar esta sessão em tempo real: `S3-DS20-S4-PREP-001` e
+`S3-DS20-S4-PREP-002` foram ambas implementadas, aprovadas e mescladas
+em `main` por sessões separadas — a segunda só foi descoberta porque o
+Murilo pediu explicitamente pra verificar ("Veja se Perfil de Jogador
+não está liberado").
 
-Diferente da S3.2.7 original (auditoria de todo o Design System —
-Foundation, Components, Contracts, etc., escopo amplo), esta é
-deliberadamente mais estreita: por tela, apenas o que for necessário
-pra especificar a migração dela depois — estado atual, dependência de
-componente, e riscos específicos — não uma reavaliação da fundação
-inteira (essa já foi feita e não mudou).
+Não há garantia de que nenhuma das demandas #12-#21 tenha passado pelo
+mesmo. Continuar especificando demandas novas (e demandas que dependem
+delas, como as do Batch 3 dependem de `S4-B3-001`) em cima de um
+pressuposto não verificado é um risco de coordenação, não só um
+detalhe administrativo — se `S4-B3-001` já foi implementada e
+aprovada, por exemplo, isso muda o que `S4-B3-002/003/004` deveriam
+assumir como ponto de partida.
 
 Escopo
 
-Claude deve, por cada uma das 7 telas, avaliar e registrar:
+Para cada uma das 10 demandas, Claude deve:
 
-* Estado atual: migrada pro Design System novo ou ainda legada (e qual
-  sistema legado, se aplicável);
-* Dependência de componente: a tela usa (ou deveria usar, pela
-  matriz) algum dos Product Patterns já formalizados (PlayerCard) ou
-  ainda pendentes (TransferCard/ContractCard — já formalizados na
-  prática desde que `S4-B3-001` seja concluída; MatchCard/
-  FinancialSummary — idem, `S4-B3-005`; LeagueTable — ainda sem
-  nenhuma demanda, nem inspeção) — sem presumir, confirmar por
-  inspeção real;
-* Complexidade/risco aparente da migração (tela simples de
-  apresentação vs. interativa/com regra de negócio própria — mesmo
-  critério usado pra classificar risco em `S4-B2-003` Tática vs.
-  `S4-B2-001` Loading);
-* Se a tela está de fato ligada ao Modo Técnico ou se pode ser
-  compartilhada com outras partes do produto (mesma checagem que
-  `S4-B2-002` fez pra Login — não presumir exclusividade).
+1. Verificar se existe branch, commit ou Pull Request associado no
+   repositório (mesmo processo usado quando se confirmou que
+   `S3-DS20-S4-PREP-002` já estava implementada) — buscar por
+   referências relacionadas ao ID da demanda ou ao seu conteúdo.
+2. Se encontrar progresso: confirmar o status real (em implementação?
+   pronta pra revisão? já aprovada e mesclada?) e atualizar a seção
+   correspondente do handoff de acordo — mesmo tratamento dado a
+   `S3-DS20-S4-PREP-002` quando sua conclusão foi descoberta.
+3. Se não encontrar progresso: confirmar que a especificação ainda é
+   válida — inspecionar a implementação atual da tela/componente
+   relacionado e confirmar que nada mudou desde a especificação
+   original que invalide o escopo, as dependências ou os riscos
+   descritos nela.
+4. Revalidar a cadeia de dependências entre as demandas — em
+   particular, que `S4-B3-002`/`003`/`004` de fato ainda dependem de
+   `S4-B3-001` como bloqueante, e que a ordem recomendada continua
+   fazendo sentido dado o estado real encontrado.
+5. Registrar, por demanda, um veredito único: "sem progresso externo,
+   especificação continua válida" / "sem progresso externo,
+   especificação precisa de ajuste (detalhar o quê)" / "progresso
+   externo encontrado (detalhar o estado e a atualização feita no
+   handoff)".
+6. Produzir um relatório consolidado nesta mesma seção do handoff,
+   com a lista das 10 demandas e o veredito de cada uma.
+7. Retornar `REVISÃO DO PM NECESSÁRIA`.
 
 Fora de escopo
 
-* migrar qualquer uma das 7 telas — isso é trabalho de demandas
-  futuras, uma por tela (ou agrupadas, se a auditoria justificar);
-* reavaliar Foundation/Components/Contracts/Responsive/Accessibility
-  do Design System em geral — isso já foi feito na S3.2.7 e não é o
-  objetivo aqui;
-* inspecionar/formalizar LeagueTable — se alguma das 7 telas depender
-  dela, registrar como achado, mas não resolver a lacuna nesta
-  demanda (seria escopo comparável a `S4-B3-005`, seu próprio ciclo);
-* qualquer mudança de código.
+* implementar qualquer coisa nova — mudanças de código só acontecem
+  se decorrerem diretamente de uma demanda já aprovada encontrada com
+  progresso pendente de finalização (mesmo tratamento que
+  `S3-DS20-S4-PREP-001` recebeu quando sua aprovação foi processada);
+* a auditoria original das 7 telas do Batch 4 (Onboarding, Comparar
+  jogadores, Eixos táticos, Marcação individual, Meus esquemas,
+  Notícias/Eventos, Histórico/Estatísticas) — não faz mais parte desta
+  demanda (era o escopo de `S4-B4-000`, substituído); se ainda for
+  necessária, precisa virar uma demanda própria depois desta;
+* especificar qualquer demanda nova — isso só deve acontecer depois
+  que esta auditoria confirmar (ou corrigir) o estado do backlog
+  atual.
 
 Dependências
 
-* `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Telas 4, 8, 10, 11,
-  12, 18, 19 — objetivo e requisitos de cada uma).
-* `docs/HANDOFF_CLAUDE.md` §S3.2.7 (metodologia de auditoria de
-  referência).
+* as 10 demandas em si (`S4-B2-001` a `S4-B2-005`, `S4-B3-001` a
+  `S4-B3-005`), já especificadas em `docs/HANDOFF_CLAUDE.md` e como
+  issues #12-#21.
 * `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`.
 
 Requisitos
 
-Claude deve:
-
-1. ler a documentação relacionada;
-2. inspecionar a implementação atual de cada uma das 7 telas;
-3. registrar estado, dependências, complexidade/risco e escopo de
-   compartilhamento por tela, com evidência (arquivo/trecho relevante,
-   mesmo rigor da S3.2.7);
-4. identificar telas que podem ser agrupadas numa mesma demanda futura
-   (ex.: por semelhança ou por dependerem do mesmo componente) vs. as
-   que precisam de demanda isolada;
-5. atualizar `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md` com
-   uma tabela de estado real do Batch 4, mesmo formato da tabela já
-   existente pros Batches 2/3;
-6. produzir relatório técnico nesta mesma seção do handoff;
-7. retornar `REVISÃO DO PM NECESSÁRIA`.
+Mesma sequência obrigatória de sempre: inspecionar → localizar →
+entender → planejar → (alterar só se decorrer de aprovação já
+concluída) → testar (se houver alteração) → revisar. Cada veredito
+deve vir com evidência real (branch/commit encontrado, ou trecho de
+código conferido), mesmo rigor da S3.2.7 original — não presunção.
 
 Critérios de aceite
 
-* as 7 telas têm estado, dependências, complexidade/risco e escopo de
-  compartilhamento registrados com evidência real;
-* nenhuma tela migrada (é auditoria, não implementação);
-* `S4_REQUISITOS_VIGENTES.md` atualizado com a tabela do Batch 4;
-* recomendação de agrupamento/ordem pras demandas de migração
-  seguintes.
+* as 10 demandas têm veredito registrado, cada um com evidência;
+* qualquer progresso externo encontrado está refletido no handoff
+  (status atualizado, movido pro Histórico se aprovado);
+* qualquer especificação desatualizada está corrigida ou marcada pra
+  correção;
+* a cadeia de dependências entre as demandas foi revalidada.
 
 Validações
 
-O PM deverá validar: cobertura das 7 telas, qualidade da evidência
-(não presunção), recomendação de agrupamento/ordem, ausência de
-alteração de código.
+O PM deverá validar: cobertura das 10 demandas, qualidade da evidência
+por trás de cada veredito, qualquer atualização de status feita no
+handoff, coerência da cadeia de dependências revalidada.
 
 Riscos
 
-* baixo — é auditoria de leitura, mesmo perfil de risco da S3.2.7
-  original (nenhuma alteração de código no escopo).
+* baixo — é auditoria/verificação de estado, mudança de código só
+  ocorre se decorrer de algo já formalmente aprovado e ainda não
+  processado.
 
 Observações
 
-Mesmo princípio da S3.2.7: esta é uma auditoria, não deve virar
-refatoração nem migração parcial disfarçada. Problemas encontrados
-devem ser registrados e classificados, não corrigidos aqui.
+Esta demanda existe pra proteger contra o mesmo tipo de lacuna que já
+aconteceu 2 vezes nesta sessão (progresso externo não percebido em
+tempo real) — não é desconfiança de que as 10 demandas estejam
+malfeitas, é confirmação de que o estado presumido (nenhuma
+implementada ainda) ainda é real antes de continuar construindo mais
+demandas em cima dele.
 
 ⸻
 
