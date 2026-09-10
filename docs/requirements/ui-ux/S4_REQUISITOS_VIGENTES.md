@@ -36,11 +36,21 @@ Batch 2 — Core (8 telas)
 | Elenco | ✅ migrada `--m3-*` | PlayerCard formalizado (`S3-DS20-S4-PREP-002`, ver §3) — `playerRow()` agora tem contrato documentado |
 | Login / Entrada | ❌ `--brd-*` (legado) | — |
 | Loading / Bootstrap | ❌ não identificada como tela própria migrada | — |
-| Perfil do jogador | ❌ `.ct-modal-*` (legado) | overlay vira `.m3-dialog` assim que `S3-DS20-S4-PREP-001` for aprovada (é o próprio ponto de validação dessa demanda) — mas isso NÃO formaliza o PlayerCard nem migra o resto da tela pros tokens `--m3-*`, só o container do modal |
+| Perfil do jogador | ✅ migrada `--m3-*` (`S4-B2-005`) | Correção em relação à nota anterior: o overlay (`#detailOverlay`/`.ct-modal-overlay`) já estava com tokens `--m3-*` mesmo ANTES de `S3-DS20-S4-PREP-001` — a implementação de Dialog daquela demanda migrou o fluxo DIFERENTE de visualização somente-leitura de jogador de outro clube (`openPlayerCard()`/`.m3-dialog`), não este. Migrados nesta demanda os 2 seletores exclusivos de `openDetail()` que restavam legados (hero nome/subtítulo, aviso de teto salarial). Setas de tendência (▲/▼) NÃO migradas — token `--brd-*` sem equivalente `--m3-*` estabelecido, registrado como divergência aberta |
 | Tática / Formação | ❌ `--mt-*` (legado) | — |
 | Treino | ❌ `--mt-*` (legado) | — |
 
-**3 de 8 (37%) migradas.**
+**4 de 8 (50%) migradas nesta contagem** (Escolha do clube, Início,
+Elenco, Perfil do jogador — considerando só o que está em `main` +
+esta demanda). Treino (`S4-B2-004`), Login/Entrada (`S4-B2-002`),
+Loading/Bootstrap (`S4-B2-001`) e Tática/Formação parcial
+(`S4-B2-003`) têm implementação e relatório técnico prontos, cada um
+em branch próprio ainda não aprovado/mesclado — ver
+`docs/HANDOFF_CLAUDE.md` para o estado de aprovação de cada um. **Com
+a implementação de Perfil do jogador, todas as 5 demandas do Batch 2
+(Core) estão tecnicamente prontas** — o Batch só fica formalmente
+completo depois que as 4 branches pendentes forem aprovadas/mescladas
+(esta inclusa).
 
 Batch 3 — Transactional (4 telas, todas P0)
 
@@ -79,7 +89,7 @@ específico de 1-2 telas:
 
 | Padrão | Tela(s) que depende dele | Já migrada sem ele? |
 |---|---|---|
-| PlayerCard | Elenco, Perfil do jogador | **Resolvido por `S3-DS20-S4-PREP-002`** — `playerRow()` formalizado como PlayerCard, contrato documentado em `carreira.js` e adendo em `S3_2_COMPONENTES_E_CONTRATOS.md` §60. Perfil do jogador continua fora (não migrada — ver linha 39 acima) |
+| PlayerCard | Elenco, Treino, `openClubRoster()` | **Resolvido por `S3-DS20-S4-PREP-002`** — `playerRow()` formalizado como PlayerCard, contrato documentado em `carreira.js` e adendo em `S3_2_COMPONENTES_E_CONTRATOS.md` §60. Correção: Perfil do jogador NÃO é um ponto de uso do PlayerCard (é uma tela de detalhe própria, `openDetail()`, visualmente maior — o componente PlayerCard é a linha compacta de LISTA) — ver `S3_2_COMPONENTES_E_CONTRATOS.md` §60.2. Perfil do jogador migrada em `S4-B2-005` (ver linha 39 acima) sem depender do PlayerCard |
 | MatchCard | Início/Dashboard, Resumo da rodada | Início usa `.m3-score-card`/`.m3-match-row` ad hoc, mesmo padrão |
 | LeagueTable | Início/Dashboard, Histórico | Não migrada — segue tabela HTML tradicional |
 | TransferCard | Mercado, Negociação | Não migrada |

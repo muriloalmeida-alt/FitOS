@@ -1109,7 +1109,7 @@ desse componente.
 
 S4-B2-005 — Migrar tela Perfil do jogador para o Design System novo
 
-Status: PRONTO PARA IMPLEMENTAÇÃO
+Status: REVISÃO DO PM NECESSÁRIA
 Sprint: S4 — Redesign Mobile
 Fase: Batch 2 (Core) — item 5 de 5 (último)
 Prioridade: P0
@@ -1222,6 +1222,135 @@ o Batch 2 estará completo — próximo passo do roadmap S4 é o Batch 3
 que por sua vez começa formalizando os componentes TransferCard e
 ContractCard (ainda não existentes) antes de qualquer tela, mesmo
 padrão já usado aqui.
+
+Relatório técnico (implementação)
+
+Branch: `claude/s4-b2-005-perfil` (a partir de `main`, sem nenhuma
+outra demanda pendente empilhada).
+
+1. Inspeção prévia (obrigatória pela especificação — consultar o
+   relatório de `S3-DS20-S4-PREP-002` antes de assumir como o
+   PlayerCard se encaixa aqui)
+
+* Consultado `S3_2_COMPONENTES_E_CONTRATOS.md` §60.2 (pontos de uso
+  reais do PlayerCard): **Perfil do jogador NÃO é um dos 3 pontos de
+  uso confirmados** (Elenco, Treino, `openClubRoster()`). Divergência
+  em relação à tabela do §3 deste próprio handoff, que listava "Elenco,
+  Perfil do jogador" como dependentes do PlayerCard — corrigido nesta
+  demanda (`S4_REQUISITOS_VIGENTES.md`, ver abaixo). PlayerCard
+  (`playerRow()`) é a linha compacta de LISTA; Perfil do jogador
+  (`openDetail()`) é uma tela de detalhe própria, maior, com layout
+  "hero" (badge de overall grande + nome + subtítulo), barras de
+  atributo, histórico, ações — não reaproveita nem deveria reaproveitar
+  `playerRow()` em si. **Não há dependência do PlayerCard aqui** —
+  diferente do que a especificação levantava como hipótese a
+  confirmar.
+* `#detailOverlay`/`.ct-modal-overlay` (o container do modal) **já
+  estava com tokens `--m3-*`** antes desta demanda e antes de
+  `S3-DS20-S4-PREP-001` — outra correção em relação à nota antiga do
+  `S4_REQUISITOS_VIGENTES.md` (linha 39), que presumia que o Dialog de
+  `S3-DS20-S4-PREP-001` migraria este overlay. Na prática, aquela
+  demanda migrou um fluxo DIFERENTE (`openPlayerCard()`, visualização
+  somente-leitura de jogador de outro clube, usa `.m3-dialog`) —
+  `openDetail()` (elenco próprio, com ações de promover/renovar/vender)
+  nunca usou esse Dialog, e o `.ct-modal-overlay` já era `--m3-*` por
+  conta própria (comentário no próprio código, carreira.js linha
+  ~9338-9341, confirma essa separação de fluxos).
+* Vários componentes internos da tela já estavam migrados antes desta
+  demanda: `.mt-ovr-badge`/tiers, `.m3-attr-bars` (barras de atributo,
+  incl. variantes `.gold`/`.crimson` já usando `--m3-secondary`/
+  `--m3-error`), `.mt-badge-gold`, `.mt-badge-alert`, `.mt-btn-ghost`/
+  `.mt-btn-primary-gold`/`.mt-btn-danger-outline`, `.mt-info-line`
+  (regra base).
+
+2. Migração feita (mecânica, sem decisão de produto pendente)
+
+* `.mt-player-hero-info b` (nome do jogador no hero) e `.mt-player-hero-info span`
+  (subtítulo — posição/idade/origem): `--mt-ivory-50`/`--mt-ink-muted` →
+  `--m3-on-surface`/`--m3-on-surface-variant`. Mesmo mapeamento já
+  estabelecido pelo próprio PlayerCard (`.m3-li-name`/`.m3-li-side`,
+  `S3-DS20-S4-PREP-002`) — o hero do Perfil é a mesma informação
+  (nome/dados do jogador) em escala maior, não um padrão novo. Classe
+  compartilhada com `openPlayerCard()` (fluxo já migrado da outra
+  demanda) — migração melhora consistência nos 2 lugares, não é
+  mudança de escopo.
+* Aviso inline de teto salarial estourado (ao tentar promover um
+  jogador da base): `color:var(--mt-crimson-400)` → `var(--m3-error)`
+  — mesmo padrão já repetido em `S4-B2-003`/`S4-B2-004`. Exclusivo de
+  `openDetail()`.
+
+3. Divergência registrada, NÃO resolvida aqui (decisão do PM)
+
+* As setas de tendência (▲/▼) de atributos evoluindo/regredindo e de
+  moral subindo/caindo usam `--brd-green`/`--brd-red` (=
+  `--accent-green`/`--accent-red`, `#3FBF7F`/`#E25C5C`) — um 3º sistema
+  de tokens, mais antigo até que `--mt-*` (comentário no próprio código,
+  carreira.html linha ~643, confirma que `--brd-*` é legado retirado em
+  favor de `--mt-*`, por sua vez sendo substituído por `--m3-*`).
+  **Não existe token `--m3-*` equivalente pra "positivo/verde"** em
+  nenhum lugar já migrado do app — `--m3-tertiary` é azul claro
+  (`#9ECAFF`), não verde, e o único par semântico de alerta hoje é
+  `--m3-error` (vermelho), sem contraparte de sucesso. Migrar
+  mecanicamente pra `--m3-error` faria sentido só pro vermelho
+  (queda), não pro verde (alta) — inventar um token novo (`--m3-success`
+  ou similar, BRDATA Extension) é decisão de Design System, não
+  mudança mecânica de 1:1. Registrado aqui para decisão do PM: (a)
+  formalizar um par verde/vermelho de sucesso/insucesso como BRDATA
+  Extension documentado, ou (b) manter `--brd-*` como está até essa
+  decisão. Exclusivo de `openDetail()`/`moraleTrendArrowHTML()` —
+  nenhuma outra tela afetada por essa escolha.
+
+4. Fora de escopo, não tocado (observação, não bloqueio)
+
+* `.mt-info-line b` (texto em negrito dentro das linhas de info,
+  `--mt-ivory-100`): compartilhado com 2 telas fora do escopo desta
+  demanda (marcação individual — Tática — e Comissão técnica, Batch 4)
+  — não migrado para não tocar outra tela.
+* `.mt-mini-row`/`.mt-mini-col`/`.mt-mini-head` (usado por
+  `playerSeasonHistoryHTML()`, a seção "Histórico por temporada" desta
+  tela): componente compartilhado com Estatísticas/Histórico de
+  confrontos/artilheiros/tabela de campeões (Batch 4, ainda não
+  auditado) — não migrado, mesmo critério de `.ct-help-btn` em
+  `S4-B2-004`.
+* Ações abertas a partir do Perfil (Conversar, Renovar contrato,
+  Comparar jogador, Colocar à venda, Emprestar) abrem sub-modais
+  PRÓPRIOS (`openTalkModal`, `openRenewModal`, `openComparePicker`,
+  `openListModal`, `openLoanOutModal`) — tratados como fora do escopo
+  desta demanda (pertencem a outras telas/fluxos, ex.: renovação e
+  venda são Batch 3). Confirmado que continuam todos abrindo e
+  funcionando (teste item 2).
+* Nenhuma mudança de regra de negócio (contrato, evolução, promoção,
+  moral, teto salarial).
+
+5. Testes
+
+* Criado `tests/e2e/test_s4_b2_005_perfil.js` (4 checks): hero
+  (nome/subtítulo) usa os tokens corretos; todas as seções da
+  especificação continuam presentes (atributos/condição/relacionamento/
+  salário/ações); aviso de teto salarial usa `--m3-error`; fechar e
+  reabrir o Perfil de outro jogador continua funcionando. **4 de 4
+  passaram.**
+* Regressão: `test_historico_jogador.js` (4 checks) e
+  `test_moral_relacionamento.js` (6 checks) — **100% passaram**.
+  `test_scout.js` e `test_condicao_ajuda.js` — passaram nos pontos que
+  tocam o Perfil do jogador; `test_fase2b.js` e o item 6 de
+  `test_condicao_ajuda.js` (textos de ajuda de OUTRAS telas) falham,
+  mas **confirmado por reprodução em `main` sem nenhuma alteração desta
+  demanda** que são falhas pré-existentes, não-relacionadas (timeout
+  na simulação de partida e um seletor de ajuda de outra tela,
+  respectivamente) — não são regressão desta demanda.
+
+Resultado proposto: **APROVADO** — escopo cumprido integralmente,
+dependência do PlayerCard investigada e corrigida (não existe, ao
+contrário do que a especificação levantava como hipótese), overlay
+confirmado já migrado antes desta demanda, toda a informação e ações
+da tela preservadas e testadas. Única divergência aberta (setas de
+tendência verde/vermelho) não bloqueia — token isolado, sem equivalente
+`--m3-*` a decidir antes de qualquer mudança visual.
+
+Com esta demanda, o Batch 2 (Core) está tecnicamente completo — falta
+só a aprovação/merge das 4 branches pendentes (`S4-B2-001` a
+`S4-B2-004`) para o Batch fechar formalmente em `main`.
 
 ⸻
 
