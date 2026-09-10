@@ -1,7 +1,9 @@
 # BRDATA — CHANGELOG
-**Gerado em:** 09/09/2026
-**Cobertura:** 2026-08-14 até 2026-09-09 (227 commits em 16 dias, branch `main`)
-**Versão atual:** v7.1.0
+**Gerado em:** 09/09/2026 · **Atualizado em:** 10/09/2026 (chapéu PM —
+completa o dia 09/09 que ficou parcialmente catalogado, ver nota no
+próprio dia, e cataloga o dia 10/09)
+**Cobertura:** 2026-08-14 até 2026-09-10 (259 commits em 17 dias, branch `main`)
+**Versão atual:** v7.1.1
 
 ## Metodologia
 
@@ -73,13 +75,31 @@ bump.
 | 06/09 | v6.2.0 | Transições suaves, suíte de regressão E2E no repositório, filtros de Mercado |
 | 07/09 | v6.3.0 | Notificações push, onboarding, efeitos sonoros, compartilhar imagem, convite de amigo, histórico do jogador |
 | 08/09 | **v7.0.0** | **Documentação formal de governança (CLAUDE.md/GDD/Game Engine Spec) + nasce o Transfer AI** |
-| 09/09 | v7.1.0 | Transfer AI Fases 1.4/1.5 + reorganização de documentação em `docs/` + este CHANGELOG.md |
+| 09/09 | v7.1.0 | Transfer AI Fases 1.4/1.5 + reorganização de documentação em `docs/` + este CHANGELOG.md + governança PM↔Claude formalizada (Handoff/skill `pm`) + S3.2.7 Readiness Review + checkpoint de conclusão da S8 |
+| 10/09 | v7.1.1 | Especificação da auditoria S4-AUDIT-BACKLOG-001 (Batch 4) + correção de classificação de `S4_REQUISITOS_VIGENTES.md` |
 
 ---
 
 ## Histórico completo (mais recente primeiro)
 
-### 2026-09-09 — v7.1.0  (4 commits catalogados + 2 adicionados depois, ver nota)
+### 2026-09-10 — v7.1.1  (4 commits)
+
+Dia inteiro de refinamento de especificação dentro da S4 (nenhuma
+mudança de código) — bump PATCH.
+
+- `e46f3c9` Especifica S4-B4-000 (auditoria das 7 telas do Batch 4:
+  Onboarding, Comparar jogadores, Eixos táticos, Marcação individual,
+  Meus esquemas, Notícias/Eventos, Histórico/Estatísticas)
+- `46ec488` Reescopa S4-B4-000 → S4-AUDIT-BACKLOG-001 (generaliza pra
+  auditoria de consolidação das issues #12-#21, não só o Batch 4)
+- `969e6f4` Corrige S4-AUDIT-BACKLOG-001 para rodar pós-implementação
+  das 10 demandas do Handoff (Batches 2/3), não antes — estava
+  especificada como pré-requisito por engano
+- `ce2a25b` Move `S4_REQUISITOS_VIGENTES.md` de `docs/requirements/ui-ux/`
+  pra `docs/sprints/S4/` (correção de classificação: era estado de
+  execução da Sprint, não regra vigente permanente)
+
+### 2026-09-09 — v7.1.0  (32 commits catalogados)
 
 - `c11e61f` Adiciona CHANGELOG.md com histórico completo do projeto
 - `de928ec` Reorganiza documentação em docs/ (project/reqs/library/ops)
@@ -100,17 +120,61 @@ bump.
   como a spec citava); verificado contra `test_treinos.js` (12/12) e
   `test_ux_nomes_clicaveis.js`
 
-**Nota (adicionada depois, mesmo dia):** o resto do trabalho de
-09/09/2026 além destes 6 commits — a governança PM↔Claude em si
-(`docs/HANDOFF_CLAUDE.md`/`README_HANDOFF.md`), a S3.2.7 Readiness
-Review, o checkpoint de conclusão da S8, e as demais reorganizações de
-`docs/` — não está catalogado commit a commit nesta entrada ainda
-(ficou registrado em `docs/HANDOFF_CLAUDE.md` e nos documentos de
-`docs/project/`/`docs/requirements/`, não aqui). Adicionar só os
-commits `8dcff10`/`95fc77e` (não uma re-tabulação completa do dia) foi
-uma escolha deliberada: eram os itens que motivaram esta atualização
-(conclusão formal de demandas aprovadas), catalogar o resto é um
-trabalho à parte.
+**Restante do dia, catalogado em 10/09/2026** (a nota anterior desta
+entrada dizia "catalogar o resto é um trabalho à parte" — este é esse
+trabalho; ordem cronológica, mais antigo primeiro):
+
+- `0cc5437` Governança PM↔Claude: Claude absorve o papel de PM (nasce a
+  skill `pm`, `.claude/skills/pm/SKILL.md`) — adaptação por
+  indisponibilidade do GPT como PM dedicado
+- `ac56a80` Cria `docs/README_HANDOFF.md` — governança oficial PM ↔
+  Claude (papéis, fluxo, estados, aprovação) referenciada por
+  `docs/HANDOFF_CLAUDE.md`
+- `82b8edb` Adiciona `S1_AUDITORIA_JOGO_ATUAL.md` em `docs/project`
+- `8170c9d` Adiciona `S2_GDD_TECNICO_ARQUITETURA.md` em `docs/project`
+  (versão resumida, texto colado pelo usuário)
+- `99317fd` Adiciona `S2_GAME_ENGINE_SPECIFICATION.md` em `docs/project`
+  (versão resumida, texto colado pelo usuário)
+- `c5384df` Reorganiza `docs/` na estrutura atual (`sprints/`,
+  `requirements/`): migra GDD/GDD Técnico/Game Engine Spec e as specs
+  S3 de `docs/reqs/`/`docs/project/` pra `docs/sprints/S1-S3/`, remove
+  `docs/reqs/`, cria as 4 subpastas de `docs/requirements/`
+- `999856c` Move os resumos S2 pra dentro de `docs/sprints/S2/`
+  (`S2_GDD_TECNICO_RESUMO.md`, `S2_GAME_ENGINE_SPEC_RESUMO.md`)
+- `d78e820` Merge — Diagnóstico do projeto a partir de `docs/`
+  (`docs/project/DIAGNOSTICO_2026-09-09.md`): roadmap S1-S16, achados
+  herdados da auditoria, lacunas documentais, recomendação priorizada
+- `e869d33` Merge — Relatório da S3.2.7 S4 Readiness Review (issue #9):
+  BRDATA DS 2.0 fragmentado em 3 sistemas de tokens paralelos
+  (`--brd-*`/`--mt-*`/`--m3-*`), cobertura mobile real de ~3 das 19
+  telas da matriz; resultado `ADJUSTMENTS REQUIRED`
+- `a0f71ef` Registra a decisão do PM (Murilo) sobre a S3.2.7:
+  `AJUSTES NECESSÁRIOS` (não aprovado, não bloqueado)
+- `f1b91dc` Especifica S3-DS20-S4-PREP-001 (tokens + Dialog/Bottom
+  Sheet/Skeleton) — pré-requisito apontado pela Readiness Review
+- `38c5a29` Checkpoint de S8 — confirmada concluída (Transfer AI
+  1.1-1.5), fecha o achado P0 da auditoria de código ("IA de
+  transferências 100% aleatória")
+- `9438695` Refina os requisitos vigentes da S4 em
+  `docs/requirements/ui-ux/`
+- `dc382a8` Relatório técnico da S3-DS20-S4-PREP-001
+- `4720971` Adiciona `package-lock.json` em `tests/e2e/`
+  (`playwright-core` 1.48.0)
+- `3539c60` Registra a aprovação do PM para S3-DS20-S4-PREP-001
+- `8a8376e` Registra S3-DS20-S4-PREP-001 neste CHANGELOG.md (as duas
+  entradas de `8dcff10`/`95fc77e` acima vieram deste commit e do
+  seguinte)
+- `1a20c01` Especifica S3-DS20-S4-PREP-002 (formalizar PlayerCard) +
+  atualiza os requisitos da S4
+- `a71aff5` Especifica S4-B2-001 (migrar tela Loading/Bootstrap)
+- `aa4c5ed` Especifica S4-B2-002 (migrar tela Login/Entrada)
+- `e19dc97` Especifica S4-B2-003 (migrar tela Tática/Formação)
+- `29b3926` Especifica S4-B2-004 (migrar tela Treino)
+- `04beeaf` Registra S3-DS20-S4-PREP-002 neste CHANGELOG.md
+- `218d364` Especifica S4-B2-005 (migrar tela Perfil do jogador)
+- `4ee49e9` Especifica todo o Batch 3 (S4-B3-001 a S4-B3-004)
+- `3ab6b58` Especifica S4-B3-005 (inspecionar/formalizar MatchCard e
+  FinancialSummary)
 
 ### 2026-09-08 — v7.0.0  (3 commits)
 
@@ -395,9 +459,12 @@ trabalho à parte.
 
 ## Notas de governança
 
-- Este arquivo cobre até o commit `c11e61f` (09/09/2026, este próprio
-  arquivo) — o mais recente na branch `claude/elifoot-brasileirao-game-epw0sz`
-  no momento em que este changelog foi gerado.
+- Este arquivo cobre até o commit `ce2a25b` (10/09/2026) em `origin/main`.
+  Gerado originalmente em 09/09/2026 até o commit `c11e61f`; atualizado em
+  10/09/2026 (chapéu PM, `docs/project/DIAGNOSTICO_2026-09-09.md` §5 —
+  achado de que o CHANGELOG não cobria os commits mais recentes) para
+  completar o dia 09/09 (que tinha ficado com uma nota explícita de
+  pendência) e catalogar o dia 10/09.
 - Segundo a regra fixada em `docs/README.md`, mudanças relevantes de
   produto/arquitetura daqui pra frente devem ser adicionadas no topo deste
   arquivo (mais recente primeiro), com a versão do dia calculada pela
@@ -406,4 +473,4 @@ trabalho à parte.
   expansões de `[feature/...]` e as justificativas de bump MAJOR feitas
   nesta primeira versão).
 - Para o status/sequência de Sprints (diferente de "o que já foi feito"),
-  a fonte de verdade é `docs/project/ROADMAP.md` (pendente).
+  a fonte de verdade é `docs/project/ROADMAP.md`.
