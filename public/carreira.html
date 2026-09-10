@@ -2151,13 +2151,26 @@
     position:relative;
   }
   .mt-pitch-badge.empty{ background:rgba(255,255,255,.18); border:2px dashed rgba(255,255,255,.4); box-shadow:none; color:rgba(255,255,255,.7); }
-  .mt-pitch-badge.problem{ box-shadow:0 0 0 2px var(--mt-crimson-400), 0 2px 6px rgba(0,0,0,.35); }
+  /* AJUSTE (S4-B2-003, issue #14) — --mt-crimson-400 tinha o MESMO
+     papel semântico ("problema/erro") já coberto por --m3-error em
+     todo o resto do app (badge de erro do Login/Loading, .mt-form-
+     error etc.) — migrado por ser uma duplicação real de token, não
+     uma decisão de produto nova. */
+  .mt-pitch-badge.problem{ box-shadow:0 0 0 2px var(--m3-error), 0 2px 6px rgba(0,0,0,.35); }
   .mt-pos-slot .name{ font-family:'Rajdhani', var(--font); font-weight:600; font-size:11.5px; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.5); max-width:64px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  /* AJUSTE (S4-B2-003) — --mt-gold-400 tinha o MESMO papel semântico
+     ("acento dourado/identidade futebolística") já mapeado pra
+     --m3-secondary no adendo de nomenclatura da S3-DS20-S4-PREP-001
+     (S3_DS20_FUNDACAO_EXECUTAVEL.md §56.3: accent.football ->
+     --m3-secondary) — migrado pelo mesmo motivo do badge acima.
+     --mt-navy-950 (borda) -> --m3-surface-container-lowest (superfície
+     --m3-* mais escura disponível, mesmo papel de "recorte" contra o
+     fundo). */
   .mt-injury-flag{
     position:absolute; bottom:-4px; right:-4px; width:15px; height:15px; border-radius:50%;
-    background:var(--mt-gold-400); display:flex; align-items:center; justify-content:center; border:1.5px solid var(--mt-navy-950);
+    background:var(--m3-secondary); display:flex; align-items:center; justify-content:center; border:1.5px solid var(--m3-surface-container-lowest);
   }
-  .mt-injury-flag svg{ width:9px; height:9px; color:#3A2A03; }
+  .mt-injury-flag svg{ width:9px; height:9px; color:var(--m3-on-secondary); }
 
   /* ---- banco de reservas ---- */
   .mt-bench-row{ display:flex; align-items:center; gap:12px; padding:10px 2px; border-bottom:1px solid var(--m3-outline-variant); cursor:pointer; }

@@ -50,14 +50,12 @@ Batch 2 — Core (8 telas)
 | Login / Entrada | ✅ migrada `--m3-*` (achado de `S4-B2-002`, ver §5) | Estado real desta linha estava desatualizado — inspeção encontrou a tela do Modo Técnico (`#screenLoginRequired`) já 100% migrada por refatoração anterior, não `.auth-gate`/`--brd-*` como aqui registrado. `.auth-gate` continua existindo, mas é exclusivo do site principal (`index.html`) — telas comprovadamente separadas |
 | Loading / Bootstrap | ✅ migrada `--m3-*` (`S4-B2-001`) | Skeleton avaliado e não usado (sem formato de conteúdo conhecido nas 3 transições desta tela — ver relatório); spinner já migrado é o "indicador definido pelo Design System" alternativo previsto pela matriz |
 | Perfil do jogador | ✅ migrada `--m3-*` (`S4-B2-005`) | Correção em relação à nota anterior: o overlay (`#detailOverlay`/`.ct-modal-overlay`) já estava com tokens `--m3-*` mesmo ANTES de `S3-DS20-S4-PREP-001` — a implementação de Dialog daquela demanda migrou o fluxo DIFERENTE de visualização somente-leitura de jogador de outro clube (`openPlayerCard()`/`.m3-dialog`), não este. Migrados nesta demanda os 2 seletores exclusivos de `openDetail()` que restavam legados (hero nome/subtítulo, aviso de teto salarial). Setas de tendência (▲/▼) NÃO migradas — token `--brd-*` sem equivalente `--m3-*` estabelecido, registrado como divergência aberta |
-| Tática / Formação | ❌ `--mt-*` (legado) | — |
-| Treino | ✅ migrada `--m3-*` | Maioria já estava `--m3-*` (`.mt-scheme-card`, `.mt-dur-stepper`, `.mt-seg-group`, `.mt-card`/`.mt-stat-grid`/`.mt-week-strip`) antes desta demanda (`S4-B2-004`) — migrados 2 seletores legados restantes (aviso de folga protegida sobrescrita e botão "escolher jogador" do treino individual). Lista de elenco confirmada reaproveitando `playerRow()`/PlayerCard (`S3-DS20-S4-PREP-002`), sem mudança necessária. Paleta categórica de foco de treino (técnico/físico/tático) NÃO migrada — classificada como BRDATA Extension, mesmo tratamento de `.mt-pos-chip` (`S4-B2-003`). Botão de treino individual usa tipografia Rajdhani — mesma divergência já registrada em `S4-B2-003` (não resolvida aqui, seção 4) |
+| Tática / Formação | ✅ migrada `--m3-*` (parcial, `S4-B2-003`) | 2 tokens duplicados migrados (badge "problema" → `--m3-error`; indicador de lesão → `--m3-secondary`, mesmo mapeamento da #10). 2 divergências levantadas e **decididas pelo PM**: (1) `.mt-bench-row` mantido como padrão compacto próprio, não unificado com PlayerCard — contexto de uso diferente (reservas dentro do campinho); (2) tipografia `Rajdhani` do campinho/banco classificada como **BRDATA Extension** (identidade "placar de estádio", mesma lógica do `Bebas Neue` nos escudos) — não migra pra `--m3-display`. Verde do gramado também é BRDATA Extension (decorativo, sem equivalente semântico M3) |
+| Treino | ✅ migrada `--m3-*` | Maioria já estava `--m3-*` (`.mt-scheme-card`, `.mt-dur-stepper`, `.mt-seg-group`, `.mt-card`/`.mt-stat-grid`/`.mt-week-strip`) antes desta demanda (`S4-B2-004`) — migrados 2 seletores legados restantes (aviso de folga protegida sobrescrita e botão "escolher jogador" do treino individual). Lista de elenco confirmada reaproveitando `playerRow()`/PlayerCard (`S3-DS20-S4-PREP-002`), sem mudança necessária. Paleta categórica de foco de treino (técnico/físico/tático) NÃO migrada — classificada como BRDATA Extension, mesmo tratamento de `.mt-pos-chip` (`S4-B2-003`). Botão de treino individual usa tipografia Rajdhani — mesma divergência já registrada em `S4-B2-003` (resolvida como BRDATA Extension, ver linha acima) |
 
-**7 de 8 (87%) migradas** (Escolha do clube, Início, Elenco, Login,
-Loading/Bootstrap, Treino, Perfil do jogador — todas mescladas em
-`main`). Resta só Tática/Formação (`S4-B2-003`, `AJUSTES NECESSÁRIOS`,
-aguardando decisão do PM sobre 2 divergências de design) — com essa
-decisão, o Batch 2 (Core) fecha por completo.
+**8 de 8 (100%) migradas** (Escolha do clube, Início, Elenco, Login,
+Loading/Bootstrap, Tática/Formação, Treino, Perfil do jogador — todas
+mescladas em `main`). **Batch 2 (Core) fechado por completo.**
 
 Batch 3 — Transactional (4 telas, todas P0)
 
@@ -189,12 +187,14 @@ for paga agora, antes de replicar o padrão ad hoc em mais telas.
      compartilhamento citado originalmente não se confirmou. Teste
      novo travando essa evidência contra regressão futura
      (`tests/e2e/test_s4_b2_002_login.js`).
-   - Item 3: **Tática/Formação** (`S4-B2-003`, status `PRONTO PARA
-     IMPLEMENTAÇÃO`) — tela interativa, mais complexa que as duas
-     anteriores; possível dependência não confirmada do PlayerCard
-     (a inspecionar, não presumida); as 3 telas P1 relacionadas (Eixos
-     táticos, Marcação individual, Meus esquemas) ficam fora, são
-     Batch 4.
+   - Item 3: **Tática/Formação** (`S4-B2-003`, **concluída e mesclada em
+     `main`**) — 2 tokens de cor legados migrados; 2 divergências
+     confirmadas por inspeção (dependência do PlayerCard pro
+     `.mt-bench-row`; esforço de tipografia `Rajdhani` acima de
+     migração simples) e decididas pelo PM: `.mt-bench-row` mantido
+     como padrão próprio, `Rajdhani` classificada como BRDATA
+     Extension. As 3 telas P1 relacionadas (Eixos táticos, Marcação
+     individual, Meus esquemas) seguem fora, são Batch 4.
    - Item 4: **Treino** (`S4-B2-004`, status `PRONTO PARA
      IMPLEMENTAÇÃO`) — mesma incerteza de dependência do PlayerCard
      que o item 3 (a inspecionar, não presumida), sem o componente de
