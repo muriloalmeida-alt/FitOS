@@ -8662,6 +8662,28 @@ function renderCentral() {
   // próprio (m3-hero-card) com mini-gráfico das últimas rodadas (ver
   // pushCashSnapshot/financeCashBarsHTML); financeKpis agora só tem a
   // folha salarial (m3-stat-card, kpiHTML block "m3").
+  //
+  // ---------- BRDATA Product Pattern (S4-B3-005): FinancialSummary ----------
+  // Formalização RETROATIVA (mesmo caminho de PlayerCard, S3-DS20-S4-PREP-002)
+  // — objetivo: apresentar um resumo financeiro (S3_2_COMPONENTES_E_CONTRATOS.md
+  // §28: saldo/receitas/despesas/orçamento/variações/indicadores).
+  // Candidato único e real encontrado por inspeção (não presumido): este
+  // bloco do card "Financeiro" (Início/Dashboard) — já cobre saldo
+  // (financeCashNum), variações (financeCashBars/financeCashBarsHTML(),
+  // sparkline das últimas rodadas) e indicadores (financeKpis/kpiHTML(),
+  // folha salarial vs. teto, com variante "red" quando estourado — mesmo
+  // padrão de alerta já usado em qualquer outro KPI do app). Receitas/
+  // despesas detalhadas por categoria não aparecem aqui (ficam no
+  // ledger, pushLedger()) — o resumo mostra o AGREGADO (saldo líquido),
+  // não o extrato linha a linha, leitura razoável do "pode contemplar"
+  // da especificação (nem todo campo é obrigatório). Nenhuma mudança
+  // visual/funcional feita aqui — só o comentário de contrato, mesmo
+  // tratamento dado a Elenco em S3-DS20-S4-PREP-002 §60. Sem função
+  // própria extraída (ao contrário de playerRow()) porque a composição
+  // é inline em renderCentral() — o contrato descreve o BLOCO
+  // (financeCashNum + financeCashBars + financeKpis + wageCapFill/Label
+  // abaixo), não uma função isolada; extrair seria mudança estrutural
+  // fora do escopo desta demanda (só formalização).
   document.getElementById("financeCashNum").textContent = fmtBRL(cash);
   document.getElementById("financeCashBars").innerHTML = financeCashBarsHTML();
   document.getElementById("financeKpis").innerHTML =
@@ -9189,6 +9211,77 @@ function contractCardHTML({ playerId, playerName, overall, position, clubName, w
       ${actionsHTML ? `<div class="m3-op-actions">${actionsHTML}</div>` : ""}
     </div>
     ${detailContent ? `<div class="m3-op-detail">${detailContent}</div>` : ""}
+  </div>`;
+}
+// ---------- BRDATA Product Pattern novo: MatchCard (S4-B3-005) ----------
+// Nome: MatchCard
+// Objetivo: representar uma partida — S3_2_COMPONENTES_E_CONTRATOS.md
+//   §24.
+// Responsabilidade: apresentação pura. NÃO calcula resultado nem decide
+//   nada — recebe os dados já calculados (placar, se houver) e monta o
+//   HTML.
+// Entradas: { homeTeam, awayTeam, dateLabel, timeLabel, homeScore,
+//   awayScore, status, statusLabel, competitionLabel, clickableHome,
+//   clickableAway } — homeTeam/awayTeam são objetos de clube (mesmo
+//   shape aceito por crestImg(), campos lidos: id/name/c1/crestUrl
+//   conforme o clube tiver). status ('proxima'|'encerrada'|'andamento'|
+//   'adiada'|'cancelada') decide o que aparece no centro do card:
+//   homeScore/awayScore (quando presentes, ex.: 'encerrada') OU
+//   dateLabel/timeLabel (quando ausentes, ex.: 'proxima'). statusLabel é
+//   o texto livre da tag de status (ex.: "Adiada", "Ao vivo") — omitido
+//   se não fizer sentido pro estado (ex.: 'encerrada' já fica óbvio
+//   pelo placar, não precisa de tag extra). competitionLabel é opcional
+//   (nem toda carreira mostra competição — ver isMulti em
+//   allMarketPlayers()/renderMercado(), mesmo critério de mostrar só
+//   quando há mais de 1 competição na carreira).
+// Saídas/eventos: retorna uma string HTML; nenhum listener embutido —
+//   clickableHome/clickableAway (bool) marcam data-openclub nos 2
+//   lados, quem chama liga o listener (mesmo padrão de TransferCard).
+// Estados: 'proxima'/'andamento'/'encerrada'/'adiada'/'cancelada' —
+//   ver Divergência abaixo: o motor de partidas atual só produz de fato
+//   2 desses 5 (próxima e encerrada); os outros 3 são suportados pelo
+//   componente (não vão quebrar se um dia o motor passar a gerá-los),
+//   mas não têm produtor real hoje.
+// Variações: com/sem placar (decide o que aparece no centro); com/sem
+//   competitionLabel.
+// Responsividade/Acessibilidade: mesmas de TransferCard/ContractCard.
+// Dependências: crestImg(), escapeHtml(), tokens --m3-*, .m3-mc-* (CSS
+//   novo, carreira.html).
+//
+// Divergência registrada (decisão formalizar-vs-construir, com
+// evidência — ver relatório da demanda): NÃO é formalização retroativa.
+// Inspeção encontrou 2 candidatos ad hoc, nenhum adequado sozinho:
+//   1. #nextMatchBox (renderCentral(), Início/Dashboard) — só cobre
+//      "próxima" (escudos+nomes, sem placar/status/competição).
+//   2. .ct-round-result-row — só cobre "encerrada" (2 escudos+placar),
+//      duplicado em 4 lugares diferentes do arquivo (mesma constatação
+//      de N implementações ad hoc do mesmo padrão que motivou os
+//      Product Patterns, agora encontrada de novo, pior que o caso do
+//      TransferCard em S4-B3-001, que tinha só 2 duplicatas).
+// Nenhum dos 2 cobre os 5 estados pedidos pela matriz, e não há
+// candidato único cobrindo o conceito inteiro — construído novo,
+// informado pelos 2 (sem copiar nenhum literalmente), mesmo caminho de
+// TransferCard/ContractCard. Nenhum ponto de uso real nesta demanda
+// (S4-B3-005 é só criação do componente — "Resumo da rodada", que o
+// consumiria de verdade, é demanda futura).
+function matchCardHTML({ homeTeam, awayTeam, dateLabel, timeLabel, homeScore, awayScore, status, statusLabel, competitionLabel, clickableHome, clickableAway }) {
+  const hasScore = homeScore != null && awayScore != null;
+  const centerContent = hasScore
+    ? `<div class="m3-mc-score">${homeScore} <span>x</span> ${awayScore}</div>`
+    : `<div class="m3-mc-when">${dateLabel ? escapeHtml(dateLabel) : ""}${dateLabel && timeLabel ? " · " : ""}${timeLabel ? escapeHtml(timeLabel) : ""}</div>`;
+  const variant = status === "adiada" || status === "cancelada" ? "crimson" : status === "andamento" ? "gold" : "neutral";
+  const statusTag = statusLabel ? `<span class="mt-ptag ${variant}">${escapeHtml(statusLabel)}</span>` : "";
+  const side = (team, clickable) => `<div class="m3-mc-side"${clickable && team?.id != null ? ` data-openclub="${escapeHtml(String(team.id))}"` : ""}>
+    ${crestImg(team, 40)}
+    <span class="m3-mc-name">${escapeHtml(team?.name || "")}</span>
+  </div>`;
+  return `<div class="m3-match-card" data-status="${escapeHtml(status || "")}">
+    ${competitionLabel ? `<div class="m3-mc-comp">${escapeHtml(competitionLabel)}</div>` : ""}
+    <div class="m3-mc-teams">
+      ${side(homeTeam, clickableHome)}
+      <div class="m3-mc-center">${centerContent}${statusTag}</div>
+      ${side(awayTeam, clickableAway)}
+    </div>
   </div>`;
 }
 // Linha da categoria de base (potencial + confiança do olheiro) — igual
