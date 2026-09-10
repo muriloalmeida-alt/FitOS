@@ -2784,9 +2784,9 @@ P1 documentado há 2 demandas. Nenhuma mudança de regra de negociação.
 
 ⸻
 
-S4-B3-004 — Migrar tela Contratos para o Design System novo
+S4-B3-004 — Criar a tela Contratos (redefinida de "migrar" para "criar do zero")
 
-Status: BLOQUEADO
+Status: REVISÃO DO PM NECESSÁRIA
 Sprint: S4 — Redesign Mobile
 Fase: Batch 3 (Transactional) — item 4 de 4
 Prioridade: P0
@@ -2802,7 +2802,18 @@ necessária antes de qualquer implementação (3 opções levantadas: criar
 do zero / descartar por ora / redirecionar o ContractCard pra um ponto
 já existente). Relatório completo em
 https://github.com/muriloalmeida-alt/FitOS/issues/20#issuecomment-5616879047.
-Nenhuma resposta/decisão do usuário ainda.
+
+**Decisão do PM (Murilo, 10/09/2026): opção 1 — criar a tela do zero.**
+Mini-spec completa em
+https://github.com/muriloalmeida-alt/FitOS/issues/20#issuecomment-5617896218
+(resumo: ContractCard por jogador com contrato ativo, exclui
+emprestados; jogador/duração/salário/situação/proximidade do
+vencimento/ação; ações reaproveitadas — Renovar quando
+`isContractExpiring`, Dispensar; ordenação por proximidade do
+vencimento; filtro opcional todos/vencendo; acesso por novo item "📄
+Contratos" no submenu "👔 Equipe & Treinos"). Status virou `PRONTO PARA
+IMPLEMENTAÇÃO` — implementada nesta mesma demanda, relatório completo
+abaixo.
 
 Objetivo
 
@@ -2963,9 +2974,57 @@ c. **Redirecionar o `ContractCard`** pra reforçar os pontos que já
 Nenhuma dessas 3 foi decidida por mim — todas exigem uma escolha do
 PM sobre o que o usuário deve ver, não uma inspeção técnica adicional.
 
-Resultado proposto: **BLOQUEADO** — não há escopo técnico executável
-sem uma decisão de produto prévia. Nenhum código alterado, nenhuma
-tela tocada, nenhuma regra de negócio mexida.
+Resultado proposto (na inspeção original): **BLOQUEADO** — não há
+escopo técnico executável sem uma decisão de produto prévia. Nenhum
+código alterado, nenhuma tela tocada, nenhuma regra de negócio mexida.
+
+4. Relatório técnico (implementação, depois da decisão do PM)
+
+Branch: `claude/s4-b3-004-contratos` (recriada a partir do `main`
+atual, que já contém todo o Batch 2/3 mesclado até `S4-B2-003` — a
+branch antiga só tinha o relatório de bloqueio acima, já mesclado em
+`main` por outro caminho, sem trabalho perdido).
+
+Implementado exatamente conforme a mini-spec do PM, reaproveitando
+100% do que já existia (nenhuma regra de contrato nova):
+
+* Tela nova (`#contratosOverlay`, mesmo padrão `.ct-modal-overlay.ct-modal-fullscreen`
+  de Comissão Técnica/Base e Olheiros), aberta por "☰ Equipe &
+  Treinos" → "📄 Contratos" (`openContratosScreen()`/`carreira.js`).
+* 1 `ContractCard` (`contractCardHTML()`, `S4-B3-001`) por jogador com
+  contrato ativo — `CAREER.squad.filter(p => p.origin !== "loan")`,
+  mesma exclusão de `isContractExpiring()`. Mostra jogador (badge/
+  posição), salário, "Contrato até {ano}", situação ("Ativo"/"Fim de
+  contrato" — crimson automático via `expiring`), ordenado por
+  `contractUntil` ascendente (mais próximo do vencimento primeiro).
+* Filtro Todos/Vencendo (`.mt-seg-group`/`.mt-seg-btn`, tokens
+  `--m3-*` já existentes — mesma classe do Treino, sem CSS novo).
+* Nome do jogador clicável abre o Perfil (`openDetail()`) — mesma
+  regra de "nomes clicáveis" já estabelecida no app.
+* Ações reaproveitadas sem nenhuma mutação nova: "Renovar" (só quando
+  `isContractExpiring`) chama `openRenewModal()`/`proposeRenewal()` —
+  o mesmo sub-modal do Perfil, inclusive o comportamento existente de
+  voltar pra Central ao concluir (`finishOperationAndGoHome()`, não
+  alterado). "Dispensar" chama `handlePlayerAction(id, "release")` —
+  a mesma mutação do Perfil (trava de elenco mínimo incluída).
+  `renderContratos()` adicionado ao final de ambos os fluxos de
+  mutação (tail de `handlePlayerAction` e de `proposeRenewal`) pra
+  manter a lista em dia depois de qualquer ação, de qualquer tela.
+* Estado vazio tratado (`#contratosEmpty`, mesma classe `.ct-empty` de
+  "Minhas propostas").
+
+Teste novo: `tests/e2e/test_s4_b3_004_contratos.js` (7/7) — cobre
+acesso pelo menu, card por jogador (exclui emprestados) e ordenação,
+filtro Todos/Vencendo, nome clicável, os 2 botões de ação reaproveitados
+e o estado vazio. Regressão: `test_s4_b2_005_perfil` (4/4, Perfil
+continua intacto), `test_comissao_tecnica` (7/7, mesma categoria de
+menu), `test_menu` — todos continuam passando.
+
+Resultado proposto: **APROVADO COM RESSALVA DE REVISÃO** — implementação
+completa conforme a mini-spec, sem nenhuma regra de contrato nova e
+sem tocar nenhuma outra tela; aguardando revisão formal do PM antes do
+merge em `main` (nenhum commit de produção nesta branch foi mesclado
+ainda).
 
 ⸻
 

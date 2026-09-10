@@ -63,7 +63,7 @@ Batch 3 — Transactional (4 telas, todas P0)
 |---|---|---|
 | Mercado | ✅ migrada `--m3-*` (`S4-B3-002`) | Cada linha usa o TransferCard (`transferCardHTML()`, `S4-B3-001`) no lugar do antigo `.mt-market-row` ad hoc — mesma informação/ações, componente nomeado. `.mt-btn-loan`/`.mt-btn-sell` migrados junto (`--mt-ink-muted`/`--mt-crimson-400` → `--m3-on-surface-variant`/`--m3-error`) |
 | Negociação / Proposta | ✅ migrada `--m3-*` (`S4-B3-003`) | "Fazer proposta" virou Dialog dinâmico (`openM3Dialog()`) no lugar do `#offerOverlay` estático. "Minhas propostas" usa TransferCard no lugar de `.mt-sponsor-proposal-row`. **Achado e corrigido nesta demanda: bug crítico pré-existente** que desde `S3-DS20-S4-PREP-001` deixava `--mt-*` TODO Dialog/Bottom Sheet sem `position:fixed`/`z-index` de verdade (um comentário CSS continha sem querer a sequência de fechamento de comentário no meio do texto) — ver `docs/HANDOFF_CLAUDE.md` (`S4-B3-003`) para o detalhe técnico completo |
-| Contratos | 🚫 BLOQUEADA (`S4-B3-004`) | ContractCard disponível (`S4-B3-001`). **Confirmado por inspeção com evidência (3 buscas independentes: grep completo por "contrato", painel Clube inteiro, árvore inteira do menu): a tela não existe** — só há pontos de contrato isolados por jogador (Elenco, Perfil). Não há "migração" possível sem uma decisão de produto prévia do PM (construir do zero / descartar / redirecionar o ContractCard pra outro lugar) — ver `docs/HANDOFF_CLAUDE.md` (`S4-B3-004`) pras 3 opções levantadas |
+| Contratos | ✅ criada do zero (`S4-B3-004`) — `REVISÃO DO PM NECESSÁRIA` | Tela nova (`#contratosOverlay`, aberta por "☰ Equipe & Treinos" → "📄 Contratos"), decisão do PM (opção 1) depois de confirmado por inspeção que a tela não existia. 1 ContractCard (`S4-B3-001`) por jogador com contrato ativo (exclui emprestados), ordenado por proximidade do vencimento, filtro Todos/Vencendo. Ações 100% reaproveitadas, nenhuma regra nova: Renovar (`openRenewModal`/`proposeRenewal`) e Dispensar (`handlePlayerAction`, mesma mutação do Perfil) — ver `docs/HANDOFF_CLAUDE.md` (`S4-B3-004`) pro relatório completo |
 | Resumo da rodada | ❌ `--mt-*` (legado) | MatchCard e FinancialSummary agora disponíveis (`S4-B3-005`) — tela em si ainda sem demanda própria de migração |
 
 **2 de 4 (50%) migradas nesta contagem** (Mercado, Negociação/Proposta —
@@ -101,7 +101,7 @@ específico de 1-2 telas:
 | MatchCard | Início/Dashboard, Resumo da rodada | **Componente disponível (`S4-B3-005`)** — `matchCardHTML()` em `carreira.js`, contrato documentado. Construído NOVO (não retroativo): inspeção encontrou 2 candidatos ad hoc, nenhum adequado sozinho (`#nextMatchBox` só cobre "próxima"; `.ct-round-result-row`, duplicado em 4 lugares do arquivo, só cobre "encerrada") — nenhum candidato único cobre os 5 estados da especificação, e o motor de partidas atual só produz 2 desses 5 de verdade ("próxima"/"encerrada"; "andamento"/"adiada"/"cancelada" são suportados pelo componente mas sem produtor real hoje). Nenhuma tela migrada nesta demanda |
 | LeagueTable | Início/Dashboard, Histórico | Não migrada — segue tabela HTML tradicional |
 | TransferCard | Mercado, Negociação | **Resolvido e mesclado em `main`**: componente criado em `S4-B3-001`, integrado de verdade em Mercado (`S4-B3-002`) e Negociação/Proposta (`S4-B3-003`) |
-| ContractCard | Contratos | **Componente disponível (`S4-B3-001`)** — `contractCardHTML()` em `carreira.js`, contrato documentado. Divergência maior: a tela "Contratos" (Tela 16 da matriz) **não existe no app hoje** — só há pontos isolados (tag "fim de contrato" no Elenco, modal de renovação a partir do Perfil). `S4-B3-004` **bloqueada** por causa disso — migrar pressupõe uma tela existente, e não há nenhuma; decisão do PM pendente antes de prosseguir (ver `docs/HANDOFF_CLAUDE.md`) |
+| ContractCard | Contratos | **Resolvido por `S4-B3-004`** — `contractCardHTML()` (`S4-B3-001`) agora com ponto de uso real: a tela Contratos, criada do zero por decisão do PM depois que a inspeção confirmou que ela não existia no app (tag "fim de contrato" no Elenco, modal de renovação no Perfil eram os únicos pontos isolados) — ver `docs/HANDOFF_CLAUDE.md` |
 | FinancialSummary | Início/Dashboard, Resumo da rodada | **Resolvido por `S4-B3-005`** (formalização retroativa, mesmo caminho de PlayerCard) — o card "Financeiro" de `renderCentral()` (Início/Dashboard) já cobre saldo/variações/indicadores da especificação; contrato documentado como comentário acima do bloco em `carreira.js` (composição inline, sem função própria extraída — mudança estrutural ficaria fora do escopo de uma formalização). Nenhuma mudança visual/funcional |
 
 **O risco concreto:** o precedente já aconteceu 3 vezes (Elenco,
@@ -221,9 +221,10 @@ for paga agora, antes de replicar o padrão ad hoc em mais telas.
    - Item 3: **Negociação/Proposta** (`S4-B3-003`) — **implementada**
      (usa TransferCard + Dialog), branch `claude/s4-b3-003-negociacao`,
      aguardando aprovação.
-   - Item 4: **Contratos** (`S4-B3-004`) — **BLOQUEADA**: a tela não
-     existe no app hoje (ver §2/§3 acima e `docs/HANDOFF_CLAUDE.md`) —
-     decisão do PM necessária antes de qualquer implementação.
+   - Item 4: **Contratos** (`S4-B3-004`) — **implementada** (tela
+     criada do zero, decisão do PM depois de bloqueada por inspeção —
+     ver §2/§3 acima e `docs/HANDOFF_CLAUDE.md`), branch
+     `claude/s4-b3-004-contratos`, aguardando aprovação.
    - Item 5: **Inspecionar/formalizar MatchCard e FinancialSummary**
      (`S4-B3-005`) — **implementada** (MatchCard construído novo,
      FinancialSummary formalizado retroativamente), branch
