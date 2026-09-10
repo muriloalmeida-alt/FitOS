@@ -241,6 +241,19 @@ Cada um dos passos 2-5 deve nascer como uma demanda própria em
 como uma "S4 inteira" de uma vez — mantém o padrão de escopo pequeno e
 testável que already funcionou até aqui.
 
+**Atualização (10/09/2026 — pós `S4-AUDIT-BACKLOG-001`):** dos itens 3
+e 4 acima (as 10 demandas #12-#21), 9 foram implementadas e aprovadas
+pelo PM (`S4-B2-001/002/003/004/005`, `S4-B3-001/002/003/005`) — merge
+do código em `main` ainda pendente, fora do escopo de uma sessão
+PM-only. A 10ª (`S4-B3-004`/#20, item 4 acima) foi redefinida: a tela
+Contratos não existia no app, então a demanda virou "criar do zero"
+(mini-spec em `docs/HANDOFF_CLAUDE.md`), status `PRONTO PARA
+IMPLEMENTAÇÃO`. Item 6 (**Resumo da rodada**) segue sem demanda
+própria, mas seu pré-requisito (`S4-B3-005`) já está aprovado — pode
+ser especificado agora. Item 5 (**Batch 4**) segue sem verificação
+individual nem demanda própria. Item 7 (`S4-AUDIT-BACKLOG-001`)
+concluído e aprovado.
+
 ⸻
 
 ## 6. O que este documento não muda

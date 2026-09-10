@@ -10,7 +10,7 @@ Sprint	Entrega	Status
 S1	Auditoria completa do jogo atual	🟢 Concluída
 S2	Arquitetura + Game Design Document	🟢 Concluída
 S3	BRDATA DS 2.0	🟢 Concluída*
-S4	Redesign Mobile	🔴 Pendente
+S4	Redesign Mobile	🟡 Em andamento***
 S5	Loop de carreira	🔴 Pendente
 S6	Motor de partida 2.0	🔴 Pendente
 S7	Jogadores + evolução	🔴 Pendente
@@ -33,6 +33,14 @@ promessa de titularidade, agente, rescisão) é mais amplo que o título
 "Mercado + contratos" sugere e não foi tocado nesta frente — registrado
 como backlog P2 (`docs/project/BRDATA_Auditoria_v1.0.md` §2.2/§4.7),
 não como pendência bloqueante.
+*** S4 — situação em 10/09/2026 (ver checkpoint abaixo): pré-requisitos
+(`S3-DS20-S4-PREP-001`/`002`) aprovados e mesclados em `main`; Batch 2
+(Core, 5 telas) e Batch 3 (Transactional, 5 itens) totalmente
+especificados, com 9 das 10 demandas aprovadas pelo PM e a 10ª
+(Contratos, `S4-B3-004`) redefinida e pronta pra implementação — merge
+do código dessas 9 demandas em `main` ainda pendente (fora do escopo
+desta sessão de PM). Batch 4 (7 telas P1) e Batch 5 (QA) ainda sem
+demanda especificada.
 
 Regra de execução
 
@@ -109,10 +117,18 @@ não é mais aleatório.
 
 Próximo marco
 
-S4 — Redesign Mobile. Primeiro passo já registrado:
-`S3-DS20-S4-PREP-001` (tokens + Dialog/Bottom Sheet/Skeleton, pré-requisito
-apontado pela S3.2.7 Readiness Review — ver `docs/HANDOFF_CLAUDE.md`),
-status `PRONTO PARA IMPLEMENTAÇÃO`.
+S4 — Redesign Mobile, em andamento (ver nota *** acima e
+`docs/sprints/S4/S4_REQUISITOS_VIGENTES.md` §5 pra ordem de execução
+completa). Passo concluído: fundação (`S3-DS20-S4-PREP-001`/`002`) +
+Batch 2/3 especificados e aprovados (código pendente de merge). Dois
+passos seguem em aberto na ordem já documentada:
+1. **Resumo da rodada** — última tela do Batch 3, ainda sem demanda
+   própria; pré-requisito (`S4-B3-005`, MatchCard/FinancialSummary) já
+   aprovado, então pode ser especificada agora.
+2. **Batch 4 (Complementary)** — 7 telas P1, ainda sem verificação
+   individual nem demanda própria (a demanda que cobria isso,
+   `S4-B4-000`, foi reescopada pra virar `S4-AUDIT-BACKLOG-001`,
+   concluída em 10/09/2026).
 
 Governança
 
