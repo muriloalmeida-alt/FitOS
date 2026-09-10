@@ -9187,14 +9187,11 @@ function transferCardHTML({ playerId, playerName, overall, position, clubName, c
 //   mesma base CSS (.m3-op-*) por design (ver comentário no CSS).
 // Dependências: mesmas de TransferCard.
 //
-// Nenhum ponto de uso real ainda nesta demanda. Divergência registrada
-// no relatório desta demanda: diferente de Mercado/Negociação (que já
-// existem hoje, com formato ad hoc próprio), a tela "Contratos" que
-// consumiria este componente (S4-B3-004) NÃO existe ainda no app — só
-// existem pontos isolados (tag "fim de contrato" no Elenco, modal de
-// renovação a partir do Perfil do jogador). Construir o componente aqui
-// não presume que essa tela vai ser criada do zero na próxima demanda —
-// isso é decisão de escopo pra S4-B3-004, não desta.
+// Ponto de uso real: a tela "Contratos" (S4-B3-004, ver
+// renderContratos()/contractRowHTML() logo abaixo), criada do zero
+// depois que o PM decidiu (issue #20) — na demanda original desta
+// função a tela ainda não existia no app (só pontos isolados: tag "fim
+// de contrato" no Elenco, modal de renovação a partir do Perfil).
 function contractCardHTML({ playerId, playerName, overall, position, clubName, wage, durationLabel, statusLabel, statusVariant, expiring, actionsHTML, clickablePlayer }) {
   const badge = (overall != null) ? `<div class="mt-ovr-badge ${ovrTierClass(overall)}">${overall}</div>` : "";
   const posChip = position ? `<span class="mt-pos-chip ${SUBPOS_DIVCLASS[position] || ""}">${escapeHtml(position)}</span>` : "";
@@ -9212,6 +9209,62 @@ function contractCardHTML({ playerId, playerName, overall, position, clubName, w
     </div>
     ${detailContent ? `<div class="m3-op-detail">${detailContent}</div>` : ""}
   </div>`;
+}
+/* ---------- Tela "Contratos" (S4-B3-004, issue #20) ----------
+   Visão consolidada de todos os contratos do elenco (exclui
+   emprestados — origin "loan" não é seu pra renovar/dispensar, ver
+   isContractExpiring). Cada linha é um ContractCard (contractCardHTML,
+   S4-B3-001). Nenhuma regra nova: duração/salário vêm de
+   computeContractFields (já aplicado em cada jogador), situação de
+   isContractExpiring, e as 2 ações reaproveitam o fluxo já existente
+   (openRenewModal/proposeRenewal do Perfil; a mesma mutação "release"
+   de handlePlayerAction pro botão Dispensar) — ver comentário na
+   função HTML acima do overlay em carreira.html pro contexto completo
+   da decisão do PM. */
+let CONTRATOS_FILTER = "todos"; // "todos" | "vencendo"
+function contractRowHTML(p) {
+  const expiring = isContractExpiring(p);
+  const actionsHTML = `${expiring ? `<button class="mt-btn-primary-gold" data-contratorenew="${p.id}" style="padding:9px 12px;">Renovar</button>` : ""}
+    <button class="mt-btn-danger-outline" data-contratorelease="${p.id}" style="padding:9px 12px;">Dispensar</button>`;
+  return contractCardHTML({
+    playerId: p.id, playerName: abbreviateName(p.name), overall: p.overall, position: p.position,
+    wage: p.wage, durationLabel: `Contrato até ${p.contractUntil}`,
+    statusLabel: expiring ? "Fim de contrato" : "Ativo", expiring,
+    actionsHTML, clickablePlayer: true,
+  });
+}
+function renderContratos() {
+  const overlay = document.getElementById("contratosOverlay");
+  if (!overlay) return; // defensivo — mesmo padrão de render* chamados de vários pontos de mutação
+  // Emprestado não é contrato seu pra gerir aqui (mesma exclusão de
+  // isContractExpiring) — só o elenco próprio (principal + base).
+  let list = CAREER.squad.filter((p) => p.origin !== "loan");
+  if (CONTRATOS_FILTER === "vencendo") list = list.filter((p) => isContractExpiring(p));
+  // Mais próximo do vencimento primeiro (pedido da especificação).
+  list = list.slice().sort((a, b) => a.contractUntil - b.contractUntil);
+  document.getElementById("contratosCountLabel").textContent = list.length
+    ? `${list.length} contrato${list.length === 1 ? "" : "s"}`
+    : "Nenhum contrato";
+  document.getElementById("contratosEmpty").classList.toggle("hidden", list.length > 0);
+  document.getElementById("contratosList").innerHTML = list.map(contractRowHTML).join("");
+  document.getElementById("contratosList").querySelectorAll("[data-openplayer]").forEach((el) => {
+    el.addEventListener("click", () => openDetail(el.dataset.openplayer));
+  });
+  document.getElementById("contratosList").querySelectorAll("[data-contratorenew]").forEach((btn) => {
+    btn.addEventListener("click", () => openRenewModal(btn.dataset.contratorenew));
+  });
+  document.getElementById("contratosList").querySelectorAll("[data-contratorelease]").forEach((btn) => {
+    btn.addEventListener("click", () => handlePlayerAction(btn.dataset.contratorelease, "release"));
+  });
+}
+function openContratosScreen() {
+  CONTRATOS_FILTER = "todos";
+  document.querySelectorAll("#contratosFilterRow .mt-seg-btn").forEach((b) => b.classList.toggle("active", b.dataset.contratosfilter === "todos"));
+  renderContratos();
+  document.getElementById("contratosOverlay").classList.add("open");
+}
+function closeContratosScreen() {
+  document.getElementById("contratosOverlay").classList.remove("open");
 }
 // ---------- BRDATA Product Pattern novo: MatchCard (S4-B3-005) ----------
 // Nome: MatchCard
@@ -9477,7 +9530,7 @@ function proposeRenewal() {
   closeRenewModal();
   toast(`${abbreviateName(p.name)} renovou até ${p.contractUntil} por ${fmtBRL(p.wage)}/mês!`, { type: "pos" });
   persistCareer();
-  renderElenco(); renderCentral();
+  renderElenco(); renderCentral(); renderContratos();
   finishOperationAndGoHome();
 }
 // Redesign (mockup brtreinadorbloco1inicio.html, tela 6 — Perfil do
@@ -9766,7 +9819,7 @@ async function handlePlayerAction(id, act) {
   markLineupDirty();
   document.getElementById("detailOverlay").classList.remove("open");
   persistCareer();
-  renderElenco(); renderEscalacao(); renderCentral();
+  renderElenco(); renderEscalacao(); renderCentral(); renderContratos();
 }
 
 /* ---------- Comparar jogadores (brtreinadorbloco1pendentes.html) ----------
@@ -13905,6 +13958,21 @@ function wireStaticListeners() {
   document.getElementById("commissionOverlay").addEventListener("click", (e) => { if (e.target.id === "commissionOverlay") closeCommissionScreen(); });
   document.getElementById("btnHireCommission").addEventListener("click", confirmHireCommission);
   document.getElementById("btnFireCommission").addEventListener("click", confirmFireCommission);
+  // S4-B3-004 — "Contratos", aberta pelo menu "≡" (mesma categoria de
+  // Comissão Técnica/Treinos/Base e Olheiros).
+  document.getElementById("btnOpenContratos").addEventListener("click", () => {
+    document.getElementById("topbarMenu").classList.remove("open");
+    openContratosScreen();
+  });
+  document.getElementById("contratosClose").addEventListener("click", closeContratosScreen);
+  document.getElementById("contratosOverlay").addEventListener("click", (e) => { if (e.target.id === "contratosOverlay") closeContratosScreen(); });
+  document.querySelectorAll("#contratosFilterRow .mt-seg-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      CONTRATOS_FILTER = btn.dataset.contratosfilter;
+      document.querySelectorAll("#contratosFilterRow .mt-seg-btn").forEach((b) => b.classList.toggle("active", b === btn));
+      renderContratos();
+    });
+  });
   document.getElementById("btnOpenTreinos").addEventListener("click", () => {
     document.getElementById("topbarMenu").classList.remove("open");
     switchToPanel("treinos");
