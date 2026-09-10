@@ -213,13 +213,15 @@ for paga agora, antes de replicar o padrão ad hoc em mais telas.
 6. **Batch 5 (QA Visual/UX)** — revisão transversal, como já definido
    na matriz original.
 7. **Auditoria de prontidão do backlog** (`S4-AUDIT-BACKLOG-001`,
-   status `PRONTO PARA IMPLEMENTAÇÃO`) — verifica o estado real das 10
-   demandas já especificadas (itens 3-4 acima, issues #12-#21) antes de
-   qualquer implementação ou nova especificação: confirma se alguma já
-   teve progresso externo (mesmo padrão que aconteceu 2 vezes com
-   `S3-DS20-S4-PREP-001`/`002`) e revalida a cadeia de dependências
-   entre elas. Pré-requisito transversal, não é um item sequencial do
-   Batch 2/3 em si.
+   status `PRONTO PARA IMPLEMENTAÇÃO`) — **pós-implementação, não
+   pré** (correção do Murilo, 10/09/2026): roda depois que uma ou mais
+   das 10 demandas já especificadas (itens 3-4 acima, issues #12-#21)
+   forem implementadas por qualquer sessão, pra confirmar o que foi de
+   fato entregue (mesmo padrão que aconteceu 2 vezes com
+   `S3-DS20-S4-PREP-001`/`002`, descoberto depois do fato), atualizar
+   o handoff, e revalidar a cadeia de dependências entre elas à luz do
+   que já foi concluído. Não bloqueia nem espera por novas
+   especificações — é consolidação, não gate.
 
 Cada um dos passos 2-5 deve nascer como uma demanda própria em
 `docs/HANDOFF_CLAUDE.md` (mesmo formato de `S3-DS20-S4-PREP-001`), não

@@ -1778,20 +1778,24 @@ S4-AUDIT-BACKLOG-001 — Auditoria de prontidão das demandas #12 a #21
 
 Status: PRONTO PARA IMPLEMENTAÇÃO
 Sprint: S4 — Redesign Mobile
-Fase: pré-requisito transversal (Batch 2 + Batch 3) — substitui a
-demanda anterior desta seção, que era `S4-B4-000` (auditoria das 7
-telas do Batch 4) — reescopada a pedido do Murilo antes de qualquer
-implementação.
+Fase: pós-implementação transversal (Batch 2 + Batch 3) — auditoria de
+consolidação. Substitui a demanda anterior desta seção, que era
+`S4-B4-000` (auditoria das 7 telas do Batch 4) — reescopada a pedido
+do Murilo. Correção (mesmo pedido, 10/09/2026): esta é uma auditoria
+**pós-implementação**, não um gate pré-implementação — ver Objetivo e
+Contexto abaixo, ajustados.
 Prioridade: P1
 
 Objetivo
 
-Auditar o estado real de todas as 10 demandas já especificadas e
-abertas como issue — `S4-B2-001` (#12), `S4-B2-002` (#13),
-`S4-B2-003` (#14), `S4-B2-004` (#15), `S4-B2-005` (#16), `S4-B3-001`
-(#17), `S4-B3-002` (#18), `S4-B3-003` (#19), `S4-B3-004` (#20),
-`S4-B3-005` (#21) — antes de qualquer uma delas ser implementada ou de
-qualquer demanda nova ser especificada em cima das que já existem.
+Depois que uma ou mais das 10 demandas já especificadas e abertas como
+issue — `S4-B2-001` (#12), `S4-B2-002` (#13), `S4-B2-003` (#14),
+`S4-B2-004` (#15), `S4-B2-005` (#16), `S4-B3-001` (#17), `S4-B3-002`
+(#18), `S4-B3-003` (#19), `S4-B3-004` (#20), `S4-B3-005` (#21) — forem
+implementadas por qualquer sessão, auditar o resultado real entregue:
+confirmar o que foi de fato implementado/aprovado/mesclado, atualizar
+o handoff de acordo, e revalidar a cadeia de dependências entre as
+demandas restantes à luz do que já foi concluído.
 
 Contexto
 
@@ -1804,35 +1808,39 @@ em `main` por sessões separadas — a segunda só foi descoberta porque o
 Murilo pediu explicitamente pra verificar ("Veja se Perfil de Jogador
 não está liberado").
 
-Não há garantia de que nenhuma das demandas #12-#21 tenha passado pelo
-mesmo. Continuar especificando demandas novas (e demandas que dependem
-delas, como as do Batch 3 dependem de `S4-B3-001`) em cima de um
-pressuposto não verificado é um risco de coordenação, não só um
-detalhe administrativo — se `S4-B3-001` já foi implementada e
-aprovada, por exemplo, isso muda o que `S4-B3-002/003/004` deveriam
-assumir como ponto de partida.
+Esta auditoria **não é um gate antes do trabalho começar** —
+implementações acontecem de forma assíncrona, por sessões que este PM
+não controla nem consegue bloquear (o próprio precedente de
+PREP-001/002 mostra isso: aconteceram sem aviso, não depois de uma
+autorização prévia). É, em vez disso, o processo de **consolidação que
+roda depois** que qualquer uma das 10 demandas for implementada —
+formalizando como demanda o mesmo processo que já foi feito
+manualmente pra PREP-001/PREP-002 (checar branch/commit, confirmar
+status real, atualizar o handoff, revalidar dependências), em vez de
+depender de alguém lembrar de pedir a checagem.
 
 Escopo
 
-Para cada uma das 10 demandas, Claude deve:
+Quando uma ou mais das 10 demandas tiver sido implementada, Claude
+deve, para cada uma que tiver progresso:
 
 1. Verificar se existe branch, commit ou Pull Request associado no
    repositório (mesmo processo usado quando se confirmou que
    `S3-DS20-S4-PREP-002` já estava implementada) — buscar por
    referências relacionadas ao ID da demanda ou ao seu conteúdo.
-2. Se encontrar progresso: confirmar o status real (em implementação?
-   pronta pra revisão? já aprovada e mesclada?) e atualizar a seção
-   correspondente do handoff de acordo — mesmo tratamento dado a
-   `S3-DS20-S4-PREP-002` quando sua conclusão foi descoberta.
-3. Se não encontrar progresso: confirmar que a especificação ainda é
-   válida — inspecionar a implementação atual da tela/componente
-   relacionado e confirmar que nada mudou desde a especificação
-   original que invalide o escopo, as dependências ou os riscos
-   descritos nela.
-4. Revalidar a cadeia de dependências entre as demandas — em
-   particular, que `S4-B3-002`/`003`/`004` de fato ainda dependem de
-   `S4-B3-001` como bloqueante, e que a ordem recomendada continua
-   fazendo sentido dado o estado real encontrado.
+2. Confirmar o status real (em implementação? pronta pra revisão? já
+   aprovada e mesclada?) e atualizar a seção correspondente do handoff
+   de acordo — mesmo tratamento dado a `S3-DS20-S4-PREP-002` quando
+   sua conclusão foi descoberta.
+3. Para as demandas que ainda não tiverem nenhum progresso: confirmar
+   que a especificação continua válida — inspecionar a implementação
+   atual da tela/componente relacionado e confirmar que nada mudou
+   desde a especificação original que invalide o escopo, as
+   dependências ou os riscos descritos nela.
+4. Revalidar a cadeia de dependências entre as demandas à luz do que
+   foi encontrado — em particular, se alguma das demandas do Batch 3
+   já pode prosseguir porque `S4-B3-001` foi concluída, ou se a ordem
+   recomendada precisa mudar dado o estado real.
 5. Registrar, por demanda, um veredito único: "sem progresso externo,
    especificação continua válida" / "sem progresso externo,
    especificação precisa de ajuste (detalhar o quê)" / "progresso
@@ -1852,16 +1860,16 @@ Fora de escopo
   jogadores, Eixos táticos, Marcação individual, Meus esquemas,
   Notícias/Eventos, Histórico/Estatísticas) — não faz mais parte desta
   demanda (era o escopo de `S4-B4-000`, substituído); se ainda for
-  necessária, precisa virar uma demanda própria depois desta;
-* especificar qualquer demanda nova — isso só deve acontecer depois
-  que esta auditoria confirmar (ou corrigir) o estado do backlog
-  atual.
+  necessária, precisa virar uma demanda própria depois desta.
 
 Dependências
 
 * as 10 demandas em si (`S4-B2-001` a `S4-B2-005`, `S4-B3-001` a
   `S4-B3-005`), já especificadas em `docs/HANDOFF_CLAUDE.md` e como
-  issues #12-#21.
+  issues #12-#21 — pelo menos uma delas precisa ter algum progresso
+  real (branch/commit/PR) pra esta auditoria fazer sentido; se nenhuma
+  tiver, o resultado é só confirmar que todas as specs continuam
+  válidas, sem muito mais a fazer.
 * `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`.
 
 Requisitos
@@ -1895,12 +1903,14 @@ Riscos
 
 Observações
 
-Esta demanda existe pra proteger contra o mesmo tipo de lacuna que já
-aconteceu 2 vezes nesta sessão (progresso externo não percebido em
-tempo real) — não é desconfiança de que as 10 demandas estejam
-malfeitas, é confirmação de que o estado presumido (nenhuma
-implementada ainda) ainda é real antes de continuar construindo mais
-demandas em cima dele.
+Esta demanda existe pra formalizar, como processo repetível, o mesmo
+tipo de checagem que já foi feita manualmente 2 vezes nesta sessão
+(progresso externo descoberto depois do fato) — não é um bloqueio
+antes de qualquer trabalho começar, é a consolidação que roda depois
+que ele acontecer. Especificar novas demandas em cima das #12-#21 não
+precisa esperar esta auditoria — ela existe pra manter o handoff
+alinhado com a realidade à medida que implementações forem
+acontecendo, não pra travar o fluxo até rodar.
 
 ⸻
 
