@@ -1023,7 +1023,7 @@ e Treino. Perfil do jogador continua por último, dependente de
 
 S4-B2-003 — Migrar tela Tática/Formação para o Design System novo
 
-Status: AJUSTES NECESSÁRIOS
+Status: APROVADO
 Sprint: S4 — Redesign Mobile
 Fase: Batch 2 (Core) — item 3 de 5
 
@@ -1035,9 +1035,24 @@ do PM (unificar `.mt-bench-row` com PlayerCard ou manter padrão
 próprio; classificar tipografia Rajdhani do campinho/banco como
 BRDATA Extension ou migrar). Relatório completo em
 https://github.com/muriloalmeida-alt/FitOS/issues/14#issuecomment-5610156648.
-Nenhuma resposta/decisão do usuário ainda — esta é a única das 10 com
-decisão de produto pendente ANTES de poder ser aprovada (as outras só
-aguardam revisão).
+
+Decisão do PM (Murilo, 10/09/2026): resolvidas as 2 divergências.
+1. `.mt-bench-row` mantido como padrão próprio, documentado
+   deliberadamente (não unificar com PlayerCard) — reconhece o banco
+   de reservas como um contexto de uso genuinamente diferente (linha
+   densa dentro do campinho, não um cartão navegável), não uma
+   duplicação acidental.
+2. Tipografia `Rajdhani` do campinho/banco classificada como
+   **BRDATA Extension** (seção 3.3 de
+   `docs/sprints/S3/S3_DS20_FUNDACAO_EXECUTAVEL.md`) — mesma lógica já
+   usada pro `Bebas Neue` nos escudos: identidade visual deliberada de
+   "placar de estádio" em telas com esse contexto, não uma
+   inconsistência a corrigir. Não precisa migrar pra `--m3-display`.
+
+APROVADO. Commit final (merge de `claude/s4-b2-003-tatica` em `main`)
+formalmente autorizado pela governança — execução pendente: esta
+sessão está sob restrição do usuário de não mexer em código até nova
+exceção explícita.
 Prioridade: P0
 
 Objetivo
