@@ -38,9 +38,14 @@ Batch 2 — Core (8 telas)
 | Loading / Bootstrap | ❌ não identificada como tela própria migrada | — |
 | Perfil do jogador | ❌ `.ct-modal-*` (legado) | overlay vira `.m3-dialog` assim que `S3-DS20-S4-PREP-001` for aprovada (é o próprio ponto de validação dessa demanda) — mas isso NÃO formaliza o PlayerCard nem migra o resto da tela pros tokens `--m3-*`, só o container do modal |
 | Tática / Formação | ❌ `--mt-*` (legado) | — |
-| Treino | ❌ `--mt-*` (legado) | — |
+| Treino | ✅ migrada `--m3-*` | Maioria já estava `--m3-*` (`.mt-scheme-card`, `.mt-dur-stepper`, `.mt-seg-group`, `.mt-card`/`.mt-stat-grid`/`.mt-week-strip`) antes desta demanda (`S4-B2-004`) — migrados 2 seletores legados restantes (aviso de folga protegida sobrescrita e botão "escolher jogador" do treino individual). Lista de elenco confirmada reaproveitando `playerRow()`/PlayerCard (`S3-DS20-S4-PREP-002`), sem mudança necessária. Paleta categórica de foco de treino (técnico/físico/tático) NÃO migrada — classificada como BRDATA Extension, mesmo tratamento de `.mt-pos-chip` (`S4-B2-003`). Botão de treino individual usa tipografia Rajdhani — mesma divergência já registrada em `S4-B2-003` (não resolvida aqui, seção 4) |
 
-**3 de 8 (37%) migradas.**
+**4 de 8 (50%) migradas nesta contagem** (Escolha do clube, Início,
+Elenco, Treino — mesclados em `main`). Login/Entrada (`S4-B2-002`),
+Loading/Bootstrap (`S4-B2-001`) e Tática/Formação parcial (`S4-B2-003`)
+têm implementação e relatório técnico prontos, mas seguem em branches
+próprios ainda não aprovados/mesclados — ver `docs/HANDOFF_CLAUDE.md`
+para o estado de aprovação de cada um.
 
 Batch 3 — Transactional (4 telas, todas P0)
 
