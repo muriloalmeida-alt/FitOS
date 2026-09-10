@@ -1845,7 +1845,7 @@ P1 documentado há 2 demandas. Nenhuma mudança de regra de negociação.
 
 S4-B3-004 — Migrar tela Contratos para o Design System novo
 
-Status: PRONTO PARA IMPLEMENTAÇÃO
+Status: BLOQUEADO
 Sprint: S4 — Redesign Mobile
 Fase: Batch 3 (Transactional) — item 4 de 4
 Prioridade: P0
@@ -1936,6 +1936,82 @@ Com esta demanda concluída e aprovada, o Batch 3 estará completo
 **exceto Resumo da rodada** — que continua fora até MatchCard/
 FinancialSummary passarem por inspeção própria (ver
 `S4_REQUISITOS_VIGENTES.md` §5, item 2b).
+
+Relatório técnico (inspeção — implementação NÃO iniciada)
+
+Branch: `claude/s4-b3-004-contratos` (a partir de `claude/s4-b3-003-negociacao`).
+Nenhum código alterado nesta demanda.
+
+1. Inspeção prévia (obrigatória) — divergência de escopo confirmada,
+   não presumida
+
+Esta divergência já havia sido sinalizada como observação no
+relatório de `S4-B3-001` (quando `ContractCard` foi criado) e
+reforçada no de `S4-B3-003`. Nesta demanda ela foi verificada de
+propósito, com evidência, antes de decidir como proceder — 3 buscas
+independentes, todas confirmando a mesma conclusão:
+
+* `grep -in "contrato"` em `public/carreira.html` inteiro: as únicas
+  ocorrências são a tag "Fim de contrato" inline no Elenco/Treino
+  (`playerRow()`), o aviso de vencimento + botão "Renovar contrato"
+  dentro do Perfil do jogador (`openDetail()`/`openRenewModal()`), e
+  comentários de código — nenhuma tela própria.
+* Painel "Clube" (`#panel-clube`) inspecionado por completo: contém
+  um resumo AGREGADO de teto salarial (`wageCapFill`/`wageCapLabel`),
+  não uma lista de contratos por jogador.
+* Árvore inteira do menu (`#topbarMenu`, todos os 5 submenus —
+  Competição/Tática avançada/Equipe & Treinos/Progresso/Imprensa +
+  itens soltos na raiz) inspecionada item por item: nenhum item
+  "Contratos" ou equivalente.
+
+**Conclusão com evidência (não presunção): a tela "Contratos" (Tela 16
+da matriz — visualizar jogador/duração/salário/situação/proximidade
+do vencimento/ações DE TODO O ELENCO numa lista própria) não existe no
+app hoje.** O que existe são pontos de contrato isolados POR JOGADOR,
+dentro de outras telas (Elenco, Perfil). `S4-B3-004`, como
+especificada, pressupõe uma tela existente pra "migrar" (redesign
+visual) — não há nada para migrar. Implementar essa tela do zero é
+uma decisão de escopo/produto (o que ela mostra além do que a matriz
+já lista, onde no app ela é aberta, se substitui ou complementa os
+pontos já existentes no Elenco/Perfil) — não uma migração visual, e
+está fora do que `S4-B3-001` (que só criou o componente `ContractCard`,
+deliberadamente sem integração de tela) e esta própria demanda
+autorizam decidir sozinho.
+
+2. Por que não implementei mesmo assim
+
+Regra explícita de `docs/README.md` (nunca assumir que a especificação
+está certa sem verificar — vale nos 2 sentidos) e do próprio CLAUDE.md
+(§37, §47: "se a inspeção revelar escopo significativamente maior que
+o esperado, reportar como divergência, não absorver silenciosamente";
+"não construir sistemas que já existem" — mas também não inventar um
+sistema novo por conta própria quando a demanda pressupõe que ele já
+existe). Construir uma tela nova de gestão de contratos, sem
+especificação própria de conteúdo/navegação/ações, seria uma decisão
+de produto unilateral — o tipo de decisão que este processo pede pra
+registrar e devolver ao PM, não resolver sozinho.
+
+3. Opções pro PM decidir (nenhuma escolhida por mim)
+
+a. **Redefinir `S4-B3-004`** como "criar a tela Contratos" (não
+   "migrar") — com uma especificação mínima de conteúdo (provavelmente:
+   lista do elenco principal com `ContractCard` por jogador, ação de
+   renovar reaproveitando `openRenewModal()` já existente) e de onde
+   ela é aberta (aba própria? item de menu? dentro de Clube?).
+b. **Descartar `S4-B3-004`** por ora — os pontos de contrato já
+   existentes (Elenco/Perfil) continuam servindo o usuário; a tela
+   dedicada vira prioridade P1/P2 futura, fora do Batch 3.
+c. **Redirecionar o `ContractCard`** pra reforçar os pontos que já
+   existem (ex.: usá-lo dentro do Perfil do jogador na seção de
+   contrato, em vez de numa tela nova) — mudança pequena, mas também é
+   decisão de produto, não presumida aqui.
+
+Nenhuma dessas 3 foi decidida por mim — todas exigem uma escolha do
+PM sobre o que o usuário deve ver, não uma inspeção técnica adicional.
+
+Resultado proposto: **BLOQUEADO** — não há escopo técnico executável
+sem uma decisão de produto prévia. Nenhum código alterado, nenhuma
+tela tocada, nenhuma regra de negócio mexida.
 
 ⸻
 
