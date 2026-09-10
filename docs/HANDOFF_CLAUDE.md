@@ -762,6 +762,13 @@ apontar pra este registro assim que esta atualização for commitada.
 S4-AUDIT-BACKLOG-001 — Auditoria de prontidão das demandas #12 a #21
 
 Status: APROVADO
+
+Decisão do PM (Murilo, 10/09/2026): os 4 critérios de aceite foram
+cumpridos — as 10 demandas têm veredito com evidência (tabela abaixo),
+9 foram formalmente aprovadas (#12,13,14,15,16,17,18,19,21 — #14 com
+2 divergências de design resolvidas, ver seção `S4-B2-003`), 1 foi
+redefinida com mini-spec nova (`S4-B3-004`/#20, tela não existia), e a
+cadeia de dependências foi revalidada sem quebras. Auditoria concluída.
 Sprint: S4 — Redesign Mobile
 Fase: pós-implementação transversal (Batch 2 + Batch 3) — auditoria de
 consolidação. Substitui a demanda anterior desta seção, que era

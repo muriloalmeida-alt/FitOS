@@ -255,6 +255,20 @@ Cada um dos passos 2-5 deve nascer como uma demanda própria em
 como uma "S4 inteira" de uma vez — mantém o padrão de escopo pequeno e
 testável que already funcionou até aqui.
 
+**Atualização (10/09/2026 — pós `S4-AUDIT-BACKLOG-001` + merge do
+código):** dos itens 3 e 4 acima (as 10 demandas #12-#21), 9 foram
+aprovadas pelo PM e o código já está mesclado em `main`
+(`S4-B2-001/002/003/004/005`, `S4-B3-001/002/003/005` — ver §2 acima
+pro estado real por tela, todas ✅). A 10ª (`S4-B3-004`/#20, item 4
+acima) foi redefinida ("migrar" → "criar do zero", tela não existia)
+com mini-spec em `docs/HANDOFF_CLAUDE.md`; já implementada na branch
+`claude/s4-b3-004-contratos`, aguardando revisão/aprovação do PM antes
+do merge em `main` (ver §2, linha "Contratos"). Item 6 (**Resumo da
+rodada**) segue sem demanda própria — pré-requisito (`S4-B3-005`) já
+mesclado, pode ser especificado agora. Item 5 (**Batch 4**) segue sem
+verificação individual nem demanda própria. Item 7
+(`S4-AUDIT-BACKLOG-001`) concluído e aprovado.
+
 ⸻
 
 ## 6. O que este documento não muda
