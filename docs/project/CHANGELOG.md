@@ -79,14 +79,16 @@ bump.
 
 ## Histórico completo (mais recente primeiro)
 
-### 2026-09-10 — v8.0.0  (9 commits de merge)
+### 2026-09-10 — v8.0.0  (10 commits de merge)
 
 > **Bump MAJOR porque:** fecha o Batch 2 (Core) do redesign mobile S4
-> por completo (8/8 telas) e leva o Batch 3 (Transactional) a 3/4
-> mescladas — governança PM↔Claude (`docs/HANDOFF_CLAUDE.md`), issues
-> #12, #13, #15, #16, #17, #18, #19, #21 aprovadas pelo Murilo no
-> mesmo lote, mais `S4-B2-003` (#14) aprovada em seguida depois de
-> resolvidas 2 divergências de design registradas.
+> por completo (8/8 telas) e o Batch 3 (Transactional) por completo
+> (4/4 mescladas, exceto a migração de "Resumo da rodada" em si, sem
+> demanda própria) — governança PM↔Claude (`docs/HANDOFF_CLAUDE.md`),
+> issues #12, #13, #15, #16, #17, #18, #19, #21 aprovadas pelo Murilo
+> no mesmo lote, `S4-B2-003` (#14) aprovada em seguida depois de
+> resolvidas 2 divergências de design, e `S4-B3-004` (#20) — tela
+> Contratos criada do zero por decisão do PM — aprovada por último.
 
 - `e894c78` S4-B2-001 — Loading/Bootstrap migrada pro Design System `--m3-*`
 - `1ea5bd1` S4-B2-002 — Login/Entrada: achado de inspeção (já estava
@@ -108,10 +110,11 @@ bump.
   `z-index` de verdade desde `S3-DS20-S4-PREP-001`
 - `70ac576` S4-B3-005 — Cria MatchCard e formaliza FinancialSummary
   (retroativo, mesmo caminho de PlayerCard)
-
-**Nota:** `S4-B3-004` (Contratos, issue #20) segue fora desta entrada —
-implementada em branch própria (`claude/s4-b3-004-contratos`),
-aguardando revisão do PM antes do merge em `main`.
+- `31917dc` S4-B3-004 — Cria a tela Contratos do zero (redefinida de
+  "migrar", já que a tela não existia): visão consolidada do elenco
+  usando ContractCard, ações "Renovar"/"Dispensar" 100% reaproveitadas
+  dos fluxos já existentes do Perfil do jogador, nenhuma regra de
+  contrato nova
 
 ### 2026-09-09 — v7.1.0  (4 commits catalogados + 2 adicionados depois, ver nota)
 
