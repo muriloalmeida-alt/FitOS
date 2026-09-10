@@ -1919,6 +1919,7 @@ DOCS-REQ-001 — Povoar docs/requirements/ com regras vigentes migradas de docs/
 Status: PRONTO PARA IMPLEMENTAÇÃO
 Sprint: transversal (governança documental, não pertence à S4)
 Prioridade: P2
+Issue: #23
 
 Objetivo
 
