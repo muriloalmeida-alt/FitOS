@@ -1787,9 +1787,9 @@ rodada, fora desta rodada): Contratos, usando ContractCard.
 
 ⸻
 
-S4-B3-004 — Migrar tela Contratos para o Design System novo
+S4-B3-004 — Criar a tela Contratos (redefinida de "migrar" para "criar do zero")
 
-Status: BLOQUEADO
+Status: PRONTO PARA IMPLEMENTAÇÃO
 Sprint: S4 — Redesign Mobile
 Fase: Batch 3 (Transactional) — item 4 de 4
 Prioridade: P0
@@ -1805,94 +1805,162 @@ necessária antes de qualquer implementação (3 opções levantadas: criar
 do zero / descartar por ora / redirecionar o ContractCard pra um ponto
 já existente). Relatório completo em
 https://github.com/muriloalmeida-alt/FitOS/issues/20#issuecomment-5616879047.
-Nenhuma resposta/decisão do usuário ainda.
 
-Objetivo
+Decisão do PM (Murilo, 10/09/2026): opção 1 escolhida — redefinir a
+demanda como "criar a tela Contratos do zero". Mini-spec abaixo
+substitui integralmente a especificação original (que presumia
+migrar uma tela já existente). Status volta a `PRONTO PARA
+IMPLEMENTAÇÃO`.
 
-Migrar a tela de gerenciamento de contratos para o Design System novo,
-conforme `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 16):
-permitir visualizar jogador, duração, salário, situação, proximidade
-do vencimento e ações disponíveis — usando o ContractCard quando
-apropriado.
+Objetivo (redefinido)
+
+Criar a tela "Contratos" (Tela 16 da matriz,
+`docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md`) do zero — ela não
+existe hoje no app (confirmado por 3 buscas independentes na
+auditoria `S4-AUDIT-BACKLOG-001`, ver nota acima). É uma visão
+consolidada, cross-elenco, de todos os contratos do clube do jogador,
+usando o ContractCard (`S4-B3-001`) — diferente de Elenco (lista
+geral, tag "Fim de contrato" isolada por jogador) e Perfil do jogador
+(visão individual, 1 contrato de cada vez): aqui a lente é "gestão de
+contratos do elenco inteiro numa tela só".
 
 Contexto
 
-Quarta tela do Batch 3 (a quinta, Resumo da rodada, fica fora desta
-rodada — ver observação em `S4-B3-001`). A S3.2.7 Readiness Review
-identificou Contratos como uma das 9 telas P0 ainda fora do sistema
-novo.
+Redefinição decidida pelo PM depois que `S4-B3-004`, como
+originalmente especificada ("migrar"), foi bloqueada — a tela não
+existe, então não havia nada pra migrar (relatório completo na issue
+#20). Mini-spec baseada na inspeção real já feita do código:
+`computeContractFields()` (contrato de cada jogador: `wage`, `value`,
+`contractUntil`), `isContractExpiring()` (exclui jogador emprestado —
+`origin === "loan"` não é contrato seu pra renovar), `
+suggestedRenewalWage()`/`proposeRenewal()` (fluxo de renovação já
+existente, ver `openRenewModal`), e a ação "Dispensar"
+(`data-act="release"`, rescisão sem multa) já usada no Perfil do
+jogador.
 
 Escopo
 
 Chapéu implementador deve, quando retomar esta demanda:
 
-1. Inspecionar a implementação atual da tela de Contratos antes de
-   alterar qualquer coisa.
-2. Migrar a apresentação visual para os tokens do Design System novo.
-3. Usar o ContractCard (`S4-B3-001`) para representar cada contrato.
-4. Garantir que duração, salário, situação, proximidade do vencimento
-   e as ações disponíveis continuam todos funcionando.
-5. Usar os componentes já disponíveis (Dialog, Bottom Sheet, Skeleton)
-   onde a tela precisar de overlay/carregamento — não criar nada novo
-   em paralelo.
-6. Preservar o comportamento funcional (regras de contrato, renovação,
-   rescisão) — redesign visual, não mudança de regra.
-7. Testar (mobile-first, mesmo padrão das demandas anteriores).
-8. Atualizar `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`
-   marcando esta tela como migrada.
-9. Retornar relatório técnico nesta mesma seção do handoff, status
-   `REVISÃO DO PM NECESSÁRIA`.
+1. Inspecionar `computeContractFields`, `isContractExpiring`,
+   `suggestedRenewalWage`, `proposeRenewal`/`openRenewModal` e o fluxo
+   de "Dispensar" (`data-act="release"`) antes de escrever qualquer
+   linha nova — a tela só CONSOME essa lógica já existente, não
+   reimplementa nada dela.
+2. Criar a tela usando o ContractCard (`S4-B3-001`) pra representar
+   cada jogador do elenco com contrato ativo, excluindo jogadores
+   emprestados de origem (mesmo critério de `isContractExpiring`: não
+   é contrato seu pra gerenciar).
+3. Cada ContractCard deve mostrar: jogador, duração (`contractUntil`),
+   salário (`wage`), situação, proximidade do vencimento, e ação
+   disponível.
+4. Situação exibida por jogador: "Ativo" (contrato válido além desta
+   temporada) ou "Fim de contrato" (`isContractExpiring(p)`
+   verdadeiro — mesmo critério/tag já usado no Elenco, com o mesmo
+   peso visual do badge dourado existente).
+5. Ações por card, reutilizando os fluxos já existentes (nenhuma regra
+   nova): "Renovar contrato" quando `isContractExpiring(p)` (mesmo
+   modal já usado no Perfil do jogador — `openRenewModal`/
+   `proposeRenewal`); "Dispensar" (mesma ação/confirmação do Perfil —
+   `data-act="release"`), disponível pra qualquer jogador com
+   contrato, não só os vencendo.
+6. Ordenação padrão sugerida: contratos mais próximos do vencimento
+   primeiro (prioriza o que precisa de decisão) — chapéu implementador
+   decide o critério exato de ordenação/agrupamento na inspeção, desde
+   que a prioridade fique com os contratos vencendo.
+7. Filtro simples (todos / vencendo) opcional, se a lista tender a
+   ficar longa em elencos grandes — não obrigatório pro MVP desta
+   tela.
+8. Acesso pela navegação: adicionar item "📄 Contratos" ao submenu
+   "👔 Equipe & Treinos" (`data-submenu="equipe"`, ver
+   `public/carreira.html`), ao lado de Comissão Técnica, Treinos e
+   Base e Olheiros — mesmo padrão de tela acessível só por menu, sem
+   aba própria no rodapé (mesmo padrão de `openScoutingScreen`/
+   `openCommissionScreen`).
+9. Usar os componentes já disponíveis (Dialog, Bottom Sheet, Skeleton
+   de `S3-DS20-S4-PREP-001`) onde a tela precisar de overlay/
+   carregamento — não criar nada novo em paralelo.
+10. Estado vazio: elenco sem nenhum contrato ativo (cenário raro, mas
+    o CLAUDE.md exige estado vazio pra toda tela importante) —
+    mensagem clara, sem card quebrado.
+11. Testar (mobile-first, mesmo padrão das demandas anteriores),
+    cobrindo: lista renderiza, "Renovar" abre o modal certo,
+    "Dispensar" confirma e remove, jogador emprestado não aparece com
+    ações de gestão (ou aparece só como leitura, se o implementador
+    decidir assim — registrar a escolha no relatório).
+12. Atualizar `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md` marcando
+    esta tela como criada (não "migrada" — não existia antes).
+13. Retornar relatório técnico nesta mesma seção do handoff, status
+    `REVISÃO DO PM NECESSÁRIA`.
 
 Fora de escopo
 
 * qualquer outra tela do Batch 3 (Mercado, Negociação, Resumo da
   rodada);
-* qualquer mudança de regra de contrato, renovação ou rescisão;
+* qualquer mudança de regra de contrato, renovação, salário ou
+  rescisão — a tela só expõe as regras já existentes numa visão nova,
+  não cria regra nenhuma;
 * qualquer mudança na definição do ContractCard além do que
   `S4-B3-001` já formalizou — divergência registrada e devolvida ao
   PM;
+* mudar o comportamento de "Fim de contrato"/"Renovar"/"Dispensar" em
+  Elenco ou Perfil do jogador — continuam existindo do jeito que
+  estão, a tela nova é um ponto de acesso a mais, não uma substituição;
+* cláusulas, luvas, bônus, agente ou qualquer evolução de contrato
+  fora do que já existe hoje — fica pra uma demanda de produto própria
+  (ver CLAUDE.md §20), fora do escopo desta demanda de redesign/
+  criação visual;
 * gaps P1/P2 não relacionados a esta tela específica.
 
 Dependências
 
-* `S4-B3-001` (ContractCard) — bloqueante, precisa estar concluída.
-* `S3-DS20-S4-PREP-001` (aprovada, concluída).
+* `S4-B3-001` (ContractCard) — aprovada, concluída.
+* `S3-DS20-S4-PREP-001` (Dialog/Bottom Sheet/Skeleton) — aprovada,
+  concluída.
 * `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 16).
 * `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`.
 
 Requisitos
 
 Mesma sequência obrigatória de sempre: inspecionar → localizar →
-entender → planejar → alterar → testar → revisar.
+entender → planejar → alterar → testar → revisar. Tela nova, mas
+regra de negócio 100% reaproveitada — nenhuma fórmula de contrato
+nova.
 
 Critérios de aceite
 
-* tela usa os tokens do Design System novo, reutilizando o
-  ContractCard;
-* duração, salário, situação, proximidade do vencimento e ações
-  continuam todos funcionando;
-* nenhuma mudança de regra de contrato;
-* nenhuma outra tela tocada;
+* tela nova, acessível por "👔 Equipe & Treinos → 📄 Contratos", usa
+  os tokens do Design System novo e o ContractCard pra cada jogador;
+* mostra jogador, duração, salário, situação, proximidade do
+  vencimento e ação disponível, coerente com os dados reais de
+  `computeContractFields`/`isContractExpiring`;
+* "Renovar contrato" e "Dispensar" funcionam exatamente como já
+  funcionam hoje (mesmo modal, mesma confirmação, sem regra nova);
+* jogadores emprestados não aparecem com ações de gestão (mesmo
+  critério de `isContractExpiring`/`origin === "loan"`);
+* estado vazio tratado;
+* nenhuma outra tela alterada;
 * teste mobile-first cobrindo a tela.
 
 Validações
 
 O PM deverá validar: aderência ao Design System, reutilização correta
-do ContractCard, preservação de todas as funcionalidades de contrato,
-teste, escopo respeitado.
+do ContractCard e dos fluxos de renovação/dispensa já existentes
+(nenhuma regra nova introduzida), navegação (item de menu novo
+funcionando), teste, escopo respeitado.
 
 Riscos
 
-* médio — tela transacional mas com menos interação em tempo real
-  que Mercado/Negociação (mais consulta/gestão do que decisão sob
-  pressão de janela de mercado).
+* baixo-médio — tela nova, mas 100% em cima de lógica de negócio já
+  existente e testada (nenhuma fórmula/regra nova); o risco real é de
+  escopo (tela crescer além do previsto, ex. cláusulas/agente) — por
+  isso "fora de escopo" lista isso explicitamente.
 
 Observações
 
 Com esta demanda concluída e aprovada, o Batch 3 estará completo
-**exceto Resumo da rodada** — que continua fora até MatchCard/
-FinancialSummary passarem por inspeção própria (ver
-`S4_REQUISITOS_VIGENTES.md` §5, item 2b).
+**exceto Resumo da rodada** — que segue fora até virar demanda
+própria (pré-requisito `S4-B3-005` já concluído e aprovado).
 
 ⸻
 
