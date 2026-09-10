@@ -53,7 +53,8 @@ const { chromium } = require("playwright-core");
   // mostra o mesmo total no badge.
   const buyBtn = await page.$("[data-buy]");
   await buyBtn.click();
-  await page.waitForSelector("#offerOverlay.open", { timeout: 5000 });
+  // S4-B3-003 — "Fazer proposta" virou Dialog dinâmico (.m3-dialog-overlay).
+  await page.waitForSelector(".m3-dialog-overlay.open", { timeout: 5000 });
   await page.click("#btnOfferConfirm");
   await page.waitForTimeout(200);
   await page.evaluate(async () => {

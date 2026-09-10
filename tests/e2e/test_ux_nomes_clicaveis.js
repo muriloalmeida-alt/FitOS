@@ -35,13 +35,33 @@ const { chromium } = require("playwright-core");
     await page.waitForTimeout(100);
   }
   async function detailOpenWithName() {
-    return page.evaluate(() => document.getElementById("detailOverlay").classList.contains("open") ? document.getElementById("detailBody").querySelector(".mt-player-hero-info b")?.textContent : null);
+    return page.evaluate(() => {
+      // openDetail() (elenco próprio) ainda usa #detailOverlay estático;
+      // openPlayerCard() (outro clube, somente leitura) usa o Dialog
+      // dinâmico (S3-DS20-S4-PREP-001, ver .m3-dialog-overlay) desde que
+      // essa migração aconteceu — checa os 2, não presume qual está
+      // aberto (mesma correção feita em closeAll() acima).
+      if (document.getElementById("detailOverlay").classList.contains("open")) {
+        return document.getElementById("detailBody").querySelector(".mt-player-hero-info b")?.textContent;
+      }
+      const dialog = document.querySelector(".m3-dialog-overlay.open");
+      return dialog ? dialog.querySelector(".mt-player-hero-info b")?.textContent : null;
+    });
   }
   async function clubRosterOpenWithName() {
     return page.evaluate(() => document.getElementById("clubRosterOverlay").classList.contains("open") ? document.getElementById("clubRosterName").textContent : null);
   }
   function closeAll() {
-    return page.evaluate(() => document.querySelectorAll(".ct-modal-overlay.open").forEach((el) => el.classList.remove("open")));
+    // Fecha tanto os modais legados (.ct-modal-overlay, toggle de
+    // classe) quanto os Dialog/Bottom Sheet dinâmicos (S3-DS20-S4-PREP-001,
+    // ver openPlayerCard) — estes últimos são removidos do DOM de
+    // verdade via closeM3Overlay(), não só escondidos, então só tirar a
+    // classe "open" não bastaria (o elemento continuaria lá, cobrindo a
+    // tela com o bug corrigido em S4-B3-003 de position:fixed/z-index).
+    return page.evaluate(() => {
+      document.querySelectorAll(".ct-modal-overlay.open").forEach((el) => el.classList.remove("open"));
+      while (typeof m3OpenOverlays !== "undefined" && m3OpenOverlays.length) closeM3Overlay(m3OpenOverlays[m3OpenOverlays.length - 1].id);
+    });
   }
 
   // 1) Mercado: nome do jogador de outro clube abre perfil somente-leitura
@@ -56,7 +76,10 @@ const { chromium } = require("playwright-core");
   await page.waitForTimeout(150);
   const marketPlayerName = await detailOpenWithName();
   console.log("1a) Mercado: nome do jogador de outro clube abre Perfil (somente leitura):", !!marketPlayerName, marketPlayerName);
-  const readOnlyNote = await page.evaluate(() => document.getElementById("detailBody").textContent.includes("consulta apenas"));
+  const readOnlyNote = await page.evaluate(() => {
+    const dialog = document.querySelector(".m3-dialog-overlay.open");
+    return dialog ? dialog.textContent.includes("consulta apenas") : document.getElementById("detailBody").textContent.includes("consulta apenas");
+  });
   console.log("1b) Perfil somente-leitura mostra aviso 'consulta apenas' (sem ações de gestão):", readOnlyNote);
   await closeAll();
 

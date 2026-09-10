@@ -11190,10 +11190,21 @@ const MARKET_ICON = {
    (aceitar o valor pedido ou retirar), sem prazo — não conta como
    "esperando resposta" de novo. */
 const OFFER_WAIT_ROUNDS = 2; // rodadas até o clube vendedor responder
-let OFFER_CTX = null; // { clubId, playerId } enquanto o sheet de nova proposta está aberto
+let OFFER_CTX = null; // { clubId, playerId } enquanto o Dialog de nova proposta está aberto
+let OFFER_DIALOG_ID = null; // id do overlay dinâmico (openM3Dialog), pra fechar depois
 function pendingOfferOutFor(playerId) {
   return (CAREER.pendingOffersOut || []).find((o) => String(o.playerId) === String(playerId));
 }
+// S4-B3-003 — "Fazer proposta" virou um Dialog de verdade
+// (openM3Dialog(), S3-DS20-S4-PREP-001) no lugar do antigo
+// #offerOverlay estático (.ct-modal-overlay fixo no HTML) — ganha foco
+// automático no 1º campo, trap de Tab, fechar com Esc/clique fora e
+// devolução de foco pra quem abriu (mesmo padrão de acessibilidade já
+// usado por openPlayerCard(), único outro ponto de uso do Dialog até
+// aqui). O campo/select/botão são montados no bodyHTML e ligados via
+// listener logo depois de abrir — mesma ideia de openDetail()/
+// handlePlayerAction(), só que agora dentro de um overlay criado em
+// tempo de execução, não um bloco fixo do HTML.
 function openOfferModal(clubId, playerId) {
   if (!transferWindowStatus(CAREER.currentRound).open) {
     toast("Janela de contratações encerrada — não dá pra propor agora.", { type: "warn" });
@@ -11203,19 +11214,46 @@ function openOfferModal(clubId, playerId) {
   const p = leagueSquadFor(clubId).find((x) => x.id === playerId);
   if (!p) return;
   OFFER_CTX = { clubId: String(clubId), playerId };
-  document.getElementById("offerSub").textContent = `${abbreviateName(p.name)} · ${teamById(clubId).name} · valor de mercado ${fmtBRL(p.value)}`;
   // Item 7 da lista de melhorias — "Desconto de Contratação" (boost da
   // Loja, ver applyBoostEffect) só sugere um valor inicial menor; o
   // técnico ainda pode editar a proposta livremente antes de enviar
   // (não existe desconto "garantido" numa negociação que já depende de
   // aceite do outro clube).
   const discountPct = CAREER.nextSigningDiscountPct || 0;
-  document.getElementById("offerValueInput").value = discountPct ? Math.round(p.value * (1 - discountPct / 100)) : p.value;
+  const initialValue = discountPct ? Math.round(p.value * (1 - discountPct / 100)) : p.value;
+  OFFER_DIALOG_ID = openM3Dialog({
+    icon: "💰",
+    title: "Fazer proposta",
+    subtitle: `${abbreviateName(p.name)} · ${teamById(clubId).name} · valor de mercado ${fmtBRL(p.value)}`,
+    bodyHTML: `
+      <div class="mt-field">
+        <label>Sua proposta</label>
+        <input type="number" id="offerValueInput" min="0" step="1000" value="${initialValue}">
+      </div>
+      <div class="mt-field">
+        <label>Parcelamento da taxa</label>
+        <select id="offerInstallmentsSelect" class="mt-select-box">
+          <option value="1">À vista (1x)</option>
+          <option value="2">2x</option>
+          <option value="3">3x</option>
+          <option value="4">4x</option>
+        </select>
+      </div>
+      <p class="mt-card-sub" style="margin-top:10px;">Propor menos que o valor de mercado é possível, mas o clube pode recusar, pedir mais ou demorar pra responder. Você acompanha o andamento em "Minhas propostas".</p>
+      <button type="button" class="mt-btn-primary-gold" id="btnOfferConfirm" style="width:100%; margin-top:14px;">Enviar proposta</button>`,
+  });
   document.getElementById("offerInstallmentsSelect").value = "1";
-  document.getElementById("offerOverlay").classList.add("open");
+  document.getElementById("btnOfferConfirm").addEventListener("click", confirmOfferFromModal);
+  // m3OpenOverlay() por padrão foca o 1º elemento focável (o botão de
+  // fechar, que vem antes no DOM) — aqui o campo de valor é o dado que
+  // o técnico mais provavelmente quer editar primeiro, então focamos
+  // explicitamente nele (agendado num RAF próprio, depois do RAF
+  // interno do overlay, pra não ser sobrescrito).
+  requestAnimationFrame(() => document.getElementById("offerValueInput")?.focus());
 }
 function closeOfferModal() {
-  document.getElementById("offerOverlay").classList.remove("open");
+  if (OFFER_DIALOG_ID) closeM3Overlay(OFFER_DIALOG_ID);
+  OFFER_DIALOG_ID = null;
   OFFER_CTX = null;
 }
 function confirmOfferFromModal() {
@@ -12280,37 +12318,40 @@ function closeTransferHistoryScreen() {
   document.getElementById("transferHistoryOverlay").classList.remove("open");
 }
 
+// S4-B3-003 — cada proposta em "Minhas propostas" agora usa o
+// TransferCard (transferCardHTML(), S4-B3-001) no lugar do antigo
+// .mt-sponsor-proposal-row (reaproveitado de um contexto de
+// patrocínio, sem relação nenhuma com transferência — ver divergência
+// registrada no relatório de S4-B3-001). Sem badge de overall/posição
+// (o registro da proposta não guarda esses dados do jogador) — usa
+// metaText pro texto livre de status da negociação, que é o dado
+// relevante aqui, não valor/salário isolados.
 function myOffersRowHTML(o) {
   if (o.status === "countered") {
-    return `<div class="mt-sponsor-proposal-row">
-      <div>
-        <div class="mt-sponsor-proposal-name">${escapeHtml(abbreviateName(o.playerName))} <span class="mt-badge-gold">Contraproposta</span></div>
-        <div class="mt-sponsor-proposal-detail">${escapeHtml(o.clubName)} pede ${fmtBRL(o.counterValue)} (sua oferta: ${fmtBRL(o.offerValue)})</div>
-      </div>
-      <div style="display:flex; gap:6px; flex-shrink:0;">
-        <button class="mt-btn-ghost" data-withdraw="${o.id}" style="padding:9px 12px;">Retirar</button>
-        <button class="mt-btn-sign" data-acceptcounter="${o.id}">Aceitar</button>
-      </div>
-    </div>`;
+    return transferCardHTML({
+      playerId: o.playerId, playerName: abbreviateName(o.playerName),
+      clubName: o.clubName, clubId: o.clubId,
+      statusLabel: "Contraproposta", statusVariant: "gold",
+      metaText: `${escapeHtml(o.clubName)} pede ${fmtBRL(o.counterValue)} (sua oferta: ${fmtBRL(o.offerValue)})`,
+      actionsHTML: `<button class="mt-btn-ghost" data-withdraw="${o.id}" style="padding:9px 12px;">Retirar</button>
+        <button class="mt-btn-sign" data-acceptcounter="${o.id}">Aceitar</button>`,
+    });
   }
   // Nova feature (Bloco 3, 2/4) — proposta com concorrente real (ver
   // maybeSpawnRivalOffer) ganha um selo + o botão leva pra tela de
   // comparação (openOfferCompareScreen) em vez de aumentar direto —
   // lá o técnico vê os 2 lados antes de decidir se cobre ou não.
-  const rivalBadge = o.rivalOffer ? ` <span class="mt-badge-alert">Concorrência</span>` : "";
   const increaseBtn = o.rivalOffer
     ? `<button class="mt-btn-sign" data-compare="${o.id}">Comparar</button>`
     : `<button class="mt-btn-sign" data-increase="${o.id}" data-value="${Math.round(o.marketValue)}">Aumentar</button>`;
-  return `<div class="mt-sponsor-proposal-row">
-    <div>
-      <div class="mt-sponsor-proposal-name">${escapeHtml(abbreviateName(o.playerName))}${rivalBadge}</div>
-      <div class="mt-sponsor-proposal-detail">${escapeHtml(o.clubName)} · sua oferta ${fmtBRL(o.offerValue)} de ${fmtBRL(o.marketValue)} · aguardando resposta (${o.roundsLeft} rodada${o.roundsLeft === 1 ? "" : "s"})</div>
-    </div>
-    <div style="display:flex; gap:6px; flex-shrink:0;">
-      <button class="mt-btn-ghost" data-withdraw="${o.id}" style="padding:9px 12px;">Retirar</button>
-      ${increaseBtn}
-    </div>
-  </div>`;
+  return transferCardHTML({
+    playerId: o.playerId, playerName: abbreviateName(o.playerName),
+    clubName: o.clubName, clubId: o.clubId,
+    statusLabel: o.rivalOffer ? "Concorrência" : null, statusVariant: "crimson",
+    metaText: `${escapeHtml(o.clubName)} · sua oferta ${fmtBRL(o.offerValue)} de ${fmtBRL(o.marketValue)} · aguardando resposta (${o.roundsLeft} rodada${o.roundsLeft === 1 ? "" : "s"})`,
+    actionsHTML: `<button class="mt-btn-ghost" data-withdraw="${o.id}" style="padding:9px 12px;">Retirar</button>
+      ${increaseBtn}`,
+  });
 }
 function renderMyOffersScreen() {
   const list = CAREER.pendingOffersOut || [];
@@ -13983,12 +14024,13 @@ function wireStaticListeners() {
   document.getElementById("loanBuyClauseSelect").addEventListener("change", (e) => {
     document.getElementById("loanBuyValueField").classList.toggle("hidden", e.target.value === "nenhuma");
   });
-  // Nova feature (Bloco 3) — sheet de "Fazer proposta" e tela "Minhas
-  // propostas", mesmo padrão de fechamento das outras (X e clique fora
-  // fecham sem enviar/mudar nada).
-  document.getElementById("offerClose").addEventListener("click", closeOfferModal);
-  document.getElementById("offerOverlay").addEventListener("click", (e) => { if (e.target.id === "offerOverlay") closeOfferModal(); });
-  document.getElementById("btnOfferConfirm").addEventListener("click", confirmOfferFromModal);
+  // Nova feature (Bloco 3) — tela "Minhas propostas", mesmo padrão de
+  // fechamento das outras (X e clique fora fecham sem enviar/mudar
+  // nada). "Fazer proposta" (S4-B3-003) virou Dialog dinâmico
+  // (openM3Dialog) — X/Esc/clique fora/wiring do botão de confirmar
+  // são responsabilidade de m3OpenOverlay()/openOfferModal(), não
+  // precisam de listener fixo aqui (não existe mais #offerOverlay
+  // estático no HTML).
   document.getElementById("btnOpenMyOffers").addEventListener("click", openMyOffersScreen);
   document.getElementById("myOffersClose").addEventListener("click", closeMyOffersScreen);
   document.getElementById("btnMyOffersCloseFooter").addEventListener("click", closeMyOffersScreen);
