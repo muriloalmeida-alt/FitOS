@@ -47,13 +47,14 @@ Batch 2 — Core (8 telas)
 | Escolha do clube | ✅ migrada `--m3-*` | — |
 | Início / Dashboard | ✅ migrada `--m3-*` (parcial) | — |
 | Elenco | ✅ migrada `--m3-*` | PlayerCard formalizado (`S3-DS20-S4-PREP-002`, ver §3) — `playerRow()` agora tem contrato documentado |
-| Login / Entrada | ❌ `--brd-*` (legado) | — |
+| Login / Entrada | ✅ migrada `--m3-*` (achado de `S4-B2-002`, ver §5) | Estado real desta linha estava desatualizado — inspeção encontrou a tela do Modo Técnico (`#screenLoginRequired`) já 100% migrada por refatoração anterior, não `.auth-gate`/`--brd-*` como aqui registrado. `.auth-gate` continua existindo, mas é exclusivo do site principal (`index.html`) — telas comprovadamente separadas |
 | Loading / Bootstrap | ✅ migrada `--m3-*` (`S4-B2-001`) | Skeleton avaliado e não usado (sem formato de conteúdo conhecido nas 3 transições desta tela — ver relatório); spinner já migrado é o "indicador definido pelo Design System" alternativo previsto pela matriz |
 | Perfil do jogador | ❌ `.ct-modal-*` (legado) | overlay vira `.m3-dialog` assim que `S3-DS20-S4-PREP-001` for aprovada (é o próprio ponto de validação dessa demanda) — mas isso NÃO formaliza o PlayerCard nem migra o resto da tela pros tokens `--m3-*`, só o container do modal |
 | Tática / Formação | ❌ `--mt-*` (legado) | — |
 | Treino | ❌ `--mt-*` (legado) | — |
 
-**4 de 8 (50%) migradas.**
+**5 de 8 (62%) migradas** (Escolha do clube, Início, Elenco, Login,
+Loading/Bootstrap — `S4-B2-001`/`S4-B2-002` mescladas em `main`).
 
 Batch 3 — Transactional (4 telas, todas P0)
 
@@ -166,18 +167,22 @@ for paga agora, antes de replicar o padrão ad hoc em mais telas.
 3. **Completar Batch 2** — migrar Login, Bootstrap, Perfil do jogador,
    Tática, Treino (5 telas), reutilizando Dialog (item 1) e PlayerCard
    (item 2) onde aplicável.
-   - Item 1: **Loading/Bootstrap** (`S4-B2-001`). **Concluída** — tokens
-     migrados nos 3 estados (carregamento/erro/conclusão); Skeleton
-     avaliado e não usado (sem formato de conteúdo conhecido nas 3
-     transições desta tela — decisão registrada no relatório técnico),
-     spinner já migrado cobre o "indicador definido pelo Design System"
-     alternativo que a matriz também permite.
-   - Item 2: **Login/Entrada** (`S4-B2-002`, status `PRONTO PARA
-     IMPLEMENTAÇÃO`) — independente de PlayerCard, sem regra de
-     negócio de jogo, mas com um risco próprio: pode ser compartilhada
-     com outras partes do produto além do Modo Técnico — confirmar
-     escopo de compartilhamento antes de migrar é requisito da
-     demanda, não opcional.
+   - Item 1: **Loading/Bootstrap** (`S4-B2-001`). **Concluída e
+     APROVADA, mesclada em `main`** — tokens migrados nos 3 estados
+     (carregamento/erro/conclusão); Skeleton avaliado e não usado (sem
+     formato de conteúdo conhecido nas 3 transições desta tela —
+     decisão registrada no relatório técnico), spinner já migrado
+     cobre o "indicador definido pelo Design System" alternativo que a
+     matriz também permite.
+   - Item 2: **Login/Entrada** (`S4-B2-002`). **Concluída e APROVADA,
+     mesclada em `main`, sem mudança de código**: inspeção encontrou a
+     tela (`#screenLoginRequired`) já 100% migrada pros tokens
+     `--m3-*` por refatoração anterior, e confirmou que ela é
+     estrutura própria (`.mt-*`), sem compartilhamento nenhum com
+     `.auth-gate` (exclusivo do site principal) — o risco de
+     compartilhamento citado originalmente não se confirmou. Teste
+     novo travando essa evidência contra regressão futura
+     (`tests/e2e/test_s4_b2_002_login.js`).
    - Item 3: **Tática/Formação** (`S4-B2-003`, status `PRONTO PARA
      IMPLEMENTAÇÃO`) — tela interativa, mais complexa que as duas
      anteriores; possível dependência não confirmada do PlayerCard
