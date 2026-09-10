@@ -63,15 +63,14 @@ Batch 3 — Transactional (4 telas, todas P0)
 |---|---|---|
 | Mercado | ✅ migrada `--m3-*` (`S4-B3-002`) | Cada linha usa o TransferCard (`transferCardHTML()`, `S4-B3-001`) no lugar do antigo `.mt-market-row` ad hoc — mesma informação/ações, componente nomeado. `.mt-btn-loan`/`.mt-btn-sell` migrados junto (`--mt-ink-muted`/`--mt-crimson-400` → `--m3-on-surface-variant`/`--m3-error`) |
 | Negociação / Proposta | ✅ migrada `--m3-*` (`S4-B3-003`) | "Fazer proposta" virou Dialog dinâmico (`openM3Dialog()`) no lugar do `#offerOverlay` estático. "Minhas propostas" usa TransferCard no lugar de `.mt-sponsor-proposal-row`. **Achado e corrigido nesta demanda: bug crítico pré-existente** que desde `S3-DS20-S4-PREP-001` deixava `--mt-*` TODO Dialog/Bottom Sheet sem `position:fixed`/`z-index` de verdade (um comentário CSS continha sem querer a sequência de fechamento de comentário no meio do texto) — ver `docs/HANDOFF_CLAUDE.md` (`S4-B3-003`) para o detalhe técnico completo |
-| Contratos | 🟡 tela criada, em revisão do PM (`S4-B3-004`) | ContractCard (`S4-B3-001`) integrado numa tela nova (não existia — confirmado por inspeção com evidência: grep completo por "contrato", painel Clube inteiro, árvore inteira do menu). PM decidiu (opção 1: criar do zero); implementada em `claude/s4-b3-004-contratos`, aguardando aprovação antes do merge em `main` — ver `docs/HANDOFF_CLAUDE.md` |
+| Contratos | ✅ criada do zero e mesclada em `main` (`S4-B3-004`) | Tela nova (`#contratosOverlay`, aberta por "☰ Equipe & Treinos" → "📄 Contratos"), decisão do PM (opção 1) depois de confirmado por inspeção que a tela não existia. 1 ContractCard (`S4-B3-001`) por jogador com contrato ativo (exclui emprestados), ordenado por proximidade do vencimento, filtro Todos/Vencendo. Ações 100% reaproveitadas, nenhuma regra nova: Renovar (`openRenewModal`/`proposeRenewal`) e Dispensar (`handlePlayerAction`, mesma mutação do Perfil) — ver `docs/HANDOFF_CLAUDE.md` (`S4-B3-004`) pro relatório completo |
 | Resumo da rodada | ❌ `--mt-*` (legado) | MatchCard e FinancialSummary disponíveis e mesclados em `main` (`S4-B3-005`) — tela em si ainda sem demanda própria de migração |
 
-**3 de 4 (75%) migradas e mescladas em `main`** (Mercado, Negociação/
-Proposta, e o pré-requisito de componentes pra Resumo da rodada).
-Contratos tem tela implementada mas ainda em branch própria, aguardando
-revisão do PM (`S4-B3-004`) — com essa aprovação, o Batch 3 fecha por
-completo exceto a migração de Resumo da rodada em si (que segue sem
-demanda própria aberta).
+**4 de 4 (100%) migradas/criadas e mescladas em `main`** (Mercado,
+Negociação/Proposta, Contratos, e o pré-requisito de componentes pra
+Resumo da rodada). **Batch 3 (Transactional) fechado por completo**
+exceto a migração de Resumo da rodada em si (que segue sem demanda
+própria aberta).
 
 Batch 4 — Complementary (7 telas, todas P1)
 
@@ -102,7 +101,7 @@ específico de 1-2 telas:
 | MatchCard | Início/Dashboard, Resumo da rodada | **Componente disponível (`S4-B3-005`)** — `matchCardHTML()` em `carreira.js`, contrato documentado. Construído NOVO (não retroativo): inspeção encontrou 2 candidatos ad hoc, nenhum adequado sozinho (`#nextMatchBox` só cobre "próxima"; `.ct-round-result-row`, duplicado em 4 lugares do arquivo, só cobre "encerrada") — nenhum candidato único cobre os 5 estados da especificação, e o motor de partidas atual só produz 2 desses 5 de verdade ("próxima"/"encerrada"; "andamento"/"adiada"/"cancelada" são suportados pelo componente mas sem produtor real hoje). Nenhuma tela migrada nesta demanda |
 | LeagueTable | Início/Dashboard, Histórico | Não migrada — segue tabela HTML tradicional |
 | TransferCard | Mercado, Negociação | **Resolvido e mesclado em `main`**: componente criado em `S4-B3-001`, integrado de verdade em Mercado (`S4-B3-002`) e Negociação/Proposta (`S4-B3-003`) |
-| ContractCard | Contratos | **Componente disponível (`S4-B3-001`)** — `contractCardHTML()` em `carreira.js`, contrato documentado. Divergência maior: a tela "Contratos" (Tela 16 da matriz) **não existe no app hoje** — só há pontos isolados (tag "fim de contrato" no Elenco, modal de renovação a partir do Perfil). `S4-B3-004` **bloqueada** por causa disso — migrar pressupõe uma tela existente, e não há nenhuma; decisão do PM pendente antes de prosseguir (ver `docs/HANDOFF_CLAUDE.md`) |
+| ContractCard | Contratos | **Resolvido por `S4-B3-004`** — `contractCardHTML()` (`S4-B3-001`) agora com ponto de uso real: a tela Contratos, criada do zero por decisão do PM depois que a inspeção confirmou que ela não existia no app (tag "fim de contrato" no Elenco, modal de renovação no Perfil eram os únicos pontos isolados), mesclada em `main` — ver `docs/HANDOFF_CLAUDE.md` |
 | FinancialSummary | Início/Dashboard, Resumo da rodada | **Resolvido por `S4-B3-005`** (formalização retroativa, mesmo caminho de PlayerCard) — o card "Financeiro" de `renderCentral()` (Início/Dashboard) já cobre saldo/variações/indicadores da especificação; contrato documentado como comentário acima do bloco em `carreira.js` (composição inline, sem função própria extraída — mudança estrutural ficaria fora do escopo de uma formalização). Nenhuma mudança visual/funcional |
 
 **O risco concreto:** o precedente já aconteceu 3 vezes (Elenco,
@@ -221,11 +220,9 @@ for paga agora, antes de replicar o padrão ad hoc em mais telas.
    - Item 3: **Negociação/Proposta** (`S4-B3-003`) — **concluída e
      mesclada em `main`** (usa TransferCard + Dialog; achou e corrigiu
      de quebra o bug crítico de z-index do Dialog/Bottom Sheet).
-   - Item 4: **Contratos** (`S4-B3-004`) — **implementada, aguardando
-     revisão do PM**: tela criada do zero (decisão do PM depois de
-     bloqueada por inspeção — ver §2/§3 acima e
-     `docs/HANDOFF_CLAUDE.md`), branch `claude/s4-b3-004-contratos`,
-     ainda não mesclada em `main`.
+   - Item 4: **Contratos** (`S4-B3-004`) — **concluída e mesclada em
+     `main`**: tela criada do zero (decisão do PM depois de bloqueada
+     por inspeção — ver §2/§3 acima e `docs/HANDOFF_CLAUDE.md`).
    - Item 5: **Inspecionar/formalizar MatchCard e FinancialSummary**
      (`S4-B3-005`) — **concluída e mesclada em `main`** (MatchCard
      construído novo, FinancialSummary formalizado retroativamente).
