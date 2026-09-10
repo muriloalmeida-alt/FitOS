@@ -2933,6 +2933,10 @@
              que sempre o melhor time estará em campo") — ver
              openCommissionScreen/carreira.js. -->
         <button class="mt-topbar-menu-item" id="btnOpenCommission">🧑‍💼 Comissão Técnica</button>
+        <!-- S4-B3-004 (tela criada do zero, decisão do PM — issue #20):
+             visão consolidada de todos os contratos do elenco, usando o
+             ContractCard (S4-B3-001). Ver openContratosScreen/carreira.js. -->
+        <button class="mt-topbar-menu-item" id="btnOpenContratos">📄 Contratos</button>
         <button class="mt-topbar-menu-item" id="btnOpenTreinos">🏋️ Treinos</button>
         <!-- Bloco 6 (mockups brtreinadorbloco6base.html/
              brtreinadorbloco6pendentes.html) — olheiros contratáveis que
@@ -3982,6 +3986,39 @@
     </div>
     <div class="ct-modal-footer">
       <button class="mt-btn-ghost" id="btnMyOffersCloseFooter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>Fechar</button>
+    </div>
+  </div>
+</div>
+
+<!-- S4-B3-004 (issue #20 — "criar a tela Contratos do zero", decisão do
+     PM depois de S4-B3-004 ter sido bloqueada por essa tela não existir
+     no app: ver docs/HANDOFF_CLAUDE.md). Visão consolidada, cross-elenco,
+     de todos os contratos ativos do clube (exclui emprestados — o
+     contractUntil deles é do clube dono, não seu) — usando o
+     ContractCard (contractCardHTML(), S4-B3-001). Diferente do Elenco
+     (tag isolada por jogador) e do Perfil do jogador (1 contrato de cada
+     vez): aqui é gestão do elenco inteiro numa tela só. Nenhuma regra de
+     contrato nova — só consome o que já existe (computeContractFields/
+     isContractExpiring/suggestedRenewalWage/proposeRenewal, e a mesma
+     ação "Dispensar" do Perfil) — ver renderContratos()/
+     openContratosScreen() em carreira.js. -->
+<div class="ct-modal-overlay ct-modal-fullscreen" id="contratosOverlay">
+  <div class="ct-modal">
+    <div class="ct-modal-header mt-fullheader">
+      <span class="ct-modal-icon">📄</span>
+      <div class="ct-modal-header-text">
+        <h3>Contratos</h3>
+        <div class="ct-modal-sub" id="contratosCountLabel"></div>
+      </div>
+      <button class="ct-modal-close" id="contratosClose">✕</button>
+    </div>
+    <div class="ct-modal-body">
+      <div class="mt-seg-group" id="contratosFilterRow">
+        <button type="button" class="mt-seg-btn active" data-contratosfilter="todos">Todos</button>
+        <button type="button" class="mt-seg-btn" data-contratosfilter="vencendo">Vencendo</button>
+      </div>
+      <div id="contratosList" style="margin-top:10px;"></div>
+      <p class="ct-empty hidden" id="contratosEmpty">Nenhum contrato ativo no elenco.</p>
     </div>
   </div>
 </div>
