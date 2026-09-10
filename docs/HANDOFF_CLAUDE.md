@@ -1914,10 +1914,136 @@ acontecendo, não pra travar o fluxo até rodar.
 
 ⸻
 
+DOCS-REQ-001 — Povoar docs/requirements/ com regras vigentes migradas de docs/sprints/
+
+Status: PRONTO PARA IMPLEMENTAÇÃO
+Sprint: transversal (governança documental, não pertence à S4)
+Prioridade: P2
+
+Objetivo
+
+`docs/requirements/{functional,technical,game-design,ui-ux}/` existem
+desde a reorganização de 09/09/2026 mas estão 100% vazias (só README
+placeholder em cada uma) — hoje não existe nenhuma "regra de negócio
+vigente" centralizada; tudo que é regra de produto está espalhado em
+`docs/sprints/S2/` e `S3/` (registro histórico) e no código. Esta
+demanda migra pra `docs/requirements/` o conteúdo desses documentos
+que ainda é regra vigente, organizado por tipo.
+
+Contexto
+
+Achado registrado em `docs/project/DIAGNOSTICO_2026-09-09.md` §5 item 1
+(recomendação #4) e confirmado nesta sessão a pedido do Murilo, ao
+avaliar `docs/` por completo em busca de lacunas. `docs/README.md` já
+documenta a diferença de propósito entre as duas pastas: `sprints/` é
+registro imutável ("o que foi decidido na S3"), `requirements/` é a
+regra vigente atualizada ("o que o sistema deve fazer hoje"). O mesmo
+`docs/README.md` também registra uma lição de critério relevante aqui:
+`S4_REQUISITOS_VIGENTES.md` chegou a `docs/requirements/ui-ux/` por
+engano em 09/09/2026 e foi movido pra `docs/sprints/S4/` no dia
+seguinte, por ser majoritariamente estado de execução da Sprint, não
+regra permanente — o mesmo cuidado de classificação vale aqui.
+
+Problema
+
+Sem `docs/requirements/` povoado, "qual é a regra vigente sobre X" só
+tem resposta procurando na Sprint certa (ou lendo o código) — funciona
+hoje porque o projeto é pequeno, mas é o maior risco de escala
+documental identificado no diagnóstico.
+
+Escopo
+
+Para cada um dos 4 tipos, revisar `docs/sprints/S2/S2_GDD.md`,
+`S2_GDD_TECNICO.md`, `S2_GAME_ENGINE_SPEC.md` e
+`docs/sprints/S3/S3_DS20_FUNDACAO_EXECUTAVEL.md`,
+`S3_2_COMPONENTES_E_CONTRATOS.md`, extrair o que ainda é regra vigente
+(não invalidado por decisão posterior — ex.: a S3.2.7 Readiness Review
+já achou divergências entre a S3.1/S3.2 e a implementação real, que
+precisam ser refletidas como "vigente = o que foi decidido, com nota
+de divergência conhecida", não reescritas silenciosamente) e organizar:
+
+* `functional/` — visão de produto e loop de jogo (do GDD);
+* `technical/` — arquitetura, dados, responsabilidades técnicas (do
+  GDD Técnico e Game Engine Spec);
+* `game-design/` — mecânicas, balanceamento, progressão, economia (do
+  GDD e Game Engine Spec);
+* `ui-ux/` — M3/BRDATA DS: tokens, componentes, contratos (dos
+  documentos S3), reconciliado com os achados reais da S3.2.7 Readiness
+  Review (`docs/sprints/S3/S3_2_7_READINESS.md`) — não repetir a
+  especificação original como se já estivesse implementada.
+
+Fora de escopo
+
+* alterar o conteúdo de `docs/sprints/` (permanece registro histórico
+  imutável — isto é migração/extração, não movimentação; os originais
+  continuam onde estão);
+* decidir ou mudar qualquer regra de produto — só organizar o que já
+  foi decidido e continua vigente;
+* qualquer alteração de código;
+* resolver a duplicação `ROADMAP.md`/`PROJECT_CONTEXT.md` (achado
+  separado do mesmo diagnóstico, não faz parte desta demanda).
+
+Documentação relacionada
+
+* docs/README.md (regras de governança, definição de cada pasta)
+* docs/project/DIAGNOSTICO_2026-09-09.md §5 e §7 (recomendação #4)
+* docs/sprints/S2/ (GDD, GDD Técnico, Game Engine Spec)
+* docs/sprints/S3/ (fundação DS 2.0, componentes e contratos, S3.2.7 Readiness Review)
+
+Dependências
+
+Nenhuma bloqueante — pode rodar em paralelo à S4, não depende de
+nenhuma das demandas `S4-B2-*`/`S4-B3-*`/`S4-AUDIT-BACKLOG-001`.
+
+Requisitos
+
+Mesma sequência obrigatória de sempre: inspecionar → localizar →
+entender → planejar → alterar (só em `docs/`) → revisar. Cada
+documento novo deve citar de onde veio (ex.: "extraído de
+`docs/sprints/S2/S2_GDD.md` §X") para manter rastreabilidade.
+
+Critérios de aceite
+
+* as 4 subpastas de `docs/requirements/` deixam de estar vazias
+  (cada uma com pelo menos o conteúdo estável e não-controverso do
+  respectivo tipo);
+* nenhuma regra migrada contradiz um achado já registrado (ex.:
+  `ui-ux/` não pode descrever o DS como unificado quando a S3.2.7 já
+  achou 3 sistemas paralelos — isso precisa aparecer como divergência
+  conhecida, não ser omitido);
+* `docs/sprints/` permanece intocado;
+* `docs/README.md` atualizado se a descrição de `docs/requirements/`
+  precisar refletir que deixou de estar vazia.
+
+Validações
+
+O PM (ou o Murilo, dado que está absorvendo esse papel nesta sessão)
+deverá validar: se a classificação vigente vs. histórico está correta
+em cada documento migrado, se as divergências conhecidas (S3.2.7)
+foram preservadas, e se nada de `docs/sprints/` foi alterado.
+
+Riscos
+
+* baixo/médio — é trabalho só de `docs/`, mas exige julgamento (o
+  mesmo tipo de erro de classificação já registrado com
+  `S4_REQUISITOS_VIGENTES.md` pode se repetir se a extração for
+  apressada).
+
+Observações
+
+Registrada a pedido explícito do Murilo nesta sessão, depois de uma
+avaliação completa de `docs/` em busca de lacunas. Diferente das
+demandas de código da S4, esta é 100% chapéu PM (só escreve dentro de
+`docs/`) — pode ser implementada por esta mesma sessão ou por qualquer
+outra, sem risco de colidir com o trabalho de código da S4 em
+andamento.
+
+⸻
+
 Histórico
 
 Demanda	Data	Commit	Changelog
-S3-DS20-S4-PREP-001 — Dialog/Bottom Sheet/Skeleton (`--m3-*`) + convergência de tokens	09/09/2026	merge de `claude/s4-prep-001-tokens-components` em `main` (commit de código original `4d80d99`)	docs/project/CHANGELOG.md (a atualizar)
+S3-DS20-S4-PREP-001 — Dialog/Bottom Sheet/Skeleton (`--m3-*`) + convergência de tokens	09/09/2026	merge de `claude/s4-prep-001-tokens-components` em `main` (commit de código original `4d80d99`)	docs/project/CHANGELOG.md — atualizado em 10/09/2026 (entrada 2026-09-09, commit `8dcff10`)
 
 APROVADO pelo Murilo em 09/09/2026. Relatório técnico completo (o que
 foi implementado, testes, gaps, arquivos avaliados/alterados) fica
@@ -1933,7 +2059,7 @@ integração em `main` do que já estava implementado, testado e
 revisado na branch. A instrução geral de "não mexer em código" desta
 sessão continua valendo pra qualquer outra alteração.
 
-S3-DS20-S4-PREP-002 — Formalizar PlayerCard (`playerRow()`), retroativo em Elenco	09/09/2026	merge de `claude/s3-ds20-s4-prep-002` em `main` (commit de código original `1998f02`)	docs/project/CHANGELOG.md (a atualizar)
+S3-DS20-S4-PREP-002 — Formalizar PlayerCard (`playerRow()`), retroativo em Elenco	09/09/2026	merge de `claude/s3-ds20-s4-prep-002` em `main` (commit de código original `1998f02`)	docs/project/CHANGELOG.md — atualizado em 10/09/2026 (entrada 2026-09-09, commit `95fc77e`)
 
 APROVADO pelo Murilo em 09/09/2026. Relatório técnico completo (o que
 foi implementado — mudança puramente documental, zero comportamento
