@@ -1,11 +1,11 @@
 # requirements/ui-ux/
 
 Requisitos de interface e experiência, incluindo aderência ao Material
-Design 3 e ao BRDATA Design System.
+Design 3 e ao BRDATA Design System. Vazia até o primeiro documento
+chegar — ver `docs/requirements/README.md`.
 
-- `S4_REQUISITOS_VIGENTES.md` — estado real verificado por tela para o
-  redesign mobile (S4), gaps identificados além do que
-  `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` previa, e ordem de
-  execução refinada. Complementa a matriz original (que continua sendo
-  a referência completa de objetivo/requisitos/estados por tela) — não
-  a substitui.
+`S4_REQUISITOS_VIGENTES.md` viveu aqui entre 09/09/2026 e 10/09/2026 —
+foi movido para `docs/sprints/S4/` depois de uma correção de
+classificação: seu conteúdo era majoritariamente estado de execução da
+Sprint S4 (histórico/operacional, "o que foi decidido/especificado, e
+quando"), não regra de negócio/UX permanente e independente de Sprint.

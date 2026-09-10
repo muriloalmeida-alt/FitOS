@@ -54,7 +54,8 @@ mudar depois, o registro da Sprint não é reescrito, uma Sprint nova (ou
 - `S2/` — GDD, GDD Técnico e Game Engine Specification (concluída).
 - `S3/` — BRDATA Design System 2.0: fundação executável, componentes e
   contratos, matriz de telas mobile S4, S3.2.7 Readiness Review.
-- `S4/` — ainda não iniciada, ver `docs/sprints/S4/README.md`.
+- `S4/` — Redesign Mobile, em execução desde 09/09/2026, ver
+  `docs/sprints/S4/README.md`.
 
 ### docs/project/ — gestão e governança
 - `BRDATA_Auditoria_v1.0.md` — auditoria completa do código vs. especificação + roadmap de implementação (08/09/2026).
@@ -64,12 +65,15 @@ mudar depois, o registro da Sprint não é reescrito, uma Sprint nova (ou
 - `PROJECT_CONTEXT.md`, `ROADMAP.md` — contexto permanente e roadmap oficial do produto.
 
 ### docs/requirements/ — requisitos e regras de negócio vivos
-Ver `docs/requirements/README.md`. Primeiro documento chegou em
-09/09/2026: `ui-ux/S4_REQUISITOS_VIGENTES.md` (estado real por tela e
-gaps de componentes do redesign mobile, promovido a partir do registro
-histórico da S3 assim que a S4 começou a entrar em execução — ver regra
-de promoção logo abaixo). As demais subpastas seguem vazias até o
-próximo requisito ser revisitado como regra vigente.
+Ver `docs/requirements/README.md`. Ainda vazia (10/09/2026) — um
+primeiro documento (`ui-ux/S4_REQUISITOS_VIGENTES.md`) chegou aqui em
+09/09/2026 mas foi movido pra `docs/sprints/S4/` no dia seguinte: era
+majoritariamente estado de execução da Sprint S4 (histórico/
+operacional), não regra de negócio/UX permanente — classificação
+errada corrigida, não um exemplo de uso correto desta pasta. Fica como
+lição de critério: antes de colocar algo aqui, confirmar que é regra
+que sobrevive além da Sprint que a originou, não status de execução
+dela.
 
 ### docs/library/ — material de referência
 Ver `docs/library/README.md`. Vazia até o primeiro material chegar.

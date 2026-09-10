@@ -1,19 +1,32 @@
 # S4 — Requisitos Vigentes (Redesign Mobile)
-**Data:** 09/09/2026
+**Data:** 09/09/2026 (criado) · **relocado em 10/09/2026**
 **Autor:** Claude, de chapéu PM
-**Natureza:** este é o requisito **vigente** para a execução da S4 —
-complementa, não substitui, `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md`
-(o documento original, 954 linhas, que continua sendo a referência
-completa de objetivo/requisitos/estados por tela — não reescrito aqui).
-Este documento existe porque a matriz original foi escrita **antes** da
-S3.2.7 Readiness Review rodar, então seu quadro de prioridades não
-reflete o estado real do código. Aqui: o estado real verificado, um gap
-adicional que a matriz original não previa, e a ordem de execução
-refinada a partir disso.
+**Natureza:** o estado de execução vivo da Sprint S4 — estado real por
+tela, gaps encontrados, ordem de execução e status de cada demanda —
+não substitui `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (o
+documento original, 954 linhas, que continua sendo a referência
+completa de objetivo/requisitos/estados por tela — não reescrito
+aqui).
+
+**Nota de relocação (10/09/2026):** este documento vivia em
+`docs/requirements/ui-ux/`, por ter sido tratado inicialmente como
+"regra de negócio vigente" (ver §1 abaixo, preservado como histórico
+do raciocínio original). O Murilo apontou a classificação errada: o
+conteúdo predominante daqui — estado por tela, ordem de execução,
+status/ID de demanda — é histórico e operacional da própria Sprint S4
+("o que foi decidido/especificado, e quando", exatamente a definição
+de `docs/sprints/S<n>/` em `docs/README.md`), não uma regra de
+negócio/UX permanente e independente de Sprint (`docs/requirements/`).
+Movido pra cá em consequência. Se algo aqui um dia se mostrar uma
+regra realmente permanente e não específica da S4 (candidato natural:
+a regra de DoD do §4, sobre Product Patterns precisarem de contrato
+formal — pode valer além desta Sprint), promovê-la de volta pra
+`docs/requirements/` é decisão de governança separada, não feita
+agora.
 
 ⸻
 
-## 1. Por que este documento existe
+## 1. Por que este documento existe (raciocínio original, 09/09/2026 — ver nota de relocação acima)
 
 A regra de governança (`docs/README.md` §"docs/requirements/") diz que
 quando um requisito de Sprint (`docs/sprints/`) se torna regra vigente

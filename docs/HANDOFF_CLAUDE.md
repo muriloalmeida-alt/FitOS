@@ -696,7 +696,7 @@ Chapéu implementador deve, quando retomar esta demanda:
    aparece, pra onde leva) — este é um redesign visual/de apresentação,
    não uma mudança de fluxo.
 6. Testar (mobile-first, mesmo padrão das demandas anteriores).
-7. Atualizar `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`
+7. Atualizar `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`
    marcando esta tela como migrada.
 8. Retornar relatório técnico nesta mesma seção do handoff, status
    `REVISÃO DO PM NECESSÁRIA`.
@@ -717,7 +717,7 @@ Dependências
   componente Skeleton disponíveis).
 * `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 2 — objetivo e
   requisitos).
-* `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`.
+* `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`.
 
 Requisitos
 
@@ -807,7 +807,7 @@ Chapéu implementador deve, quando retomar esta demanda:
    validações, mensagens de erro) — redesign visual, não mudança de
    fluxo.
 6. Testar (mobile-first, mesmo padrão das demandas anteriores).
-7. Atualizar `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`
+7. Atualizar `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`
    marcando esta tela como migrada.
 8. Retornar relatório técnico nesta mesma seção do handoff, status
    `REVISÃO DO PM NECESSÁRIA`.
@@ -830,7 +830,7 @@ Dependências
   componentes disponíveis).
 * `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 1 — objetivo e
   requisitos).
-* `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`.
+* `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`.
 
 Requisitos
 
@@ -923,7 +923,7 @@ Chapéu implementador deve, quando retomar esta demanda:
    de posições, etc.) — redesign visual, não mudança de regra de jogo.
 6. Testar (mobile-first, mesmo padrão das demandas anteriores),
    cobrindo interação com a representação do campo.
-7. Atualizar `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`
+7. Atualizar `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`
    marcando esta tela como migrada.
 8. Retornar relatório técnico nesta mesma seção do handoff, status
    `REVISÃO DO PM NECESSÁRIA`.
@@ -949,7 +949,7 @@ Dependências
   componentes disponíveis).
 * `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 9 — objetivo e
   requisitos).
-* `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`.
+* `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`.
 * Possível dependência de `S3-DS20-S4-PREP-002` — a confirmar na
   inspeção (ver Contexto acima), não presumida.
 
@@ -1041,7 +1041,7 @@ Chapéu implementador deve, quando retomar esta demanda:
    de impacto, evolução) — redesign visual, não mudança de regra de
    jogo.
 6. Testar (mobile-first, mesmo padrão das demandas anteriores).
-7. Atualizar `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`
+7. Atualizar `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`
    marcando esta tela como migrada e o Batch 2 como completo (exceto
    Perfil do jogador).
 8. Retornar relatório técnico nesta mesma seção do handoff, status
@@ -1063,7 +1063,7 @@ Dependências
   componentes disponíveis).
 * `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 13 — objetivo e
   requisitos).
-* `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`.
+* `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`.
 * Possível dependência de `S3-DS20-S4-PREP-002` — a confirmar na
   inspeção (ver Contexto acima), não presumida.
 
@@ -1160,7 +1160,7 @@ Chapéu implementador deve, quando retomar esta demanda:
    tela hoje — ex.: promover, renovar, o que a inspeção encontrar)
    — redesign visual, não mudança de regra.
 6. Testar (mobile-first, mesmo padrão das demandas anteriores).
-7. Atualizar `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`
+7. Atualizar `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`
    marcando esta tela como migrada e o Batch 2 (Core) como
    completo.
 8. Retornar relatório técnico nesta mesma seção do handoff, status
@@ -1184,7 +1184,7 @@ Dependências
   bloqueava esta demanda, agora resolvida).
 * `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 7 — objetivo e
   requisitos).
-* `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`.
+* `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`.
 
 Requisitos
 
@@ -1283,7 +1283,7 @@ Chapéu implementador deve, quando retomar esta demanda:
    Bottom Sheet/Skeleton em `S3-DS20-S4-PREP-001`, que também não
    tinham integração em tela real na mesma demanda) — a integração
    real acontece nas demandas seguintes (`S4-B3-002`/`003`/`004`).
-7. Atualizar `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`
+7. Atualizar `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`
    marcando os 2 componentes como disponíveis.
 8. Retornar relatório técnico nesta mesma seção do handoff, status
    `REVISÃO DO PM NECESSÁRIA`.
@@ -1305,7 +1305,7 @@ Dependências
   Dialog/Bottom Sheet/Skeleton disponíveis).
 * `docs/sprints/S3/S3_2_COMPONENTES_E_CONTRATOS.md` §26 (TransferCard),
   §27 (ContractCard).
-* `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`.
+* `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`.
 
 Requisitos
 
@@ -1338,7 +1338,7 @@ Observações
 
 **Resumo da rodada fica deliberadamente fora desta rodada de demandas
 do Batch 3** — depende de MatchCard/FinancialSummary, que
-`docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md` §5 (item 2b) já
+`docs/sprints/S4/S4_REQUISITOS_VIGENTES.md` §5 (item 2b) já
 registra como "candidatos identificados mas não inspecionados o
 suficiente pra virar demanda" (mesmo problema não resolvido desde a
 especificação do Batch 2). Essa tela vira demanda só depois dessa
@@ -1387,7 +1387,7 @@ Chapéu implementador deve, quando retomar esta demanda:
 6. Preservar o comportamento funcional (regras de mercado, filtros,
    busca) — redesign visual, não mudança de regra.
 7. Testar (mobile-first, mesmo padrão das demandas anteriores).
-8. Atualizar `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`
+8. Atualizar `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`
    marcando esta tela como migrada.
 9. Retornar relatório técnico nesta mesma seção do handoff, status
    `REVISÃO DO PM NECESSÁRIA`.
@@ -1408,7 +1408,7 @@ Dependências
 * `S4-B3-001` (TransferCard) — bloqueante, precisa estar concluída.
 * `S3-DS20-S4-PREP-001` (aprovada, concluída).
 * `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 14).
-* `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`.
+* `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`.
 
 Requisitos
 
@@ -1485,7 +1485,7 @@ Chapéu implementador deve, quando retomar esta demanda:
    validações, cálculo de proposta) — redesign visual, não mudança de
    regra.
 6. Testar (mobile-first, mesmo padrão das demandas anteriores).
-7. Atualizar `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`
+7. Atualizar `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`
    marcando esta tela como migrada.
 8. Retornar relatório técnico nesta mesma seção do handoff, status
    `REVISÃO DO PM NECESSÁRIA`.
@@ -1505,7 +1505,7 @@ Dependências
 * `S4-B3-001` (TransferCard) — bloqueante, precisa estar concluída.
 * `S3-DS20-S4-PREP-001` (Dialog) — aprovada, concluída.
 * `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 15).
-* `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`.
+* `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`.
 
 Requisitos
 
@@ -1580,7 +1580,7 @@ Chapéu implementador deve, quando retomar esta demanda:
 6. Preservar o comportamento funcional (regras de contrato, renovação,
    rescisão) — redesign visual, não mudança de regra.
 7. Testar (mobile-first, mesmo padrão das demandas anteriores).
-8. Atualizar `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`
+8. Atualizar `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`
    marcando esta tela como migrada.
 9. Retornar relatório técnico nesta mesma seção do handoff, status
    `REVISÃO DO PM NECESSÁRIA`.
@@ -1600,7 +1600,7 @@ Dependências
 * `S4-B3-001` (ContractCard) — bloqueante, precisa estar concluída.
 * `S3-DS20-S4-PREP-001` (aprovada, concluída).
 * `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 16).
-* `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`.
+* `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`.
 
 Requisitos
 
@@ -1659,7 +1659,7 @@ Contexto
 
 Esta lacuna já foi identificada 2 vezes sem ser resolvida:
 
-* na refinação de `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`
+* na refinação de `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`
   (§3-4), que registrou candidatos possíveis — uma classe/estilo
   associado a confronto direto entre clubes (encontrado dentro de uma
   função de "H2H"/histórico de confrontos) pra MatchCard, e uma função
@@ -1707,7 +1707,7 @@ Chapéu implementador deve, quando retomar esta demanda:
 6. Validar via teste automatizado direto (mesmo padrão de
    `S4-B3-001`/Bottom Sheet/Skeleton — sem integração em tela real
    nesta demanda).
-7. Atualizar `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`
+7. Atualizar `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`
    marcando os 2 componentes como resolvidos (e removendo o item 2b
    como pendência).
 8. Retornar relatório técnico nesta mesma seção do handoff, incluindo
@@ -1733,7 +1733,7 @@ Dependências
 * `S3-DS20-S4-PREP-001` (aprovada, concluída).
 * `docs/sprints/S3/S3_2_COMPONENTES_E_CONTRATOS.md` §24 (MatchCard),
   §28 (FinancialSummary).
-* `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md` §3-5.
+* `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md` §3-5.
 
 Requisitos
 
@@ -1870,7 +1870,7 @@ Dependências
   real (branch/commit/PR) pra esta auditoria fazer sentido; se nenhuma
   tiver, o resultado é só confirmar que todas as specs continuam
   válidas, sem muito mais a fazer.
-* `docs/requirements/ui-ux/S4_REQUISITOS_VIGENTES.md`.
+* `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`.
 
 Requisitos
 
