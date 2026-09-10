@@ -51,7 +51,7 @@ const { chromium } = require("playwright-core");
   await page.waitForTimeout(400);
   const marketVisible = await page.evaluate(() => {
     const p = document.getElementById("panel-mercado");
-    return p.classList.contains("active") && getComputedStyle(p).display !== "none" && p.querySelectorAll(".mt-market-row").length > 0;
+    return p.classList.contains("active") && getComputedStyle(p).display !== "none" && p.querySelectorAll(".m3-op-card").length > 0;
   });
   console.log("3) Depois da animação, o painel continua ativo/visível com conteúdo de verdade:", marketVisible);
 

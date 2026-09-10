@@ -48,11 +48,11 @@ const { chromium } = require("playwright-core");
   await goToPanel("mercado");
   await page.waitForTimeout(200);
   const otherRow = await page.evaluate(() => {
-    const rows = [...document.querySelectorAll("#marketList .mt-market-row")];
+    const rows = [...document.querySelectorAll("#marketList .m3-op-card")];
     const idx = rows.findIndex((r) => r.querySelector("[data-buy]"));
     return idx;
   });
-  await page.click(`#marketList .mt-market-row:nth-child(${otherRow + 1}) .mt-market-info`);
+  await page.click(`#marketList .m3-op-card:nth-child(${otherRow + 1}) .m3-op-info`);
   await page.waitForTimeout(150);
   const marketPlayerName = await detailOpenWithName();
   console.log("1a) Mercado: nome do jogador de outro clube abre Perfil (somente leitura):", !!marketPlayerName, marketPlayerName);
@@ -63,7 +63,7 @@ const { chromium } = require("playwright-core");
   // 2) Mercado: nome do clube abre o elenco do clube
   await goToPanel("mercado");
   await page.waitForTimeout(150);
-  await page.click(`#marketList .mt-market-row:nth-child(${otherRow + 1}) .mt-market-club`);
+  await page.click(`#marketList .m3-op-card:nth-child(${otherRow + 1}) .m3-op-club`);
   await page.waitForTimeout(150);
   console.log("2) Mercado: nome do clube abre elenco (roster read-only):", !!(await clubRosterOpenWithName()));
   await closeAll();

@@ -43,7 +43,7 @@ const { chromium } = require("playwright-core");
   // 1) Sem filtro nenhum: começa em 40, mostra contador certo e o
   // botão "Carregar mais" aparece se o pool total for maior que 40.
   const initial = await page.evaluate(() => ({
-    rows: document.querySelectorAll("#marketList .mt-market-row").length,
+    rows: document.querySelectorAll("#marketList .m3-op-card").length,
     countText: document.getElementById("marketResultCount").textContent,
     loadMoreHidden: document.getElementById("btnMarketLoadMore").classList.contains("hidden"),
     clubOptions: document.getElementById("marketClubFilter").options.length,
@@ -57,7 +57,7 @@ const { chromium } = require("playwright-core");
   await page.click("#btnMarketLoadMore");
   await page.waitForTimeout(200);
   const afterMore = await page.evaluate(() => ({
-    rows: document.querySelectorAll("#marketList .mt-market-row").length,
+    rows: document.querySelectorAll("#marketList .m3-op-card").length,
     countText: document.getElementById("marketResultCount").textContent,
   }));
   console.log("2) Depois de 'Carregar mais', lista cresce (100 ou o total, o que for menor):", afterMore.rows > initial.rows, "| contador:", JSON.stringify(afterMore.countText));
@@ -66,7 +66,7 @@ const { chromium } = require("playwright-core");
   // início (não soma ao "carregado" anterior de um pool diferente).
   await page.selectOption("#marketPosFilter", "F");
   await page.waitForTimeout(200);
-  const afterPosFilter = await page.evaluate(() => document.querySelectorAll("#marketList .mt-market-row").length);
+  const afterPosFilter = await page.evaluate(() => document.querySelectorAll("#marketList .m3-op-card").length);
   console.log("3) Trocar filtro de posição reseta a paginação (<= 40 resultados de novo):", afterPosFilter <= 40);
   await page.selectOption("#marketPosFilter", "");
   await page.waitForTimeout(200);
@@ -78,10 +78,10 @@ const { chromium } = require("playwright-core");
   await page.selectOption("#marketClubFilter", clubValue);
   await page.waitForTimeout(200);
   const clubFilterOk = await page.evaluate((label) => {
-    const rows = [...document.querySelectorAll("#marketList .mt-market-tags .mt-market-club")];
+    const rows = [...document.querySelectorAll("#marketList .m3-op-tags .m3-op-club")];
     return rows.length > 0 && rows.every((el) => el.textContent.trim() === label.trim() || label.includes(el.textContent.trim()) || el.textContent.trim().length > 0);
   }, clubLabel);
-  const clubRowsCount = await page.evaluate(() => document.querySelectorAll("#marketList .mt-market-row").length);
+  const clubRowsCount = await page.evaluate(() => document.querySelectorAll("#marketList .m3-op-card").length);
   console.log(`4) Filtro de clube ("${clubLabel}") mostra só jogadores desse clube:`, clubFilterOk, "| linhas:", clubRowsCount);
   await page.selectOption("#marketClubFilter", "");
   await page.waitForTimeout(200);
@@ -103,7 +103,7 @@ const { chromium } = require("playwright-core");
   // filtros novos), combinada com o filtro de posição.
   await page.fill("#marketSearch", "a");
   await page.waitForTimeout(250);
-  const searchRows = await page.evaluate(() => document.querySelectorAll("#marketList .mt-market-row").length);
+  const searchRows = await page.evaluate(() => document.querySelectorAll("#marketList .m3-op-card").length);
   console.log("6) Busca por nome continua funcionando (tem resultado):", searchRows > 0);
   await page.fill("#marketSearch", "");
   await page.waitForTimeout(200);

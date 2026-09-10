@@ -1446,7 +1446,7 @@ do zero (e com que escopo) ou se a demanda precisa ser redefinida.
 
 S4-B3-002 — Migrar tela Mercado para o Design System novo
 
-Status: PRONTO PARA IMPLEMENTAÇÃO
+Status: REVISÃO DO PM NECESSÁRIA
 Sprint: S4 — Redesign Mobile
 Fase: Batch 3 (Transactional) — item 2 de 4
 Prioridade: P0
@@ -1540,6 +1540,89 @@ Observações
 Segunda e terceira telas recomendadas do Batch 3, depois desta:
 Negociação/Proposta (também usa TransferCard) e Contratos (usa
 ContractCard).
+
+Relatório técnico (implementação)
+
+Branch: `claude/s4-b3-002-mercado` (a partir de `claude/s4-b3-001-transfer-contract-card`,
+que ainda não foi mesclada em `main` — TransferCard é bloqueante de
+verdade, então esta branch parte de lá em vez de `main` puro, e vai
+carregar o merge de `S4-B3-001` até essa branch ser aprovada).
+
+1. Inspeção prévia
+
+* `renderMercado()`/`.mt-market-row` (ver relatório de `S4-B3-001`)
+  já estava quase inteiramente `--m3-*`; só `.mt-market-club`
+  (nome do clube, tag clicável), `.mt-market-detail`/`.mt-market-detail b`
+  (salário/valor) e as cores de `.mt-btn-loan`/`.mt-btn-sell` seguiam
+  legadas.
+* Verificado (checklist de coordenação, mesma preocupação registrada em
+  `S4-AUDIT-BACKLOG-001`): nenhuma branch/PR externo tocando Mercado —
+  `git branch -r`/`list_pull_requests` sem nenhum resultado relacionado
+  a `S4-B3-002`/Mercado além desta própria branch.
+
+2. Migração feita
+
+* Cada linha de `#marketList` agora é montada com `transferCardHTML()`
+  (`S4-B3-001`) no lugar do template `.mt-market-row` ad hoc — mesma
+  informação (badge de OVR, nome/clube clicáveis via `data-openplayer`/
+  `data-openclub`, chip de posição, selo de divisão numa carreira
+  "multi" — agora usa o slot `statusLabel`/`statusVariant:"neutral"`
+  do componente), mesmas ações (comprar/vender/emprestar/ver proposta/
+  ver anúncio, o HTML delas montado em `actionsHTML` sem nenhuma
+  mudança de comportamento) e mesma linha de detalhe (salário+valor,
+  usando o slot padrão do componente).
+* `.mt-market-row`/`.mt-market-top`/`.mt-market-info`/`.mt-market-name`/
+  `.mt-market-tags`/`.mt-market-club`/`.mt-market-detail`/
+  `.mt-market-actions-corner` removidas de `carreira.html` (confirmado
+  sem nenhum outro uso antes de remover).
+* `.mt-btn-loan`/`.mt-btn-sell` (ainda usados dentro do `actionsHTML`)
+  migrados: `--mt-ink-muted` → `--m3-on-surface-variant`, `--mt-crimson-400`
+  → `--m3-error` (mesmo padrão já repetido em `S4-B2-003/004/005`).
+* Nenhuma mudança em `allMarketPlayers()`, filtros, busca, paginação,
+  janela de transferências ou qualquer regra do Transfer Engine — só a
+  função que monta o HTML de cada linha.
+
+3. Teste-infra corrigida (efeito colateral esperado da renomeação de
+   classe, não um bug novo)
+
+* 7 arquivos de teste pré-existentes tinham seletor hardcoded pra
+  `.mt-market-row`/`.mt-market-info`/`.mt-market-club`/`.mt-market-tags`/
+  `.mt-market-actions-corner`: `test_loja_pagamento_real.js`,
+  `test_mercado2.js`, `test_mercado_filtros_ampliados.js`,
+  `test_mercado_multi_divisao.js`, `test_transicoes_suaves.js`,
+  `test_ux_nomes_clicaveis.js`. Atualizados pra `.m3-op-card`/
+  `.m3-op-info`/`.m3-op-club`/`.m3-op-tags`/`.m3-op-actions` — mesmo
+  tratamento dado a seletores de teste quebrados por uma renomeação de
+  classe intencional em `S4-B2-003` (`.mt-formation-chip` → `.m3-filter-chip`).
+
+4. Testes
+
+* Criado `tests/e2e/test_s4_b3_002_mercado.js` (5 checks): lista usa
+  `.m3-op-card` (zero `.mt-market-row` remanescente); card individual
+  com badge/nome/clube clicável/chip/detalhe (tokens computados);
+  clicar no nome continua abrindo o Perfil somente-leitura (Dialog);
+  busca continua filtrando; enviar proposta continua funcionando
+  (botão muda pra "pendente" depois de confirmar). **5 de 5 passaram.**
+* Regressão (todos os 7 arquivos corrigidos + mais 3): `test_mercado2.js`,
+  `test_mercado_filtros_ampliados.js` (7 checks), `test_mercado_multi_divisao.js`
+  (7 checks), `test_transicoes_suaves.js` (6 checks), `test_mercado_concorrencia.js`
+  (7 checks) — **100% passaram**. `test_mercado_negociacao.js` (1 check
+  RNG-dependente) e `test_colocar_a_venda.js` (1 check RNG-dependente)
+  e `test_loja_pagamento_real.js` (timeout numa 2ª sessão de browser,
+  antes até de chegar no Mercado) tiveram falhas — **todas as 3
+  reproduzidas de forma IDÊNTICA rodando os mesmos testes contra
+  `main` sem nenhuma alteração desta demanda** (`git stash` + re-run) —
+  confirmadas pré-existentes, não-relacionadas. `test_ux_nomes_clicaveis.js`:
+  mesmo gap conhecido de `openPlayerCard()`/`.m3-dialog` já documentado
+  desde `S4-B2-002` (não piorou, não melhorou — check 2, nome do clube,
+  continua passando).
+* `node -c public/js/carreira.js` sem erro de sintaxe.
+
+Resultado proposto: **APROVADO** — escopo cumprido, TransferCard
+integrado de verdade (não só criado), busca/filtros/proposta/venda/
+empréstimo testados e funcionando, nenhuma mudança de regra de
+mercado, nenhuma outra tela tocada. Depende do merge de `S4-B3-001`
+antes de poder ser mesclada por sua vez (branch já parte de lá).
 
 ⸻
 

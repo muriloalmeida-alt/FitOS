@@ -46,13 +46,16 @@ Batch 3 — Transactional (4 telas, todas P0)
 
 | Tela | Estado real | Observação |
 |---|---|---|
-| Mercado | ❌ `--mt-*` (legado) | precisa de TransferCard (não existe) |
-| Negociação / Proposta | ❌ `--mt-*` (legado) | precisa de Dialog (`S3-DS20-S4-PREP-001`) |
-| Contratos | ❌ `--mt-*` (legado) | precisa de ContractCard (não existe) |
+| Mercado | ✅ migrada `--m3-*` (`S4-B3-002`) | Cada linha usa o TransferCard (`transferCardHTML()`, `S4-B3-001`) no lugar do antigo `.mt-market-row` ad hoc — mesma informação/ações, componente nomeado. `.mt-btn-loan`/`.mt-btn-sell` migrados junto (`--mt-ink-muted`/`--mt-crimson-400` → `--m3-on-surface-variant`/`--m3-error`) |
+| Negociação / Proposta | ❌ `--mt-*` (legado) | TransferCard disponível (`S4-B3-001`); Dialog disponível (`S3-DS20-S4-PREP-001`) — migração em `S4-B3-003` |
+| Contratos | ❌ `--mt-*` (legado) | ContractCard disponível (`S4-B3-001`), mas a tela em si **não existe** — ver divergência registrada em `docs/HANDOFF_CLAUDE.md` (`S4-B3-001`/`S4-B3-004`), decisão do PM pendente antes de prosseguir |
 | Resumo da rodada | ❌ `--mt-*` (legado) | precisa de MatchCard/FinancialSummary (não existem) |
 
-**0 de 4 (0%) migradas — e é o batch com mais componentes formais
-ausentes, não só telas por migrar.**
+**1 de 4 (25%) migrada nesta contagem** (Mercado, ainda em branch
+própria — nenhuma mesclada em `main` ainda, mesma situação das
+demandas do Batch 2). Ainda é o batch com mais componentes formais
+ausentes (MatchCard/FinancialSummary, ver `S4-B3-005`), não só telas
+por migrar.
 
 Batch 4 — Complementary (7 telas, todas P1)
 
