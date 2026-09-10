@@ -63,14 +63,15 @@ Batch 3 — Transactional (4 telas, todas P0)
 |---|---|---|
 | Mercado | ✅ migrada `--m3-*` (`S4-B3-002`) | Cada linha usa o TransferCard (`transferCardHTML()`, `S4-B3-001`) no lugar do antigo `.mt-market-row` ad hoc — mesma informação/ações, componente nomeado. `.mt-btn-loan`/`.mt-btn-sell` migrados junto (`--mt-ink-muted`/`--mt-crimson-400` → `--m3-on-surface-variant`/`--m3-error`) |
 | Negociação / Proposta | ✅ migrada `--m3-*` (`S4-B3-003`) | "Fazer proposta" virou Dialog dinâmico (`openM3Dialog()`) no lugar do `#offerOverlay` estático. "Minhas propostas" usa TransferCard no lugar de `.mt-sponsor-proposal-row`. **Achado e corrigido nesta demanda: bug crítico pré-existente** que desde `S3-DS20-S4-PREP-001` deixava `--mt-*` TODO Dialog/Bottom Sheet sem `position:fixed`/`z-index` de verdade (um comentário CSS continha sem querer a sequência de fechamento de comentário no meio do texto) — ver `docs/HANDOFF_CLAUDE.md` (`S4-B3-003`) para o detalhe técnico completo |
-| Contratos | 🚫 BLOQUEADA (`S4-B3-004`) | ContractCard disponível (`S4-B3-001`). **Confirmado por inspeção com evidência (3 buscas independentes: grep completo por "contrato", painel Clube inteiro, árvore inteira do menu): a tela não existe** — só há pontos de contrato isolados por jogador (Elenco, Perfil). Não há "migração" possível sem uma decisão de produto prévia do PM (construir do zero / descartar / redirecionar o ContractCard pra outro lugar) — ver `docs/HANDOFF_CLAUDE.md` (`S4-B3-004`) pras 3 opções levantadas |
-| Resumo da rodada | ❌ `--mt-*` (legado) | MatchCard e FinancialSummary agora disponíveis (`S4-B3-005`) — tela em si ainda sem demanda própria de migração |
+| Contratos | 🟡 tela criada, em revisão do PM (`S4-B3-004`) | ContractCard (`S4-B3-001`) integrado numa tela nova (não existia — confirmado por inspeção com evidência: grep completo por "contrato", painel Clube inteiro, árvore inteira do menu). PM decidiu (opção 1: criar do zero); implementada em `claude/s4-b3-004-contratos`, aguardando aprovação antes do merge em `main` — ver `docs/HANDOFF_CLAUDE.md` |
+| Resumo da rodada | ❌ `--mt-*` (legado) | MatchCard e FinancialSummary disponíveis e mesclados em `main` (`S4-B3-005`) — tela em si ainda sem demanda própria de migração |
 
-**2 de 4 (50%) migradas nesta contagem** (Mercado, Negociação/Proposta —
-ambas ainda em branch própria, nenhuma mesclada em `main` ainda, mesma
-situação das demandas do Batch 2). Ainda é o batch com mais componentes
-formais ausentes (MatchCard/FinancialSummary, ver `S4-B3-005`), não só
-telas por migrar.
+**3 de 4 (75%) migradas e mescladas em `main`** (Mercado, Negociação/
+Proposta, e o pré-requisito de componentes pra Resumo da rodada).
+Contratos tem tela implementada mas ainda em branch própria, aguardando
+revisão do PM (`S4-B3-004`) — com essa aprovação, o Batch 3 fecha por
+completo exceto a migração de Resumo da rodada em si (que segue sem
+demanda própria aberta).
 
 Batch 4 — Complementary (7 telas, todas P1)
 
@@ -210,25 +211,25 @@ for paga agora, antes de replicar o padrão ad hoc em mais telas.
    TransferCard e ContractCard (não existem, sem dívida retroativa
    aqui, são novos). Depois migrar Mercado, Negociação, Contratos.
    Resumo da rodada fica fora desta rodada (ver item 4e).
-   - Item 1: **TransferCard + ContractCard** (`S4-B3-001`, status
-     `PRONTO PARA IMPLEMENTAÇÃO`) — 2 componentes novos (não
-     retroativos), sem lógica de negócio (valuation/renovação ficam
-     fora dos componentes). Pré-requisito bloqueante dos 3 itens
-     seguintes.
-   - Item 2: **Mercado** (`S4-B3-002`, status `PRONTO PARA
-     IMPLEMENTAÇÃO`) — usa TransferCard; um dos fluxos transacionais
-     mais críticos do produto (toda semana de jogo passa por ali).
-   - Item 3: **Negociação/Proposta** (`S4-B3-003`) — **implementada**
-     (usa TransferCard + Dialog), branch `claude/s4-b3-003-negociacao`,
-     aguardando aprovação.
-   - Item 4: **Contratos** (`S4-B3-004`) — **BLOQUEADA**: a tela não
-     existe no app hoje (ver §2/§3 acima e `docs/HANDOFF_CLAUDE.md`) —
-     decisão do PM necessária antes de qualquer implementação.
+   - Item 1: **TransferCard + ContractCard** (`S4-B3-001`) — **concluída
+     e mesclada em `main`** — 2 componentes novos (não retroativos),
+     sem lógica de negócio (valuation/renovação ficam fora dos
+     componentes). Pré-requisito dos itens seguintes.
+   - Item 2: **Mercado** (`S4-B3-002`) — **concluída e mesclada em
+     `main`** — usa TransferCard; um dos fluxos transacionais mais
+     críticos do produto (toda semana de jogo passa por ali).
+   - Item 3: **Negociação/Proposta** (`S4-B3-003`) — **concluída e
+     mesclada em `main`** (usa TransferCard + Dialog; achou e corrigiu
+     de quebra o bug crítico de z-index do Dialog/Bottom Sheet).
+   - Item 4: **Contratos** (`S4-B3-004`) — **implementada, aguardando
+     revisão do PM**: tela criada do zero (decisão do PM depois de
+     bloqueada por inspeção — ver §2/§3 acima e
+     `docs/HANDOFF_CLAUDE.md`), branch `claude/s4-b3-004-contratos`,
+     ainda não mesclada em `main`.
    - Item 5: **Inspecionar/formalizar MatchCard e FinancialSummary**
-     (`S4-B3-005`) — **implementada** (MatchCard construído novo,
-     FinancialSummary formalizado retroativamente), branch
-     `claude/s4-b3-005-matchcard-financialsummary`, aguardando
-     aprovação. Resolve a pendência do item 2b acima.
+     (`S4-B3-005`) — **concluída e mesclada em `main`** (MatchCard
+     construído novo, FinancialSummary formalizado retroativamente).
+     Resolve a pendência do item 2b acima.
    - Item 6: **Resumo da rodada** — os 2 componentes que dependiam
      dela agora existem (item 5 concluído), mas a tela em si ainda
      está sem demanda própria de migração — pode ser especificada a
