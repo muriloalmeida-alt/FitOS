@@ -915,6 +915,145 @@ UX transversal) pra completar a S4 — Redesign Mobile.
 
 ⸻
 
+S4-B4-READINESS-001 — Verificação individual das 7 telas do Batch 4
+
+Status: PRONTO PARA IMPLEMENTAÇÃO
+Sprint: S4 — Redesign Mobile
+Fase: Batch 4 (Complementary) — passo 0, antes de qualquer demanda de
+migração/criação individual
+Prioridade: P1
+Issue: https://github.com/muriloalmeida-alt/FitOS/issues/25
+
+Objetivo
+
+Auditar o estado real das 7 telas do Batch 4 — mesmo rigor da S3.2.7
+Readiness Review (`S3-DS20-S4-READINESS-001`), mas escopo restrito a
+essas 7 — pra então cada uma virar demanda própria de migração/criação
+(mesmo caminho que os Batches 2 e 3 seguiram). Nenhuma tela é
+implementada, migrada ou criada nesta demanda.
+
+Contexto
+
+A S3.2.7 Readiness Review não verificou essas 7 telas individualmente
+— "fora do foco da auditoria, dado o gap já encontrado em P0"
+(`docs/sprints/S4/S4_REQUISITOS_VIGENTES.md` §2). Uma demanda
+específica pra essa verificação (`S4-B4-000`) chegou a ser aberta, mas
+foi reescopada a pedido do Murilo pra virar `S4-AUDIT-BACKLOG-001`
+(auditoria pós-implementação das demandas #12-#21, propósito
+diferente) — a verificação individual do Batch 4 nunca aconteceu de
+fato. Com o Batch 3 fechado (`S4-B3-006` aprovada), esta é a única
+frente de telas que falta pra completar a S4 antes do Batch 5 (QA).
+
+As 7 telas (Tela 4, 8, 10, 11, 12, 18, 19 da matriz,
+`docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md`), com uma checagem
+preliminar rasa (não substitui a auditoria completa pedida abaixo):
+
+1. **Onboarding** — parece existir (`renderOnboardingSlide()`,
+   tutorial de boas-vindas no primeiro acesso).
+2. **Comparar jogadores** — nenhuma tela dedicada encontrada numa
+   busca preliminar; pode ser o mesmo caso de `S4-B3-004`/Contratos
+   (conceito sem tela própria) — **a confirmar com evidência, não
+   presumido aqui**.
+3. **Eixos táticos** — `CAREER.lineup.tactics` (ritmo/pressão/linha
+   defensiva/estilo de passe, `TACTIC_AXES`) parece estar embutido
+   dentro da tela Tática/Formação (`#tacticAxisRows`, já migrada em
+   `S4-B2-003`), não numa tela própria separada — diferente de
+   "Instruções por setor" (`sectorTactics`, `openSectorScreen()`, tela
+   separada). **Relação exata a confirmar com evidência** — pode não
+   haver "tela" pra migrar aqui, e sim uma seção já coberta.
+4. **Marcação individual** — parece existir (`openManMarkingScreen`-
+   equivalente, `activeManMarkingSuppression` etc.).
+5. **Meus esquemas** — parece existir (`renderSchemesScreen()`/
+   `openSchemesScreen()`).
+6. **Notícias/Eventos** — parece existir (`renderNewsScreen()`/
+   `openNewsScreen()`).
+7. **Histórico/Estatísticas** — parece existir (`renderEstatisticas`),
+   mas a cobertura de "histórico" (temporadas passadas, títulos,
+   histórico financeiro/do clube — não só a temporada atual) precisa
+   ser confirmada, não presumida.
+
+Escopo
+
+Chapéu implementador deve, pra cada uma das 7 telas:
+
+1. Inspecionar a implementação atual com evidência real (grep, leitura
+   de código) — nunca presumir a partir do nome da tela ou da checagem
+   preliminar acima.
+2. Confirmar se a tela existe hoje, e se sim, onde (arquivo, função,
+   ponto de acesso no menu/navegação).
+3. Se não existir uma tela dedicada, confirmar isso com evidência
+   (mesmo padrão de `S4-B3-004`: grep completo, inspeção do menu
+   inteiro) antes de reportar como "não existe".
+4. Determinar o estado real de tokens (`--m3-*` vs. legado `--mt-*`/
+   `--brd-*`), reutilização de componentes formalizados (PlayerCard
+   pra "Comparar jogadores", Dialog/Bottom Sheet/Skeleton onde
+   aplicável) e qualquer padrão ad hoc duplicado (mesmo tipo de achado
+   que gerou o `MatchCard`/`TransferCard`/`ContractCard`).
+5. Para "Eixos táticos": esclarecer com evidência a relação real entre
+   `tacticAxisRows`/`TACTIC_AXES` (dentro de Tática/Formação) e
+   "Instruções por setor" (tela separada) — determinar se há de fato
+   uma tela/seção de "Eixos táticos" fora do que `S4-B2-003` já migrou,
+   ou se o conceito da matriz já está coberto ali.
+6. Produzir uma tabela de estado por tela (mesmo formato de
+   `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md` §2, Batch 2/3), com
+   gaps encontrados e ordem de execução recomendada.
+7. Retornar relatório técnico nesta mesma seção do handoff, status
+   `REVISÃO DO PM NECESSÁRIA`.
+
+Fora de escopo
+
+* implementar, migrar ou criar qualquer uma das 7 telas — essa
+  auditoria só produz o diagnóstico; cada tela vira demanda própria
+  depois, mesmo caminho de Batch 2/3;
+* qualquer mudança de código de produção;
+* qualquer mudança de regra de negócio;
+* Batch 5 (QA Visual/UX transversal) — fica pra depois do Batch 4.
+
+Dependências
+
+* `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Telas 4, 8, 10, 11,
+  12, 18, 19).
+* `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`.
+* Componentes já formalizados que podem ser relevantes: PlayerCard
+  (`S3-DS20-S4-PREP-002`), Dialog/Bottom Sheet/Skeleton
+  (`S3-DS20-S4-PREP-001`).
+
+Requisitos
+
+Mesma sequência obrigatória de sempre: inspecionar → localizar →
+entender → planejar → alterar (não aplicável aqui — sem alteração) →
+testar (não aplicável) → revisar. Mesmo rigor de evidência da S3.2.7
+original — nenhum veredito ("existe"/"não existe"/"está coberto em
+outra tela") sem grep/leitura de código confirmando.
+
+Critérios de aceite
+
+* as 7 telas têm estado real documentado, cada uma com evidência;
+* a ambiguidade de "Comparar jogadores" (existe ou não) resolvida com
+  evidência;
+* a relação entre "Eixos táticos" e a tela Tática/Formação já migrada
+  esclarecida com evidência;
+* tabela de estado + ordem de execução recomendada produzida.
+
+Validações
+
+O PM deverá validar: cobertura das 7 telas, qualidade da evidência por
+trás de cada veredito, coerência da ordem de execução recomendada.
+
+Riscos
+
+* baixo — é auditoria/inspeção, nenhuma mudança de código.
+
+Observações
+
+Resultado esperado: um conjunto de demandas candidatas (`S4-B4-001` a
+`S4-B4-007`, ou menos se alguma tela se revelar já coberta/não
+aplicável, mesmo tipo de achado de `S4-B2-002`/Login) pra especificar
+em seguida, uma de cada vez, mesmo padrão incremental usado nos
+Batches 2 e 3 — não uma "Batch 4 inteira" de uma vez.
+
+⸻
+
 S4-AUDIT-BACKLOG-001 — Auditoria de prontidão das demandas #12 a #21
 
 Status: APROVADO
