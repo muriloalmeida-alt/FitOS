@@ -1,6 +1,6 @@
 # BRDATA — CHANGELOG
 **Gerado em:** 09/09/2026 (atualizado em 11/09/2026)
-**Cobertura:** 2026-08-14 até 2026-09-11 (244 commits em 18 dias, branch `main`)
+**Cobertura:** 2026-08-14 até 2026-09-11 (245 commits em 18 dias, branch `main`)
 **Versão atual:** v9.0.0
 
 ## Metodologia
@@ -79,14 +79,15 @@ bump.
 
 ## Histórico completo (mais recente primeiro)
 
-### 2026-09-11 — v9.0.0  (8 commits de merge)
+### 2026-09-11 — v9.0.0  (9 commits de merge)
 
 > **Bump MAJOR porque:** fecha o Batch 3 (Transactional) do redesign
 > mobile S4 por completo (4/4 telas) — com isso, os Batches 2 e 3 da S4
 > estão 100% mesclados em `main`. Auditoria do Batch 4 (Complementary)
-> concluída (S4-B4-READINESS-001), restando só especificar as 6
-> demandas de migração candidatas e o Batch 5 (QA) pra fechar a Sprint
-> inteira. Mais uma correção P0 de confiabilidade (SAVE-LIMIT-001) que
+> concluída (S4-B4-READINESS-001) e a execução das 6 migrações já
+> começou (2/6 telas mescladas — Onboarding, Meus esquemas), restando
+> as 4 telas seguintes e o Batch 5 (QA) pra fechar a Sprint inteira.
+> Mais uma correção P0 de confiabilidade (SAVE-LIMIT-001) que
 > muda a arquitetura de armazenamento do save (compressão) pra
 > eliminar um beco sem saída real relatado pelo usuário. Mais 2 ajustes
 > de balanceamento do motor de partida (GE-BALANCE-001/002, fora da S4)
@@ -185,6 +186,16 @@ bump.
   `--m3-on-surface-variant`); tipografia `Bebas Neue` do título mantida
   como BRDATA Extension (mesmo critério de `S4-B2-003`/`004`). Nenhuma
   mudança de comportamento.
+- `c8b1b28` `S4-B4-002` (issue #32) — migra a tela Meus esquemas pro
+  Design System novo, item 2/6 do Batch 4. Achado que corrige
+  `S4-B4-READINESS-001`: a tela não era "100% legada" — a casca de
+  modal/sheet e as linhas da lista de esquemas (`.m3-scheme-*`) já
+  estavam 100% `--m3-*` de demandas anteriores do Batch 3. Único token
+  legado real: o campo de nome do sheet "Novo esquema"
+  (`#newSchemeNameInput`, `.mt-friend-input` cru fora de
+  `.mt-form-row`); migrado envolvendo-o em `.mt-form-row`,
+  reaproveitando a regra que já existia pra "Editar perfil" — nenhum
+  CSS novo, nenhuma mudança de comportamento.
 
 ### 2026-09-10 — v8.0.0  (10 commits de merge)
 

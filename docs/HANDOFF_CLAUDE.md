@@ -175,119 +175,6 @@ esquecida.
 
 ⸻
 
-S4-B4-002 — Migrar tela Meus esquemas para o Design System novo
-
-Status: REVISÃO DO PM NECESSÁRIA
-Sprint: S4 — Redesign Mobile
-Fase: Batch 4 (Complementary) — item 2 de 6
-Prioridade: P1
-Issue: https://github.com/muriloalmeida-alt/FitOS/issues/32
-Branch: `claude/s4-b4-002-meus-esquemas`
-
-Objetivo
-
-Migrar a tela de biblioteca de esquemas táticos salvos pro Design
-System novo, conforme `S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 12):
-listar, criar, editar, selecionar e excluir esquemas.
-
-Achado (corrige a auditoria `S4-B4-READINESS-001`)
-
-A auditoria classificou esta tela como "100% legada
-(`#schemesOverlay`)". A inspeção real, célula por célula, mostrou que
-isso não procede:
-
-* a casca do overlay/sheet (`.ct-modal-overlay`/`.ct-modal`/
-  `.ct-modal-header`/`.mt-fullheader`/`.ct-modal-icon`/
-  `.ct-modal-header-text`/`.ct-modal-sub`/`.ct-modal-close`/
-  `.ct-modal-body`/`.ct-modal-footer`/`.mt-card`/`.mt-btn-primary-gold`)
-  já estava 100% `--m3-*` — componentes compartilhados já migrados por
-  demandas anteriores do Batch 3, não específicos desta tela;
-* as linhas da lista de esquemas (`schemeRowHTML()` → `.m3-scheme-row`/
-  `.m3-scheme-icon`/`.m3-scheme-body`/`.m3-scheme-name`/
-  `.m3-scheme-meta`/`.m3-scheme-badge`/`.m3-scheme-delete`) já
-  nasceram 100% `--m3-*` (`public/carreira.html:2099-2111`) — não
-  precisou de nenhuma mudança;
-* o ÚNICO token legado de verdade encontrado em toda a tela foi o
-  campo de nome do sheet "Novo esquema" (`#newSchemeNameInput`), que
-  usava `.mt-friend-input` "cru" (`background:var(--mt-navy-900);
-  border:1px solid var(--mt-navy-600); color:var(--mt-ivory-50)`) por
-  não estar dentro de um `.mt-form-row` — ao contrário de "Editar
-  perfil" (`#editProfileNameInput`), que usa o MESMO input já envolto
-  em `.mt-form-row` e por isso já herdava `--m3-on-surface` de uma
-  regra que já existia (`.mt-form-row input.mt-friend-input`,
-  `public/carreira.html:1963-1964`).
-
-A auditoria provavelmente só checou a classe do wrapper
-(`#schemesOverlay`) sem descer até o componente de linha e o input do
-sheet — por isso o "100% legada" ficou impreciso pra esta tela
-específica (ao contrário de Marcação individual/Notícias/Histórico,
-ainda não inspecionadas por esta sessão).
-
-Mudança aplicada
-
-* `public/carreira.html` — `#newSchemeNameInput` envolvido em uma
-  `<div class="mt-form-row">`, reaproveitando a regra
-  `.mt-form-row input.mt-friend-input` que já existia (mesmo padrão de
-  "Editar perfil") — **nenhum CSS novo criado**, zero mudança de
-  lógica/comportamento. Um comentário no HTML documenta o porquê.
-
-Dialog/Bottom Sheet/Skeleton (item 4 do escopo original): o sheet
-"Novo esquema" já usa `.mt-sheet-overlay` (mesmo padrão de Conversa
-individual/Renovar contrato, que por sua vez já é o resultado de
-`S3-DS20-S4-PREP-001`) — nenhuma migração de overlay necessária, já
-estava no componente certo.
-
-Teste
-
-Novo `tests/e2e/test_s4_b4_002_meus_esquemas.js` (4/4 passando):
-1. abre "Meus esquemas" vazio pelo Menu;
-2. abre "Novo esquema" e confere que a cor computada do input resolve
-   pra `--m3-on-surface` (não mais `--mt-ivory-50`) e que está
-   envolvido em `.mt-form-row`;
-3. salvar esquema continua funcionando igual (aparece na lista,
-   marcado ATIVO);
-4. apagar esquema continua funcionando igual (volta ao estado vazio).
-
-Regressão: `tests/e2e/test_meus_esquemas.js` (pré-existente, 6/6
-passando sem alteração — listar/salvar/desvincular ao editar/reaplicar/
-apagar/limite de 8 esquemas, tudo preservado). `test_s4_b4_001_onboarding.js`
-(4/4, tela vizinha do mesmo Batch, sanidade geral do arquivo)
-re-executado sem regressão. `node -c public/js/carreira.js` limpo (esta
-demanda não tocou JS).
-
-Fora de escopo
-
-* qualquer outra tela do Batch 4;
-* qualquer mudança de regra de negócio de esquema tático (criação,
-  aplicação, limite de esquemas salvos) — nada disso foi tocado.
-
-Critérios de aceite
-
-* tela 100% `--m3-*` — ✅ (já estava, exceto o 1 input corrigido);
-* listar/criar/editar/selecionar/excluir esquema continuam
-  funcionando — ✅ confirmado por teste;
-* nenhuma outra tela alterada — ✅;
-* teste mobile-first cobrindo a tela — ✅ (`viewport: 390x900`).
-
-Validações
-
-O PM deverá validar: aderência ao Design System, preservação de
-funcionalidades, teste, escopo respeitado — e, em particular, se a
-correção do achado da auditoria (tela já majoritariamente migrada,
-1 token corrigido em vez de reescrita completa) é aceitável como
-entrega desta demanda.
-
-Riscos
-
-* baixo — mudança de 1 wrapper HTML reaproveitando CSS que já existia,
-  sem tocar em JS/lógica.
-
-Observações
-
-Com esta demanda, resta o item 3 (`S4-B4-003`, Marcação individual).
-
-⸻
-
 S4-B4-003 — Migrar tela Marcação individual para o Design System novo
 
 Status: PRONTO PARA IMPLEMENTAÇÃO
@@ -1161,3 +1048,18 @@ título mantida como BRDATA Extension) em
 
 **Merge do código:** autorizado pela aprovação formal do PM na issue
 #31, executado nesta sessão.
+
+S4-B4-002 — Migrar tela Meus esquemas para o Design System novo	11/09/2026	merge de `claude/s4-b4-002-meus-esquemas` em `main` (commit de código original `c8b1b28`)	docs/project/CHANGELOG.md (a atualizar)
+
+APROVADO pelo Murilo em 11/09/2026 (issue #32), diretamente nesta
+conversa ("Aprovado"). Relatório técnico completo (achado que corrige
+a auditoria `S4-B4-READINESS-001` — a tela não era "100% legada": a
+casca de modal/sheet e as linhas da lista de esquemas já estavam 100%
+`--m3-*` de demandas anteriores; único token legado real era o campo
+de nome do sheet "Novo esquema", `.mt-friend-input` cru fora de
+`.mt-form-row`; migrado envolvendo-o em `.mt-form-row`, reaproveitando
+regra que já existia pra "Editar perfil", sem CSS novo) em
+`git show c8b1b28:docs/HANDOFF_CLAUDE.md`.
+
+**Merge do código:** autorizado pela aprovação formal do PM na issue
+#32, executado nesta sessão.
