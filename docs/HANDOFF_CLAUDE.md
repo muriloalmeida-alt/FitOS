@@ -177,11 +177,12 @@ esquecida.
 
 S4-B4-004 — Migrar tela Comparar jogadores para o Design System novo
 
-Status: PRONTO PARA IMPLEMENTAÇÃO
+Status: REVISÃO DO PM NECESSÁRIA
 Sprint: S4 — Redesign Mobile
 Fase: Batch 4 (Complementary) — item 4 de 6
 Prioridade: P1
 Issue: https://github.com/muriloalmeida-alt/FitOS/issues/34
+Branch: `claude/s4-b4-004-comparar-jogadores`
 
 Objetivo
 
@@ -189,79 +190,100 @@ Migrar a tela de comparação de jogadores pro Design System novo,
 conforme `S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 8): comparação evitando
 tabela larga no mobile, reorganizada pra leitura vertical/por grupos.
 
-Contexto
+Decisão registrada (item 2 do escopo): reaproveitar `playerRow()`/
+PlayerCard na lista de escolha — SIM (ao contrário de `S4-B4-003`)
 
-Item 4 da ordem recomendada. Achado da auditoria: a tela **existe**
-(`openComparePicker()`/`renderComparePickList()`/`renderCompareResult()`,
-`#compareOverlay`, acessível pelo botão "⚖️ Comparar jogador" no Perfil
-do jogador) — a checagem preliminar de `S4-B4-READINESS-001` suspeitava
-que não existisse, confirmado o contrário com evidência. Estado misto:
-a lista de escolha usa `.mt-sel-row`/`.mt-sel-name`/`.mt-pos-chip`
-(legado, padrão ad hoc que NÃO reaproveita `playerRow()`/PlayerCard já
-formalizado); as linhas do resultado da comparação já usam
-`.m3-compare-row`/`.m3-compare-val`/`.m3-compare-label` (novo).
+Mesma pergunta de `S4-B4-003` (Marcação individual), veredito oposto:
+lá a lista misturava posições sem agrupamento e o chip de posição por
+linha era informação essencial (recusado); aqui `renderComparePickList()`
+já filtra o pool pra SEMPRE a mesma subposição do jogador de origem
+(`subPositionOf(p) === subpos`, regra de negócio pré-existente, não
+tocada) e o subtítulo da tela já anuncia qual posição — repetir isso
+por linha seria redundante. O badge de origem (principal/base/
+emprestado) que a linha antiga mostrava não tem equivalente exato em
+PlayerCard pra jogador "principal" (fica implícito por ausência de
+tag), mas isso é só contexto extra, não informação necessária pra
+decidir a comparação (que já mostra idade/salário/valor no resultado) —
+não conta como perda de comportamento. Confirma a recomendação original
+do escopo.
 
-**Decisão de produto a resolver nesta demanda** (não presumida aqui):
-a lista de escolha de jogador (`.mt-sel-row`) deve passar a reaproveitar
-`playerRow()`/PlayerCard, unificando com o padrão já usado em Elenco/
-Treino/Contratos, ou continuar com um padrão de seleção compacto
-próprio? Recomendação: reaproveitar PlayerCard (é literalmente uma
-lista de jogadores pra escolher, o caso de uso central do componente,
-diferente do banco de reservas em `S4-B2-003` que tinha contexto
-genuinamente distinto) — decisão final registrada no relatório de
-implementação.
+Achado (tokens do resultado que a auditoria não pegou)
 
-Escopo
+A auditoria classificou o passo 2 (resultado) como "novo" (`--m3-*`).
+Inspeção real achou 3 seletores exclusivos desta tela (não
+compartilhados com nenhuma outra) ainda legados:
+`.m3-compare-player b` (nome do jogador no cabeçalho, `--mt-ivory-50`),
+`.m3-compare-row` (borda entre linhas, `--mt-navy-700`),
+`.m3-compare-val` (valor não-vencedor, `--mt-ink-muted`).
 
-Chapéu implementador deve:
+Mudança aplicada
 
-1. Inspecionar `openComparePicker()`/`renderComparePickList()`/
-   `renderCompareResult()`/`#compareOverlay` antes de alterar.
-2. Migrar a lista de escolha pra reaproveitar `playerRow()`/PlayerCard
-   (recomendação acima) — se a inspeção revelar um motivo concreto pra
-   não fazer isso, registrar como divergência em vez de forçar.
-3. Migrar qualquer seletor/controle restante da tela de resultado que
-   ainda não esteja em `--m3-*`.
-4. Preservar 100% o comportamento (escolher até N jogadores, ver
-   comparação, atributos comparados).
-5. Testar (mobile-first).
-6. Atualizar `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`.
-7. Retornar relatório técnico nesta mesma seção, status `REVISÃO DO PM
-   NECESSÁRIA`.
+* `public/js/carreira.js` — `renderComparePickList()` passa a montar
+  a lista com `pool.map(playerRow)` no lugar do `.mt-sel-row` ad hoc
+  (chip de posição + nome + nota + badge de origem manuais). Nenhuma
+  mudança na regra de filtro (mesma subposição, exclui o próprio
+  jogador, ordenado por overall) nem no delegate de clique
+  (`[data-id]`, mesmo seletor de antes).
+* `public/carreira.html` — como `.m3-compare-*` é EXCLUSIVO desta tela
+  (confirmado por busca, nenhum outro consumidor), os 3 tokens migraram
+  na própria regra base, sem precisar de override escopado (diferente
+  de `S4-B4-003`, onde a classe compartilhada exigiu isso):
+  `--mt-ivory-50`/`--mt-navy-700`/`--mt-ink-muted` →
+  `--m3-on-surface`/`--m3-outline-variant`/`--m3-on-surface-variant`.
+  Tipografia `Bebas Neue` do nome no cabeçalho MANTIDA — classificada
+  como BRDATA Extension (confronto "VS" estilo card de luta, mesmo
+  critério já usado em Onboarding/Tática/Escudos).
+
+Teste
+
+Novo `tests/e2e/test_s4_b4_004_comparar_jogadores.js` (2/2 passando):
+1. passo 1 (picker) usa `.m3-list-item`/PlayerCard de verdade, nenhuma
+   linha `.mt-sel-row` restante;
+2. passo 2 (resultado): nome/borda/valor não-vencedor resolvem pros
+   3 tokens `--m3-*` migrados.
+
+Regressão: `tests/e2e/test_comparar_jogadores.js` (pré-existente, 4/4
+sem alteração de comportamento — só o check 1 foi ajustado, já que a
+checagem antiga lia um `.mt-pos-chip` que não existe mais na linha;
+a MESMA regra de negócio, mesma subposição em toda a lista, agora é
+confirmada direto via `subPositionOf()`/dados, não lendo um chip do
+DOM). `tests/e2e/test_marcacao_individual.js` (5/5, confirma que
+`.mt-sel-row` continua intacto pra quem ainda usa — Marcação
+individual não foi afetada por esta mudança). `node -c
+public/js/carreira.js` limpo.
 
 Fora de escopo
 
-* qualquer outra tela do Batch 4;
-* qualquer mudança de regra de negócio (quais atributos comparam,
-  limite de jogadores comparados).
-
-Dependências
-
-* `S3-DS20-S4-PREP-002` (PlayerCard) — aprovada, concluída.
-
-Requisitos
-
-Mesma sequência obrigatória: inspecionar → localizar → entender →
-planejar → alterar → testar → revisar.
+* qualquer outra tela do Batch 4 (`.mt-sel-row`/`.mt-pos-chip`/
+  `.mt-sel-src` continuam existindo, ainda usados por Marcação
+  individual e pelo seletor de substituição ao vivo — nenhum dos 2
+  tocado);
+* qualquer mudança de regra de negócio (filtro de subposição, exclusão
+  do próprio jogador, atributos comparados, cálculo de custo-
+  benefício) — nada disso foi tocado.
 
 Critérios de aceite
 
-* lista de escolha usa PlayerCard (ou divergência registrada com
+* lista de escolha usa PlayerCard — ✅ (decisão: sim, com
   justificativa);
-* resultado da comparação 100% `--m3-*`;
-* comparação continua funcionando;
-* nenhuma outra tela alterada;
-* teste mobile-first cobrindo a tela.
+* resultado da comparação 100% `--m3-*` — ✅ (3 tokens exclusivos
+  migrados, achado além do que a auditoria registrou);
+* comparação continua funcionando — ✅ confirmado por teste;
+* nenhuma outra tela alterada — ✅ (`.m3-compare-*` exclusivo desta
+  tela, `.mt-sel-row` base preservado pra quem ainda usa);
+* teste mobile-first cobrindo a tela — ✅ (`viewport: 390x900`).
 
 Validações
 
-O PM deverá validar: decisão sobre PlayerCard, aderência ao Design
-System, preservação de funcionalidades, teste, escopo respeitado.
+O PM deverá validar: decisão sobre PlayerCard (sim, com justificativa
+oposta à de `S4-B4-003`), aderência ao Design System, preservação de
+funcionalidades, teste, escopo respeitado.
 
 Riscos
 
-* baixo-médio — decisão de unificação de componente é a principal
-  fonte de risco, não a migração visual em si.
+* baixo — `playerRow()` em si não foi tocado (só um novo chamador
+  adicionado), e os 3 tokens de `.m3-compare-*` são exclusivos desta
+  tela (sem risco de vazar pra outro lugar).
 
 Observações
 

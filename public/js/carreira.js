@@ -10307,15 +10307,19 @@ function renderComparePickList() {
     .filter((p) => p.id !== base.id && subPositionOf(p) === subpos)
     .sort((a, b) => b.overall - a.overall);
   const list = document.getElementById("comparePickList");
-  list.innerHTML = pool.length ? pool.map((p) => {
-    const srcClass = p.origin === "base" ? "base" : p.origin === "loan" ? "loan" : "principal";
-    const srcLabel = p.origin === "base" ? "base" : p.origin === "loan" ? "emprestado" : "principal";
-    return `<div class="mt-sel-row" data-id="${p.id}">
-      <span class="mt-pos-chip ${SUBPOS_DIVCLASS[subpos]}">${subpos}</span>
-      <div class="mt-sel-name">${escapeHtml(abbreviateName(p.name))}</div>
-      <div class="mt-sel-meta"><span class="mt-sel-ovr${p.overall >= 80 ? " gold" : ""}">${p.overall}</span><span class="mt-sel-src ${srcClass}">${srcLabel}</span></div>
-    </div>`;
-  }).join("") : `<p class="ct-empty">Nenhum outro ${SUBPOS_LABEL[subpos] || "jogador"} no elenco pra comparar.</p>`;
+  // S4-B4-004 (issue #34) — passa a reaproveitar playerRow()/PlayerCard
+  // (S3-DS20-S4-PREP-002) no lugar do `.mt-sel-row` ad hoc: ao
+  // contrário de Marcação individual (S4-B4-003, onde a lista mistura
+  // posições e o chip de posição por linha é informação essencial),
+  // aqui o pool inteiro já é da MESMA subposição (filtro acima) e o
+  // subtítulo da tela já anuncia qual — repetir a posição por linha
+  // seria redundante, então nada de essencial se perde. O badge de
+  // origem (principal/base/emprestado) que existia aqui não tem
+  // equivalente em playerRow() pra jogador PRINCIPAL, mas isso não é
+  // decisão de negócio nenhuma pro usuário tomar (só contexto a mais);
+  // "emprestado" continua aparecendo via tag própria do componente.
+  list.innerHTML = pool.length ? pool.map(playerRow).join("")
+    : `<p class="ct-empty">Nenhum outro ${SUBPOS_LABEL[subpos] || "jogador"} no elenco pra comparar.</p>`;
   list.querySelectorAll("[data-id]").forEach((el) => el.addEventListener("click", () => renderCompareResult(el.dataset.id)));
 }
 // Linha de comparação genérica — destaca (.win) só o lado que estiver

@@ -55,12 +55,17 @@ const { chromium } = require("playwright-core");
     const rows = [...document.querySelectorAll("#comparePickList [data-id]")];
     const noSelf = !rows.some((r) => r.dataset.id === baseId);
     // Confere que toda linha da lista é da MESMA subposição do jogador
-    // de origem (mesmo chip de posição em todas as linhas).
-    const chipTexts = new Set(rows.map((r) => r.querySelector(".mt-pos-chip").textContent));
-    return { open, pickVisible, resultHidden, rowCount: rows.length, noSelf, distinctChips: [...chipTexts] };
+    // de origem — S4-B4-004 (issue #34) trocou a linha ad hoc
+    // (.mt-sel-row + chip de posição próprio) por playerRow()/
+    // PlayerCard, que não repete a posição por linha (redundante aqui,
+    // já anunciada no subtítulo da tela); a regra de negócio (mesma
+    // subposição) é conferida direto nos dados, não mais lendo um chip
+    // do DOM.
+    const distinctSubpos = new Set(rows.map((r) => subPositionOf(CAREER.squad.find((p) => p.id === r.dataset.id))));
+    return { open, pickVisible, resultHidden, rowCount: rows.length, noSelf, distinctSubpos: [...distinctSubpos] };
   }, basePlayer.id);
   console.log("1) Comparar abre o passo 1 (picker) só com a mesma posição, sem o próprio jogador:",
-    check1.open && check1.pickVisible && check1.resultHidden && check1.rowCount > 0 && check1.noSelf && check1.distinctChips.length === 1,
+    check1.open && check1.pickVisible && check1.resultHidden && check1.rowCount > 0 && check1.noSelf && check1.distinctSubpos.length === 1,
     JSON.stringify(check1));
 
   // 2) Escolher o 1º candidato da lista -> mostra o passo 2 (resultado)
