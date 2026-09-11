@@ -82,16 +82,16 @@ mesclada em `main`) — estado real de cada tela abaixo, com evidência.
 | Onboarding | ✅ migrada `--m3-*` (`S4-B4-001`) | Título/texto/"Pular" migrados (`--mt-ivory-50`/`--mt-ink-muted` → `--m3-on-surface`/`--m3-on-surface-variant`, mesmo mapeamento semântico de título principal/texto secundário já usado no resto da S4). Indicadores de progresso (`.mt-onboard-dot`) e ícone já estavam `--m3-*` antes desta demanda. Tipografia `Bebas Neue` do título mantida — mesma classificação BRDATA Extension de `S4-B2-003`/`S4-B2-004`. Comportamento (navegação entre os 4 slides, pular, gatilho de 1ª vez por conta) 100% preservado |
 | Comparar jogadores | ⏳ pendente (`S4-B4-004`) | Existe (`#compareOverlay`) — achado da auditoria: a checagem preliminar suspeitava que não existisse. Estado misto (lista de escolha legada, resultado já `--m3-*`) |
 | Eixos táticos | ✅ já coberta, sem demanda própria | Confirmado com evidência: embutida dentro de Tática/Formação (`S4-B2-003`), não é uma tela separada |
-| Marcação individual | ⏳ pendente (`S4-B4-003`) | 100% legada (`#markingOverlay`) |
+| Marcação individual | ✅ migrada `--m3-*` (`S4-B4-003`) | Casca (`.ct-modal-*`/`.mt-fullheader`/`.mt-card`/`.mt-btn-ghost`) já estava `--m3-*` antes desta demanda, mesmo achado de "Meus esquemas". Tokens legados reais: `.mt-sel-row`/`.mt-sel-name` (2 listas de escolha) e `.mt-info-line b` (designação ativa) — migrados via override ESCOPADO a `#markingOverlay` (não a regra base, compartilhada com Comparar jogadores e o seletor de substituição ao vivo, ambos fora de escopo). Decisão registrada: NÃO reaproveitar `playerRow()`/PlayerCard nas listas — o componente não mostra posição/subposição, informação essencial aqui (lista do rival mistura posições, não agrupada). Comportamento 100% preservado |
 | Meus esquemas | ✅ migrada `--m3-*` (`S4-B4-002`) | Correção em relação à nota anterior: a casca (`.ct-modal-*`/`.mt-fullheader`/`.mt-card`) e as linhas da lista (`.m3-scheme-*`) já estavam 100% `--m3-*` antes desta demanda — não era "100% legada". O único token legado real era o campo de nome do sheet "Novo esquema" (`.mt-friend-input` cru, fora de `.mt-form-row`); migrado envolvendo-o em `.mt-form-row` (reaproveita regra que já existia para "Editar perfil", sem CSS novo). Comportamento (listar/criar/aplicar/apagar/limite de 8) 100% preservado |
 | Notícias/Eventos | ⏳ pendente (`S4-B4-005`) | 100% legada (`#newsOverlay`); candidata a formalizar `NewsCard` (§3 abaixo, único Product Pattern do CLAUDE.md §7 ainda sem contrato) |
 | Histórico/Estatísticas | ⏳ pendente (`S4-B4-006`, última do Batch) | 100% legada (`#panel-estatisticas`); cobertura multi-temporada confirmada com evidência |
 
-**2 de 6 telas migradas** (Onboarding, Meus esquemas) — Eixos táticos
-não conta como demanda própria (já coberta). Ordem de execução
-recomendada pela própria auditoria: Onboarding → Meus esquemas →
-Marcação individual → Comparar jogadores → Notícias/Eventos →
-Histórico/Estatísticas (issues #31-#36).
+**3 de 6 telas migradas** (Onboarding, Meus esquemas, Marcação
+individual) — Eixos táticos não conta como demanda própria (já
+coberta). Ordem de execução recomendada pela própria auditoria:
+Onboarding → Meus esquemas → Marcação individual → Comparar jogadores
+→ Notícias/Eventos → Histórico/Estatísticas (issues #31-#36).
 
 ⸻
 
