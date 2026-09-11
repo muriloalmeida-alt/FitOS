@@ -2217,6 +2217,20 @@
   .mt-sel-row.selected .mt-sel-name{ color:var(--m3-on-primary-container); }
   .mt-sel-name{ flex:1; min-width:0; font-weight:600; font-size:14px; color:var(--mt-ivory-50); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
   .mt-sel-name .status{ font-weight:400; color:var(--mt-ink-faint); font-size:12px; }
+  /* S4-B4-003 (issue #33) — só as 2 listas de escolha de Marcação
+     individual (#markingMyPlayers/#markingRivalPlayers) migram pra
+     --m3-*; a classe base .mt-sel-row/.mt-sel-name é compartilhada com
+     Comparar jogadores e o seletor de substituição ao vivo (nenhuma
+     das 2 em escopo aqui), por isso o override fica escopado a
+     #markingOverlay em vez de mudar a regra base — mesmo padrão de
+     override escopado já usado em .mt-fullheader .ct-modal-icon/
+     .mt-sheet-overlay .ct-modal-header. .mt-info-line b (nomes em
+     negrito da designação ativa) migrado do mesmo jeito, pelo mesmo
+     motivo (compartilhado com Perfil/Comissão técnica/etc.). */
+  #markingOverlay .mt-sel-row:not(.selected){ border-bottom-color:var(--m3-outline-variant); }
+  #markingOverlay .mt-sel-row:not(.selected) .mt-sel-name{ color:var(--m3-on-surface); }
+  #markingOverlay .mt-sel-name .status{ color:var(--m3-on-surface-variant); }
+  #markingOverlay .mt-info-line b{ color:var(--m3-on-surface); }
   .mt-sel-meta{ display:flex; align-items:center; gap:8px; flex-shrink:0; }
   .mt-sel-ovr{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:15px; color:var(--mt-ivory-100); }
   .mt-sel-ovr.gold{ color:var(--m3-primary); }

@@ -177,11 +177,12 @@ esquecida.
 
 S4-B4-003 — Migrar tela Marcação individual para o Design System novo
 
-Status: PRONTO PARA IMPLEMENTAÇÃO
+Status: REVISÃO DO PM NECESSÁRIA
 Sprint: S4 — Redesign Mobile
 Fase: Batch 4 (Complementary) — item 3 de 6
 Prioridade: P1
 Issue: https://github.com/muriloalmeida-alt/FitOS/issues/33
+Branch: `claude/s4-b4-003-marcacao-individual`
 
 Objetivo
 
@@ -189,71 +190,111 @@ Migrar a tela de marcação individual pro Design System novo, conforme
 `S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 11): jogador, alvo, relacionamento,
 ação, confirmação.
 
-Contexto
+Achado (contexto real vs. registrado)
 
-Item 3 da ordem recomendada (2 listas de seleção + card de designação
-ativa, escopo médio). Estado real confirmado:
-`openManMarkingScreen()`/`renderManMarkingScreen()`, `#markingOverlay`,
-100% tokens legados (`.ct-modal-overlay`/`.ct-modal`/`.mt-fullheader`/
-`.mt-card`/`.mt-info-line`/`.ct-empty`).
+A casca (`.ct-modal-*`/`.mt-fullheader`/`.mt-card`/`.mt-card-title`/
+`.mt-btn-ghost`/`.mt-btn-primary-gold`/`.section-title`) já estava 100%
+`--m3-*` de demandas anteriores do Batch 2/3, igual ao achado de
+`S4-B4-002`. `.ct-empty` (estados vazios) usa `--text-2`/`--gray-dim`,
+compartilhado com ~20 telas completamente não relacionadas em todo o
+app — fora de escopo, mesmo tratamento dado a ele em `S4-B4-002`. Os
+tokens legados REAIS e específicos desta tela: `.mt-sel-row`/
+`.mt-sel-name` (as 2 listas de escolha, `#markingMyPlayers`/
+`#markingRivalPlayers`) e `.mt-info-line b` (nomes em negrito da
+designação ativa).
 
-Escopo
+Decisão registrada (item 3 do escopo): NÃO reaproveitar `playerRow()`/
+PlayerCard pras 2 listas de escolha
 
-Chapéu implementador deve:
+`playerRow()` não exibe posição/subposição do jogador (contrato
+documentado do componente — ver `S3-DS20-S4-PREP-002`) porque nos 3
+usos reais existentes (Elenco, Treino, `openClubRoster()`) a lista já
+vem AGRUPADA por posição, então a posição é um cabeçalho de grupo, não
+uma coluna por linha. Marcação individual não agrupa por posição — a
+lista "Marcar no rival" mistura posições (top 5 por overall) e SABER a
+posição de cada jogador é informação essencial pra decisão do usuário
+(escalar um zagueiro pra marcar um atacante faz sentido tático
+diferente de marcar um meio-campista). Forçar PlayerCard aqui
+significaria: (a) perder essa informação (regressão de usabilidade), ou
+(b) adicionar uma variante nova ao componente, alterando o contrato
+compartilhado pelos outros 3 usos reais — risco/escopo maiores que esta
+demanda, e o próprio contrato documentado diz "nenhuma prop de
+variante". Mesmo critério já usado em `S4-B2-003` pro `.mt-bench-row`
+("contexto de uso diferente... mantido como padrão compacto próprio").
 
-1. Inspecionar `renderManMarkingScreen()`/`#markingOverlay` antes de
-   alterar.
-2. Migrar a apresentação visual pros tokens `--m3-*`.
-3. Avaliar se as listas de seleção de jogador/alvo devem reaproveitar
-   `playerRow()`/PlayerCard (`S3-DS20-S4-PREP-002`) — registrar a
-   decisão e a justificativa no relatório (mesmo tipo de avaliação já
-   feita em `S4-B3-004` pro ContractCard).
-4. Preservar 100% o comportamento (definir/remover marcação, válida só
-   pro próximo jogo, supressão de marcação — `applyManMarking`/
-   `activeManMarkingSuppression`).
-5. Usar Dialog/Bottom Sheet/Skeleton já disponíveis onde precisar.
-6. Testar (mobile-first).
-7. Atualizar `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`.
-8. Retornar relatório técnico nesta mesma seção, status `REVISÃO DO PM
-   NECESSÁRIA`.
+Mudança aplicada (ao contrário de forçar PlayerCard, ou de mudar a
+regra base compartilhada)
+
+`.mt-sel-row`/`.mt-sel-name` são compartilhados com 2 telas FORA de
+escopo (a lista de escolha de Comparar jogadores, `S4-B4-004`; e o
+seletor de substituição ao vivo) — mudar a regra base afetaria as duas.
+Em vez disso, `public/carreira.html` ganhou um override ESCOPADO a
+`#markingOverlay` (mesmo padrão já usado em `.mt-fullheader
+.ct-modal-icon`/`.mt-sheet-overlay .ct-modal-header`): `#markingOverlay
+.mt-sel-row:not(.selected)` (borda → `--m3-outline-variant`),
+`#markingOverlay .mt-sel-row:not(.selected) .mt-sel-name` (nome →
+`--m3-on-surface`), `#markingOverlay .mt-sel-name .status` (meta →
+`--m3-on-surface-variant`), `#markingOverlay .mt-info-line b` (negrito
+da designação ativa → `--m3-on-surface`). O guard `:not(.selected)` foi
+necessário: sem ele, a maior especificidade do seletor com `#id`
+sobrescreveria `.mt-sel-row.selected` (fundo/borda transparente já
+`--m3-*` de antes desta demanda) e quebraria visualmente o estado
+selecionado — capturado e corrigido durante o próprio teste desta
+demanda (ver Teste, item 2), antes de qualquer regressão chegar a
+`main`. Nenhum JS tocado — só CSS.
+
+Teste
+
+Novo `tests/e2e/test_s4_b4_003_marcacao_individual.js` (3/3 passando):
+1. linha não selecionada resolve pra `--m3-on-surface`/
+   `--m3-on-surface-variant`/`--m3-outline-variant`;
+2. estado "selecionado" pré-existente continua intacto (fundo/nome/
+   sem borda vazando) — confirma que o guard `:not(.selected)` funciona;
+3. nomes em negrito da designação ativa migrados.
+
+Regressão: `tests/e2e/test_marcacao_individual.js` (pré-existente, 5/5
+sem alteração — abrir/escolher/aplicar/persistir seleção ao reabrir/
+efeito real na simulação via `attributeGoals`/remover). `test_comparar_jogadores.js`
+(tela que compartilha `.mt-sel-row`, 4/4 sem regressão — confirma que o
+override escopado por `#markingOverlay` não vazou pra outra tela).
+`node -c public/js/carreira.js` limpo (nenhum JS tocado).
 
 Fora de escopo
 
-* qualquer outra tela do Batch 4;
+* qualquer outra tela do Batch 4 (`.mt-sel-row`/`.mt-sel-name` base e
+  `.ct-empty` continuam legados fora de `#markingOverlay`, de
+  propósito);
 * qualquer mudança de regra de negócio de marcação individual
-  (duração, efeito na partida, supressão).
-
-Dependências
-
-* `S3-DS20-S4-PREP-001`/`002` (Dialog/Bottom Sheet/Skeleton,
-  PlayerCard) — aprovadas, concluídas.
-
-Requisitos
-
-Mesma sequência obrigatória: inspecionar → localizar → entender →
-planejar → alterar → testar → revisar.
+  (duração, efeito na partida, supressão) — nada disso foi tocado.
 
 Critérios de aceite
 
-* tela 100% `--m3-*`;
-* definir/remover marcação e supressão continuam funcionando;
-* decisão sobre reaproveitar PlayerCard registrada com justificativa;
-* nenhuma outra tela alterada;
-* teste mobile-first cobrindo a tela.
+* tela 100% `--m3-*` — ✅;
+* definir/remover marcação e supressão continuam funcionando — ✅
+  confirmado por teste;
+* decisão sobre reaproveitar PlayerCard registrada com justificativa —
+  ✅ (não reaproveitado, motivo: perda de posição/subposição);
+* nenhuma outra tela alterada — ✅ (override escopado por id,
+  confirmado por teste em Comparar jogadores);
+* teste mobile-first cobrindo a tela — ✅ (`viewport: 390x900`).
 
 Validações
 
 O PM deverá validar: aderência ao Design System, decisão sobre
-PlayerCard, preservação de funcionalidades, teste, escopo respeitado.
+PlayerCard (não reaproveitado, com justificativa), preservação de
+funcionalidades, teste, escopo respeitado.
 
 Riscos
 
-* baixo-médio — 2 listas de seleção mais interação que uma tela
-  simples, mas sem regra de negócio complexa em jogo.
+* baixo — CSS escopado por id, nenhum JS tocado; o risco de
+  especificidade CSS identificado (guard `:not(.selected)`) já foi
+  encontrado e corrigido antes do merge.
 
 Observações
 
-Com esta demanda, resta o item 4 (`S4-B4-004`, Comparar jogadores).
+Com esta demanda, resta o item 4 (`S4-B4-004`, Comparar jogadores) —
+que já tem a mesma decisão de PlayerCard pra revisitar (ali a lista É
+homogênea por posição, contexto diferente deste).
 
 ⸻
 
