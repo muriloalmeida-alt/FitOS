@@ -626,6 +626,39 @@ vigente. O trabalho de ajuste em si (itens 1-6 acima) deve ser aberto
 como uma nova demanda quando o Murilo priorizar — não é reaberto sob
 este mesmo ID.
 
+**Nota de fechamento (sessão PM, 11/09/2026):** os 6 ajustes pedidos
+acima já foram todos endereçados, sob IDs próprios (nunca reabrindo
+este) — evidência real, não presumida:
+
+1. Convergência de nomenclatura de tokens — resolvida por
+   `S3-DS20-S4-PREP-001` (título da própria demanda: "+ convergência
+   de tokens"), aprovada e mesclada.
+2. Dialog/Bottom Sheet/Skeleton — os 3 componentes P0 criados na mesma
+   `S3-DS20-S4-PREP-001`, aprovada e mesclada.
+3. Migração das 9 telas P0 — **todas as 9 concluídas**: Loading/
+   Bootstrap (`S4-B2-001`), Login (`S4-B2-002`), Tática/Formação
+   (`S4-B2-003`), Treino (`S4-B2-004`), Perfil do jogador
+   (`S4-B2-005`), Mercado (`S4-B3-002`), Negociação/Proposta
+   (`S4-B3-003`), Contratos (`S4-B3-004`), Resumo da rodada
+   (`S4-B3-006`) — todas aprovadas e mescladas em `main`
+   (`docs/sprints/S4/S4_REQUISITOS_VIGENTES.md` §2 confirma 8/8 + 4/4
+   = 100% dos Batches 2 e 3).
+4. Redução de emoji como ícone — tratada incrementalmente a cada tela
+   migrada (não virou projeto isolado, como pedido).
+5. Cobertura de teste E2E do Design System — ampliada a cada bloco:
+   9 testes novos dedicados (`test_s4_b2_*`/`test_s4_b3_*`), contra 1
+   único antes desta rodada.
+6. Gaps P1/P2 remanescentes (LeagueTable, ARIA, `.icon-btn`, CSS
+   morto) — não bloquearam a execução da S4, como previsto; seguem
+   como dívida técnica conhecida, não resolvida nesta rodada
+   (nenhuma delas foi endereçada especificamente até aqui).
+
+Com os itens 1-3 (os únicos genuinamente bloqueantes) 100% resolvidos,
+esta demanda está pronta para fechamento formal — proposto ao PM:
+`APROVADO`. Decisão final continua sendo do Murilo (mesma regra desde
+o início: quem especifica/revisa tecnicamente não fecha essa decisão
+sozinho).
+
 Issue de rastreio: `https://github.com/muriloalmeida-alt/FitOS/issues/9`
 — fechada como concluída (a execução da auditoria pedida nela foi
 entregue e revisada); os ajustes que ela revelou passam a ser tratados

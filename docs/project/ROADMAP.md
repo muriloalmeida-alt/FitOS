@@ -33,14 +33,19 @@ promessa de titularidade, agente, rescisão) é mais amplo que o título
 "Mercado + contratos" sugere e não foi tocado nesta frente — registrado
 como backlog P2 (`docs/project/BRDATA_Auditoria_v1.0.md` §2.2/§4.7),
 não como pendência bloqueante.
-*** S4 — situação em 10/09/2026 (ver checkpoint abaixo): pré-requisitos
-(`S3-DS20-S4-PREP-001`/`002`) aprovados e mesclados em `main`; Batch 2
-(Core, 5 telas) e Batch 3 (Transactional, 5 itens) totalmente
-especificados, com 9 das 10 demandas aprovadas pelo PM e a 10ª
-(Contratos, `S4-B3-004`) redefinida e pronta pra implementação — merge
-do código dessas 9 demandas em `main` ainda pendente (fora do escopo
-desta sessão de PM). Batch 4 (7 telas P1) e Batch 5 (QA) ainda sem
-demanda especificada.
+*** S4 — situação em 11/09/2026: pré-requisitos
+(`S3-DS20-S4-PREP-001`/`002`) e **Batch 2 (Core, 8 telas) + Batch 3
+(Transactional, 5 itens) 100% aprovados e mesclados em `main`** — as 9
+telas P0 identificadas pela S3.2.7 Readiness Review todas migradas
+(Loading/Bootstrap, Login, Tática/Formação, Treino, Perfil do jogador,
+Mercado, Negociação/Proposta, Contratos, Resumo da rodada). A auditoria
+original `S3-DS20-S4-READINESS-001` (`AJUSTES NECESSÁRIOS` desde
+09/09/2026) tem seus 3 itens bloqueantes resolvidos, proposto
+`APROVADO` ao PM. Batch 4 (7 telas P1) tem demanda de verificação
+especificada (`S4-B4-READINESS-001`, ainda não implementada). Batch 5
+(QA) segue sem demanda. Fora da S4: 4 demandas de confiabilidade/game
+design especificadas a pedido do Murilo (`SAVE-LIMIT-001` P0,
+`GE-BALANCE-001`/`002`, `GE-COPA-001` P1) — nenhuma implementada ainda.
 
 Regra de execução
 
@@ -119,16 +124,24 @@ Próximo marco
 
 S4 — Redesign Mobile, em andamento (ver nota *** acima e
 `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md` §5 pra ordem de execução
-completa). Passo concluído: fundação (`S3-DS20-S4-PREP-001`/`002`) +
-Batch 2/3 especificados e aprovados (código pendente de merge). Dois
-passos seguem em aberto na ordem já documentada:
-1. **Resumo da rodada** — última tela do Batch 3, ainda sem demanda
-   própria; pré-requisito (`S4-B3-005`, MatchCard/FinancialSummary) já
-   aprovado, então pode ser especificada agora.
-2. **Batch 4 (Complementary)** — 7 telas P1, ainda sem verificação
-   individual nem demanda própria (a demanda que cobria isso,
-   `S4-B4-000`, foi reescopada pra virar `S4-AUDIT-BACKLOG-001`,
-   concluída em 10/09/2026).
+completa). Passos concluídos: fundação (`S3-DS20-S4-PREP-001`/`002`) +
+**Batch 2 e Batch 3 100% mesclados e aprovados**. Um passo segue em
+aberto na ordem já documentada:
+1. **Batch 4 (Complementary)** — 7 telas P1. Demanda de verificação
+   já especificada (`S4-B4-READINESS-001`, issue #25) — só o
+   diagnóstico, nenhuma tela migrada/criada ainda; aguardando alguma
+   sessão de implementação pegar. Depois dela, cada tela vira demanda
+   própria (mesmo padrão incremental de Batch 2/3), e por fim o
+   Batch 5 (QA Visual/UX transversal) fecha a S4.
+
+Fora da sequência oficial S1→S16, mas especificadas a pedido do Murilo
+nesta janela (não bloqueiam nem são bloqueadas pela S4): `SAVE-LIMIT-001`
+(P0 — save de carreira grande demais pode ficar impossível de salvar,
+issue #29), `GE-BALANCE-001`/`002` (sequências de invencibilidade e
+peso de tradição de clube, issues #26/#27), `GE-COPA-001` (expansão da
+Copa do Brasil pra 60 clubes/ida e volta/cabeças de chave/ao vivo,
+issue #28, exige checkpoint de desenho antes de codar). Nenhuma tem
+implementação iniciada ainda.
 
 Governança
 
