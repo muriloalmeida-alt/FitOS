@@ -51,11 +51,20 @@ function simulateSeason(rng, enabled) {
   let unbeaten = 0, longestUnbeaten = 0, winStreak = 0, longestWin = 0;
   fixtures.forEach((fx) => {
     const mod = opponentMotivationMod(unbeaten, enabled);
-    const opp = { atk: fx.opp.atk * mod, def: fx.opp.def * mod };
+    // GE-BALANCE-003 (issue #30) — club.def é "menor = defesa melhor"
+    // (confirmado com evidência: buildRealPlayer/buildGeneratedProPlayer
+    // já fazem (2-club.def) em carreira.js pra inverter isso quando
+    // precisam de "maior=melhor"). Motivação deixa o adversário "mais
+    // ligado" -> def deve DIMINUIR (defesa melhor), por isso /= em vez
+    // de *=; a fórmula de gol multiplica pelo def do defensor (não
+    // divide), mesmo fix aplicado em resolveLiveChunk/resolveCpuFixture/
+    // simulateCupLeg/resolveOtherDivisionsRound/attributeChances/
+    // suggestTactics no motor real.
+    const opp = { atk: fx.opp.atk * mod, def: fx.opp.def / mod };
     const hs = fx.home ? HUMAN : opp;
     const as = fx.home ? opp : HUMAN;
-    const lambdaHome = clamp((hs.atk / as.def) * 1.12, 0.05, 6);
-    const lambdaAway = clamp(as.atk / hs.def, 0.05, 6);
+    const lambdaHome = clamp((hs.atk * as.def) * 1.12, 0.05, 6);
+    const lambdaAway = clamp(as.atk * hs.def, 0.05, 6);
     const gh = poissonSample(lambdaHome, rng), ga = poissonSample(lambdaAway, rng);
     const myGoals = fx.home ? gh : ga, oppGoals = fx.home ? ga : gh;
     const diff = myGoals - oppGoals;

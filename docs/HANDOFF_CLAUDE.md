@@ -11,9 +11,9 @@ Demandas vigentes
 
 GE-BALANCE-003 — Corrigir inversão de defesa no motor de partida
 
-Status: CHECKPOINT DE DESENHO — AGUARDANDO APROVAÇÃO (item 2)
-Branch: `claude/ge-balance-003-design` (só doc, nenhum código de
-produção tocado ainda — respeita a trava explícita do escopo)
+Status: REVISÃO DO PM NECESSÁRIA
+Branch: `claude/ge-balance-003-impl` (checkpoint de desenho aprovado em
+`claude/ge-balance-003-design`, mesclado antes desta implementação)
 Sprint: fora da S4 (Game Engine — CLAUDE.md §13, mais próximo de S6
 "Motor de partida 2.0" no roadmap oficial, tratado aqui como demanda
 isolada — achado de `GE-BALANCE-001`, não pedido original do usuário)
@@ -285,6 +285,125 @@ código de produção)
   palavra "def" nomeando 2 conceitos com sentido oposto é uma
   armadilha de nomenclatura já existente no código, não algo que este
   fix cria nem que está em escopo renomear).
+
+RELATÓRIO DE IMPLEMENTAÇÃO (checkpoint de desenho aprovado — "Aprovada
+a 30")
+
+Mudança aplicada — exatamente a proposta acima, sem desvio
+
+* `public/js/carreira.js` — `atk / def` → `atk * def` nas 6 funções/11
+  divisões listadas (`simulateCupLeg`, `resolveOtherDivisionsRound`,
+  `attributeChances`, `resolveCpuFixture`, `resolveLiveChunk`,
+  `suggestTactics`). `computeHumanStrength`/`data.js`/
+  `buildRealPlayer`/`buildGeneratedProPlayer` intocados, como proposto.
+
+**Achado durante a implementação (2 pontos adicionais, necessários pra
+não quebrar o que já foi validado):** `resolveLiveChunk` tinha 2
+ajustes multiplicativos simétricos em atk+def que dependiam do sentido
+ANTIGO (assumido "maior=melhor") de `def`:
+
+1. `formationPenaltyChunksLeft` (penalidade de familiaridade tática) —
+   `humanSide.def *= 0.92` virou `humanSide.def /= 0.92`. Uma
+   PENALIDADE precisa deixar a defesa PIOR — sob "menor=melhor", pior
+   defesa é um número MAIOR, não menor.
+2. `opponentMotivationMod` (`GE-BALANCE-001`, issue #26) —
+   `cpuSide.def *= motivationMod` virou `cpuSide.def /= motivationMod`.
+   Um adversário "mais ligado" precisa de defesa MELHOR — sob
+   "menor=melhor", isso é um número MENOR, não maior.
+
+Sem essas 2 correções, aplicar só o fix da fórmula de gol teria
+INVERTIDO o efeito de ambos os mecanismos (a penalidade de trocar de
+tática viraria bônus; o adversário "motivado" ficaria com defesa PIOR,
+não melhor) — quebrando silenciosamente o que `GE-BALANCE-001` já
+validou. Confirmado com busca literal (`grep ".atk *=|.def *="`) que
+são os ÚNICOS 2 pontos desse tipo no arquivo inteiro.
+
+Validação — simulação de campeonato completo (novo)
+
+`tests/e2e/sim_ge_balance_003.js` (novo): 300 temporadas simuladas,
+turno e returno completo (38 rodadas), 20 clubes REAIS do Brasileirão
+(`atk`/`def` extraídos de `data.js` por regex), fórmula ANTES vs
+DEPOIS lado a lado, mesma seed:
+
+1. **Direção confirmada com números reais:** Palmeiras (defesa mais
+   forte real, `def=0.75`) sofria em MÉDIA 77,13 gols/temporada com a
+   fórmula ANTIGA (mais que a Cuiabá, defesa mais fraca real,
+   `def=1.32`, que sofria 45,80) — confirma o bug relatado. Com a
+   fórmula CORRIGIDA: Palmeiras passa a sofrer 43,76 (menos que
+   Cuiabá, que sofre 77,07) — direção correta.
+2. **Achado maior que o esperado:** com a fórmula ANTIGA, o ranking
+   médio de pontos por temporada era essencialmente ACHATADO — os
+   favoritos reais (Flamengo/Palmeiras/Botafogo) e os lanternas reais
+   (Cuiabá/Mirassol/Juventude) terminavam todos na faixa de ~50-53
+   pontos, estatisticamente indistinguíveis (o bug de defesa cancelava
+   a vantagem que o `atk` mais alto deveria dar). Com a fórmula
+   corrigida, o ranking passa a refletir a força real dos clubes:
+   Palmeiras/Flamengo/Botafogo no topo (72,4/72,3/67,2 pts), Cuiabá/
+   Mirassol/Juventude na base (32,4/33,6/35,5 pts) — a tabela do
+   Brasileirão simulado agora se parece com o campeonato real, o que
+   NÃO acontecia antes.
+3. Nenhum time com aproveitamento médio implausível (máximo observado:
+   63,5% pro campeão médio, Palmeiras) — dentro do razoável pra um
+   "campeão típico" do futebol brasileiro real.
+
+Validação — reexecução de `sim_ge_balance_001.js`/`002.js`
+
+* `sim_ge_balance_001.js` — **atualizado** (a cópia local da fórmula
+  dentro do script precisou do MESMO fix, senão estaria validando a
+  fórmula antiga; o script já é uma reimplementação isolada de
+  propósito, não importa `carreira.js`). Números mudaram de patamar
+  (esperado — a fórmula mudou de verdade): ANTES (baseline, sem
+  motivação) agora mostra 93,0% das temporadas com sequência
+  invicta ≥10 jogos (era medido como ~6,2% antes do fix — o número
+  antigo estava artificialmente baixo porque o bug punia a defesa
+  excelente do time de teste). DEPOIS (com motivação):
+  90,9% — ainda uma redução na direção certa, mas
+  proporcionalmente menor que a medida original (93,0%→90,9%, ~2,3%
+  de redução relativa, contra ~35% medido antes do fix). **Achado
+  registrado, fora de escopo desta demanda:** o mecanismo de
+  `GE-BALANCE-001` continua funcionando na direção certa, mas parece
+  menos eficaz contra a nova linha de base (mais realista, sem o
+  bug) de dominância de um time de elite — candidato a uma futura
+  recalibração de `OPPONENT_MOTIVATION_STREAK_STEPS`, não tratado
+  aqui (mudar a fórmula do gol e recalibrar a força do bônus de
+  motivação são 2 decisões separadas).
+* `sim_ge_balance_002.js` — **não precisou de nenhuma mudança** (roda
+  código de produção real via `vm`, e não toca em `club.atk`/`club.def`
+  nem na fórmula de gol — só `relegationZoneIds`/`applyTraditionReprieve`).
+  Reexecutado: 40,7% de redução relativa no rebaixamento de clube de
+  tradição — **idêntico ao já medido**, confirmando que esta demanda
+  não afeta aquele mecanismo.
+
+Teste (motor real, dentro da UI)
+
+Novo `tests/e2e/test_ge_balance_003.js` (2/2 passando):
+1. `resolveCpuFixture` (função de produção real, chamada direto — não
+   reimplementada) — o mesmo clube atacante marca MENOS gols em média
+   contra a defesa elite real (Palmeiras) do que contra a defesa fraca
+   real (Cuiabá), 300 confrontos simulados;
+2. `suggestTactics` roda sem erro com a fórmula corrigida.
+
+Regressão (nenhuma mudança de comportamento fora do esperado)
+
+`tests/e2e/test_ao_vivo.js` (7/7 — inclui a penalidade de familiaridade
+tática, que agora usa `/=` em vez de `*=` pro `def`, confirmado
+funcionando). `tests/e2e/test_ge_copa_001.js` (4/4 — `simulateCupLeg`
+tocado). `tests/e2e/test_cup.js` (6/6). `tests/e2e/test_comissao_tecnica.js`
+(7/7 — `suggestTactics` tocado). `tests/e2e/test_estatisticas_completas.js`
+(9/9 — `renderStatsCopaContent`/cobertura geral). `tests/e2e/test_tabela_modal.js`
+(1 check já falhava identicamente em `main` sem nenhuma mudança minha,
+confirmado via `git stash` — não é regressão). `node -c
+public/js/carreira.js` limpo.
+
+Fora de escopo (confirmado, nada tocado)
+
+* `computeHumanStrength`, `data.js`, `buildRealPlayer`/
+  `buildGeneratedProPlayer` — já corretos, não alterados;
+* recalibração de `OPPONENT_MOTIVATION_STREAK_STEPS`
+  (`GE-BALANCE-001`) — achado registrado acima, candidato a demanda
+  futura separada, não tratado aqui;
+* valuation de jogador/scouting — confirmado que não usam a fórmula de
+  gol, não tocados.
 
 ⸻
 
