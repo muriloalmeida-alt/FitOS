@@ -1,6 +1,6 @@
 # BRDATA — CHANGELOG
 **Gerado em:** 09/09/2026 (atualizado em 11/09/2026)
-**Cobertura:** 2026-08-14 até 2026-09-11 (238 commits em 18 dias, branch `main`)
+**Cobertura:** 2026-08-14 até 2026-09-11 (239 commits em 18 dias, branch `main`)
 **Versão atual:** v9.0.0
 
 ## Metodologia
@@ -79,12 +79,15 @@ bump.
 
 ## Histórico completo (mais recente primeiro)
 
-### 2026-09-11 — v9.0.0  (2 commits de merge)
+### 2026-09-11 — v9.0.0  (3 commits de merge)
 
 > **Bump MAJOR porque:** fecha o Batch 3 (Transactional) do redesign
 > mobile S4 por completo (4/4 telas) — com isso, os Batches 2 e 3 da S4
 > estão 100% mesclados em `main`, restando só o Batch 4 (Complementary)
-> e o Batch 5 (QA) pra fechar a Sprint inteira.
+> e o Batch 5 (QA) pra fechar a Sprint inteira. Mais uma correção P0 de
+> confiabilidade (SAVE-LIMIT-001) que muda a arquitetura de
+> armazenamento do save (compressão) pra eliminar um beco sem saída
+> real relatado pelo usuário.
 
 - `a493286` `DOCS-REQ-001` (issue #23) — povoa as 4 subpastas de
   `docs/requirements/` (antes vazias) com o que ainda é regra vigente
@@ -99,6 +102,19 @@ bump.
   (`showRoundResultsModal()`, `cupRoundResultsHTML()`, `renderRodada()`)
   — sem alterar a definição do componente. **Fecha o Batch 3
   (Transactional) da S4 por completo.**
+- `5ab43d8` `SAVE-LIMIT-001` (issue #29) — elimina o beco sem saída de
+  save "grande demais" (relato real do usuário). Medição real
+  (`tests/e2e/sim_save_growth.js`) achou `CAREER.leagueSquads` (elenco
+  dos 59 outros clubes) respondendo por ~79% do save, não estruturas
+  acumulativas — dado repetitivo que comprime 92-93% com gzip.
+  `server/src/careerStore.js` passa a armazenar cada carreira já
+  comprimida (memória + disco), com `MAX_BYTES` valendo sobre o
+  tamanho comprimido (teto efetivo de JSON bruto sobe de ~768KB pra
+  ~10MB sem mudar o número declarado), migração transparente de saves
+  antigos, e poda automática de histórico não-essencial como última
+  linha de defesa antes de recusar salvar. `GET /api/career` responde
+  comprimido (`Content-Encoding: gzip`). `CAREER.clubHistory` capado
+  (gap confirmado, sem cap antes).
 
 ### 2026-09-10 — v8.0.0  (10 commits de merge)
 
