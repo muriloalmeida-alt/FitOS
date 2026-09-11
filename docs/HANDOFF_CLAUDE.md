@@ -798,7 +798,9 @@ incluindo CPU).
 
 GE-COPA-001 — Expandir Copa do Brasil (60 clubes, ida e volta, cabeças de chave, ao vivo)
 
-Status: PRONTO PARA IMPLEMENTAÇÃO
+Status: AGUARDANDO VALIDAÇÃO DE DESENHO (checkpoint 1/2 — NENHUM código
+implementado ainda, só o desenho abaixo, exatamente como o escopo desta
+demanda exige)
 Sprint: fora da S4 (Mundo / Competições — CLAUDE.md §13, mais próximo
 de S9/S11 no roadmap oficial, tratado aqui como demanda isolada a
 pedido do Murilo)
@@ -970,6 +972,193 @@ Das 3 demandas desta rodada (`GE-BALANCE-001`, `GE-BALANCE-002`,
 etapas — as outras 2 só retornam ao final. Recomenda-se começar pelas
 outras 2 (menor risco) antes desta, se a ordem de execução ficar a
 critério do PM.
+
+Checkpoint de desenho (etapa 1/2) — NENHUM código implementado
+
+`GE-BALANCE-001` e `GE-BALANCE-002` já foram implementadas e reportadas
+(ver seções anteriores/Histórico); esta é a próxima pela ordem
+recomendada. Abaixo, o desenho completo pedido pelo escopo item 2,
+antes de qualquer linha de código.
+
+1) Inspeção completa (escopo item 1)
+
+Confirmado além do que a especificação já levantou:
+* `LEAGUE_TEAMS` (usado por `setupCup` hoje) é só os 20 clubes da
+  divisão ATUAL do técnico (`CAREER.divisionTeams[CURRENT_COMPETITION_ID]`,
+  `carreira.js:3373`) — não os 60. Pra chegar em 60 de verdade, a fonte
+  precisa trocar pra `ALL_TEAMS_FLAT`
+  (`ALL_COMPETITIONS_ORDER.flatMap(id => CAREER.divisionTeams[id])`,
+  já existe, `carreira.js:3374` — soma os 3 arrays de 20, sem
+  sobreposição possível: a cascata de acesso/rebaixamento garante que
+  cada clube está em exatamente 1 divisão por vez).
+* `CAREER.leagueSquads` já cobre os 59 outros clubes das 3 divisões
+  inteiras (não só os 19 da própria divisão — mudança de
+  `buildLeagueSquads` pro "mercado de 60 times", já em produção), então
+  `squadAvgOverallOf(clubId)` já funciona pra QUALQUER um dos 60 sem
+  mudança nenhuma.
+* Compatibilidade: `CAREER.divisionTeams`/`ALL_TEAMS_FLAT` só existem
+  em carreira com o sistema de divisões ativado (`CAREER.serieDPool` é
+  o mesmo gate já usado por `applyPromotionRelegation` — "carreira sem
+  o sistema ativado, nada a fazer"). Saves SEM esse sistema (antigos)
+  precisam continuar funcionando com a Copa como é HOJE (16 clubes, 1
+  divisão, jogo único) — ver item 6 abaixo.
+
+2) Tabela de fases proposta (escopo item 2 — o entregável central deste
+checkpoint)
+
+60 não é potência de 2 (trava pra fechar mata-mata sem sobra). Solução
+com o mesmo espírito da Copa do Brasil real (clubes menores começam
+antes, cabeças de chave entram depois): separar 4 cabeças de chave
+(critério: maior `squadAvgOverallOf` entre os 60, mesmo critério já
+usado hoje pros 16 diretos) que pulam a 1ª fase; os outros 56 (múltiplo
+de 2, sem sobra) jogam a 1ª fase — o vencedor de cada um dos 28
+confrontos junta aos 4 cabeças de chave, fechando 32 (potência de 2) a
+partir da 2ª fase em diante, sem bye nenhum daí pra frente:
+
+| Fase | Quem entra | Nº clubes | Confrontos | Formato |
+|---|---|---|---|---|
+| Fase 1 | os 56 não-cabeças de chave (todas as 3 divisões) | 56 | 28 | ida e volta |
+| 2ª fase (r32) | 28 vencedores da Fase 1 + 4 cabeças de chave | 32 | 16 | ida e volta |
+| Oitavas (r16) | 16 vencedores da r32 | 16 | 8 | ida e volta |
+| Quartas (qf) | 8 vencedores das oitavas | 8 | 4 | ida e volta |
+| Semifinal (sf) | 4 vencedores das quartas | 4 | 2 | ida e volta |
+| Final | 2 vencedores da semi | 2 | 1 | ida e volta |
+
+`CUP_PHASES` passa de `["r16","qf","sf","final"]` pra
+`["fase1","r32","r16","qf","sf","final"]` (6 fases, mesma estrutura de
+array/índice sequencial já usada — só mais 2 posições). Todos os 60
+clubes entram em algum confronto da Fase 1 ou já na r32 (cabeça de
+chave) — atende literalmente o pedido do usuário ("um mata mata onde
+todos participam"), diferente de hoje (só 16 dos 60 nem entram no
+sorteio).
+
+3) Ida e volta — todas as fases, inclusive a final (escopo item 3)
+
+Justificativa: o pedido do usuário não qualificou "exceto a final", e
+manter uniformidade em todas as 6 fases é mais simples de explicar e
+testar do que uma regra especial só pra 1 fase (CLAUDE.md — preferir
+consistência quando a fórmula é aceitável nos 2 casos). Desempate: em
+vez de gols fora de casa (regra que a própria Copa do Brasil real e a
+UEFA aboliram em 2021 — jogo de futebol moderno não usa mais),
+desempate no agregado vai DIRETO pros pênaltis, reaproveitando tal e
+qual o mecanismo de pênaltis que já existe em `simulateCupTie`
+(viés pelo overall médio dos 2 elencos, `clamp(0.25, 0.75)`) — sem
+inventar uma 2ª regra de desempate nem simular prorrogação.
+
+4) Ao vivo — só o confronto do PRÓPRIO clube (escopo item 4)
+
+`startLiveMatch`/`resolveLiveChunk`/`finishLiveMatch` hoje são
+acoplados à rodada do Brasileirão (agendam em `CAREER.schedule`,
+aplicam resultado em `CAREER.standings`/`CAREER.resultsByRound`).
+Proposta pra reaproveitar sem duplicar o motor (CLAUDE.md §5):
+* `startLiveMatch` ganha um parâmetro de contexto opcional (default:
+  comportamento atual, rodada do Brasileirão — 100% compatível)
+  descrevendo `{ type: "cup", phase, leg, tie }` quando é uma perna de
+  confronto de Copa.
+* Com esse contexto presente, `finishLiveMatch` NÃO mexe em
+  `CAREER.standings` (Copa não é pontos corridos) — só grava o placar
+  daquela perna no próprio objeto `tie` (`tie.leg1`/`tie.leg2`, campos
+  novos). Só quando a 2ª perna termina (`leg === 2`) é que o agregado é
+  calculado e a fase avança (mesma lógica de "quem venceu avança" que
+  `resolveCupPhase` já tem hoje, só que lendo `leg1+leg2` em vez de 1
+  placar único).
+* `simulateCupTie` ganha um parâmetro `{ regulationOnly: true }` —
+  resolve só 1 perna (gols, sem decidir pênaltis, já que quem decide
+  pênaltis agora é o AGREGADO das 2 pernas, não 1 jogo isolado) —
+  usado tanto pro CPU x CPU (perna a perna, instantâneo) quanto como
+  base do que roda por trás de uma perna AO VIVO do seu clube (mesmo
+  padrão de hoje, onde `resolveLiveChunk` já soma gol por gol usando a
+  mesma fórmula de lambda/Poisson).
+* Confronto que NÃO envolve o técnico continua 100% instantâneo (2
+  chamadas de `simulateCupTie` com mando de campo invertido na 2ª,
+  agregado calculado na hora) — só o SEU confronto pode virar ao vivo,
+  com a mesma opção de "Pular pro fim" que o Brasileirão já tem.
+
+5) Calendário e premiação (escopo item 4 bullet "preservar na medida
+do possível")
+
+12 "dias de Copa" (6 fases × 2 pernas), espaçados a cada 3 rodadas
+dentro da temporada de 38, começando depois da janela de transferências
+(Rodadas 1–3, CLAUDE.md §21) e fechando antes do fim da temporada:
+
+| Fase | Ida | Volta |
+|---|---|---|
+| Fase 1 | Rodada 3 | Rodada 6 |
+| r32 | Rodada 9 | Rodada 12 |
+| r16 | Rodada 15 | Rodada 18 |
+| qf | Rodada 21 | Rodada 24 |
+| sf | Rodada 27 | Rodada 30 |
+| final | Rodada 33 | Rodada 36 |
+
+`CUP_PRIZE` preserva os 5 valores atuais tal e qual (qf/sf/final/
+champion/runnerUp) e ganha 2 degraus novos, menores, pras 2 fases
+novas — só ENTRA prêmio novo, nada existente muda de valor:
+
+```js
+const CUP_PRIZE = {
+  r32: 150000,      // NOVO — prêmio por vencer a Fase 1
+  r16: 350000,       // NOVO — prêmio por vencer a 2ª fase (r32)
+  qf: 500000,        // preservado
+  sf: 1500000,        // preservado
+  final: 4000000,      // preservado
+  champion: 10000000,   // preservado
+  runnerUp: 3000000,     // preservado
+};
+```
+
+6) Compatibilidade com saves antigos (CLAUDE.md §33, não citado
+explicitamente no escopo mas obrigatório pela constituição)
+
+`setupCup` passa a checar `CAREER.serieDPool` (mesmo gate já usado por
+`applyPromotionRelegation`) ANTES de decidir a fonte de clubes: se o
+sistema de divisões está ativo, monta os 60 (desenho acima); se não
+(save antigo, sem o sistema), cai no comportamento ATUAL sem mudança
+nenhuma (16 clubes, só `LEAGUE_TEAMS`, jogo único, sem cabeça de chave)
+— igual ao padrão já usado em `resolveOtherDivisionsRound`/
+`applyPromotionRelegation` pra qualquer sistema opcional deste jogo.
+Migração de save no meio de temporada (`fastForwardFromRound`) precisa
+só saber fechar QUALQUER uma das 2 variantes de `CUP_PHASES` de trás
+pra frente — a lógica de `while` já existente não muda, só o array que
+ela percorre.
+
+7) Plano de teste (escopo item 5)
+
+* Simulação de chaveamento completo (novo `sim_ge_copa_001.js`, mesmo
+  espírito Monte Carlo dos outros `sim_*`): sortear 60 clubes fictícios
+  com overall variado, rodar as 6 fases (12 pernas) até fechar em 1
+  campeão, repetir centenas de vezes, confirmar sempre: exatamente 60
+  clubes entram, exatamente 1 campeão sai, nenhum clube duplicado ou
+  perdido em nenhuma fase, os 4 cabeças de chave sempre pulam a Fase 1.
+* e2e via UI real: confronto do técnico ao vivo (ida E volta),
+  confronto do técnico decidido por pênaltis no agregado, migração de
+  save antigo (sem sistema de divisões) continua com a Copa de 16
+  clubes/jogo único funcionando como hoje, save COM sistema de
+  divisões nasce com os 60/cabeças de chave corretos.
+* Regressão: `test_cup.js` (existente — ver observação abaixo) e
+  qualquer outro teste que toque `CAREER.cup`/`CUP_PHASES`/
+  `CUP_ROUNDS`.
+
+Observação sobre `test_cup.js`: já existe uma falha PRÉ-EXISTENTE nesse
+teste (timeout esperando `#matchDetailOverlay`/`#roundResultsOverlay`
+depois de simular a rodada da Copa), confirmada em `main` sem nenhuma
+mudança desta rodada (via `git stash`, documentada no relatório de
+`GE-BALANCE-001`) — fora do escopo de qualquer uma das 3 demandas desta
+rodada consertar isoladamente, mas como `GE-COPA-001` vai mexer
+diretamente no motor que esse teste cobre, o chapéu implementador desta
+demanda deve investigar e, se a causa for barata de corrigir dentro do
+próprio trabalho de `GE-COPA-001`, consertar; se não, registrar
+separadamente.
+
+Pergunta em aberto pro PM (não decidida aqui, pede validação
+explícita): o desenho acima assume que os 4 cabeças de chave são
+recalculados a CADA temporada (mesmo clube pode perder a vaga de
+cabeça de chave se o elenco enfraquecer, ou ganhar se fortalecer) —
+mesmo critério dinâmico já usado hoje pros 16 diretos. Alternativa
+seria fixar os 4 cabeças de chave por tradição (reaproveitando
+`CLUB_TRADITION_IDS` de `GE-BALANCE-002`, se aprovada) em vez de força
+atual — mas isso misturaria os 2 sistemas sem necessidade e sem pedido
+explícito do usuário pra isso. Meu default é força atual (dinâmico,
+sem misturar as demandas); PM pode pedir a alternativa.
 
 ⸻
 
