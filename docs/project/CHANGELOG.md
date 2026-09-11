@@ -1,6 +1,6 @@
 # BRDATA — CHANGELOG
 **Gerado em:** 09/09/2026 (atualizado em 11/09/2026)
-**Cobertura:** 2026-08-14 até 2026-09-11 (239 commits em 18 dias, branch `main`)
+**Cobertura:** 2026-08-14 até 2026-09-11 (240 commits em 18 dias, branch `main`)
 **Versão atual:** v9.0.0
 
 ## Metodologia
@@ -79,7 +79,7 @@ bump.
 
 ## Histórico completo (mais recente primeiro)
 
-### 2026-09-11 — v9.0.0  (3 commits de merge)
+### 2026-09-11 — v9.0.0  (4 commits de merge)
 
 > **Bump MAJOR porque:** fecha o Batch 3 (Transactional) do redesign
 > mobile S4 por completo (4/4 telas) — com isso, os Batches 2 e 3 da S4
@@ -87,7 +87,9 @@ bump.
 > e o Batch 5 (QA) pra fechar a Sprint inteira. Mais uma correção P0 de
 > confiabilidade (SAVE-LIMIT-001) que muda a arquitetura de
 > armazenamento do save (compressão) pra eliminar um beco sem saída
-> real relatado pelo usuário.
+> real relatado pelo usuário. Mais um ajuste de balanceamento do motor
+> de partida (GE-BALANCE-001, fora da S4) reduzindo sequências de
+> invencibilidade do clube humano.
 
 - `a493286` `DOCS-REQ-001` (issue #23) — povoa as 4 subpastas de
   `docs/requirements/` (antes vazias) com o que ainda é regra vigente
@@ -115,6 +117,21 @@ bump.
   linha de defesa antes de recusar salvar. `GET /api/career` responde
   comprimido (`Content-Encoding: gzip`). `CAREER.clubHistory` capado
   (gap confirmado, sem cap antes).
+- `4fc3cde` `GE-BALANCE-001` (issue #26) — reduz sequências de
+  invencibilidade do clube humano. Inspeção achou a fadiga por falta de
+  rotação insuficiente sozinha, e um achado mais sério: o lado
+  defensivo de `computeHumanStrength` está efetivamente invertido
+  (`club.def / defMult` faz um time cansado parecer "melhor"
+  defensivamente na fórmula de gol). Implementado o mecanismo
+  "motivação do adversário" (bônus de atk/def do rival quando o clube
+  humano chega numa partida do Brasileirão com sequência de
+  invencibilidade ≥5/8/12 jogos, determinístico e avisado por toast
+  antes da partida). Validado por simulação Monte Carlo (5000
+  temporadas, mesma fórmula real de lambda/Poisson): sequências ≥10
+  jogos caem de 6.2% pra 4.0% das temporadas. Inversão
+  `club.def/defMult` e calibração atk/def de `data.js` registradas como
+  achado pra uma futura `GE-BALANCE-003` dedicada (fora de escopo
+  aqui).
 
 ### 2026-09-10 — v8.0.0  (10 commits de merge)
 
