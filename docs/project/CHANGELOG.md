@@ -1,6 +1,6 @@
 # BRDATA — CHANGELOG
 **Gerado em:** 09/09/2026 (atualizado em 11/09/2026)
-**Cobertura:** 2026-08-14 até 2026-09-11 (242 commits em 18 dias, branch `main`)
+**Cobertura:** 2026-08-14 até 2026-09-11 (243 commits em 18 dias, branch `main`)
 **Versão atual:** v9.0.0
 
 ## Metodologia
@@ -79,7 +79,7 @@ bump.
 
 ## Histórico completo (mais recente primeiro)
 
-### 2026-09-11 — v9.0.0  (6 commits de merge)
+### 2026-09-11 — v9.0.0  (7 commits de merge)
 
 > **Bump MAJOR porque:** fecha o Batch 3 (Transactional) do redesign
 > mobile S4 por completo (4/4 telas) — com isso, os Batches 2 e 3 da S4
@@ -91,7 +91,12 @@ bump.
 > eliminar um beco sem saída real relatado pelo usuário. Mais 2 ajustes
 > de balanceamento do motor de partida (GE-BALANCE-001/002, fora da S4)
 > reduzindo sequências de invencibilidade e rebaixamento de clubes de
-> tradição.
+> tradição. E a maior mudança estrutural do dia: a Copa do Brasil
+> (GE-COPA-001) deixa de ser um mata-mata de 16 clubes/jogo único e
+> passa a ter 60 clubes (as 3 divisões inteiras), ida e volta em todas
+> as fases, cabeças de chave e confronto do próprio técnico jogável ao
+> vivo — validado com 3 temporadas inteiras simuladas pela pipeline
+> real, sem quebrar o formato legado nos saves antigos.
 
 - `a493286` `DOCS-REQ-001` (issue #23) — povoa as 4 subpastas de
   `docs/requirements/` (antes vazias) com o que ainda é regra vigente
@@ -157,6 +162,23 @@ bump.
   checagem preliminar suspeitava que não) mas não reaproveita
   PlayerCard; "Notícias/Eventos" é o único `NewsCard` do CLAUDE.md §7
   ainda sem componente formalizado.
+- `9e416d7` `GE-COPA-001` (issue #28) — expande a Copa do Brasil de 16
+  pra 60 clubes (as 3 divisões inteiras), com 4 cabeças de chave (maior
+  força de elenco, recalculado toda temporada) pulando a 1ª fase, ida
+  e volta em todas as 6 fases (antes: jogo único), desempate no
+  agregado direto pros pênaltis (sem gols fora — abolida na Copa do
+  Brasil/UEFA real desde 2021), e o confronto do próprio técnico agora
+  jogável ao vivo — reaproveita 100% o motor de partida do
+  Brasileirão (`resolveLiveChunk`), sem duplicar nenhum motor.
+  Checkpoint de desenho validado em 2 etapas antes/depois de codar
+  (maior risco das demandas desta rodada). Formato legado (16 clubes/
+  jogo único) preservado intacto pra saves sem sistema de divisões.
+  Validado com 3 temporadas inteiras simuladas pela pipeline real
+  (114 rodadas): chaveamento sempre fecha em 1 campeão, cabeças de
+  chave nunca jogam a 1ª fase, motor ao vivo decide as pernas do
+  técnico sem travar o fluxo da rodada. `test_cup.js` reescrito (a
+  técnica antiga de saltar rodada direto via API não é compatível com
+  o encadeamento ida/volta do formato novo).
 
 ### 2026-09-10 — v8.0.0  (10 commits de merge)
 
