@@ -74,12 +74,24 @@ própria aberta).
 
 Batch 4 — Complementary (7 telas, todas P1)
 
-Nenhuma verificada individualmente na S3.2.7 (fora do foco da
-auditoria, dado o gap já encontrado em P0). Tratar como
-"desconhecido", não como "ok por omissão". Demanda de verificação
-especificada: `S4-B4-READINESS-001` (status `PRONTO PARA
-IMPLEMENTAÇÃO`) — ver `docs/HANDOFF_CLAUDE.md` pra checagem
-preliminar por tela (não substitui a auditoria completa).
+Auditoria individual concluída e aprovada (`S4-B4-READINESS-001`,
+mesclada em `main`) — estado real de cada tela abaixo, com evidência.
+
+| Tela | Estado real | Observação |
+|---|---|---|
+| Onboarding | ✅ migrada `--m3-*` (`S4-B4-001`) | Título/texto/"Pular" migrados (`--mt-ivory-50`/`--mt-ink-muted` → `--m3-on-surface`/`--m3-on-surface-variant`, mesmo mapeamento semântico de título principal/texto secundário já usado no resto da S4). Indicadores de progresso (`.mt-onboard-dot`) e ícone já estavam `--m3-*` antes desta demanda. Tipografia `Bebas Neue` do título mantida — mesma classificação BRDATA Extension de `S4-B2-003`/`S4-B2-004`. Comportamento (navegação entre os 4 slides, pular, gatilho de 1ª vez por conta) 100% preservado |
+| Comparar jogadores | ⏳ pendente (`S4-B4-004`) | Existe (`#compareOverlay`) — achado da auditoria: a checagem preliminar suspeitava que não existisse. Estado misto (lista de escolha legada, resultado já `--m3-*`) |
+| Eixos táticos | ✅ já coberta, sem demanda própria | Confirmado com evidência: embutida dentro de Tática/Formação (`S4-B2-003`), não é uma tela separada |
+| Marcação individual | ⏳ pendente (`S4-B4-003`) | 100% legada (`#markingOverlay`) |
+| Meus esquemas | ⏳ pendente (`S4-B4-002`) | 100% legada (`#schemesOverlay`) |
+| Notícias/Eventos | ⏳ pendente (`S4-B4-005`) | 100% legada (`#newsOverlay`); candidata a formalizar `NewsCard` (§3 abaixo, único Product Pattern do CLAUDE.md §7 ainda sem contrato) |
+| Histórico/Estatísticas | ⏳ pendente (`S4-B4-006`, última do Batch) | 100% legada (`#panel-estatisticas`); cobertura multi-temporada confirmada com evidência |
+
+**1 de 6 telas migradas** (Onboarding) — Eixos táticos não conta como
+demanda própria (já coberta). Ordem de execução recomendada pela
+própria auditoria: Onboarding → Meus esquemas → Marcação individual →
+Comparar jogadores → Notícias/Eventos → Histórico/Estatísticas (issues
+#31-#36).
 
 ⸻
 

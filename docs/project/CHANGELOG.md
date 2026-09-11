@@ -1,6 +1,6 @@
 # BRDATA — CHANGELOG
 **Gerado em:** 09/09/2026 (atualizado em 11/09/2026)
-**Cobertura:** 2026-08-14 até 2026-09-11 (243 commits em 18 dias, branch `main`)
+**Cobertura:** 2026-08-14 até 2026-09-11 (244 commits em 18 dias, branch `main`)
 **Versão atual:** v9.0.0
 
 ## Metodologia
@@ -79,7 +79,7 @@ bump.
 
 ## Histórico completo (mais recente primeiro)
 
-### 2026-09-11 — v9.0.0  (7 commits de merge)
+### 2026-09-11 — v9.0.0  (8 commits de merge)
 
 > **Bump MAJOR porque:** fecha o Batch 3 (Transactional) do redesign
 > mobile S4 por completo (4/4 telas) — com isso, os Batches 2 e 3 da S4
@@ -179,6 +179,12 @@ bump.
   técnico sem travar o fluxo da rodada. `test_cup.js` reescrito (a
   técnica antiga de saltar rodada direto via API não é compatível com
   o encadeamento ida/volta do formato novo).
+- `d36d8e0` `S4-B4-001` (issue #31) — migra a tela Onboarding pro
+  Design System novo, item 1/6 do Batch 4. 3 seletores CSS migrados
+  (`--mt-ivory-50`/`--mt-ink-muted` → `--m3-on-surface`/
+  `--m3-on-surface-variant`); tipografia `Bebas Neue` do título mantida
+  como BRDATA Extension (mesmo critério de `S4-B2-003`/`004`). Nenhuma
+  mudança de comportamento.
 
 ### 2026-09-10 — v8.0.0  (10 commits de merge)
 

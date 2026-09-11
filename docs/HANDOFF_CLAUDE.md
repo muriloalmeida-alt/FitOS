@@ -175,88 +175,6 @@ esquecida.
 
 ⸻
 
-S4-B4-001 — Migrar tela Onboarding para o Design System novo
-
-Status: PRONTO PARA IMPLEMENTAÇÃO
-Sprint: S4 — Redesign Mobile
-Fase: Batch 4 (Complementary) — item 1 de 6
-Prioridade: P1
-Issue: https://github.com/muriloalmeida-alt/FitOS/issues/31
-
-Objetivo
-
-Migrar a tela de Onboarding (tutorial de boas-vindas do primeiro
-acesso) pro Design System novo, conforme
-`docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 4).
-
-Contexto
-
-Item 1 da ordem recomendada por `S4-B4-READINESS-001` (menor escopo,
-já parcialmente migrada). Estado real confirmado: `renderOnboardingSlide()`/
-`openOnboardingOverlay()`, `#onboardingOverlay` — os indicadores de
-slide (`.mt-onboard-dot`/`.mt-onboard-dot.active`) já usam
-`--m3-outline-variant`/`--m3-primary`; título/texto/corpo do slide
-ainda usam `.ct-modal-body`/`--mt-ivory-50`/`--mt-ink-muted` (legado).
-
-Escopo
-
-Chapéu implementador deve:
-
-1. Inspecionar `renderOnboardingSlide()`/`#onboardingOverlay` antes de
-   alterar qualquer coisa.
-2. Migrar título/texto/corpo do slide pros tokens `--m3-*` — os
-   indicadores de slide já estão migrados, não mexer neles além do
-   necessário pra consistência.
-3. Preservar 100% o comportamento (navegação entre slides, "pular",
-   gatilho de primeiro acesso).
-4. Usar os componentes já disponíveis (Dialog/Bottom Sheet/Skeleton)
-   se a inspeção revelar necessidade — não presumir aqui.
-5. Testar (mobile-first).
-6. Atualizar `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md` marcando esta
-   tela como migrada.
-7. Retornar relatório técnico nesta mesma seção, status `REVISÃO DO PM
-   NECESSÁRIA`.
-
-Fora de escopo
-
-* qualquer outra tela do Batch 4;
-* mudança de conteúdo/copy dos slides ou da lógica de quando o
-  onboarding aparece;
-* qualquer novo BRDATA Product Pattern (não se aplica aqui).
-
-Dependências
-
-* `S3-DS20-S4-PREP-001` (Dialog/Bottom Sheet/Skeleton) — aprovada,
-  concluída.
-
-Requisitos
-
-Mesma sequência obrigatória: inspecionar → localizar → entender →
-planejar → alterar → testar → revisar.
-
-Critérios de aceite
-
-* tela 100% `--m3-*`;
-* comportamento de navegação/pular preservado;
-* nenhuma outra tela alterada;
-* teste mobile-first cobrindo a tela.
-
-Validações
-
-O PM deverá validar: aderência ao Design System, preservação do
-comportamento, teste, escopo respeitado.
-
-Riscos
-
-* baixo — tela pequena, estática, sem regra de negócio.
-
-Observações
-
-Com esta demanda, resta o item 2 (`S4-B4-002`, Meus esquemas) na
-ordem recomendada.
-
-⸻
-
 S4-B4-002 — Migrar tela Meus esquemas para o Design System novo
 
 Status: PRONTO PARA IMPLEMENTAÇÃO
@@ -1193,3 +1111,16 @@ formato legado de 16 clubes preservado intacto pra saves antigos,
 
 **Merge do código:** autorizado pela aprovação formal do PM na issue
 #28, executado nesta sessão.
+
+S4-B4-001 — Migrar tela Onboarding para o Design System novo	11/09/2026	merge de `claude/s4-b4-001-onboarding` em `main` (commit de código original `d36d8e0`)	docs/project/CHANGELOG.md (a atualizar)
+
+APROVADO pelo Murilo em 11/09/2026 (issue #31), diretamente nesta
+conversa ("Aprovado. Seguir para o próximo"). Relatório técnico
+completo (3 seletores CSS migrados — `.mt-onboard-title`/`.mt-onboard-text`/
+`.mt-onboard-skip`, `--mt-ivory-50`/`--mt-ink-muted` →
+`--m3-on-surface`/`--m3-on-surface-variant`; tipografia Bebas Neue do
+título mantida como BRDATA Extension) em
+`git show d36d8e0:docs/HANDOFF_CLAUDE.md`.
+
+**Merge do código:** autorizado pela aprovação formal do PM na issue
+#31, executado nesta sessão.
