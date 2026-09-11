@@ -635,7 +635,11 @@ em uma nova demanda, não como reabertura dessa issue.
 
 DOCS-REQ-001 — Povoar docs/requirements/ com regras vigentes migradas de docs/sprints/
 
-Status: PRONTO PARA IMPLEMENTAÇÃO
+Status: REVISÃO DO PM NECESSÁRIA
+
+**Decisão do PM (Murilo, 11/09/2026): aprovado o escopo, implementação
+autorizada.** Implementação concluída nesta mesma sessão — relatório
+abaixo, aguardando revisão do resultado antes do merge em `main`.
 
 **Nota de proveniência (registrada nesta sessão, 10/09/2026):** esta
 demanda foi encontrada já aberta como
@@ -756,6 +760,56 @@ Issue de rastreio: `https://github.com/muriloalmeida-alt/FitOS/issues/23`
 — já existia antes desta especificação chegar a `docs/HANDOFF_CLAUDE.md`
 (ver nota de proveniência no início desta seção); corrigida para
 apontar pra este registro assim que esta atualização for commitada.
+
+Relatório técnico (implementação)
+
+Branch: `claude/docs-req-001`. Nenhuma alteração de código — só
+`docs/`, exatamente conforme o "fora de escopo" desta demanda.
+
+Lidos por completo os 6 documentos-fonte: `S2_GDD.md`,
+`S2_GDD_TECNICO.md`, `S2_GAME_ENGINE_SPEC.md`,
+`S3_DS20_FUNDACAO_EXECUTAVEL.md`, `S3_2_COMPONENTES_E_CONTRATOS.md` e
+`S3_2_7_READINESS.md` (esta última usada como fonte do estado real
+reconciliado, não recopiada — o relatório da S3.2.7 já vive completo
+neste mesmo handoff, seção `S3-DS20-S4-READINESS-001`).
+
+Criado 1 documento por subpasta, cada um citando a origem e separando
+explicitamente **estado atual/confirmado** de **direção
+futura/proposta** (regra do próprio `docs/README.md` de nunca presumir
+que código ou spec estão corretos sem verificar):
+
+* `functional/VISAO_PRODUTO_E_LOOP.md` — visão de produto, pilares,
+  loops, entidades, princípio de consequência, mundo vivo, retenção
+  (de `S2_GDD.md`).
+* `technical/ARQUITETURA_E_ENGINES.md` — arquitetura atual, Game State,
+  versionamento, ciclo de rodada, os 4 motores, modelo de dados,
+  persistência, regras de processo (de `S2_GDD_TECNICO.md` +
+  `S2_GAME_ENGINE_SPEC.md`).
+* `game-design/MECANICAS_E_ECONOMIA.md` — evolução/declínio, moral,
+  treinamento, tática, Match Engine (fórmulas), IA de clubes/mercado,
+  finanças, diretoria, reputação, anti-exploit, balanceamento, checklist
+  de testes (de `S2_GDD.md` + `S2_GAME_ENGINE_SPEC.md`).
+* `ui-ux/DESIGN_SYSTEM_VIGENTE.md` — o mais sensível dos 4: reconciliado
+  com o estado REAL de 11/09/2026 (não só a S3.2.7 de 09/09), incluindo
+  todo o trabalho de S4 concluído nesta sessão — decisão de convergência
+  de tokens (`--m3-*` único), os 3 componentes de overlay criados
+  (Dialog/Bottom Sheet/Skeleton, incl. o bug crítico de CSS já
+  corrigido), estado real dos 6 BRDATA Product Patterns (5 resolvidos,
+  LeagueTable ainda não migrada), cobertura por Batch da S4 (Batch 2
+  100%, Batch 3 3/4, Batch 4 não auditado ainda), e os gaps conhecidos
+  ainda abertos (ícones via emoji, densidade de ARIA).
+
+Critérios de aceite conferidos: as 4 subpastas deixaram de estar
+vazias; nenhuma regra migrada contradiz achado real já registrado (em
+particular `ui-ux/`, que não descreve o DS como unificado nem repete a
+S3.1 como se já estivesse 100% implementada); `docs/sprints/` continua
+intocado (`git diff --stat -- docs/sprints/` vazio); `docs/README.md` e
+os 4 READMEs de subpasta atualizados pra refletir que deixaram de estar
+vazias.
+
+Resultado proposto: **APROVADO** — trabalho só de documentação,
+fielmente rastreável à origem, sem contradizer nenhum achado real já
+registrado. Aguardando revisão formal do PM antes do merge em `main`.
 
 ⸻
 
