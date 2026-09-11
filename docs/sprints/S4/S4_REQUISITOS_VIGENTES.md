@@ -64,7 +64,7 @@ Batch 3 — Transactional (4 telas, todas P0)
 | Mercado | ✅ migrada `--m3-*` (`S4-B3-002`) | Cada linha usa o TransferCard (`transferCardHTML()`, `S4-B3-001`) no lugar do antigo `.mt-market-row` ad hoc — mesma informação/ações, componente nomeado. `.mt-btn-loan`/`.mt-btn-sell` migrados junto (`--mt-ink-muted`/`--mt-crimson-400` → `--m3-on-surface-variant`/`--m3-error`) |
 | Negociação / Proposta | ✅ migrada `--m3-*` (`S4-B3-003`) | "Fazer proposta" virou Dialog dinâmico (`openM3Dialog()`) no lugar do `#offerOverlay` estático. "Minhas propostas" usa TransferCard no lugar de `.mt-sponsor-proposal-row`. **Achado e corrigido nesta demanda: bug crítico pré-existente** que desde `S3-DS20-S4-PREP-001` deixava `--mt-*` TODO Dialog/Bottom Sheet sem `position:fixed`/`z-index` de verdade (um comentário CSS continha sem querer a sequência de fechamento de comentário no meio do texto) — ver `docs/HANDOFF_CLAUDE.md` (`S4-B3-003`) para o detalhe técnico completo |
 | Contratos | ✅ criada do zero e mesclada em `main` (`S4-B3-004`) | Tela nova (`#contratosOverlay`, aberta por "☰ Equipe & Treinos" → "📄 Contratos"), decisão do PM (opção 1) depois de confirmado por inspeção que a tela não existia. 1 ContractCard (`S4-B3-001`) por jogador com contrato ativo (exclui emprestados), ordenado por proximidade do vencimento, filtro Todos/Vencendo. Ações 100% reaproveitadas, nenhuma regra nova: Renovar (`openRenewModal`/`proposeRenewal`) e Dispensar (`handlePlayerAction`, mesma mutação do Perfil) — ver `docs/HANDOFF_CLAUDE.md` (`S4-B3-004`) pro relatório completo |
-| Resumo da rodada | ❌ `--mt-*` (legado) | MatchCard e FinancialSummary disponíveis e mesclados em `main` (`S4-B3-005`) — tela em si ainda sem demanda própria de migração |
+| Resumo da rodada | ❌ `--mt-*` (legado) | MatchCard disponível e mesclado em `main` (`S4-B3-005`) — inspeção encontrou **2 telas existentes** cobrindo o conceito (`#roundResultsOverlay`, pós-jogo; `#rodadaOverlay`, menu), não 1; demanda própria especificada (`S4-B3-006`, status `PRONTO PARA IMPLEMENTAÇÃO`) |
 
 **4 de 4 (100%) migradas/criadas e mescladas em `main`** (Mercado,
 Negociação/Proposta, Contratos, e o pré-requisito de componentes pra
@@ -227,10 +227,13 @@ for paga agora, antes de replicar o padrão ad hoc em mais telas.
      (`S4-B3-005`) — **concluída e mesclada em `main`** (MatchCard
      construído novo, FinancialSummary formalizado retroativamente).
      Resolve a pendência do item 2b acima.
-   - Item 6: **Resumo da rodada** — os 2 componentes que dependiam
-     dela agora existem (item 5 concluído), mas a tela em si ainda
-     está sem demanda própria de migração — pode ser especificada a
-     qualquer momento agora, não depende mais de nada.
+   - Item 6: **Resumo da rodada** (`S4-B3-006`, status `PRONTO PARA
+     IMPLEMENTAÇÃO`) — inspeção encontrou 2 telas existentes cobrindo
+     o conceito (`#roundResultsOverlay` pós-jogo, `#rodadaOverlay` do
+     menu), ambas usando `.ct-round-result-row`; demanda migra as 2
+     pro `MatchCard`, sem unificá-las numa "super-tela" (divergência
+     de escopo registrada em relação à Tela 17 original — ver
+     `docs/HANDOFF_CLAUDE.md`).
 5. **Batch 4 (Complementary)** — as 7 telas P1, começando por uma
    verificação individual (não foram auditadas na S3.2.7). Ainda **sem
    demanda própria** — a demanda que cobria isso (`S4-B4-000`) foi
@@ -255,19 +258,20 @@ Cada um dos passos 2-5 deve nascer como uma demanda própria em
 como uma "S4 inteira" de uma vez — mantém o padrão de escopo pequeno e
 testável que already funcionou até aqui.
 
-**Atualização (10/09/2026 — pós `S4-AUDIT-BACKLOG-001` + merge do
-código):** dos itens 3 e 4 acima (as 10 demandas #12-#21), 9 foram
-aprovadas pelo PM e o código já está mesclado em `main`
-(`S4-B2-001/002/003/004/005`, `S4-B3-001/002/003/005` — ver §2 acima
-pro estado real por tela, todas ✅). A 10ª (`S4-B3-004`/#20, item 4
-acima) foi redefinida ("migrar" → "criar do zero", tela não existia)
-com mini-spec em `docs/HANDOFF_CLAUDE.md`; já implementada na branch
-`claude/s4-b3-004-contratos`, aguardando revisão/aprovação do PM antes
-do merge em `main` (ver §2, linha "Contratos"). Item 6 (**Resumo da
-rodada**) segue sem demanda própria — pré-requisito (`S4-B3-005`) já
-mesclado, pode ser especificado agora. Item 5 (**Batch 4**) segue sem
-verificação individual nem demanda própria. Item 7
-(`S4-AUDIT-BACKLOG-001`) concluído e aprovado.
+**Atualização (11/09/2026 — Batch 3 fechado + `S4-B3-006`
+especificada):** das 10 demandas #12-#21 (itens 3 e 4), **todas as 10
+foram aprovadas e mescladas em `main`** — Batch 2 (Core) e Batch 3
+(Transactional) 100% fechados, incluindo `S4-B3-004`/#20 (Contratos,
+redefinida "migrar" → "criar do zero", implementação aprovada e
+mesclada). Item 6 (**Resumo da rodada**) ganhou demanda própria:
+`S4-B3-006`, status `PRONTO PARA IMPLEMENTAÇÃO` — inspeção encontrou 2
+telas existentes (`#roundResultsOverlay`, `#rodadaOverlay`), não 1,
+ambas migrando pro `MatchCard`; divergência de escopo registrada em
+relação à "super-tela" que a Tela 17 original descreve (ver
+`docs/HANDOFF_CLAUDE.md`). Com `S4-B3-006` aprovada e mesclada, o
+Batch 3 fecha 100%. Item 5 (**Batch 4**) segue sem verificação
+individual nem demanda própria — próximo passo depois de `S4-B3-006`.
+Item 7 (`S4-AUDIT-BACKLOG-001`) concluído e aprovado.
 
 ⸻
 

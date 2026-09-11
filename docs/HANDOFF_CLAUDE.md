@@ -759,6 +759,150 @@ apontar pra este registro assim que esta atualização for commitada.
 
 ⸻
 
+S4-B3-006 — Migrar Resumo da rodada e Rodada (menu) pro MatchCard
+
+Status: PRONTO PARA IMPLEMENTAÇÃO
+Sprint: S4 — Redesign Mobile
+Fase: Batch 3 (Transactional) — último item, pré-requisito concluído
+Prioridade: P0
+Issue: https://github.com/muriloalmeida-alt/FitOS/issues/24
+
+Objetivo
+
+Migrar as telas que já cobrem o conceito "Resumo da rodada" (Tela 17
+da matriz, `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md`) pro
+Design System novo, usando o `MatchCard` (`matchCardHTML()`,
+`S4-B3-005`) no lugar do padrão ad hoc `.ct-round-result-row` — mesmo
+tipo de migração de Mercado/Negociação (`S4-B3-002`/`003`), não uma
+tela nova.
+
+Contexto
+
+Inspeção real (não presumida) encontrou **2 telas existentes**, não 1,
+cobrindo partes do conceito "Resumo da rodada":
+
+1. `#roundResultsOverlay`/`showRoundResultsModal()` — abre sozinha no
+   fluxo pós-jogo (resultado da rodada, mudanças de escalação, proposta
+   nova de jogador, resultado da Copa do Brasil quando aplicável, botão
+   "Continuar" que avança a carreira). É a que mais se parece com o
+   objetivo da Tela 17 ("apresentar o resultado da rodada e permitir
+   avanço da carreira").
+2. `#rodadaOverlay`/`renderRodada()`/`openRodadaScreen()` — aberta a
+   qualquer momento pelo menu ("☰" → Competição → "📆 Rodada"),
+   navegável entre rodada atual/anterior, sem o fluxo de avanço (é
+   consulta, não decisão).
+
+Ambas usam o mesmo `.ct-round-result-row` — exatamente 2 dos "4
+lugares diferentes" que o relatório de `S4-B3-005` já flagrou como
+duplicação do mesmo padrão (o `MatchCard` foi construído informado por
+esse achado, mas **sem nenhum ponto de uso real ainda** — ver
+comentário acima de `matchCardHTML()` em `carreira.js`: "'Resumo da
+rodada', que o consumiria de verdade, é demanda futura").
+
+**Divergência de escopo em relação à Tela 17 original, registrada, não
+resolvida unilateralmente:** a matriz descreve um conceito mais amplo
+("resultado da partida; classificação; desempenho; finanças; evolução;
+eventos; notícias; objetivos") do que qualquer uma das 2 telas acima
+cobre isoladamente. Inspeção confirma que esse escopo mais amplo já
+está distribuído em telas próprias e deliberadamente separadas —
+classificação (Tabela), finanças/eventos (Notícias — ver AJUSTE
+registrado em `showRoundResultsModal()`: resumo financeiro da rodada
+foi removido daqui e movido pra Notícias, a pedido do usuário),
+objetivos (tela própria). Juntar tudo numa "super-tela" única
+substituiria decisões de produto já tomadas — fora do que esta demanda
+de migração visual autoriza decidir sozinho. Esta demanda migra as 2
+telas que já existem; não cria a "super-tela" que a Tela 17 descreve em
+abstrato.
+
+Escopo
+
+Chapéu implementador deve, quando retomar esta demanda:
+
+1. Inspecionar `showRoundResultsModal()`, `renderRodada()` e todo uso
+   de `.ct-round-result-row` (confirmar se há mais de 2 pontos, dado
+   que `S4-B3-005` citou 4) antes de alterar qualquer coisa.
+2. Substituir cada `.ct-round-result-row` por `matchCardHTML()`
+   (`S4-B3-005`) nos 2 pontos acima — mesma informação (mandante,
+   placar ou "— x —", visitante, destaque pro jogo do próprio clube),
+   componente nomeado.
+3. Preservar 100% do comportamento funcional de cada tela: navegação
+   atual/anterior em `#rodadaOverlay`; mudanças de escalação, aviso de
+   proposta nova, resultado de Copa do Brasil e botão "Continuar" (que
+   avança a carreira) em `#roundResultsOverlay`.
+4. Usar os componentes já disponíveis (Dialog, Bottom Sheet, Skeleton)
+   onde a tela precisar de overlay/carregamento — não criar nada novo
+   em paralelo.
+5. Registrar como divergência (não resolver sozinho) se a inspeção
+   encontrar um 3º ou 4º ponto de uso de `.ct-round-result-row` fora
+   dos 2 já mapeados aqui, ou qualquer sinal de que juntar as 2 telas
+   numa só seria necessário — ambos são decisão de produto.
+6. Testar (mobile-first, mesmo padrão das demandas anteriores),
+   cobrindo as 2 telas.
+7. Atualizar `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md` marcando
+   "Resumo da rodada" como migrada.
+8. Retornar relatório técnico nesta mesma seção do handoff, status
+   `REVISÃO DO PM NECESSÁRIA`.
+
+Fora de escopo
+
+* qualquer outra tela do Batch 3 (já todas migradas/criadas);
+* unificar `#roundResultsOverlay` e `#rodadaOverlay` numa tela só, ou
+  ampliar o conceito pra cobrir classificação/finanças/evolução/
+  eventos/notícias/objetivos direto aqui — decisão de produto, fora
+  desta demanda de migração visual (ver Contexto);
+* qualquer mudança de regra de resolução de rodada, avanço de
+  carreira, Copa do Brasil ou proposta de jogador;
+* qualquer mudança na definição do `MatchCard` além do que
+  `S4-B3-005` já formalizou;
+* mover o resumo financeiro de volta pra cá — decisão de produto já
+  tomada em sentido contrário (registrada no próprio código).
+
+Dependências
+
+* `S4-B3-005` (`matchCardHTML()`) — aprovada, concluída, mesclada.
+* `S3-DS20-S4-PREP-001` (Dialog/Bottom Sheet/Skeleton) — aprovada,
+  concluída.
+* `docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 17).
+* `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`.
+
+Requisitos
+
+Mesma sequência obrigatória de sempre: inspecionar → localizar →
+entender → planejar → alterar → testar → revisar.
+
+Critérios de aceite
+
+* `#roundResultsOverlay` e `#rodadaOverlay` usam `MatchCard` no lugar
+  de `.ct-round-result-row`;
+* toda a funcionalidade de cada tela (listada no Escopo, item 3)
+  continua funcionando;
+* nenhuma outra tela alterada;
+* nenhuma regra de negócio nova;
+* teste mobile-first cobrindo as 2 telas.
+
+Validações
+
+O PM deverá validar: aderência ao Design System, reutilização correta
+do `MatchCard`, preservação de todas as funcionalidades das 2 telas,
+teste, escopo respeitado (em particular, que a "super-tela" da Tela 17
+não foi construída sem decisão prévia).
+
+Riscos
+
+* baixo — migração visual sobre 2 telas já existentes e estáveis,
+  nenhuma regra de negócio nova; o risco real é de escopo (tentar
+  unificar as 2 telas ou ampliar o conceito sem decisão do PM) — por
+  isso "fora de escopo" lista isso explicitamente.
+
+Observações
+
+Com esta demanda concluída e aprovada, o **Batch 3 (Transactional)
+fecha 100%**. Resta apenas o Batch 4 (Complementary, 7 telas P1, ainda
+sem verificação individual nem demanda própria) e o Batch 5 (QA Visual/
+UX transversal) pra completar a S4 — Redesign Mobile.
+
+⸻
+
 S4-AUDIT-BACKLOG-001 — Auditoria de prontidão das demandas #12 a #21
 
 Status: APROVADO
