@@ -668,7 +668,7 @@ em uma nova demanda, não como reabertura dessa issue.
 
 GE-BALANCE-002 — Peso da tradição/força de clube na simulação (relegação)
 
-Status: PRONTO PARA IMPLEMENTAÇÃO
+Status: REVISÃO DO PM NECESSÁRIA
 Sprint: fora da S4 (Game Engine / Mundo — CLAUDE.md §13/§22, mais
 próximo de S9/S10 no roadmap oficial, tratado aqui como demanda
 isolada a pedido do Murilo)
@@ -793,6 +793,115 @@ Relacionada a `GE-BALANCE-001` (mesmo pedido do usuário, mecanismos
 diferentes — uma é sobre sequência de vitórias do clube do jogador,
 esta é sobre força/tradição de clube na simulação como um todo,
 incluindo CPU).
+
+Relatório técnico
+
+1) Inspeção (item 1 do escopo) — campo reaproveitável já existente:
+
+`club.atk`/`club.def` (data.js, 120 registros — 1 par por clube, os 60
+clubes das 3 divisões) já são um proxy de FORÇA ATUAL, bem curado, e já
+totalmente reaproveitado por `buildGeneratedProPlayer`
+(`clubFactor = club.atk` pros grupos F/M, `2 - club.def` pros grupos
+D/G) — todo jogador GERADO pra completar um elenco de CPU (inclusive
+na renovação anual, `renewLeagueSquad`) já converge pra essa força,
+sem nenhuma correção nova precisar entrar aí. `club.atk`/`club.def`
+também NUNCA mudam durante a carreira (confirmado — nenhuma atribuição
+a esses campos em `carreira.js` fora da criação do dado), então não
+existe "deriva" de força pra corrigir na regeneração de elenco — o
+item 3 do escopo (bullet 1, "puxar de volta em direção à força
+histórica") já está coberto pelo código existente, sem mudança.
+
+**Mas força atual não é tradição** — o próprio exemplo do usuário
+prova isso: Corinthians tem `atk: 1.50` (praticamente meio de tabela
+dos 20 clubes da Série A, `data.js` linha ~58), bem abaixo do Flamengo
+(`1.85`), mas ninguém discorda que os 2 são gigantes históricos do
+futebol brasileiro. Não existe hoje nenhum campo aproveitável pra
+"tamanho histórico do clube" — nem em `data.js` (só nome/cores/
+escudo/estádio/atk/def), nem no `frozen-catalog/` (só nome/escudo/
+estádio/tabela da temporada capturada, sem capacidade de estádio,
+receita ou títulos). Por isso este é um dos casos em que o próprio
+CLAUDE.md §5 aceita criar campo novo: `CLUB_TRADITION_IDS`, um Set
+pequeno e curado (12 ids, não uma tabela mantida clube a clube pras
+centenas de times) com os clubes consensualmente reconhecidos como
+"os grandes" do futebol brasileiro — Flamengo, Corinthians, Palmeiras,
+São Paulo, Santos, Vasco, Fluminense, Botafogo, Grêmio, Internacional,
+Cruzeiro, Atlético-MG (mesmos 2 exemplos citados pelo usuário +
+os outros comumente citados junto). O id de cada clube é estável entre
+divisões (um clube rebaixado carrega o MESMO id/atk/def pra divisão de
+baixo, ver `applyPromotionRelegation`/`teamsFor`), então a lista
+funciona em qualquer divisão em que o clube esteja.
+
+2-3) Mecanismo implementado (2º bullet do item 3 do escopo — o 1º já
+estava coberto, ver acima): "reprieve de tradição" na zona de
+rebaixamento. Depois de `relegationZoneIds` calcular a zona normal
+(puramente posicional, sem nenhuma mudança na regra em si), cada clube
+de tradição que caiu nela tem `TRADITION_REPRIEVE_CHANCE = 0.5`
+(sorteio determinístico por temporada+divisão, `seededRngFromKey`,
+mesmo padrão já usado no resto do jogo) de escapar — se escapar, troca
+de lugar com o clube são mais próximo da linha (nunca com outro clube
+de tradição, ver gap abaixo). Moeda ao ar, não imunidade: metade das
+vezes um clube de tradição que cai na zona desce igual qualquer outro.
+Fora da zona de ACESSO/promoção de propósito — o mecanismo só amortece
+a queda, nunca facilita a subida (CLAUDE.md §22, mérito esportivo).
+
+**Gap encontrado e corrigido pela própria simulação de validação**: a
+1ª versão trocava sempre com o clube "logo acima da linha", não
+importa quem fosse — como 12 dos 20 clubes reais da Série A JÁ são de
+tradição, o "logo acima" também costumava ser de tradição, e trocar 1
+tradicional por outro não reduz nada o total (medido: só 17.3% de
+redução, longe do ~50% esperado). Corrigido pra procurar
+especificamente o clube NÃO-tradicional mais próximo da linha (só cai
+de volta pra outro tradicional se a tabela inteira acima da zona for
+só de clubes de tradição — praticamente impossível com 12 tradicionais
+em 60 clubes).
+
+4-5) Validação por simulação (`tests/e2e/sim_ge_balance_002.js`, Node
+puro, roda o CÓDIGO REAL de produção — `relegationZoneIds`/
+`CLUB_TRADITION_IDS`/`TRADITION_REPRIEVE_CHANCE`/
+`applyTraditionReprieve`, extraído por regex de `carreira.js` e
+executado via `vm`, não reescrito à mão — contra 20.000 composições de
+zona sorteadas, cenário propositalmente adverso: divisão de 20 times
+com os 12 tradicionais + 8 times quaisquer, a mesma proporção real da
+Série A hoje):
+
+| | sem mecanismo | com mecanismo |
+|---|---|---|
+| clube de tradição que caiu na zona É rebaixado | 100% | 59.3% |
+
+Redução relativa de **40.7%** (perto do 50% teórico — a diferença é o
+caso raro de MÚLTIPLOS tradicionais na mesma zona simultaneamente,
+onde parte do "estoque" de substitutos não-tradicionais já foi
+consumida por um swap anterior na mesma temporada). Checagem de
+invariante (2.000 rodadas extra): nenhum clube NÃO-tradicional sai
+prejudicado pelo mecanismo — `tests/e2e/sim_ge_balance_002.js` confirma
+`true` nas 2.000 rodadas. Rebaixamento continua genuinamente possível
+pra qualquer clube de tradição (59.3%, não 0%).
+
+6) Regressão: `tests/e2e/test_rebaixamento.js` (5/5) — achado durante
+essa rodada: o teste força o clube do técnico (Flamengo, o 1º da lista
+de seleção, que É de tradição) pro último lugar da Série A; sem
+neutralizar `CLUB_TRADITION_IDS` pra esse clube especificamente nesse
+teste, a asserção ficaria refém do sorteio determinístico do reprieve
+(que muda de resultado a cada `CAREER.seasonYear` diferente) —
+corrigido no próprio teste (remove/restaura a entrada de
+`CLUB_TRADITION_IDS` só durante esse check específico), sem mudar o
+que o teste em si valida (a cascata de acesso/rebaixamento). Também
+rodados sem quebra: `test_estatisticas_completas.js`,
+`test_historico_jogador.js`, `test_premiacoes.js`.
+
+7) Testes novos: `tests/e2e/test_ge_balance_002.js` (4 checks, todos
+passando) — lista curada tem exatamente os 12 clubes esperados, o
+sorteio sai dos 2 jeitos variando o seedKey (não é hardcoded), zona
+sem clube de tradição fica inerte, integração real com
+`applyPromotionRelegation` continua consistente (20/20/20/20, zona
+sempre com 4) independente do reprieve disparar ou não.
+
+Arquivos alterados: `public/js/carreira.js` (`CLUB_TRADITION_IDS` +
+`TRADITION_REPRIEVE_CHANCE` + `applyTraditionReprieve()`, uso em
+`applyPromotionRelegation`), `tests/e2e/test_rebaixamento.js` (fix pra
+não ficar refém do sorteio novo).
+Testes novos: `tests/e2e/test_ge_balance_002.js`,
+`tests/e2e/sim_ge_balance_002.js`.
 
 ⸻
 

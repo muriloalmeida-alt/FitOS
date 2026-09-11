@@ -3304,6 +3304,69 @@ function relegationZoneIds(sortedRows, n, protectedId) {
 function accessZoneIds(sortedRows, n) {
   return sortedRows.slice(0, n).map((r) => String(r.id));
 }
+// GE-BALANCE-002 (issue #27) — pedido do usuário: "Clubes com histórico
+// devem ter um rating maior. Não faz sentido clubes como Corinthians e
+// Flamengo sendo rebaixados até a Série C." Inspeção (item 1 do
+// escopo): `club.atk`/`club.def` de data.js já são um proxy de força
+// ATUAL (bem correlacionado com craque de elenco), reaproveitado sem
+// mudança nenhuma por `buildGeneratedProPlayer` — squad de time CPU já
+// converge sozinho de volta pra essa força sempre que precisa gerar
+// reforço, nenhuma correção nova precisa entrar aí. Mas força atual não
+// é a mesma coisa que TRADIÇÃO — o próprio exemplo do usuário prova
+// isso: Corinthians tem atk 1.50 (meio de tabela do elenco atual), bem
+// longe do Flamengo (1.85), mas ninguém discorda que os 2 são gigantes
+// históricos do futebol brasileiro. Não existe no jogo hoje nenhum
+// campo aproveitável pra "tamanho histórico do clube" (torcida,
+// títulos, dinheiro) — nem em data.js nem no frozen-catalog (só
+// nome/escudo/estádio/tabela atual, ver server/frozen-catalog/). Por
+// isso este é um dos casos em que o próprio CLAUDE.md §5 aceita criar
+// campo novo: pequeno, curado, não mantido clube a clube pra centenas
+// de times — só os ~12 reconhecidos consensualmente como "os grandes"
+// do futebol brasileiro (mesmos clubes que o usuário citou como
+// exemplo), por id (o id de cada clube é estável entre divisões — um
+// clube rebaixado continua com o MESMO id/atk/def, só muda de
+// competitionId, ver applyPromotionRelegation/teamsFor).
+const CLUB_TRADITION_IDS = new Set(["fla", "cor", "pal", "sao", "san", "vas", "flu", "bot", "gre", "int", "cru", "cam"]);
+// "peso moderado, não absoluto" (escopo item 3) — moeda ao ar, não
+// imunidade: metade das vezes um clube tradicional que cai na zona
+// desce igual qualquer outro. Fica de fora da zona de acesso/promoção
+// de propósito (CLAUDE.md §22 — IA deve refletir mérito esportivo, não
+// favoritismo; só amortece a QUEDA, nunca facilita a SUBIDA).
+const TRADITION_REPRIEVE_CHANCE = 0.5;
+// Troca cada clube de tradição que caiu na zona pelo time imediatamente
+// mais seguro que ainda não esteja nela (mesmo padrão de swap já usado
+// pelo `protectedId` de relegationZoneIds acima, generalizado pra
+// potencialmente mais de 1 clube na mesma zona) — sorteio determinístico
+// por temporada+divisão (seededRngFromKey, mesmo padrão do resto do
+// jogo), então o resultado é reproduzível dado o mesmo save/seed.
+function applyTraditionReprieve(zone, sortedRows, seedKey) {
+  const ids = sortedRows.map((r) => String(r.id));
+  const rng = seededRngFromKey(seedKey);
+  const n = zone.length;
+  let currentZone = zone.slice();
+  zone.forEach((id) => {
+    if (!CLUB_TRADITION_IDS.has(id) || !currentZone.includes(id)) return;
+    if (rng() >= TRADITION_REPRIEVE_CHANCE) return; // continua rebaixado — mérito esportivo prevalece
+    // GAP CORRIGIDO (achado pela simulação de validação,
+    // tests/e2e/sim_ge_balance_002.js): a 1ª versão pegava sempre o
+    // time logo ACIMA da linha, não importa quem fosse — como boa parte
+    // da Série A já É de tradição (12 dos 20 clubes reais), o "próximo
+    // da linha" também costumava ser tradicional, e trocar 1 tradicional
+    // por outro não reduz nada o total. Agora procura, de baixo pra
+    // cima a partir da linha, o clube NÃO-tradicional mais próximo —
+    // só recorre a outro tradicional (fallback) se a tabela inteira
+    // acima da zona for só de clubes de tradição (praticamente
+    // impossível com 12 tradicionais em 60 clubes no total).
+    const zoneSet = new Set(currentZone);
+    const above = [];
+    for (let i = ids.length - n - 1; i >= 0; i--) { if (!zoneSet.has(ids[i])) above.push(ids[i]); }
+    const replacement = above.find((rid) => !CLUB_TRADITION_IDS.has(rid)) || above[0];
+    if (!replacement) return; // sem substituto disponível (não deveria acontecer com 20 times) — mantém como estava
+    currentZone = currentZone.filter((zid) => zid !== id);
+    currentZone.push(replacement);
+  });
+  return currentZone;
+}
 // Cascata de acesso/rebaixamento entre A/B/C + repositório da Série D
 // na virada de temporada (ver advanceSeason, chamado ANTES de
 // LEAGUE_TEAMS/CAREER.schedule/CAREER.standings serem recalculados pra
@@ -3315,11 +3378,15 @@ async function applyPromotionRelegation() {
   const rowsA = sortedDivisionRows("brasileirao");
   const rowsB = sortedDivisionRows("serie_b");
   const rowsC = sortedDivisionRows("serie_c");
-  const relegatedA = relegationZoneIds(rowsA, RELEGATION_N);
+  // GE-BALANCE-002 (issue #27) — reprieve de tradição roda DEPOIS do
+  // swap de proteção do clube humano (relegationZoneIds/protectedId,
+  // só existe na Série C) — nessa altura o humano, se protegido, já
+  // nem está mais na zona recebida por applyTraditionReprieve.
+  const relegatedA = applyTraditionReprieve(relegationZoneIds(rowsA, RELEGATION_N), rowsA, `tradition:brasileirao:${CAREER.seasonYear}`);
   const promotedB = accessZoneIds(rowsB, RELEGATION_N);
-  const relegatedB = relegationZoneIds(rowsB, RELEGATION_N);
+  const relegatedB = applyTraditionReprieve(relegationZoneIds(rowsB, RELEGATION_N), rowsB, `tradition:serie_b:${CAREER.seasonYear}`);
   const promotedC = accessZoneIds(rowsC, RELEGATION_N);
-  const relegatedC = relegationZoneIds(rowsC, RELEGATION_N, CURRENT_COMPETITION_ID === "serie_c" ? CAREER.clubId : null);
+  const relegatedC = applyTraditionReprieve(relegationZoneIds(rowsC, RELEGATION_N, CURRENT_COMPETITION_ID === "serie_c" ? CAREER.clubId : null), rowsC, `tradition:serie_c:${CAREER.seasonYear}`);
 
   const dPool = CAREER.serieDPool.slice();
   const promotedDIdx = [];

@@ -93,6 +93,19 @@ const { chromium } = require("playwright-core");
   // rodadas de verdade): força uma tabela final plausível pras 3
   // divisões e confere o resultado da cascata.
   const check4 = await page.evaluate(async () => {
+    // GE-BALANCE-002 (issue #27) — este teste força o clube do técnico
+    // a terminar em último pra testar a CASCATA de acesso/rebaixamento
+    // em si, não o reprieve de tradição (esse mecanismo novo tem seu
+    // próprio teste dedicado, ver test_ge_balance_002.js). O clube
+    // padrão desta carreira de teste (1ª linha do seletor) é o
+    // Flamengo, que É de tradição — sem neutralizar isso aqui, esta
+    // asserção ficaria refém do sorteio determinístico do reprieve
+    // (que pode mudar de resultado noutra CAREER.seasonYear, já que o
+    // seed inclui o ano — ver applyTraditionReprieve), quebrando um
+    // teste que não tem nada a ver com o mecanismo novo.
+    const wasTraditionClub = CLUB_TRADITION_IDS.has(String(CAREER.clubId));
+    if (wasTraditionClub) CLUB_TRADITION_IDS.delete(String(CAREER.clubId));
+
     const teamsA = CAREER.divisionTeams.brasileirao.map((t) => String(t.id));
     teamsA.forEach((id, i) => { CAREER.standings[id] = { id, j: 38, v: teamsA.length - i, e: 0, d: i, gp: 50, gc: 10, sg: 40, pts: (teamsA.length - i) * 3 }; });
     const lastId = teamsA[teamsA.length - 1];
