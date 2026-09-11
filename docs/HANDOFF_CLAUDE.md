@@ -759,6 +759,446 @@ apontar pra este registro assim que esta atualização for commitada.
 
 ⸻
 
+GE-BALANCE-001 — Reduzir sequências de invencibilidade do clube humano
+
+Status: PRONTO PARA IMPLEMENTAÇÃO
+Sprint: fora da S4 (Game Engine / Balanceamento — CLAUDE.md §13/§22/§30,
+mais próximo de S6 "Motor de partida 2.0" no roadmap oficial, mas
+tratado aqui como demanda isolada, a pedido do Murilo, não como
+antecipação da S6 inteira)
+Prioridade: P1
+Issue: https://github.com/muriloalmeida-alt/FitOS/issues/26
+
+Objetivo
+
+Reduzir a frequência/facilidade com que o clube do jogador emenda
+sequências longas (10+) de vitórias sem contrapeso, preservando o
+princípio de determinismo/explicabilidade (CLAUDE.md §44/§45) — não é
+"deixar o jogo trapacear contra o jogador", é fazer o motor reagir de
+forma plausível a um time em grande fase, do jeito que futebol de
+verdade reage (times menores jogam a vida contra o líder, cansaço
+acumula sem rotação, etc.).
+
+Contexto
+
+Pedido do usuário: "Em vários momentos o jogador está vencendo 10
+partidas consecutivas se transformando em um clube invencível. O jogo
+precisa ser mais real."
+
+Inspeção real do motor atual (`computeHumanStrength`,
+`carreira.js:4981`): a força efetiva considera qualidade dos titulares,
+completude do elenco, formação, tática e condição física média dos
+titulares — mas **nenhum desses fatores reage a uma sequência de
+vitórias em si**. `applyConditionRecovery` (`carreira.js:7018`)
+recupera 10-16 pontos de condição por rodada só pra quem ficou no
+banco — quem joga toda rodada sem rotação perde condição
+progressivamente (via `applyMatchWearChunk`), o que já é uma pressão
+real contra "escalar os 11 melhores toda rodada pra sempre" — mas não
+há:
+* motivação extra de adversários contra um líder disparado/invicto;
+* qualquer viés que dê zebra estruturalmente mais provável contra um
+  time muito mais forte, além do que a distribuição de Poisson já
+  produz sozinha;
+* qualquer penalidade ligada especificamente ao tamanho da sequência
+  de vitórias (moral do adversário, "jogo decisivo", imprensa/pressão).
+
+**Fórmula exata de qualquer contrapeso não é decidida aqui** — é
+trabalho de balanceamento do chapéu implementador, com evidência
+(rodar `sim_transfer_ai_*`-style simulações, mesmo padrão de S8, pra
+comparar distribuição de sequências de vitórias antes/depois).
+
+Escopo
+
+Chapéu implementador deve:
+
+1. Inspecionar a curva real de recuperação de condição/fadiga pra
+   titulares que jogam toda rodada sem rotação (não presumido aqui) —
+   confirmar se ela já limita sequências longas na prática ou se
+   permanece alta o suficiente pra sustentar 10+ vitórias sem custo
+   perceptível.
+2. Avaliar e propor (não precisa implementar todas de uma vez —
+   registrar o que entra nesta rodada e o que fica pra depois) 1 ou
+   mais mecanismos plausíveis de "resistência dinâmica" contra
+   sequências longas, por exemplo (lista de candidatos, não
+   prescrição fechada):
+   - motivação extra de adversários (pequeno bônus de atk/def) contra
+     o líder da tabela ou um time numa sequência longa de vitórias —
+     narrativamente explicável ("clube pequeno joga a vida contra o
+     líder");
+   - reforçar a pressão de fadiga acumulada pra quem não faz rotação,
+     se a inspeção do item 1 confirmar que ela é fraca demais hoje;
+   - checar se `poissonSample`/os `lambda` calculados já produzem
+     zebra com frequência plausível quando a força relativa é muito
+     alta, e ajustar clamps se necessário.
+3. Qualquer mecanismo novo deve ser determinístico dado
+   estado+seed+decisões (CLAUDE.md §44) e explicável ao usuário
+   (CLAUDE.md §45) — nunca um "nerf" arbitrário sem causa visível na
+   partida.
+4. Validar com simulação (mesmo padrão dos testes `sim_*` já
+   existentes pra IA de transferências, S8) comparando distribuição de
+   sequências de vitórias antes/depois — não só "parece melhor".
+5. Testar que nenhuma regra de negócio existente quebra (transferências,
+   moral, fadiga, lesões).
+6. Retornar relatório técnico nesta mesma seção do handoff, com a
+   evidência da inspeção do item 1 e os mecanismos efetivamente
+   implementados, status `REVISÃO DO PM NECESSÁRIA`.
+
+Fora de escopo
+
+* reescrever o motor de gols (Poisson) do zero;
+* mudar fórmulas de treinamento/evolução de atributos;
+* qualquer competição além do Brasileirão (Copa do Brasil é
+  `GE-COPA-001`, separada);
+* "trapacear" contra o jogador sem lastro narrativo/explicável.
+
+Dependências
+
+* motor de partida atual (`computeHumanStrength`, `poissonSample`,
+  `applyMatchWearChunk`/`applyConditionRecovery`).
+* Testes/simulações existentes de S8 como referência de padrão de
+  validação.
+
+Requisitos
+
+Mesma sequência obrigatória: inspecionar → localizar → entender →
+planejar → alterar → testar/simular → revisar.
+
+Critérios de aceite
+
+* curva real de fadiga/rotação documentada com evidência;
+* pelo menos 1 mecanismo de resistência dinâmica implementado e
+  validado por simulação, com efeito mensurável na distribuição de
+  sequências de vitórias;
+* nenhuma regra de negócio existente quebrada;
+* mecanismo é explicável ao usuário (não uma penalidade invisível).
+
+Validações
+
+O PM deverá validar: evidência da inspeção, mecanismo(s) escolhido(s)
+e por quê, resultado da simulação comparativa, explicabilidade.
+
+Riscos
+
+* médio — balanceamento é fácil de errar pro lado oposto (jogo ficar
+  artificialmente contra o jogador); validação por simulação antes de
+  aprovar é obrigatória, não opcional.
+
+Observações
+
+Pedido do usuário matinha (Corinthians/Flamengo) sendo rebaixados é
+tratado como demanda separada (`GE-BALANCE-002`), mesmo pedido
+original mas mecanismo diferente (força/reputação de clube, não
+sequência de vitórias).
+
+⸻
+
+GE-BALANCE-002 — Peso da tradição/força de clube na simulação (relegação)
+
+Status: PRONTO PARA IMPLEMENTAÇÃO
+Sprint: fora da S4 (Game Engine / Mundo — CLAUDE.md §13/§22, mais
+próximo de S9/S10 no roadmap oficial, tratado aqui como demanda
+isolada a pedido do Murilo)
+Prioridade: P1
+Issue: https://github.com/muriloalmeida-alt/FitOS/issues/27
+
+Objetivo
+
+Fazer clubes com histórico/tradição maior terem uma força de base mais
+condizente com sua realidade, reduzindo (sem eliminar — futebol de
+verdade tem crises reais) a chance de um clube tradicional cair até a
+Série C numa carreira simulada.
+
+Contexto
+
+Pedido do usuário: "Clubes com histórico devem ter um rating maior.
+Não faz sentido clubes como Corinthians e Flamengo sendo rebaixados
+até a Série C."
+
+Inspeção real do sistema atual:
+* Elenco inicial de clubes reais vem de dados reais via API-Sports
+  (`buildRealPlayer`, `carreira.js:1346`) quando disponível — então a
+  força inicial de um clube grande tende a refletir seu elenco real na
+  temporada capturada. **Não há, porém, nenhum atributo de "tradição"/
+  "reputação de clube" separado** — o único campo `reputation` que
+  existe (`CAREER.reputation`, `carreira.js:1868` em diante) é a
+  reputação do TÉCNICO (jogador), não do clube.
+* Relegação (`relegationZoneIds`, `carreira.js:3285`,
+  `applyPromotionRelegation` ao redor de `carreira.js:3308-3336`) é
+  **puramente posicional** — os últimos N times da tabela caem, sem
+  nenhum piso ou proteção ligada a história/torcida/orçamento do
+  clube. Um clube grande com elenco mal gerido pela IA (ou pelo
+  próprio jogador, se assumir o clube) cai exatamente como qualquer
+  outro.
+* Elencos da CPU são renovados por sorteio inteiro na virada de
+  temporada (`renewLeagueSquad`, citado em `applyNaturalAgingEvolution`)
+  — sem uma correção estrutural puxando de volta pra cima um clube
+  tradicional que caiu, ele pode ficar preso numa divisão inferior
+  indefinidamente.
+
+**Fórmula exata (quanto de piso, como se recupera com o tempo) não é
+decidida aqui** — trabalho de balanceamento do implementador, com
+evidência.
+
+Escopo
+
+Chapéu implementador deve:
+
+1. Inspecionar a fonte de dados de clube (frozen-catalog/API-Sports) e
+   confirmar se já existe algum campo aproveitável de força histórica/
+   torcida/orçamento (ex.: capacidade de estádio, receita) antes de
+   inventar um novo do zero — reuso antes de criação (CLAUDE.md §5).
+2. Se não existir, propor um campo novo de "força de base"/tradição
+   por clube (pequeno conjunto curado, não uma tabela gigante mantida
+   à mão pra centenas de clubes — avaliar se um proxy calculável, tipo
+   histórico de posições/títulos já presente nos dados, resolve sem
+   dado novo mantido manualmente).
+3. Usar esse fator pra influenciar, com peso moderado (não absoluto):
+   - a geração/renovação de elenco da CPU pra esse clube
+     (`renewLeagueSquad`), puxando de volta em direção à força
+     histórica ao longo de temporadas, não instantaneamente;
+   - opcionalmente, um pequeno amortecedor na zona de rebaixamento
+     pra clubes de tradição muito alta (ex.: não imunidade, mas menor
+     probabilidade relativa) — **avaliar com cautela**, um "piso"
+     artificial rígido quebraria a lógica de mérito esportivo
+     (CLAUDE.md §22, IA deve representar decisões plausíveis, não
+     favoritismo).
+4. Preservar 100% a possibilidade de um clube grande realmente cair —
+   é sobre tornar menos provável, não impossível; futebol real tem
+   Botafogo/Palmeiras/Vasco em Série B/C historicamente.
+5. Testar com simulação de múltiplas temporadas (mesmo padrão de
+   `GE-BALANCE-001`) comparando frequência de rebaixamento de clubes
+   tradicionais antes/depois.
+6. Retornar relatório técnico nesta mesma seção, status `REVISÃO DO PM
+   NECESSÁRIA`.
+
+Fora de escopo
+
+* imunidade total a rebaixamento pra qualquer clube;
+* mudar a fonte de dados de clubes/jogadores (API-Sports/frozen
+  catalog) de forma estrutural;
+* qualquer mudança na regra de pontos corridos/critérios de
+  desempate da tabela.
+
+Dependências
+
+* `server/frozen-catalog/` (dados reais de clubes).
+* `renewLeagueSquad`, `relegationZoneIds`,
+  `applyPromotionRelegation`.
+
+Requisitos
+
+Mesma sequência obrigatória: inspecionar → localizar → entender →
+planejar → alterar → testar/simular → revisar.
+
+Critérios de aceite
+
+* fator de tradição/força de base definido com evidência (reuso de
+  dado existente preferido a dado novo mantido à mão);
+* influencia renovação de elenco da CPU de forma gradual, não
+  instantânea;
+* rebaixamento continua sendo possível pra qualquer clube — só menos
+  provável pra tradicionais, validado por simulação;
+* nenhuma regra de tabela/desempate alterada.
+
+Validações
+
+O PM deverá validar: fonte do fator de tradição (reuso vs. novo),
+evidência de que rebaixamento continua genuinamente possível,
+resultado da simulação comparativa.
+
+Riscos
+
+* médio-alto — é fácil errar pro lado de favoritismo perceptível
+  ("o jogo protege os grandes"), o que quebraria a credibilidade
+  competitiva do produto; validação por simulação e linguagem de
+  "menos provável, não impossível" são obrigatórias na implementação.
+
+Observações
+
+Relacionada a `GE-BALANCE-001` (mesmo pedido do usuário, mecanismos
+diferentes — uma é sobre sequência de vitórias do clube do jogador,
+esta é sobre força/tradição de clube na simulação como um todo,
+incluindo CPU).
+
+⸻
+
+GE-COPA-001 — Expandir Copa do Brasil (60 clubes, ida e volta, cabeças de chave, ao vivo)
+
+Status: PRONTO PARA IMPLEMENTAÇÃO
+Sprint: fora da S4 (Mundo / Competições — CLAUDE.md §13, mais próximo
+de S9/S11 no roadmap oficial, tratado aqui como demanda isolada a
+pedido do Murilo)
+Prioridade: P1
+Issue: https://github.com/muriloalmeida-alt/FitOS/issues/28
+
+Objetivo
+
+Expandir a Copa do Brasil existente pra um formato mais realista:
+60 clubes (não 16), mata-mata com ida e volta (não jogo único),
+cabeças de chave entrando em fases posteriores (não todos na 1ª fase),
+e partidas do próprio clube do jogador jogáveis "ao vivo" (não só
+resolvidas instantaneamente).
+
+Contexto
+
+Pedido do usuário: "Copa do Brasil: Maior torneio nacional com 60
+clubes disputando. Me ajude a criar um mata mata onde todos
+participam. Com tabela própria, com jogos ao vivo, com partidas de ida
+e volta. Para que o chaveamento funcione os primeiros pode colocar
+alguns cabeças de chave que entrem nas próximas fases."
+
+**A Copa do Brasil já existe no jogo hoje — isto é uma expansão
+estrutural, não uma criação do zero** (regra de ouro do CLAUDE.md §5:
+buscar antes de criar). Inspeção real (`setupCup`/`resolveCupPhase`/
+`simulateCupTie`, `carreira.js:2385-2470`):
+
+* **16 clubes**, não 60 — os 16 elencos de maior overall médio entram
+  direto (`strengths.slice(0, 16)`), sorteio embaralhado com RNG
+  determinístico pro chaveamento das oitavas.
+* **Jogo único por confronto** (`simulateCupTie`), decidido nos
+  pênaltis em caso de empate — não há ida e volta.
+* **Sem cabeças de chave por fase** — os 16 entram todos juntos na
+  mesma fase inicial (oitavas), sem nenhum grupo entrando só depois.
+* **Sem partida "ao vivo"** — mesmo o confronto do próprio clube do
+  jogador é resolvido instantaneamente via `resolveCupPhase` (chamada
+  em `finishRoundTail`), nunca passa por `startLiveMatch` (o motor que
+  dá o modo ao vivo pro Brasileirão). Confirmado: `resolveCupPhase` é
+  chamado direto, sem qualquer branch pro fluxo ao vivo.
+* 4 fases (`CUP_PHASES = ["r16","qf","sf","final"]`), prêmios fixos
+  por fase (`CUP_PRIZE`), calendário fixo de rodadas
+  (`CUP_ROUNDS = { r16: 6, qf: 14, sf: 22, final: 30 }`, uma fase a
+  cada ~8 rodadas do Brasileirão).
+
+Esta é a maior das 3 demandas desta rodada — mudança estrutural real
+no motor de competições, não um ajuste de balanceamento. Decisões de
+produto que precisam ficar registradas aqui (feitas nesta
+especificação, não deixadas pro implementador decidir sozinho):
+
+1. **Quem entra nos 60** — não só os 16 mais fortes; precisa incluir
+   clubes de todas as divisões (A/B/C/D), mesmo espírito da Copa do
+   Brasil real (clubes de todo o país, não só a elite da Série A). A
+   fonte de dados de clubes hoje é por divisão
+   (`CAREER.divisionTeams`) — o implementador deve inspecionar se há
+   clubes suficientes em todas as divisões pra montar 60 sem repetir
+   nem inventar clubes fictícios além do que `DEMO_TEAMS_SERIE_C` já
+   cobre.
+2. **Cabeças de chave** — clubes mais fortes (critério: overall médio
+   do elenco, mesmo usado hoje) entram numa fase mais avançada
+   (ex.: 1ª fase só com os mais fracos/menores, cabeças de chave
+   entram a partir da 2ª ou 3ª fase) — replica o formato real da Copa
+   do Brasil (times menores começam antes, grandes entram depois).
+   Número exato de cabeças de chave e em qual fase entram fica pro
+   implementador propor com uma tabela de fases explícita (quantos
+   clubes por fase, de onde vêm) antes de codar, e trazer de volta
+   pra validação do PM antes de implementar (CLAUDE.md §36 —
+   "quais dados entram/saem, qual fórmula" precisa estar claro antes
+   de escrever código pra algo desse tamanho).
+3. **Ida e volta** — todas as fases, ou só a partir de alguma fase (final
+   às vezes é jogo único até na Copa do Brasil real, dependendo do
+   ano/formato)? Decisão do implementador propor com justificativa,
+   trazer pra validação.
+4. **Ao vivo** — só as partidas do PRÓPRIO clube do jogador (mesmo
+   critério já usado no Brasileirão, CPU x CPU continua instantâneo)
+   — reaproveitar `startLiveMatch`, não construir um 2º motor de
+   partida ao vivo (CLAUDE.md §5).
+5. **Tabela própria** — uma tela/visualização de chaveamento dedicada
+   (diferente da Tabela do Brasileirão, que é pontos corridos, não
+   mata-mata) — decisão de UI fica registrada como pendente pra quando
+   isto virar trabalho de tela (pode ser uma extensão da inspeção do
+   Batch 4 se fizer sentido, ou demanda de UI própria depois que a
+   engine estiver pronta — **não misturar engine com redesign visual
+   nesta demanda**, mesmo princípio de "menor conjunto de mudanças"
+   do CLAUDE.md §49).
+
+Escopo
+
+Chapéu implementador deve, ANTES de escrever código:
+
+1. Inspecionar `setupCup`/`resolveCupPhase`/`simulateCupTie` por
+   completo (a base desta expansão é evolução, não substituição —
+   CLAUDE.md §5/§9).
+2. Propor e registrar aqui (retornando ao PM pra validação antes de
+   implementar, dado o tamanho da mudança) uma tabela de fases
+   explícita: quantos clubes entram em cada fase, de onde vêm
+   (todas as divisões ou só um subconjunto), quantos cabeças de chave
+   e a partir de qual fase, ida e volta em quais fases.
+3. Só depois da validação do PM nesse desenho, implementar:
+   - expandir o pool de entrada pra 60 clubes cruzando as divisões
+     disponíveis;
+   - implementar confronto de ida e volta (2 jogos, gols fora como
+     critério de desempate se empatar no agregado — ou pênaltis
+     direto, decisão a registrar);
+   - implementar entrada escalonada de cabeças de chave por fase;
+   - conectar o confronto do próprio clube do jogador ao
+     `startLiveMatch` existente, sem duplicar o motor.
+4. Preservar prêmios/calendário existentes na medida do possível,
+   ajustando `CUP_ROUNDS`/`CUP_PRIZE` conforme o novo número de fases
+   exigir (mais fases pra chegar de 60 a 1 campeão).
+5. Testar (mesmo padrão de sempre — mobile-first se tocar UI, mais
+   simulação de chaveamento completo pra confirmar que sempre fecha
+   num campeão único sem clube duplicado/perdido).
+6. Retornar relatório técnico nesta mesma seção, status `REVISÃO DO PM
+   NECESSÁRIA` — mas o desenho do item 2 acima retorna ANTES, como um
+   checkpoint intermediário obrigatório, dado o tamanho da mudança.
+
+Fora de escopo
+
+* redesign visual da tela de Copa do Brasil (fica pra depois, quando
+  a engine estiver pronta — pode virar demanda própria, inclusive
+  dentro do trabalho do Batch 4 se fizer sentido na ocasião);
+* qualquer mudança nas outras competições (Brasileirão A/B/C/D);
+* criar um 2º motor de partida ao vivo — reaproveitar `startLiveMatch`;
+* mudar a fonte de dados de clubes (frozen-catalog/API-Sports)
+  estruturalmente — só usar o que já existe pra montar os 60.
+
+Dependências
+
+* `setupCup`, `resolveCupPhase`, `simulateCupTie`, `CUP_PHASES`,
+  `CUP_ROUNDS`, `CUP_PRIZE` (motor atual da Copa).
+* `startLiveMatch` (motor ao vivo do Brasileirão, a reaproveitar).
+* `CAREER.divisionTeams` (clubes de todas as divisões).
+
+Requisitos
+
+Mesma sequência obrigatória, com um checkpoint extra dado o tamanho:
+inspecionar → localizar → entender → **planejar e validar o desenho
+com o PM antes de codar** → alterar → testar/simular → revisar.
+
+Critérios de aceite
+
+* desenho de fases (quantos clubes, cabeças de chave, ida e volta)
+  validado pelo PM antes da implementação;
+* 60 clubes participam, cruzando divisões;
+* mata-mata sempre fecha num campeão único, sem clube duplicado/
+  perdido, validado por simulação;
+* ida e volta implementado nas fases decididas;
+* cabeças de chave entram na(s) fase(s) decidida(s);
+* confronto do próprio clube do jogador pode ser jogado ao vivo,
+  reaproveitando `startLiveMatch`;
+* nenhuma outra competição alterada.
+
+Validações
+
+O PM deverá validar em 2 momentos: (1) o desenho de fases antes da
+implementação; (2) o relatório final com evidência de simulação
+completa do chaveamento.
+
+Riscos
+
+* alto — é a maior mudança estrutural das 3 demandas desta rodada,
+  toca calendário/premiação/motor ao vivo; o checkpoint de desenho
+  antes de codar existe justamente pra reduzir esse risco.
+
+Observações
+
+Das 3 demandas desta rodada (`GE-BALANCE-001`, `GE-BALANCE-002`,
+`GE-COPA-001`), esta é a única que exige validação de desenho em 2
+etapas — as outras 2 só retornam ao final. Recomenda-se começar pelas
+outras 2 (menor risco) antes desta, se a ordem de execução ficar a
+critério do PM.
+
+⸻
+
 S4-B3-006 — Migrar Resumo da rodada e Rodada (menu) pro MatchCard
 
 Status: PRONTO PARA IMPLEMENTAÇÃO
