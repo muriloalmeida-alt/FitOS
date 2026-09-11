@@ -2600,17 +2600,23 @@
   .m3-empty{ text-align:center; font-size:12px; color:var(--m3-on-surface-variant); padding:24px 12px; }
 
   /* BRDATA Product Pattern novo: MatchCard (S4-B3-005) — ver contrato
-     de matchCardHTML() em carreira.js. Nenhum ponto de uso real ainda
-     (S4-B3-005 é só criação do componente). */
-  .m3-match-card{ background:var(--m3-surface-container-high); border:1px solid var(--m3-outline-variant); border-radius:var(--m3-shape-md); padding:14px 12px; }
+     de matchCardHTML() em carreira.js. Ponto de uso real: "Resumo da
+     rodada" (S4-B3-006) — #roundResultsList/#roundResultsCup/
+     #rodadaList, no lugar do antigo .ct-round-result-row. */
+  .m3-match-card{ background:var(--m3-surface-container-high); border:1px solid var(--m3-outline-variant); border-radius:var(--m3-shape-md); padding:14px 12px; margin-bottom:10px; }
   .m3-mc-comp{ font-size:10px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; color:var(--m3-on-surface-variant); text-align:center; margin-bottom:10px; }
   .m3-mc-teams{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
   .m3-mc-side{ display:flex; flex-direction:column; align-items:center; gap:6px; flex:1; min-width:0; }
+  .m3-mc-side[data-openclub]{ cursor:pointer; }
   .m3-mc-name{ font-size:11px; font-weight:600; color:var(--m3-on-surface); text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
   .m3-mc-center{ display:flex; flex-direction:column; align-items:center; gap:6px; flex-shrink:0; padding:0 6px; }
   .m3-mc-score{ font-family:var(--m3-display); font-weight:700; font-size:19px; color:var(--m3-on-surface); white-space:nowrap; }
   .m3-mc-score span{ color:var(--m3-on-surface-variant); font-size:14px; }
   .m3-mc-when{ font-size:11px; font-weight:600; color:var(--m3-on-surface-variant); white-space:nowrap; }
+  /* S4-B3-006 — destaque pro jogo do próprio clube nas listas de
+     "Resumo da rodada" (mesmo papel do antigo .ct-round-result-row.me),
+     via wrapper externo — não altera a definição de matchCardHTML(). */
+  .m3-mc-mine .m3-match-card{ background:var(--m3-primary-container); border-color:var(--m3-primary); }
 
   /* ---- Ao Vivo: placar + domínio de jogo + lance a lance ---- */
   .m3-score-card{ background:var(--m3-surface-container-high); border-radius:var(--m3-shape-xl); padding:20px 16px; text-align:center; margin-bottom:14px; }

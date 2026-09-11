@@ -9314,9 +9314,11 @@ function closeContratosScreen() {
 // Nenhum dos 2 cobre os 5 estados pedidos pela matriz, e não há
 // candidato único cobrindo o conceito inteiro — construído novo,
 // informado pelos 2 (sem copiar nenhum literalmente), mesmo caminho de
-// TransferCard/ContractCard. Nenhum ponto de uso real nesta demanda
-// (S4-B3-005 é só criação do componente — "Resumo da rodada", que o
-// consumiria de verdade, é demanda futura).
+// TransferCard/ContractCard. Ponto de uso real: "Resumo da rodada"
+// (S4-B3-006) — showRoundResultsModal()/cupRoundResultsHTML()/
+// renderRodada() logo abaixo (só os estados "proxima"/"encerrada" têm
+// produtor real; "andamento"/"adiada"/"cancelada" seguem suportados
+// pelo componente sem produtor real hoje).
 function matchCardHTML({ homeTeam, awayTeam, dateLabel, timeLabel, homeScore, awayScore, status, statusLabel, competitionLabel, clickableHome, clickableAway }) {
   const hasScore = homeScore != null && awayScore != null;
   const centerContent = hasScore
@@ -13290,11 +13292,11 @@ function showRoundResultsModal(summary) {
   document.getElementById("roundResultsList").innerHTML = summary.allResults.map((r) => {
     const home = teamById(r.home), away = teamById(r.away);
     const isMe = String(r.home) === String(CAREER.clubId) || String(r.away) === String(CAREER.clubId);
-    return `<div class="ct-round-result-row ${isMe ? "me" : ""}">
-      ${rrTeamCellHTML(home)}
-      <span class="ct-rr-score">${r.gh} <small>x</small> ${r.ga}</span>
-      ${rrTeamCellHTML(away, { right: true })}
-    </div>`;
+    const card = matchCardHTML({
+      homeTeam: home, awayTeam: away, homeScore: r.gh, awayScore: r.ga,
+      status: "encerrada", clickableHome: true, clickableAway: true,
+    });
+    return isMe ? `<div class="m3-mc-mine">${card}</div>` : card;
   }).join("");
   wireClubRosterClicks("roundResultsList");
   document.getElementById("roundResultsChanges").textContent = (summary.lineupChanges && summary.lineupChanges.length)
@@ -13369,12 +13371,17 @@ function renderRodada(view) {
     const home = teamById(fx.home), away = teamById(fx.away);
     const isMe = String(fx.home) === String(CAREER.clubId) || String(fx.away) === String(CAREER.clubId);
     const played = results.find((r) => String(r.home) === String(fx.home) && String(r.away) === String(fx.away));
-    const scoreHTML = played ? `${played.gh} <small>x</small> ${played.ga}` : `— <small>x</small> —`;
-    return `<div class="ct-round-result-row ${isMe ? "me" : ""}">
-      ${rrTeamCellHTML(home)}
-      <span class="ct-rr-score">${scoreHTML}</span>
-      ${rrTeamCellHTML(away, { right: true })}
-    </div>`;
+    // Sem placar de verdade ainda (rodada "atual" não jogada): "— x —"
+    // via homeScore/awayScore de texto — mesma informação da spec
+    // (S4-B3-006), status "proxima" continua semanticamente correto
+    // mesmo com o placar-texto no lugar do dateLabel (não há hora por
+    // confronto aqui, só o número da rodada já no título da tela).
+    const card = matchCardHTML({
+      homeTeam: home, awayTeam: away,
+      homeScore: played ? played.gh : "—", awayScore: played ? played.ga : "—",
+      status: played ? "encerrada" : "proxima", clickableHome: true, clickableAway: true,
+    });
+    return isMe ? `<div class="m3-mc-mine">${card}</div>` : card;
   }).join("");
   wireClubRosterClicks("rodadaList");
 }
@@ -13387,20 +13394,24 @@ function closeRodadaScreen() {
   document.getElementById("rodadaOverlay").classList.remove("open");
 }
 
-// Lista os confrontos da fase da Copa que acabou de rolar (mesmo
-// componente visual .ct-round-result-row/.me da lista de resultados do
-// Brasileirão) + uma linha de status (classificado/eliminado/campeão)
+// Lista os confrontos da fase da Copa que acabou de rolar (S4-B3-006:
+// MatchCard, mesmo componente da lista de resultados do Brasileirão
+// logo acima) + uma linha de status (classificado/eliminado/campeão)
 // pro SEU confronto especificamente.
 function cupRoundResultsHTML(cupResult) {
   const { phase, results } = cupResult;
   const rows = results.map((tie) => {
     const home = teamById(tie.home), away = teamById(tie.away);
     const isMe = String(tie.home) === String(CAREER.clubId) || String(tie.away) === String(CAREER.clubId);
-    return `<div class="ct-round-result-row ${isMe ? "me" : ""}">
-      ${rrTeamCellHTML(home)}
-      <span class="ct-rr-score">${tie.gh} <small>x</small> ${tie.ga}${tie.penalties ? " <small>(pên.)</small>" : ""}</span>
-      ${rrTeamCellHTML(away, { right: true })}
-    </div>`;
+    // "(pên.)" não cabe dentro do placar do MatchCard (só número) sem
+    // mudar a definição do componente — statusLabel já é o slot certo
+    // pra essa informação extra (mesmo padrão de "Ao vivo"/"Adiada").
+    const card = matchCardHTML({
+      homeTeam: home, awayTeam: away, homeScore: tie.gh, awayScore: tie.ga,
+      status: "encerrada", statusLabel: tie.penalties ? "Pênaltis" : null,
+      clickableHome: true, clickableAway: true,
+    });
+    return isMe ? `<div class="m3-mc-mine">${card}</div>` : card;
   }).join("");
   const cup = CAREER.cup;
   let statusLine = "";
