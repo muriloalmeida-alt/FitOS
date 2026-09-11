@@ -814,17 +814,29 @@ de migração visual autoriza decidir sozinho. Esta demanda migra as 2
 telas que já existem; não cria a "super-tela" que a Tela 17 descreve em
 abstrato.
 
+Nota de pré-inspeção (validação de issues abertas, 11/09/2026):
+respondendo à própria pergunta do item 1 abaixo — são **3 pontos de
+código dentro do escopo**, não 2, mas nenhuma tela adicional entra:
+`showRoundResultsModal()` (própria), `cupRoundResultsHTML()` (chamada
+só de dentro de `showRoundResultsModal()`, sub-bloco de Copa do
+Brasil — mesma tela) e `renderRodada()`. O 4º ponto que `S4-B3-005`
+citou é `renderCopa()`, chamada de 2 lugares — mas ambos dentro da
+tela **Tabela** (painel principal e seu modal fullscreen,
+`openTabelaModal()`), não "Resumo da rodada" — confirmado fora do
+escopo desta demanda, não uma divergência a decidir.
+
 Escopo
 
 Chapéu implementador deve, quando retomar esta demanda:
 
 1. Inspecionar `showRoundResultsModal()`, `renderRodada()` e todo uso
    de `.ct-round-result-row` (confirmar se há mais de 2 pontos, dado
-   que `S4-B3-005` citou 4) antes de alterar qualquer coisa.
+   que `S4-B3-005` citou 4 — ver nota de pré-inspeção acima) antes de
+   alterar qualquer coisa.
 2. Substituir cada `.ct-round-result-row` por `matchCardHTML()`
-   (`S4-B3-005`) nos 2 pontos acima — mesma informação (mandante,
-   placar ou "— x —", visitante, destaque pro jogo do próprio clube),
-   componente nomeado.
+   (`S4-B3-005`) nos 3 pontos de código mapeados na nota acima (2
+   telas) — mesma informação (mandante, placar ou "— x —", visitante,
+   destaque pro jogo do próprio clube), componente nomeado.
 3. Preservar 100% do comportamento funcional de cada tela: navegação
    atual/anterior em `#rodadaOverlay`; mudanças de escalação, aviso de
    proposta nova, resultado de Copa do Brasil e botão "Continuar" (que
