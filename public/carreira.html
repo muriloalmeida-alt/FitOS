@@ -1788,7 +1788,7 @@
   }
   .mt-onboard-skip{
     position:absolute; top:calc(18px + env(safe-area-inset-top, 0px)); right:18px; z-index:2;
-    background:none; border:none; color:var(--mt-ink-muted); font-family:var(--font);
+    background:none; border:none; color:var(--m3-on-surface-variant); font-family:var(--font);
     font-size:13px; font-weight:600; cursor:pointer; padding:8px 10px;
   }
   .mt-onboard-icon{
@@ -1797,8 +1797,9 @@
     border-radius:50%; background:var(--m3-primary-container); color:var(--m3-on-primary-container);
   }
   .mt-onboard-icon svg{ width:44px; height:44px; }
-  .mt-onboard-title{ font-family:'Bebas Neue', var(--font); font-size:26px; letter-spacing:.4px; color:var(--mt-ivory-50); margin:0 0 12px; }
-  .mt-onboard-text{ font-size:14.5px; line-height:1.65; color:var(--mt-ink-muted); max-width:300px; margin:0; }
+  /* S4-B4-001 (issue #31) — título/texto/skip migrados pra --m3-on-surface(-variant), mesmo mapeamento semântico usado no resto da migração (título/texto principal vs. secundário) */
+  .mt-onboard-title{ font-family:'Bebas Neue', var(--font); font-size:26px; letter-spacing:.4px; color:var(--m3-on-surface); margin:0 0 12px; }
+  .mt-onboard-text{ font-size:14.5px; line-height:1.65; color:var(--m3-on-surface-variant); max-width:300px; margin:0; }
   .mt-onboard-dots{ display:flex; gap:6px; align-self:center; margin-bottom:2px; }
   .mt-onboard-dot{ width:7px; height:7px; border-radius:50%; background:var(--m3-outline-variant); transition:width .2s, border-radius .2s; }
   .mt-onboard-dot.active{ background:var(--m3-primary); width:20px; border-radius:4px; }

@@ -834,7 +834,7 @@ esquecida.
 
 S4-B4-001 — Migrar tela Onboarding para o Design System novo
 
-Status: PRONTO PARA IMPLEMENTAÇÃO
+Status: REVISÃO DO PM NECESSÁRIA
 Sprint: S4 — Redesign Mobile
 Fase: Batch 4 (Complementary) — item 1 de 6
 Prioridade: P1
@@ -911,6 +911,49 @@ Observações
 
 Com esta demanda, resta o item 2 (`S4-B4-002`, Meus esquemas) na
 ordem recomendada.
+
+Relatório técnico
+
+Inspeção confirmou exatamente o estado descrito no contexto —
+`renderOnboardingSlide()`/`openOnboardingOverlay()`/
+`closeOnboardingOverlay()` inalterados (nenhuma regra de negócio
+tocada). Único gap real de tokens era em CSS (`public/carreira.html`,
+bloco `.mt-onboard-*`): 3 seletores usando `--mt-ivory-50`/
+`--mt-ink-muted` — `.mt-onboard-title` (título do slide), `.mt-onboard-text`
+(corpo do slide) e `.mt-onboard-skip` (botão "Pular"). Migrados pra
+`--m3-on-surface` (título — texto principal) e `--m3-on-surface-variant`
+(corpo + "Pular" — texto secundário), o mapeamento semântico M3
+padrão pra essa dupla de papéis (confirmado pelos valores hex reais:
+`--m3-on-surface:#E7E2DE` e `--m3-on-surface-variant:#CBC5BE` — tons
+claros equivalentes aos antigos `--mt-ivory-50:#F5F1E6`/
+`--mt-ink-muted:#8FA3BF`, mesmo papel visual). `.mt-onboard-dot`/
+`.mt-onboard-icon` já estavam `--m3-*` antes desta demanda, não
+tocados. Overlay/estrutura (`.ct-modal-overlay`/`.ct-modal-fullscreen`/
+`.ct-modal-body`/`.ct-modal-footer`) preservados — são a casca
+estrutural padrão reaproveitada por toda tela migrada ou não, migração
+é sobre token de cor/tipografia, não sobre troca de wrapper.
+
+Divergência avaliada e decidida (mesmo critério de `S4-B2-003`/
+`S4-B2-004`): tipografia `Bebas Neue` do título classificada como
+**BRDATA Extension** (identidade "placar de estádio"/manchete, mesma
+lógica já usada pros escudos/campinho) — não migra pra `--m3-display`.
+
+Testes: `tests/e2e/test_s4_b4_001_onboarding.js` (novo, 4/4 passando)
+— tutorial abre no 1º acesso com os 4 slides, cores computadas batem
+com os tokens `--m3-on-surface(-variant)` resolvidos no `:root` (não
+mais os valores antigos), navegação entre slides preservada (títulos
+diferentes por slide, contador de pontos avança, botão vira "Começar"
+no último), fecha ao terminar. Regressão: `test_onboarding.js` (6/7 —
+1 check com falha PRÉ-EXISTENTE confirmada idêntica em `main` sem
+esta mudança via `git stash`, não é regressão desta demanda) e
+`test_ao_vivo.js` (7/7) sem quebra.
+
+`docs/sprints/S4/S4_REQUISITOS_VIGENTES.md` atualizado: tabela do
+Batch 4 criada com o estado real das 7 telas (confirmado por
+`S4-B4-READINESS-001`), Onboarding marcada migrada.
+
+Arquivos alterados: `public/carreira.html` (3 seletores CSS).
+Teste novo: `tests/e2e/test_s4_b4_001_onboarding.js`.
 
 ⸻
 
