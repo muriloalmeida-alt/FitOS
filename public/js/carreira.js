@@ -7014,6 +7014,35 @@ function tallyMatchOutcomeStats(myGoals, oppGoals, isHome, opponentId, round) {
   total.longestWinStreak = Math.max(total.longestWinStreak || 0, CAREER.currentWinStreak);
   total.longestUnbeatenStreak = Math.max(total.longestUnbeatenStreak || 0, CAREER.currentUnbeatenStreak);
 }
+// GE-BALANCE-001 (issue #26) — pedido do usuário: "Em vários momentos o
+// jogador está vencendo 10 partidas consecutivas se transformando em um
+// clube invencível. O jogo precisa ser mais real." Investigação (ver
+// relatório na issue): a fadiga por falta de rodízio (computeHumanStrength/
+// applyMatchWearChunk) já existe, mas o teto de penalidade de condição é
+// pequeno (~11% de ataque na pior condição sustentável, piso 25) — sozinha
+// ela não é suficiente pra travar uma sequência longa.
+// Mecanismo escolhido (candidato "motivação do adversário" da
+// especificação, o de menor risco): quando o CLUBE HUMANO chega numa
+// partida do Brasileirão com uma sequência de invencibilidade longa
+// (CAREER.currentUnbeatenStreak, já existente — ver acima), o adversário
+// (CPU) entra mais ligado — mesmo tipo de ajuste multiplicativo simétrico
+// em atk+def já usado pra penalidade de familiaridade tática (ver
+// formationPenaltyChunksLeft em resolveLiveChunk), só que como BÔNUS pro
+// adversário em vez de penalidade pro humano. Determinístico (função pura
+// da sequência atual) e explicável (degraus fixos, sem aleatoriedade) —
+// só entra em partidas do Brasileirão (ver resolveLiveChunk); a Copa
+// (simulateCupTie) não soma nem lê essa sequência, então fica de fora de
+// propósito.
+const OPPONENT_MOTIVATION_STREAK_STEPS = [
+  { minStreak: 12, mod: 1.12 },
+  { minStreak: 8, mod: 1.08 },
+  { minStreak: 5, mod: 1.04 },
+];
+function opponentMotivationMod() {
+  const streak = CAREER.currentUnbeatenStreak || 0;
+  const step = OPPONENT_MOTIVATION_STREAK_STEPS.find((s) => streak >= s.minStreak);
+  return step ? step.mod : 1;
+}
 // Soma os eventos do jogo do clube pros KPIs da aba Estatísticas —
 // gols de "minha equipe" já vêm de standings[clubId].gp (fonte única),
 // então só assistência/cartão precisam de contador próprio aqui.
@@ -8013,6 +8042,14 @@ function startLiveMatch(round, fixtures, humanFx, standingsBefore) {
   document.getElementById("liveMatchOverlay").classList.add("open");
   playWhistle(1);
   startCrowdAmbience();
+  // GE-BALANCE-001 (issue #26) — princípio de explicabilidade (CLAUDE.md
+  // §45): o bônus de motivação do adversário (ver opponentMotivationMod)
+  // não deve ser um efeito silencioso — avisa ANTES da partida começar,
+  // só quando ele está de fato ativo pra essa sequência.
+  const preMatchMotivation = opponentMotivationMod();
+  if (preMatchMotivation > 1) {
+    toast({ title: "Adversário motivado", detail: `Você chega com ${CAREER.currentUnbeatenStreak} jogos de invencibilidade — o rival hoje entra mais ligado para tentar frear a sequência.` }, { durationMs: 5000, type: "warn" });
+  }
   scheduleNextChunk();
 }
 function scheduleNextChunk() {
@@ -8070,6 +8107,11 @@ function resolveLiveChunk() {
     humanSide.atk *= 0.92; humanSide.def *= 0.92;
     lm.formationPenaltyChunksLeft--;
   }
+  // GE-BALANCE-001 (issue #26) — adversário motivado contra sequência
+  // longa de invencibilidade do clube humano (ver opponentMotivationMod).
+  const cpuSide = lm.isHome ? as : hs;
+  const motivationMod = opponentMotivationMod();
+  if (motivationMod > 1) { cpuSide.atk *= motivationMod; cpuSide.def *= motivationMod; }
   const lambdaHome = clamp((hs.atk / as.def) * 1.12, 0.05, 6) * chunkShare;
   const lambdaAway = clamp(as.atk / hs.def, 0.05, 6) * chunkShare;
   const ghChunk = poissonSample(lambdaHome, Math.random);

@@ -668,7 +668,7 @@ em uma nova demanda, não como reabertura dessa issue.
 
 GE-BALANCE-001 — Reduzir sequências de invencibilidade do clube humano
 
-Status: PRONTO PARA IMPLEMENTAÇÃO
+Status: REVISÃO DO PM NECESSÁRIA
 Sprint: fora da S4 (Game Engine / Balanceamento — CLAUDE.md §13/§22/§30,
 mais próximo de S6 "Motor de partida 2.0" no roadmap oficial, mas
 tratado aqui como demanda isolada, a pedido do Murilo, não como
@@ -796,6 +796,141 @@ Pedido do usuário matinha (Corinthians/Flamengo) sendo rebaixados é
 tratado como demanda separada (`GE-BALANCE-002`), mesmo pedido
 original mas mecanismo diferente (força/reputação de clube, não
 sequência de vitórias).
+
+Relatório técnico
+
+1) Inspeção real (item 1 do escopo) — curva de fadiga/rotação:
+
+`applyMatchWearChunk` (`carreira.js:6811`, não `computeHumanStrength`
+como a especificação citava — a fadiga em si mora nessa função) desgasta
+cada titular em `(15 + random*15) * chunkShare` de condição por partida
+(soma ≈ 15-30 pontos na partida inteira, já que os `chunkShare` de todos
+os tempos somam 1), com piso de 25 (`clamp(..., 25, 100)`) —
+nunca zera. `applyConditionRecovery` (`carreira.js:7040`) só recupera
+quem NÃO jogou (banco), +10-22 pontos por rodada. Logo: um titular que
+joga TODA rodada sem nunca ser poupado desce até o piso de 25 em poucas
+rodadas e trava lá (não recupera nunca, dado que nunca vai pro banco).
+
+Isso confirma a suspeita da especificação, mas com uma descoberta a
+mais, mais grave do que "curva fraca":
+
+* no **ataque**, o piso de condição (25) custa no máximo `atkMult *=
+  0.85 + 0.15*0.25 = 0.8875` — **~11% de penalidade**, teto baixo mas
+  real;
+* na **defesa**, o mecanismo está **invertido**. `computeHumanStrength`
+  devolve `def: club.def / clamp(defMult, 0.55, 1.6)` — e `defMult` já
+  embute o fator de condição (`defMult *= 0.90 + 0.10*(avgCond/100)`).
+  Como o valor de "def" retornado é usado como DIVISOR do ataque do
+  ADVERSÁRIO (`lambdaAway = as.atk / hs.def` em `resolveLiveChunk`),
+  um `defMult` MENOR (time cansado) produz um `def` MAIOR, e um `def`
+  maior reduz o gol esperado do adversário. **Ou seja: hoje, quanto
+  mais cansado o time titular, "melhor" (não pior) a defesa fica na
+  fórmula.** Confirmado por simulação isolada (sweep de `def` com `atk`
+  fixo, ver `tests/e2e/sim_ge_balance_001.js` no histórico do commit):
+  aumentar o valor de `def` (segurando `atk`) SOBE pontos/temporada e
+  sequência de invencibilidade — a direção oposta do que a intuição
+  "def mais alto = pior" sugere, e oposta à direção que a condição
+  física deveria empurrar.
+* Esse mesmo padrão de divisão faz o `club.def` fixo de `data.js`
+  (usado cru pros times CPU, sem `computeHumanStrength`) trabalhar ao
+  contrário do esperado: Flamengo/Palmeiras (melhores clubes) têm os
+  MENORES valores de `def` (0.78/0.75) — o que, pela fórmula de
+  divisão, os torna estruturalmente MAIS fáceis de tomar gol do que um
+  clube fraco como o Cuiabá (`def: 1.32`). Isso não é o problema que
+  esta demanda pede pra resolver (é uma inconsistência na calibração
+  ataque/defesa do motor inteiro, não específica de sequência de
+  invencibilidade do humano) — **registrado abaixo como recomendação
+  de demanda separada**, não corrigido aqui: mexer nisso muda o
+  resultado de toda partida do jogo (CPU x CPU incluído), exige
+  recalibrar as faixas de clamp e validar contra o campeonato inteiro,
+  exatamente o tipo de risco que a Seção 30 do CLAUDE.md pede pra nunca
+  decidir "olhando um caso só" — desproporcional ao risco médio desta
+  demanda.
+
+Conclusão do item 1: a fadiga por falta de rotação, sozinha, **não é
+suficiente** pra travar uma sequência longa (teto de ataque pequeno,
+efeito de defesa nulo/invertido) — confirma a suspeita da
+especificação.
+
+2-3) Mecanismo escolhido (candidato "motivação do adversário", o de
+menor risco da lista): quando o clube humano chega numa partida do
+Brasileirão com `CAREER.currentUnbeatenStreak` (contador já existente,
+`carreira.js`, perto de `tallyMatchOutcomeStats` — não precisou criar
+nada novo pra rastrear a sequência) acima de um degrau, o adversário
+(CPU) entra mais ligado — bônus multiplicativo em atk+def, aplicado no
+lado CPU dentro de `resolveLiveChunk` (só Brasileirão — `simulateCupTie`
+fica de fora de propósito, a Copa não soma nem lê essa sequência):
+
+```js
+const OPPONENT_MOTIVATION_STREAK_STEPS = [
+  { minStreak: 12, mod: 1.12 },
+  { minStreak: 8, mod: 1.08 },
+  { minStreak: 5, mod: 1.04 },
+];
+```
+
+Mesmo padrão multiplicativo simétrico (atk e def pelo MESMO fator) já
+usado no jogo pra penalidade de familiaridade tática
+(`formationPenaltyChunksLeft`, `humanSide.atk *= 0.92; humanSide.def *=
+0.92`) — só invertido (bônus pro adversário, não penalidade pro
+humano). Escolha deliberada: evita entrar no mérito de qual direção
+"multiplicar def" deveria ter (ver achado do item 1 acima) — replica
+uma convenção já testada do próprio motor em vez de inventar uma nova.
+
+Determinístico (função pura de `CAREER.currentUnbeatenStreak`, sem
+aleatoriedade) e explicável: um toast antes da partida
+("Adversário motivado — Você chega com N jogos de invencibilidade — o
+rival hoje entra mais ligado para tentar frear a sequência.") avisa o
+técnico ANTES do apito inicial, nunca um efeito silencioso
+(CLAUDE.md §45).
+
+4) Validação por simulação (`tests/e2e/sim_ge_balance_001.js`, Node
+puro, reaproveita a MESMA fórmula de lambda/Poisson do motor real e o
+MESMO conjunto de clubes/atk-def de `data.js`, 5.000 temporadas
+simuladas): um clube humano bem gerido em cima do Flamengo (atk no teto
+2.6, def realista 0.56 — o melhor caso plausível hoje) tinha **6.2%**
+das temporadas com sequência de invencibilidade ≥10 jogos; com o
+mecanismo, **4.0%** (queda relativa de ~35%) e o teto de sequência mais
+longa observada caiu de 21 pra 16 jogos em 5.000 temporadas. Efeito
+real, mensurável, sem zerar a chance de sequências longas acontecerem
+(não é "nerf" — times muito superiores ainda vencem muito, só um pouco
+menos impunemente).
+
+5) Regressão: `tests/e2e/test_ao_vivo.js` (7/7, sem mudança de
+comportamento fora do novo aviso) e `tests/e2e/test_mercado_multi_persist.js`
+(persistência normal) rodados de novo depois da mudança, sem quebra.
+`tests/e2e/test_cup.js` falha no mesmo ponto (timeout esperando
+`#matchDetailOverlay`/`#roundResultsOverlay` depois de simular a
+rodada da Copa) tanto com esta mudança quanto no `main` sem ela
+(confirmado via `git stash`) — **falha pré-existente, não é
+regressão desta demanda**, fora do escopo consertar aqui.
+
+6) Testes novos: `tests/e2e/test_ge_balance_001.js` (5 checks, todos
+passando) — degraus de `opponentMotivationMod()` batendo com a
+especificação, carreira nova (sequência 0) sem aviso, sequência de 14
+jogos disparando o aviso "Adversário motivado" antes da partida, e
+partida com o mecanismo ativo terminando normalmente (rodada avança,
+`persistCareer()` continua funcionando).
+
+Recomendação pra demanda futura (fora do escopo desta, registrada só
+como achado): a inversão descrita no item 1 (defesa efetiva PIORA
+quando o multiplicador de qualidade/condição SOBE, por causa de
+`club.def / defMult` em vez de `club.def * defMult`) e a calibração
+`atk`/`def` de `data.js` (clubes melhores com `def` MENOR, quando a
+fórmula de gol recompensa `def` MAIOR) parecem ser, juntas, uma causa
+estrutural bem mais forte de imprevisibilidade no motor de partida do
+que a falta de "resistência dinâmica" contra sequências — mas corrigir
+isso muda o resultado de toda partida do jogo (CPU x CPU incluído) e
+exige sua própria simulação de validação em escala de liga inteira,
+categoria de risco parecida com o checkpoint de desenho que
+`GE-COPA-001` já exige antes de codar. Sugestão: uma
+`GE-BALANCE-003` dedicada, com o mesmo tipo de checkpoint prévio.
+
+Arquivos alterados: `public/js/carreira.js` (constante
+`OPPONENT_MOTIVATION_STREAK_STEPS` + `opponentMotivationMod()`, uso em
+`resolveLiveChunk` e aviso em `startLiveMatch`).
+Testes novos: `tests/e2e/test_ge_balance_001.js`,
+`tests/e2e/sim_ge_balance_001.js`.
 
 ⸻
 
