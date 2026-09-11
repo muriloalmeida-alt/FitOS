@@ -1191,6 +1191,527 @@ esquecida.
 
 ⸻
 
+S4-B4-001 — Migrar tela Onboarding para o Design System novo
+
+Status: PRONTO PARA IMPLEMENTAÇÃO
+Sprint: S4 — Redesign Mobile
+Fase: Batch 4 (Complementary) — item 1 de 6
+Prioridade: P1
+Issue: https://github.com/muriloalmeida-alt/FitOS/issues/31
+
+Objetivo
+
+Migrar a tela de Onboarding (tutorial de boas-vindas do primeiro
+acesso) pro Design System novo, conforme
+`docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 4).
+
+Contexto
+
+Item 1 da ordem recomendada por `S4-B4-READINESS-001` (menor escopo,
+já parcialmente migrada). Estado real confirmado: `renderOnboardingSlide()`/
+`openOnboardingOverlay()`, `#onboardingOverlay` — os indicadores de
+slide (`.mt-onboard-dot`/`.mt-onboard-dot.active`) já usam
+`--m3-outline-variant`/`--m3-primary`; título/texto/corpo do slide
+ainda usam `.ct-modal-body`/`--mt-ivory-50`/`--mt-ink-muted` (legado).
+
+Escopo
+
+Chapéu implementador deve:
+
+1. Inspecionar `renderOnboardingSlide()`/`#onboardingOverlay` antes de
+   alterar qualquer coisa.
+2. Migrar título/texto/corpo do slide pros tokens `--m3-*` — os
+   indicadores de slide já estão migrados, não mexer neles além do
+   necessário pra consistência.
+3. Preservar 100% o comportamento (navegação entre slides, "pular",
+   gatilho de primeiro acesso).
+4. Usar os componentes já disponíveis (Dialog/Bottom Sheet/Skeleton)
+   se a inspeção revelar necessidade — não presumir aqui.
+5. Testar (mobile-first).
+6. Atualizar `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md` marcando esta
+   tela como migrada.
+7. Retornar relatório técnico nesta mesma seção, status `REVISÃO DO PM
+   NECESSÁRIA`.
+
+Fora de escopo
+
+* qualquer outra tela do Batch 4;
+* mudança de conteúdo/copy dos slides ou da lógica de quando o
+  onboarding aparece;
+* qualquer novo BRDATA Product Pattern (não se aplica aqui).
+
+Dependências
+
+* `S3-DS20-S4-PREP-001` (Dialog/Bottom Sheet/Skeleton) — aprovada,
+  concluída.
+
+Requisitos
+
+Mesma sequência obrigatória: inspecionar → localizar → entender →
+planejar → alterar → testar → revisar.
+
+Critérios de aceite
+
+* tela 100% `--m3-*`;
+* comportamento de navegação/pular preservado;
+* nenhuma outra tela alterada;
+* teste mobile-first cobrindo a tela.
+
+Validações
+
+O PM deverá validar: aderência ao Design System, preservação do
+comportamento, teste, escopo respeitado.
+
+Riscos
+
+* baixo — tela pequena, estática, sem regra de negócio.
+
+Observações
+
+Com esta demanda, resta o item 2 (`S4-B4-002`, Meus esquemas) na
+ordem recomendada.
+
+⸻
+
+S4-B4-002 — Migrar tela Meus esquemas para o Design System novo
+
+Status: PRONTO PARA IMPLEMENTAÇÃO
+Sprint: S4 — Redesign Mobile
+Fase: Batch 4 (Complementary) — item 2 de 6
+Prioridade: P1
+Issue: https://github.com/muriloalmeida-alt/FitOS/issues/32
+
+Objetivo
+
+Migrar a tela de biblioteca de esquemas táticos salvos pro Design
+System novo, conforme `S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 12):
+listar, criar, editar, selecionar e excluir esquemas.
+
+Contexto
+
+Item 2 da ordem recomendada (tela simples de lista única). Estado real
+confirmado: `openSchemesScreen()`/`renderSchemesScreen()`,
+`#schemesOverlay`, 100% tokens legados
+(`.ct-modal-overlay`/`.ct-modal`/`.mt-fullheader`/`.mt-card`).
+
+Escopo
+
+Chapéu implementador deve:
+
+1. Inspecionar `renderSchemesScreen()`/`#schemesOverlay` antes de
+   alterar.
+2. Migrar a apresentação visual pros tokens `--m3-*`.
+3. Preservar 100% o comportamento (listar, criar, editar, selecionar,
+   excluir esquema).
+4. Usar Dialog/Bottom Sheet/Skeleton já disponíveis onde a tela
+   precisar de overlay/carregamento/confirmação.
+5. Testar (mobile-first).
+6. Atualizar `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`.
+7. Retornar relatório técnico nesta mesma seção, status `REVISÃO DO PM
+   NECESSÁRIA`.
+
+Fora de escopo
+
+* qualquer outra tela do Batch 4;
+* qualquer mudança de regra de negócio de esquema tático (criação,
+  aplicação, limite de esquemas salvos).
+
+Dependências
+
+* `S3-DS20-S4-PREP-001` (Dialog/Bottom Sheet/Skeleton) — aprovada,
+  concluída.
+
+Requisitos
+
+Mesma sequência obrigatória: inspecionar → localizar → entender →
+planejar → alterar → testar → revisar.
+
+Critérios de aceite
+
+* tela 100% `--m3-*`;
+* listar/criar/editar/selecionar/excluir esquema continuam
+  funcionando;
+* nenhuma outra tela alterada;
+* teste mobile-first cobrindo a tela.
+
+Validações
+
+O PM deverá validar: aderência ao Design System, preservação de
+funcionalidades, teste, escopo respeitado.
+
+Riscos
+
+* baixo — tela de lista simples, sem componente complexo.
+
+Observações
+
+Com esta demanda, resta o item 3 (`S4-B4-003`, Marcação individual).
+
+⸻
+
+S4-B4-003 — Migrar tela Marcação individual para o Design System novo
+
+Status: PRONTO PARA IMPLEMENTAÇÃO
+Sprint: S4 — Redesign Mobile
+Fase: Batch 4 (Complementary) — item 3 de 6
+Prioridade: P1
+Issue: https://github.com/muriloalmeida-alt/FitOS/issues/33
+
+Objetivo
+
+Migrar a tela de marcação individual pro Design System novo, conforme
+`S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 11): jogador, alvo, relacionamento,
+ação, confirmação.
+
+Contexto
+
+Item 3 da ordem recomendada (2 listas de seleção + card de designação
+ativa, escopo médio). Estado real confirmado:
+`openManMarkingScreen()`/`renderManMarkingScreen()`, `#markingOverlay`,
+100% tokens legados (`.ct-modal-overlay`/`.ct-modal`/`.mt-fullheader`/
+`.mt-card`/`.mt-info-line`/`.ct-empty`).
+
+Escopo
+
+Chapéu implementador deve:
+
+1. Inspecionar `renderManMarkingScreen()`/`#markingOverlay` antes de
+   alterar.
+2. Migrar a apresentação visual pros tokens `--m3-*`.
+3. Avaliar se as listas de seleção de jogador/alvo devem reaproveitar
+   `playerRow()`/PlayerCard (`S3-DS20-S4-PREP-002`) — registrar a
+   decisão e a justificativa no relatório (mesmo tipo de avaliação já
+   feita em `S4-B3-004` pro ContractCard).
+4. Preservar 100% o comportamento (definir/remover marcação, válida só
+   pro próximo jogo, supressão de marcação — `applyManMarking`/
+   `activeManMarkingSuppression`).
+5. Usar Dialog/Bottom Sheet/Skeleton já disponíveis onde precisar.
+6. Testar (mobile-first).
+7. Atualizar `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`.
+8. Retornar relatório técnico nesta mesma seção, status `REVISÃO DO PM
+   NECESSÁRIA`.
+
+Fora de escopo
+
+* qualquer outra tela do Batch 4;
+* qualquer mudança de regra de negócio de marcação individual
+  (duração, efeito na partida, supressão).
+
+Dependências
+
+* `S3-DS20-S4-PREP-001`/`002` (Dialog/Bottom Sheet/Skeleton,
+  PlayerCard) — aprovadas, concluídas.
+
+Requisitos
+
+Mesma sequência obrigatória: inspecionar → localizar → entender →
+planejar → alterar → testar → revisar.
+
+Critérios de aceite
+
+* tela 100% `--m3-*`;
+* definir/remover marcação e supressão continuam funcionando;
+* decisão sobre reaproveitar PlayerCard registrada com justificativa;
+* nenhuma outra tela alterada;
+* teste mobile-first cobrindo a tela.
+
+Validações
+
+O PM deverá validar: aderência ao Design System, decisão sobre
+PlayerCard, preservação de funcionalidades, teste, escopo respeitado.
+
+Riscos
+
+* baixo-médio — 2 listas de seleção mais interação que uma tela
+  simples, mas sem regra de negócio complexa em jogo.
+
+Observações
+
+Com esta demanda, resta o item 4 (`S4-B4-004`, Comparar jogadores).
+
+⸻
+
+S4-B4-004 — Migrar tela Comparar jogadores para o Design System novo
+
+Status: PRONTO PARA IMPLEMENTAÇÃO
+Sprint: S4 — Redesign Mobile
+Fase: Batch 4 (Complementary) — item 4 de 6
+Prioridade: P1
+Issue: https://github.com/muriloalmeida-alt/FitOS/issues/34
+
+Objetivo
+
+Migrar a tela de comparação de jogadores pro Design System novo,
+conforme `S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 8): comparação evitando
+tabela larga no mobile, reorganizada pra leitura vertical/por grupos.
+
+Contexto
+
+Item 4 da ordem recomendada. Achado da auditoria: a tela **existe**
+(`openComparePicker()`/`renderComparePickList()`/`renderCompareResult()`,
+`#compareOverlay`, acessível pelo botão "⚖️ Comparar jogador" no Perfil
+do jogador) — a checagem preliminar de `S4-B4-READINESS-001` suspeitava
+que não existisse, confirmado o contrário com evidência. Estado misto:
+a lista de escolha usa `.mt-sel-row`/`.mt-sel-name`/`.mt-pos-chip`
+(legado, padrão ad hoc que NÃO reaproveita `playerRow()`/PlayerCard já
+formalizado); as linhas do resultado da comparação já usam
+`.m3-compare-row`/`.m3-compare-val`/`.m3-compare-label` (novo).
+
+**Decisão de produto a resolver nesta demanda** (não presumida aqui):
+a lista de escolha de jogador (`.mt-sel-row`) deve passar a reaproveitar
+`playerRow()`/PlayerCard, unificando com o padrão já usado em Elenco/
+Treino/Contratos, ou continuar com um padrão de seleção compacto
+próprio? Recomendação: reaproveitar PlayerCard (é literalmente uma
+lista de jogadores pra escolher, o caso de uso central do componente,
+diferente do banco de reservas em `S4-B2-003` que tinha contexto
+genuinamente distinto) — decisão final registrada no relatório de
+implementação.
+
+Escopo
+
+Chapéu implementador deve:
+
+1. Inspecionar `openComparePicker()`/`renderComparePickList()`/
+   `renderCompareResult()`/`#compareOverlay` antes de alterar.
+2. Migrar a lista de escolha pra reaproveitar `playerRow()`/PlayerCard
+   (recomendação acima) — se a inspeção revelar um motivo concreto pra
+   não fazer isso, registrar como divergência em vez de forçar.
+3. Migrar qualquer seletor/controle restante da tela de resultado que
+   ainda não esteja em `--m3-*`.
+4. Preservar 100% o comportamento (escolher até N jogadores, ver
+   comparação, atributos comparados).
+5. Testar (mobile-first).
+6. Atualizar `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`.
+7. Retornar relatório técnico nesta mesma seção, status `REVISÃO DO PM
+   NECESSÁRIA`.
+
+Fora de escopo
+
+* qualquer outra tela do Batch 4;
+* qualquer mudança de regra de negócio (quais atributos comparam,
+  limite de jogadores comparados).
+
+Dependências
+
+* `S3-DS20-S4-PREP-002` (PlayerCard) — aprovada, concluída.
+
+Requisitos
+
+Mesma sequência obrigatória: inspecionar → localizar → entender →
+planejar → alterar → testar → revisar.
+
+Critérios de aceite
+
+* lista de escolha usa PlayerCard (ou divergência registrada com
+  justificativa);
+* resultado da comparação 100% `--m3-*`;
+* comparação continua funcionando;
+* nenhuma outra tela alterada;
+* teste mobile-first cobrindo a tela.
+
+Validações
+
+O PM deverá validar: decisão sobre PlayerCard, aderência ao Design
+System, preservação de funcionalidades, teste, escopo respeitado.
+
+Riscos
+
+* baixo-médio — decisão de unificação de componente é a principal
+  fonte de risco, não a migração visual em si.
+
+Observações
+
+Com esta demanda, resta o item 5 (`S4-B4-005`, Notícias/Eventos).
+
+⸻
+
+S4-B4-005 — Migrar tela Notícias/Eventos e formalizar NewsCard
+
+Status: PRONTO PARA IMPLEMENTAÇÃO
+Sprint: S4 — Redesign Mobile
+Fase: Batch 4 (Complementary) — item 5 de 6
+Prioridade: P1
+Issue: https://github.com/muriloalmeida-alt/FitOS/issues/35
+
+Objetivo
+
+Migrar a tela de Notícias/Eventos pro Design System novo, conforme
+`S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 18), **e formalizar o componente
+`NewsCard`** — o único dos 6 BRDATA Product Patterns exigidos pelo
+CLAUDE.md §7 que ainda não tem contrato formal (PlayerCard, MatchCard,
+TransferCard, ContractCard já formalizados nesta Sprint; LeagueTable
+segue como gap separado, fora desta demanda).
+
+Contexto
+
+Item 5 da ordem recomendada (maior escopo de decisão de design das 6).
+Estado real confirmado: `openNewsScreen()`/`renderNewsScreen()`,
+`#newsOverlay`, 100% tokens legados (`.ct-modal-overlay`/
+`.mt-news-kicker`/`.mt-news-headline`/`.mt-news-feature-meta`/
+`.mt-news-rule`/`.mt-news-summary-row`) — padrão ad hoc próprio, nunca
+formalizado como componente nomeado.
+
+Escopo
+
+Chapéu implementador deve:
+
+1. Inspecionar `renderNewsScreen()`/`#newsOverlay` e todo ponto que já
+   usa o padrão `.mt-news-*` antes de alterar.
+2. Formalizar `NewsCard` (`newsCardHTML()`, mesmo padrão de
+   `matchCardHTML()`/`transferCardHTML()`/`contractCardHTML()`) —
+   decidir, com evidência, se é formalização retroativa do padrão
+   `.mt-news-*` existente (mesmo caminho do PlayerCard/FinancialSummary)
+   ou construção nova informada por ele (mesmo caminho do MatchCard) —
+   registrar a decisão e por quê.
+3. Migrar `renderNewsScreen()` pra usar o `NewsCard` formalizado.
+4. Preservar 100% o comportamento (feed navegável, manchete em
+   destaque, resumo de rodada, filtro por rodada atual quando
+   aplicável — `NEWS_FEED_MAX`, `openNewsScreen(chainToRoundResults)`).
+5. Testar (mobile-first).
+6. Atualizar `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`.
+7. Retornar relatório técnico nesta mesma seção, status `REVISÃO DO PM
+   NECESSÁRIA`.
+
+Fora de escopo
+
+* qualquer outra tela do Batch 4;
+* qualquer mudança de regra de geração de notícia (quais eventos viram
+  notícia, `NEWS_FEED_MAX`);
+* LeagueTable (gap de Product Pattern separado, não tratado aqui).
+
+Dependências
+
+* `S3-DS20-S4-PREP-001` (Dialog/Bottom Sheet/Skeleton) — aprovada,
+  concluída.
+* Padrão `.mt-news-*` existente em `renderNewsScreen()`.
+
+Requisitos
+
+Mesma sequência obrigatória: inspecionar → localizar → entender →
+planejar → alterar → testar → revisar.
+
+Critérios de aceite
+
+* `NewsCard` formalizado com contrato documentado (mesmo padrão dos
+  outros 4 Product Patterns já formalizados);
+* tela usa o `NewsCard` novo, 100% `--m3-*`;
+* feed/manchete/resumo de rodada continuam funcionando;
+* nenhuma outra tela alterada;
+* teste mobile-first cobrindo a tela.
+
+Validações
+
+O PM deverá validar: contrato do `NewsCard`, decisão retroativa vs.
+nova, aderência ao Design System, preservação de funcionalidades,
+teste, escopo respeitado.
+
+Riscos
+
+* médio — formalizar um Product Pattern novo tem mais superfície de
+  decisão de design do que só migrar tokens.
+
+Observações
+
+Com esta demanda, resta o item 6 (`S4-B4-006`, Histórico/Estatísticas)
+— último do Batch 4.
+
+⸻
+
+S4-B4-006 — Migrar tela Histórico/Estatísticas para o Design System novo
+
+Status: PRONTO PARA IMPLEMENTAÇÃO
+Sprint: S4 — Redesign Mobile
+Fase: Batch 4 (Complementary) — item 6 de 6 (último)
+Prioridade: P1
+Issue: https://github.com/muriloalmeida-alt/FitOS/issues/36
+
+Objetivo
+
+Migrar a tela de Histórico/Estatísticas pro Design System novo,
+conforme `S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 19): temporadas,
+resultados, estatísticas, títulos, desempenho, evolução, histórico
+financeiro, histórico do clube.
+
+Contexto
+
+Item 6 e último da ordem recomendada (maior tela das 6, deixada por
+último de propósito). Estado real confirmado: `renderEstatisticas()`,
+painel `#panel-estatisticas` (`.ct-panel` — painel de navegação, não
+modal/overlay como as outras 5 telas do Batch 4), 100% tokens legados
+(`.mt-obj-tabs`/`.mt-obj-tab`/`.mt-mini-row`/`.mt-mini-col`). Cobertura
+multi-temporada **confirmada com evidência** (não só a temporada
+atual): 2 seletores independentes (escopo Time/Campeonato × período
+Temporada/Histórico) — "Histórico" cobre `CAREER.seasonHistory`,
+`CAREER.careerTotals`, `CAREER.leagueChampions` e títulos por clube.
+
+Escopo
+
+Chapéu implementador deve:
+
+1. Inspecionar `renderEstatisticas()`/`#panel-estatisticas` por
+   completo antes de alterar — é a maior tela das 6, com múltiplas
+   seções/KPIs.
+2. Migrar a apresentação visual pros tokens `--m3-*`, preservando os 2
+   seletores independentes (escopo × período).
+3. Reaproveitar componentes já formalizados onde aplicável (ex.:
+   MatchCard pra resultados recentes, se a inspeção confirmar uso
+   equivalente).
+4. Preservar 100% o comportamento e a cobertura multi-temporada
+   (temporadas passadas, títulos, histórico financeiro/do clube).
+5. Usar Dialog/Bottom Sheet/Skeleton já disponíveis onde precisar.
+6. Testar (mobile-first), com atenção especial à navegação entre os 2
+   seletores (é a tela mais complexa das 6).
+7. Atualizar `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`.
+8. Retornar relatório técnico nesta mesma seção, status `REVISÃO DO PM
+   NECESSÁRIA`.
+
+Fora de escopo
+
+* qualquer outra tela do Batch 4 (todas as outras 5 já migradas antes
+  desta, por ordem);
+* qualquer mudança de regra de negócio de estatística/histórico
+  (o que é registrado, como é calculado);
+* Batch 5 (QA Visual/UX transversal) — só entra depois desta.
+
+Dependências
+
+* `S3-DS20-S4-PREP-001` (Dialog/Bottom Sheet/Skeleton) — aprovada,
+  concluída.
+* `S4-B3-005` (MatchCard) — aprovada, concluída, se reaproveitada aqui.
+
+Requisitos
+
+Mesma sequência obrigatória: inspecionar → localizar → entender →
+planejar → alterar → testar → revisar.
+
+Critérios de aceite
+
+* tela 100% `--m3-*`;
+* os 2 seletores (escopo/período) continuam funcionando;
+* cobertura multi-temporada preservada;
+* nenhuma outra tela alterada;
+* teste mobile-first cobrindo a tela, incluindo navegação entre
+  seletores.
+
+Validações
+
+O PM deverá validar: aderência ao Design System, preservação de
+funcionalidades e cobertura multi-temporada, teste, escopo respeitado.
+
+Riscos
+
+* médio — maior tela das 6, múltiplas seções/KPIs, mais superfície
+  pra regressão visual/funcional passar despercebida.
+
+Observações
+
+Com esta demanda concluída e aprovada, o **Batch 4 (Complementary)
+fecha 100%** (as 6 telas migradas + Eixos táticos já coberto por
+`S4-B2-003`, sem demanda própria). Resta só o **Batch 5 (QA Visual/UX
+transversal)** pra completar a S4 — Redesign Mobile por inteiro.
+
+⸻
+
 S4-AUDIT-BACKLOG-001 — Auditoria de prontidão das demandas #12 a #21
 
 Status: APROVADO
