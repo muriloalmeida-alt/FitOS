@@ -76,7 +76,10 @@ Batch 4 — Complementary (7 telas, todas P1)
 
 Nenhuma verificada individualmente na S3.2.7 (fora do foco da
 auditoria, dado o gap já encontrado em P0). Tratar como
-"desconhecido", não como "ok por omissão".
+"desconhecido", não como "ok por omissão". Demanda de verificação
+especificada: `S4-B4-READINESS-001` (status `PRONTO PARA
+IMPLEMENTAÇÃO`) — ver `docs/HANDOFF_CLAUDE.md` pra checagem
+preliminar por tela (não substitui a auditoria completa).
 
 ⸻
 
@@ -235,11 +238,17 @@ for paga agora, antes de replicar o padrão ad hoc em mais telas.
      de escopo registrada em relação à Tela 17 original — ver
      `docs/HANDOFF_CLAUDE.md`).
 5. **Batch 4 (Complementary)** — as 7 telas P1, começando por uma
-   verificação individual (não foram auditadas na S3.2.7). Ainda **sem
-   demanda própria** — a demanda que cobria isso (`S4-B4-000`) foi
-   reescopada a pedido do Murilo pra virar `S4-AUDIT-BACKLOG-001` (ver
-   item 7 abaixo), então esta auditoria específica do Batch 4 volta a
-   ficar pendente de nova especificação.
+   verificação individual (não foram auditadas na S3.2.7). A demanda
+   que cobria isso originalmente (`S4-B4-000`) foi reescopada a pedido
+   do Murilo pra virar `S4-AUDIT-BACKLOG-001` (ver item 7 abaixo) —
+   substituída agora por **`S4-B4-READINESS-001`** (status `PRONTO
+   PARA IMPLEMENTAÇÃO`), com checagem preliminar já feita (não
+   substitui a auditoria completa pedida): Onboarding, Marcação
+   individual, Meus esquemas, Notícias/Eventos e Histórico/
+   Estatísticas parecem existir; "Comparar jogadores" pode não ter
+   tela própria (mesmo caso de Contratos); "Eixos táticos" parece
+   estar embutido dentro de Tática/Formação (`S4-B2-003`), não numa
+   tela separada — ambos a confirmar com evidência, não presumidos.
 6. **Batch 5 (QA Visual/UX)** — revisão transversal, como já definido
    na matriz original.
 7. **Auditoria de prontidão do backlog** (`S4-AUDIT-BACKLOG-001`,
