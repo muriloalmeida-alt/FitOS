@@ -175,122 +175,6 @@ esquecida.
 
 ⸻
 
-S4-B4-004 — Migrar tela Comparar jogadores para o Design System novo
-
-Status: REVISÃO DO PM NECESSÁRIA
-Sprint: S4 — Redesign Mobile
-Fase: Batch 4 (Complementary) — item 4 de 6
-Prioridade: P1
-Issue: https://github.com/muriloalmeida-alt/FitOS/issues/34
-Branch: `claude/s4-b4-004-comparar-jogadores`
-
-Objetivo
-
-Migrar a tela de comparação de jogadores pro Design System novo,
-conforme `S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 8): comparação evitando
-tabela larga no mobile, reorganizada pra leitura vertical/por grupos.
-
-Decisão registrada (item 2 do escopo): reaproveitar `playerRow()`/
-PlayerCard na lista de escolha — SIM (ao contrário de `S4-B4-003`)
-
-Mesma pergunta de `S4-B4-003` (Marcação individual), veredito oposto:
-lá a lista misturava posições sem agrupamento e o chip de posição por
-linha era informação essencial (recusado); aqui `renderComparePickList()`
-já filtra o pool pra SEMPRE a mesma subposição do jogador de origem
-(`subPositionOf(p) === subpos`, regra de negócio pré-existente, não
-tocada) e o subtítulo da tela já anuncia qual posição — repetir isso
-por linha seria redundante. O badge de origem (principal/base/
-emprestado) que a linha antiga mostrava não tem equivalente exato em
-PlayerCard pra jogador "principal" (fica implícito por ausência de
-tag), mas isso é só contexto extra, não informação necessária pra
-decidir a comparação (que já mostra idade/salário/valor no resultado) —
-não conta como perda de comportamento. Confirma a recomendação original
-do escopo.
-
-Achado (tokens do resultado que a auditoria não pegou)
-
-A auditoria classificou o passo 2 (resultado) como "novo" (`--m3-*`).
-Inspeção real achou 3 seletores exclusivos desta tela (não
-compartilhados com nenhuma outra) ainda legados:
-`.m3-compare-player b` (nome do jogador no cabeçalho, `--mt-ivory-50`),
-`.m3-compare-row` (borda entre linhas, `--mt-navy-700`),
-`.m3-compare-val` (valor não-vencedor, `--mt-ink-muted`).
-
-Mudança aplicada
-
-* `public/js/carreira.js` — `renderComparePickList()` passa a montar
-  a lista com `pool.map(playerRow)` no lugar do `.mt-sel-row` ad hoc
-  (chip de posição + nome + nota + badge de origem manuais). Nenhuma
-  mudança na regra de filtro (mesma subposição, exclui o próprio
-  jogador, ordenado por overall) nem no delegate de clique
-  (`[data-id]`, mesmo seletor de antes).
-* `public/carreira.html` — como `.m3-compare-*` é EXCLUSIVO desta tela
-  (confirmado por busca, nenhum outro consumidor), os 3 tokens migraram
-  na própria regra base, sem precisar de override escopado (diferente
-  de `S4-B4-003`, onde a classe compartilhada exigiu isso):
-  `--mt-ivory-50`/`--mt-navy-700`/`--mt-ink-muted` →
-  `--m3-on-surface`/`--m3-outline-variant`/`--m3-on-surface-variant`.
-  Tipografia `Bebas Neue` do nome no cabeçalho MANTIDA — classificada
-  como BRDATA Extension (confronto "VS" estilo card de luta, mesmo
-  critério já usado em Onboarding/Tática/Escudos).
-
-Teste
-
-Novo `tests/e2e/test_s4_b4_004_comparar_jogadores.js` (2/2 passando):
-1. passo 1 (picker) usa `.m3-list-item`/PlayerCard de verdade, nenhuma
-   linha `.mt-sel-row` restante;
-2. passo 2 (resultado): nome/borda/valor não-vencedor resolvem pros
-   3 tokens `--m3-*` migrados.
-
-Regressão: `tests/e2e/test_comparar_jogadores.js` (pré-existente, 4/4
-sem alteração de comportamento — só o check 1 foi ajustado, já que a
-checagem antiga lia um `.mt-pos-chip` que não existe mais na linha;
-a MESMA regra de negócio, mesma subposição em toda a lista, agora é
-confirmada direto via `subPositionOf()`/dados, não lendo um chip do
-DOM). `tests/e2e/test_marcacao_individual.js` (5/5, confirma que
-`.mt-sel-row` continua intacto pra quem ainda usa — Marcação
-individual não foi afetada por esta mudança). `node -c
-public/js/carreira.js` limpo.
-
-Fora de escopo
-
-* qualquer outra tela do Batch 4 (`.mt-sel-row`/`.mt-pos-chip`/
-  `.mt-sel-src` continuam existindo, ainda usados por Marcação
-  individual e pelo seletor de substituição ao vivo — nenhum dos 2
-  tocado);
-* qualquer mudança de regra de negócio (filtro de subposição, exclusão
-  do próprio jogador, atributos comparados, cálculo de custo-
-  benefício) — nada disso foi tocado.
-
-Critérios de aceite
-
-* lista de escolha usa PlayerCard — ✅ (decisão: sim, com
-  justificativa);
-* resultado da comparação 100% `--m3-*` — ✅ (3 tokens exclusivos
-  migrados, achado além do que a auditoria registrou);
-* comparação continua funcionando — ✅ confirmado por teste;
-* nenhuma outra tela alterada — ✅ (`.m3-compare-*` exclusivo desta
-  tela, `.mt-sel-row` base preservado pra quem ainda usa);
-* teste mobile-first cobrindo a tela — ✅ (`viewport: 390x900`).
-
-Validações
-
-O PM deverá validar: decisão sobre PlayerCard (sim, com justificativa
-oposta à de `S4-B4-003`), aderência ao Design System, preservação de
-funcionalidades, teste, escopo respeitado.
-
-Riscos
-
-* baixo — `playerRow()` em si não foi tocado (só um novo chamador
-  adicionado), e os 3 tokens de `.m3-compare-*` são exclusivos desta
-  tela (sem risco de vazar pra outro lugar).
-
-Observações
-
-Com esta demanda, resta o item 5 (`S4-B4-005`, Notícias/Eventos).
-
-⸻
-
 S4-B4-005 — Migrar tela Notícias/Eventos e formalizar NewsCard
 
 Status: PRONTO PARA IMPLEMENTAÇÃO
@@ -1021,3 +905,19 @@ merge) em `git show a4cdb6d:docs/HANDOFF_CLAUDE.md`.
 
 **Merge do código:** autorizado pela aprovação formal do PM na issue
 #33, executado nesta sessão.
+
+S4-B4-004 — Migrar tela Comparar jogadores para o Design System novo	11/09/2026	merge de `claude/s4-b4-004-comparar-jogadores` em `main` (commit de código original `74465a1`)	docs/project/CHANGELOG.md (a atualizar)
+
+APROVADO pelo Murilo em 11/09/2026 (issue #34), diretamente nesta
+conversa ("Aprovado"). Relatório técnico completo (decisão registrada:
+reaproveitar `playerRow()`/PlayerCard na lista de escolha — SIM, ao
+contrário de `S4-B4-003`, porque aqui o pool já é sempre da mesma
+subposição e o subtítulo já anuncia qual, então o chip por linha seria
+redundante; achado de 3 tokens exclusivos do resultado que a auditoria
+tinha marcado como "novo" — `.m3-compare-player b`/`.m3-compare-row`/
+`.m3-compare-val`, migrados na regra base já que a classe é exclusiva
+desta tela, sem precisar de override escopado) em
+`git show 74465a1:docs/HANDOFF_CLAUDE.md`.
+
+**Merge do código:** autorizado pela aprovação formal do PM na issue
+#34, executado nesta sessão.
