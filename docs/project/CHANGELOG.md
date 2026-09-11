@@ -1,6 +1,6 @@
 # BRDATA — CHANGELOG
 **Gerado em:** 09/09/2026 (atualizado em 11/09/2026)
-**Cobertura:** 2026-08-14 até 2026-09-11 (248 commits em 18 dias, branch `main`)
+**Cobertura:** 2026-08-14 até 2026-09-11 (249 commits em 18 dias, branch `main`)
 **Versão atual:** v9.0.0
 
 ## Metodologia
@@ -79,18 +79,15 @@ bump.
 
 ## Histórico completo (mais recente primeiro)
 
-### 2026-09-11 — v9.0.0  (12 commits de merge)
+### 2026-09-11 — v9.0.0  (13 commits de merge)
 
-> **Bump MAJOR porque:** fecha o Batch 3 (Transactional) do redesign
-> mobile S4 por completo (4/4 telas) — com isso, os Batches 2 e 3 da S4
-> estão 100% mesclados em `main`. Auditoria do Batch 4 (Complementary)
-> concluída (S4-B4-READINESS-001) e a execução das 6 migrações já
-> avança (5/6 telas mescladas — Onboarding, Meus esquemas, Marcação
-> individual, Comparar jogadores, Notícias/Eventos — esta última já
-> formalizando `NewsCard`, o último Product Pattern do CLAUDE.md §7
-> ainda sem contrato), restando só a última tela e o Batch 5 (QA) pra
-> fechar a Sprint inteira. Mais uma correção P0 de confiabilidade
-> (SAVE-LIMIT-001) que
+> **Bump MAJOR porque:** fecha o Batch 3 (Transactional) E o Batch 4
+> (Complementary) do redesign mobile S4 por completo (4/4 e 6/6 telas)
+> — com isso, os Batches 2, 3 e 4 da S4 estão 100% mesclados em `main`,
+> restando só o Batch 5 (QA Visual/UX transversal) pra fechar a Sprint
+> inteira. O Batch 4 também formalizou `NewsCard`, o último dos Product
+> Patterns do CLAUDE.md §7 que ainda não tinha contrato. Mais uma
+> correção P0 de confiabilidade (SAVE-LIMIT-001) que
 > muda a arquitetura de armazenamento do save (compressão) pra
 > eliminar um beco sem saída real relatado pelo usuário. Mais 2 ajustes
 > de balanceamento do motor de partida (GE-BALANCE-001/002, fora da S4)
@@ -235,6 +232,18 @@ bump.
   `--m3-outline-variant`). Cores categóricas por tipo de notícia e
   destaque "mine" preservados (categórico BRDATA, mesmo critério de
   `.m3-form-dot`). Nenhuma mudança de comportamento.
+- `a4238b0` `S4-B4-006` (issue #36) — migra a tela Histórico/
+  Estatísticas pro Design System novo, item 6/6 (último) do Batch 4 —
+  **fecha o Batch 4 por completo**. Achado: `kpiHTML()` já tinha a
+  variante `block:"m3"` (`.m3-stat-card`) em produção no card
+  Financeiro — Estatísticas nunca adotou; migrar as 7 grades de KPI
+  foi só passar `"m3"` como 4º argumento em cada chamada, zero CSS
+  novo. `.mt-obj-tabs`/`.mt-obj-tab`/`.mt-mini-*` (compartilhados com
+  Objetivos/Loja e o Histórico por temporada do Perfil do jogador)
+  migrados via override escopado a `#panel-estatisticas`, mesmo
+  padrão de `S4-B4-003`. MatchCard avaliado e não aplicável — nenhuma
+  lista de "resultados recentes" nesta tela. Nenhuma mudança de
+  comportamento.
 
 ### 2026-09-10 — v8.0.0  (10 commits de merge)
 
