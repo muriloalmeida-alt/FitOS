@@ -633,6 +633,175 @@ em uma nova demanda, não como reabertura dessa issue.
 
 ⸻
 
+SAVE-LIMIT-001 — Save de carreira "grande demais": eliminar o beco sem saída
+
+Status: PRONTO PARA IMPLEMENTAÇÃO
+Sprint: fora da S4 (Confiabilidade — CLAUDE.md §9/§10, prioridade P0
+"Confiabilidade" no CLAUDE.md §47, a mais alta do projeto — acima de
+qualquer Game Engine/Mundo/UX)
+Prioridade: P0
+Issue: https://github.com/muriloalmeida-alt/FitOS/issues/29
+
+Objetivo
+
+Eliminar o cenário em que uma carreira em andamento simplesmente para
+de salvar porque o save ultrapassou o limite de tamanho — hoje isso
+acontece e a única saída oferecida ao jogador é reiniciar a carreira
+do zero (perder tudo). **Esse cenário não pode existir de jeito
+nenhum** — nem como "limite alto o bastante que na prática nunca
+acontece", precisa de uma saída real quando o crescimento se
+aproximar do limite, não um beco sem saída quando ele for ultrapassado.
+
+Contexto
+
+Pedido do usuário: "O save ficou muito grande não pode existir em
+nenhum cenário. Devo convencer nosso jogador que ele deve desistir do
+seu jogo?" — não, a resposta é consertar o sistema, não convencer
+ninguém a desistir.
+
+**Evidência real, já levantada (inspeção de
+`server/src/careerStore.js` + `public/js/carreira.js`):**
+
+1. `MAX_BYTES = 768 * 1024` (768KB) em `careerStore.js` — já foi
+   levantado uma vez (de 400KB) especificamente porque uma carreira
+   "multi" (elenco dos 60 clubes das 3 divisões, não só os 19 da
+   própria — decisão de produto documentada no próprio comentário do
+   arquivo) **já nasce em ~500KB medido**, deixando só ~268KB de folga
+   pra tudo que acumula depois (temporadas, notícias, transferências,
+   base, scouts, premiações).
+2. Quando o save excede 768KB, `saveCareer()` lança erro
+   `status = 413` ("Save da carreira grande demais."). O cliente
+   (`persistCareer()`, `carreira.js:4568`) mostra o toast: **"O save
+   dessa carreira ficou grande demais — reinicie a carreira pra
+   continuar salvando."** e retorna `false` — sem quebrar a sessão
+   atual (o jogo continua rodando na aba aberta), mas **nenhum
+   progresso novo é salvo a partir daí**. Fechar a aba, trocar de
+   dispositivo ou só recarregar a página perde tudo desde o último
+   save bem-sucedido. A única saída oferecida é literalmente
+   abandonar a carreira.
+3. **Mitigações que já existem** (então parte do trabalho de conter
+   crescimento já foi feito antes, não é um problema ignorado):
+   `MAX_SEASON_HISTORY = 15`, `NEWS_FEED_MAX = 60`,
+   `MAX_PLAYER_SEASON_HISTORY = 15`, `TRANSFER_LOG_MAX`,
+   `FINANCE_LEDGER_MAX`, `CASH_HISTORY_MAX = 8`,
+   `MAX_LEAGUE_SQUAD_OTHER_DIVISION = 16` (elenco de clube de outra
+   divisão capado a 16 jogadores, vs. o elenco cheio do seu próprio).
+   Um comentário no próprio código (`carreira.js:7622`) já registra
+   que `CAREER.resultsByRound` foi reduzido pra guardar só a rodada
+   atual e a anterior especificamente por causa de uma falha 413
+   anterior — ou seja, **este mesmo bug já se manifestou antes e foi
+   parcialmente mitigado, mas continua acontecendo**.
+4. **Gap confirmado, não mitigado**: `CAREER.clubHistory` (histórico
+   de clubes que o técnico dirigiu ao longo da carreira) não tem
+   nenhum cap — cresce sem limite a cada troca de clube.
+5. **Alavancas disponíveis, ainda não usadas**: nenhuma compressão
+   (gzip) no arquivo salvo em disco nem na resposta/corpo da
+   requisição HTTP — o servidor não tem middleware de compressão
+   nenhum hoje; um blob JSON de save comprime tipicamente bem (texto
+   repetitivo, muitas chaves iguais).
+
+Escopo
+
+Chapéu implementador deve, nesta ordem:
+
+1. **Medir de verdade** (não estimar) o tamanho real de uma carreira
+   "multi" ao longo de várias temporadas simuladas (mesmo padrão de
+   simulação usado em S8/`sim_transfer_ai_*`), pra confirmar onde o
+   crescimento realmente concentra — elenco base (maior suspeito,
+   dado o `~500KB` já na criação) vs. estruturas acumulativas
+   (histórico, log, notícias).
+2. **Eliminar o gap confirmado**: capar `CAREER.clubHistory` (mesmo
+   padrão de `MAX_SEASON_HISTORY`).
+3. **Avaliar compressão** (gzip) tanto no arquivo persistido em disco
+   quanto na resposta HTTP (`Content-Encoding`) — medir o ganho real
+   antes de decidir se compensa a complexidade adicional.
+4. **Eliminar o "beco sem saída"**: antes de chegar em 413 (recusa
+   dura), implementar aviso proativo quando o save se aproximar do
+   limite (ex.: 85-90% de `MAX_BYTES`) E/OU um mecanismo de poda
+   automática de dados históricos não-essenciais (reduzir caps
+   existentes ainda mais como último recurso automático, nunca
+   perdendo estado de jogo ativo — elenco, contratos, tabela,
+   finanças) antes de recusar salvar — a decisão exata de qual
+   mecanismo (aviso, poda automática, ou os dois) fica pro
+   implementador propor com evidência da medição do item 1, mas o
+   resultado final não pode ser "usuário vê 413 e não tem o que
+   fazer".
+5. Se a medição do item 1 mostrar que o elenco multi-divisão é
+   realmente o fator dominante, avaliar (registrar como divergência
+   se for uma mudança grande, não decidir sozinho) se compensa
+   estruturalmente: subir `MAX_BYTES` de novo com compressão como
+   contrapeso, reduzir ainda mais `MAX_LEAGUE_SQUAD_OTHER_DIVISION`,
+   ou outra alternativa — sem tirar a decisão de mercado "3 divisões"
+   já tomada (CLAUDE.md: preservar funcionalidade existente).
+6. Testar compatibilidade de save (CLAUDE.md §33): save novo, save
+   antigo sem os campos/caps novos, save que já está perto/acima do
+   limite atual — nenhum desses pode corromper ou travar irrecuperável.
+7. Retornar relatório técnico nesta mesma seção, com os números reais
+   medidos, status `REVISÃO DO PM NECESSÁRIA`.
+
+Fora de escopo
+
+* remover a decisão de produto de mercado com as 3 divisões (60
+  clubes) — é consequência, não causa a reverter;
+* mudar a arquitetura de persistência (blob único por conta) — fora
+  do tamanho desta demanda; se a medição revelar que isso é
+  inevitável a longo prazo, registrar como divergência pro PM decidir
+  separadamente;
+* qualquer mudança de regra de jogo pra "reduzir dado gerado" (ex.:
+  diminuir elenco de verdade, tirar temporada de histórico visível ao
+  usuário) — a poda, se acontecer, é de dado interno/técnico, nunca
+  de funcionalidade que o usuário vê e usa.
+
+Dependências
+
+* `server/src/careerStore.js` (`MAX_BYTES`, `saveCareer`).
+* `public/js/carreira.js` (`persistCareer`, todos os `*_MAX`
+  existentes).
+* Testes/simulações de S8 como referência de padrão de medição.
+
+Requisitos
+
+Mesma sequência obrigatória, com ênfase em medir antes de decidir:
+inspecionar → **medir com evidência real** → localizar → entender →
+planejar → alterar → testar → revisar.
+
+Critérios de aceite
+
+* medição real do crescimento de uma carreira "multi" ao longo de
+  múltiplas temporadas, documentada;
+* `CAREER.clubHistory` capado;
+* decisão registrada (com números) sobre compressão — implementada
+  ou justificado por que não;
+* nenhum cenário realista de uso (carreira "multi" longa) termina em
+  413 sem alternativa — ou o limite efetivo aumenta o suficiente
+  (medido, não chutado), ou existe poda/aviso automático antes do
+  beco sem saída, ou os dois;
+* compatibilidade de save (novo/antigo/no limite) preservada.
+
+Validações
+
+O PM deverá validar: evidência de medição real (não estimativa),
+eliminação do gap de `clubHistory`, decisão sobre compressão com
+números, e — o critério mais importante — confirmação de que o
+cenário relatado pelo usuário (save trava, única saída é reiniciar)
+deixou de ser possível.
+
+Riscos
+
+* baixo pra maioria dos itens (caps, compressão) — mudança aditiva,
+  sem alterar regra de jogo;
+* médio se a medição apontar que só subir o limite não resolve de
+  verdade e uma poda automática de histórico for necessária —
+  precisa de cuidado pra nunca podar dado que o usuário ainda usa
+  (CLAUDE.md §33/§48, preservar o que funciona).
+
+Observações
+
+Prioridade P0 — reliability tem precedência sobre as 5 outras demandas
+abertas nesta rodada (`GE-BALANCE-001/002`, `GE-COPA-001`,
+`S4-B3-006`, `S4-B4-READINESS-001`), nenhuma das quais envolve risco
+de perda de progresso do jogador.
+
 ⸻
 
 GE-BALANCE-001 — Reduzir sequências de invencibilidade do clube humano
