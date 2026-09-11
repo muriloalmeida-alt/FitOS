@@ -1518,6 +1518,13 @@
     color:var(--mt-ink-faint); background:transparent; border:none; padding:9px 12px 10px; border-bottom:2px solid transparent; cursor:pointer;
   }
   .mt-obj-tab.active{ color:var(--m3-primary); border-bottom-color:var(--m3-primary); }
+  /* S4-B4-006 (issue #36) — .mt-obj-tabs/-tab (seletores de escopo/
+     período) são compartilhados com Objetivos/Loja, fora de escopo
+     aqui — override ESCOPADO a #panel-estatisticas, mesmo padrão já
+     usado em Marcação individual (S4-B4-003). Guard :not(.active)
+     evita brigar de especificidade com o estado ativo (já --m3-*). */
+  #panel-estatisticas .mt-obj-tabs{ border-bottom-color:var(--m3-outline-variant); }
+  #panel-estatisticas .mt-obj-tab:not(.active){ color:var(--m3-on-surface-variant); }
   .mt-obj-reset-label{ font-family:'Rajdhani', var(--font); font-weight:700; font-size:10.5px; letter-spacing:1px; color:var(--mt-ink-faint); margin:0 0 10px; }
   .mt-obj-card{ background:var(--m3-surface-container); border:1px solid var(--m3-outline-variant); border-radius:var(--m3-shape-md); padding:13px 14px; margin-bottom:10px; }
   .mt-obj-card.completed{ background:var(--m3-primary-container); border-color:var(--m3-primary); }
@@ -2305,6 +2312,20 @@
   .mt-mini-col{ flex:1; text-align:center; font-family:'Rajdhani', var(--font); font-weight:700; color:var(--mt-ivory-100); }
   .mt-mini-col.head{ color:var(--mt-ink-faint); font-weight:700; font-size:10px; }
   .mt-mini-col.name{ flex:1.6; text-align:left; font-weight:600; font-family:var(--font); color:var(--mt-ivory-50); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  /* S4-B4-006 (issue #36) — .mt-mini-head/-row/-col são compartilhados
+     com o Histórico por temporada do Perfil do jogador
+     (playerSeasonHistoryHTML(), fora de escopo aqui), por isso o
+     override fica ESCOPADO a #panel-estatisticas em vez de mudar a
+     regra base — mesmo padrão de override escopado já usado em
+     Marcação individual (S4-B4-003). Guards :not(:last-child) e
+     :not(.head) evitam brigar de especificidade com as regras que já
+     tratam esses casos (borda removida na última linha; cor mais fraca
+     do cabeçalho). */
+  #panel-estatisticas .mt-mini-head{ color:var(--m3-on-surface-variant); border-bottom-color:var(--m3-outline-variant); }
+  #panel-estatisticas .mt-mini-row:not(:last-child){ border-bottom-color:var(--m3-outline-variant); }
+  #panel-estatisticas .mt-mini-col:not(.head):not(.name){ color:var(--m3-on-surface-variant); }
+  #panel-estatisticas .mt-mini-col.head{ color:var(--m3-on-surface-variant); }
+  #panel-estatisticas .mt-mini-col.name{ color:var(--m3-on-surface); }
 
   /* ================= Tela 10 — Mercado de transferências =================
      AJUSTE (refatoração completa, ver 10-mercado-de-transferencias-

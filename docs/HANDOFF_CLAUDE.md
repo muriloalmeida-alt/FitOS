@@ -177,11 +177,12 @@ esquecida.
 
 S4-B4-006 — Migrar tela Histórico/Estatísticas para o Design System novo
 
-Status: PRONTO PARA IMPLEMENTAÇÃO
+Status: REVISÃO DO PM NECESSÁRIA
 Sprint: S4 — Redesign Mobile
 Fase: Batch 4 (Complementary) — item 6 de 6 (último)
 Prioridade: P1
 Issue: https://github.com/muriloalmeida-alt/FitOS/issues/36
+Branch: `claude/s4-b4-006-historico-estatisticas`
 
 Objetivo
 
@@ -190,76 +191,110 @@ conforme `S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 19): temporadas,
 resultados, estatísticas, títulos, desempenho, evolução, histórico
 financeiro, histórico do clube.
 
-Contexto
+Achado (reaproveitamento maior que o esperado)
 
-Item 6 e último da ordem recomendada (maior tela das 6, deixada por
-último de propósito). Estado real confirmado: `renderEstatisticas()`,
-painel `#panel-estatisticas` (`.ct-panel` — painel de navegação, não
-modal/overlay como as outras 5 telas do Batch 4), 100% tokens legados
-(`.mt-obj-tabs`/`.mt-obj-tab`/`.mt-mini-row`/`.mt-mini-col`). Cobertura
-multi-temporada **confirmada com evidência** (não só a temporada
-atual): 2 seletores independentes (escopo Time/Campeonato × período
-Temporada/Histórico) — "Histórico" cobre `CAREER.seasonHistory`,
-`CAREER.careerTotals`, `CAREER.leagueChampions` e títulos por clube.
+`kpiHTML()` (o helper usado por TODA grade de KPI desta tela — 7 cards:
+Retrospecto, Gols, Disciplina, Sequências, Copa do Brasil, Campeonato,
++ os "copaEditions" do histórico) já tinha uma variante `block:"m3"`
+(`.m3-stat-card`, 100% `--m3-*`) — construída pra Início/Central e já
+em produção em outro ponto (Financeiro, `S4-B2-004`/redor). Estatísticas
+nunca adotou essa variante, chamando `kpiHTML(l, v)` sem o 4º argumento
+(cai no `.mt-stat-block` legado por padrão). Migrar as 7 grades foi
+literalmente passar `"m3"` como 4º argumento em cada chamada — **zero
+CSS novo**, reaproveitamento direto de um componente que já existia
+(mesmo espírito do teste `test_estatisticas_completas.js` pré-existente,
+que já checava `.mt-stat-block, .m3-stat-card` com OR — sinal de que
+essa migração já era esperada por quem escreveu aquele teste).
 
-Escopo
+Achado (item 3 do escopo — MatchCard): NÃO aplicável
 
-Chapéu implementador deve:
+Inspecionada a tela inteira — não existe nenhuma lista de "resultados
+recentes" (partidas com escudo+placar) dentro de Estatísticas. "Maior
+goleada"/"Maior derrota" (em Sequências e recordes) é uma ÚNICA linha
+de texto denso (`Xx Y vs ADVERSÁRIO (ano)`), não uma lista de partidas
+navegável — informação de recorde, não histórico de jogos. Nenhum
+candidato real pra MatchCard aqui; registrado como divergência (não
+forçado).
 
-1. Inspecionar `renderEstatisticas()`/`#panel-estatisticas` por
-   completo antes de alterar — é a maior tela das 6, com múltiplas
-   seções/KPIs.
-2. Migrar a apresentação visual pros tokens `--m3-*`, preservando os 2
-   seletores independentes (escopo × período).
-3. Reaproveitar componentes já formalizados onde aplicável (ex.:
-   MatchCard pra resultados recentes, se a inspeção confirmar uso
-   equivalente).
-4. Preservar 100% o comportamento e a cobertura multi-temporada
-   (temporadas passadas, títulos, histórico financeiro/do clube).
-5. Usar Dialog/Bottom Sheet/Skeleton já disponíveis onde precisar.
-6. Testar (mobile-first), com atenção especial à navegação entre os 2
-   seletores (é a tela mais complexa das 6).
-7. Atualizar `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md`.
-8. Retornar relatório técnico nesta mesma seção, status `REVISÃO DO PM
-   NECESSÁRIA`.
+Mudança aplicada
+
+* `public/js/carreira.js` — as 6 ocorrências de
+  `.map(([l, v]) => kpiHTML(l, v))` e as 2 chamadas com `variant`
+  explícito (`"Aproveitamento"`, `"Situação nesta Copa"`) ganharam
+  `"m3"` como 4º argumento — todas dentro do bloco de Estatísticas
+  (`renderStatsRecordKpis`/`renderStatsGoalsKpis`/`renderStatsDisciplineKpis`/
+  `renderStatsStreaksRecords`/`renderStatsCopaContent`/`renderStatsLeagueKpis`).
+  Nenhuma mudança de dado/regra de negócio.
+* `public/carreira.html` — `.mt-obj-tabs`/`.mt-obj-tab` (seletores de
+  escopo/período) e `.mt-mini-head`/`.mt-mini-row`/`.mt-mini-col`
+  (mini-tabelas: artilheiros, times da competição, campeões, títulos
+  por clube, mandante×visitante) são compartilhados com telas FORA de
+  escopo (`.mt-obj-tab` com Objetivos/Loja; `.mt-mini-*` com o
+  Histórico por temporada do Perfil do jogador, `playerSeasonHistoryHTML()`)
+  — migrados via override ESCOPADO a `#panel-estatisticas` (mesmo
+  padrão já usado em Marcação individual, `S4-B4-003`), não a regra
+  base. Guards `:not(.active)`/`:not(:last-child)`/`:not(.head)`/
+  `:not(.name)` evitam brigar de especificidade com estados que já
+  tinham regra própria (aba ativa, borda removida na última linha,
+  cor mais fraca do cabeçalho) — mesmo risco já identificado e tratado
+  em `S4-B4-003`.
+
+Teste
+
+Novo `tests/e2e/test_s4_b4_006_estatisticas.js` (4/4 passando):
+1. grades de KPI usam `.m3-stat-card` em pelo menos 3 seções, nenhum
+   `.mt-stat-block` restante;
+2. tokens do seletor migrados, escopados a `#panel-estatisticas`;
+3. mini-tabela migrada (nome do time/cabeçalho);
+4. confirma que o override escopado NÃO vazou pro Histórico por
+   temporada do Perfil do jogador (mesma classe `.mt-mini-col.name`,
+   continua com a cor legada de sempre lá).
+
+Regressão: `tests/e2e/test_estatisticas_completas.js` (pré-existente,
+9/9 sem alteração — os 2 seletores independentes, cobertura
+multi-temporada completa, incluindo o fluxo real de simular partida +
+avançar temporada). `tests/e2e/test_ux_estatisticas_check.js` (0 linhas
+de artilheiro depois de 6 rodadas simuladas — confirmado idêntico em
+`main` sem nenhuma mudança minha via `git stash`, não é regressão).
+`tests/e2e/test_loja.js` (8/8, tela que compartilha `.mt-obj-tab`,
+confirma que o override escopado não vazou pra lá). `node -c
+public/js/carreira.js` limpo.
 
 Fora de escopo
 
 * qualquer outra tela do Batch 4 (todas as outras 5 já migradas antes
-  desta, por ordem);
-* qualquer mudança de regra de negócio de estatística/histórico
-  (o que é registrado, como é calculado);
+  desta) — `.mt-obj-tabs`/`.mt-obj-tab`/`.mt-mini-*` base continuam
+  legados fora de `#panel-estatisticas`, de propósito;
+* qualquer mudança de regra de negócio de estatística/histórico (o que
+  é registrado, como é calculado) — nada disso foi tocado;
 * Batch 5 (QA Visual/UX transversal) — só entra depois desta.
-
-Dependências
-
-* `S3-DS20-S4-PREP-001` (Dialog/Bottom Sheet/Skeleton) — aprovada,
-  concluída.
-* `S4-B3-005` (MatchCard) — aprovada, concluída, se reaproveitada aqui.
-
-Requisitos
-
-Mesma sequência obrigatória: inspecionar → localizar → entender →
-planejar → alterar → testar → revisar.
 
 Critérios de aceite
 
-* tela 100% `--m3-*`;
-* os 2 seletores (escopo/período) continuam funcionando;
-* cobertura multi-temporada preservada;
-* nenhuma outra tela alterada;
+* tela 100% `--m3-*` — ✅;
+* os 2 seletores (escopo/período) continuam funcionando — ✅
+  confirmado por teste;
+* cobertura multi-temporada preservada — ✅ (`test_estatisticas_completas.js`
+  cobre temporada + histórico nos 2 escopos, incluindo virada real de
+  temporada);
+* nenhuma outra tela alterada — ✅ (overrides escopados por id,
+  confirmado por teste em Loja e no Perfil do jogador);
 * teste mobile-first cobrindo a tela, incluindo navegação entre
-  seletores.
+  seletores — ✅ (`viewport: 390x900`).
 
 Validações
 
 O PM deverá validar: aderência ao Design System, preservação de
-funcionalidades e cobertura multi-temporada, teste, escopo respeitado.
+funcionalidades e cobertura multi-temporada, decisão sobre MatchCard
+(não aplicável, com justificativa), teste, escopo respeitado.
 
 Riscos
 
-* médio — maior tela das 6, múltiplas seções/KPIs, mais superfície
-  pra regressão visual/funcional passar despercebida.
+* baixo — a migração de KPI foi reaproveitamento puro (`"m3"` já
+  existia); os overrides escopados por id são o mesmo padrão já
+  validado em `S4-B4-003`, com os guards de especificidade já
+  conhecidos aplicados desde o início (não descobertos durante o
+  teste desta vez).
 
 Observações
 

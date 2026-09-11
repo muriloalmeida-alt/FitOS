@@ -11582,7 +11582,7 @@ function renderStatsRecordKpis(bucket) {
   const aprov = bucket.j ? Math.round(((bucket.v * 3 + bucket.e) / (bucket.j * 3)) * 100) : 0;
   document.getElementById("statsRecordKpis").innerHTML = [
     ["Jogos", bucket.j], ["Vitórias", bucket.v], ["Empates", bucket.e], ["Derrotas", bucket.d],
-  ].map(([l, v]) => kpiHTML(l, v)).join("") + kpiHTML("Aproveitamento", `${aprov}%`, "gold");
+  ].map(([l, v]) => kpiHTML(l, v, null, "m3")).join("") + kpiHTML("Aproveitamento", `${aprov}%`, "gold", "m3");
 }
 function renderStatsGoalsKpis(bucket) {
   const sg = bucket.gp - bucket.gc;
@@ -11590,13 +11590,13 @@ function renderStatsGoalsKpis(bucket) {
   document.getElementById("statsGoalsKpis").innerHTML = [
     ["Gols marcados", bucket.gp], ["Gols sofridos", bucket.gc],
     ["Saldo de gols", sg > 0 ? `+${sg}` : sg], ["Média de gols/jogo", media],
-  ].map(([l, v]) => kpiHTML(l, v)).join("");
+  ].map(([l, v]) => kpiHTML(l, v, null, "m3")).join("");
 }
 function renderStatsDisciplineKpis(src) {
   document.getElementById("statsDisciplineKpis").innerHTML = [
     ["Clean sheets", src.cleanSheets || 0], ["Assistências", src.assists || 0],
     ["Cartões amarelos", src.yellow || 0], ["Cartões vermelhos", src.red || 0],
-  ].map(([l, v]) => kpiHTML(l, v)).join("");
+  ].map(([l, v]) => kpiHTML(l, v, null, "m3")).join("");
 }
 function renderStatsHomeAway(src) {
   const rows = [["Como mandante", src.home || freshMatchBucket()], ["Como visitante", src.away || freshMatchBucket()]];
@@ -11617,7 +11617,7 @@ function renderStatsStreaksRecords(period) {
     kpis.push(["Recorde de vitórias seguidas", t.longestWinStreak || 0]);
     kpis.push(["Recorde de invencibilidade", t.longestUnbeatenStreak || 0]);
   }
-  document.getElementById("statsStreakKpis").innerHTML = kpis.map(([l, v]) => kpiHTML(l, v)).join("");
+  document.getElementById("statsStreakKpis").innerHTML = kpis.map(([l, v]) => kpiHTML(l, v, null, "m3")).join("");
   const fmtMatch = (m, label) => !m ? "" : `<div class="mt-mini-row">
     <div class="mt-mini-col name">${label}</div>
     <div class="mt-mini-col" style="flex:2.4; text-align:right;">${m.gf}x${m.ga} ${m.home ? "vs" : "@"} ${escapeHtml(m.opponentName)} (${m.seasonYear})</div>
@@ -11635,7 +11635,7 @@ function renderStatsCopaContent(period) {
     else if (cup.phase === "done") { statusText = "Vice-campeão — perdeu a final."; }
     else if (!cup.humanAlive) { statusText = `Eliminado nas ${CUP_PHASE_LABEL[cup.humanEliminatedStage] || cup.humanEliminatedStage}.`; }
     else { statusText = `Ainda vivo — próxima fase: ${CUP_PHASE_LABEL[cup.phase] || cup.phase}.`; variant = "gold"; }
-    el.innerHTML = `<div class="mt-stat-grid">${kpiHTML("Situação nesta Copa", statusText, variant)}</div>`;
+    el.innerHTML = `<div class="mt-stat-grid">${kpiHTML("Situação nesta Copa", statusText, variant, "m3")}</div>`;
   } else {
     const t = CAREER.careerTotals || freshCareerTotals();
     el.innerHTML = `<div class="mt-stat-grid">` + [
@@ -11645,7 +11645,7 @@ function renderStatsCopaContent(period) {
       ["Finais alcançadas", t.copaFinalsReached || 0],
       ["Retrospecto (V-E-D)", `${t.copaV || 0}-${t.copaE || 0}-${t.copaD || 0}`],
       ["Gols na Copa (pró/contra)", `${t.copaGp || 0} / ${t.copaGc || 0}`],
-    ].map(([l, v]) => kpiHTML(l, v)).join("") + `</div>`;
+    ].map(([l, v]) => kpiHTML(l, v, null, "m3")).join("") + `</div>`;
   }
 }
 // AJUSTE (refatoração completa, Tela 9 — ver 09-estatisticas-restyled.html
@@ -11727,7 +11727,7 @@ function renderStatsLeagueKpis() {
     ["Média de gols/jogo", avgGoals.toFixed(2)],
     ["Melhor ataque", bestAtk ? `${teamById(bestAtk.id).short || teamById(bestAtk.id).name} (${bestAtk.gp})` : "—"],
     ["Melhor defesa", bestDef ? `${teamById(bestDef.id).short || teamById(bestDef.id).name} (${bestDef.gc})` : "—"],
-  ].map(([l, v]) => kpiHTML(l, v)).join("");
+  ].map(([l, v]) => kpiHTML(l, v, null, "m3")).join("");
 }
 // Times da competição — ranking por gols/cartões usando os dados já
 // reais de CAREER.standings (isso já vinha da API antes da Fase 2, só

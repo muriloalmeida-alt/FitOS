@@ -85,14 +85,16 @@ mesclada em `main`) — estado real de cada tela abaixo, com evidência.
 | Marcação individual | ✅ migrada `--m3-*` (`S4-B4-003`) | Casca (`.ct-modal-*`/`.mt-fullheader`/`.mt-card`/`.mt-btn-ghost`) já estava `--m3-*` antes desta demanda, mesmo achado de "Meus esquemas". Tokens legados reais: `.mt-sel-row`/`.mt-sel-name` (2 listas de escolha) e `.mt-info-line b` (designação ativa) — migrados via override ESCOPADO a `#markingOverlay` (não a regra base, compartilhada com Comparar jogadores e o seletor de substituição ao vivo, ambos fora de escopo). Decisão registrada: NÃO reaproveitar `playerRow()`/PlayerCard nas listas — o componente não mostra posição/subposição, informação essencial aqui (lista do rival mistura posições, não agrupada). Comportamento 100% preservado |
 | Meus esquemas | ✅ migrada `--m3-*` (`S4-B4-002`) | Correção em relação à nota anterior: a casca (`.ct-modal-*`/`.mt-fullheader`/`.mt-card`) e as linhas da lista (`.m3-scheme-*`) já estavam 100% `--m3-*` antes desta demanda — não era "100% legada". O único token legado real era o campo de nome do sheet "Novo esquema" (`.mt-friend-input` cru, fora de `.mt-form-row`); migrado envolvendo-o em `.mt-form-row` (reaproveita regra que já existia para "Editar perfil", sem CSS novo). Comportamento (listar/criar/aplicar/apagar/limite de 8) 100% preservado |
 | Notícias/Eventos | ✅ migrada `--m3-*` + `NewsCard` formalizado (`S4-B4-005`) | `NewsCard` (`newsCardHTML()`) formalizado PARCIALMENTE retroativo: `newsItemHTML()` já cobria o layout de linha do feed (mesmo caminho de PlayerCard); a manchete em destaque, que nunca foi função própria (HTML inline), virou a variação `featured` do MESMO componente. Classes renomeadas `.mt-news-*` → `.m3-news-*` (mesma convenção de `.m3-mc-*`/`.m3-op-*`), tokens migrados (`--mt-gold-400/600` → `--m3-secondary`, mesmo token de `.mt-badge-gold`; demais → `--m3-on-surface(-variant)`/`--m3-outline-variant`). Cores categóricas por tipo de notícia e destaque "mine" preservados (cor categórica da BRDATA, mesmo critério de `.m3-form-dot`); Bebas Neue do masthead/manchete mantida como BRDATA Extension. Comportamento (feed navegável, manchete em destaque, filtro por rodada atual, resumo financeiro/status do time) 100% preservado |
-| Histórico/Estatísticas | ⏳ pendente (`S4-B4-006`, última do Batch) | 100% legada (`#panel-estatisticas`); cobertura multi-temporada confirmada com evidência |
+| Histórico/Estatísticas | ✅ migrada `--m3-*` (`S4-B4-006`, última do Batch) | As 7 grades de KPI (Retrospecto/Gols/Disciplina/Sequências/Copa/Campeonato) passaram a reaproveitar a variante `"m3"` que `kpiHTML()` já tinha (`.m3-stat-card`, já usada no card Financeiro) — zero CSS novo, só o 4º argumento passado nas chamadas. Seletores de escopo/período (`.mt-obj-tabs`/`.mt-obj-tab`) e mini-tabelas (`.mt-mini-head`/`-row`/`-col`) migrados via override ESCOPADO a `#panel-estatisticas` (compartilhados com Objetivos/Loja e o Histórico por temporada do Perfil do jogador, ambos fora de escopo), mesmo padrão de `S4-B4-003`. MatchCard avaliado e NÃO aplicável — não existe lista de "resultados recentes" nesta tela (maior goleada/derrota é 1 linha de recorde, não uma lista de partidas). Comportamento e cobertura multi-temporada (temporada atual + histórico, nos 2 escopos) 100% preservados |
 
-**5 de 6 telas migradas** (Onboarding, Meus esquemas, Marcação
-individual, Comparar jogadores, Notícias/Eventos) — Eixos táticos não
-conta como demanda própria (já coberta). Ordem de execução recomendada
-pela própria auditoria: Onboarding → Meus esquemas → Marcação
-individual → Comparar jogadores → Notícias/Eventos → Histórico/
-Estatísticas (issues #31-#36).
+**6 de 6 telas migradas — Batch 4 (Complementary) fecha 100%**
+(Onboarding, Meus esquemas, Marcação individual, Comparar jogadores,
+Notícias/Eventos, Histórico/Estatísticas) — Eixos táticos não conta
+como demanda própria (já coberta). Ordem de execução seguida, igual à
+recomendada pela própria auditoria: Onboarding → Meus esquemas →
+Marcação individual → Comparar jogadores → Notícias/Eventos →
+Histórico/Estatísticas (issues #31-#36). Resta só o **Batch 5 (QA
+Visual/UX transversal)** pra fechar a Sprint S4 inteira.
 
 ⸻
 
