@@ -1,7 +1,7 @@
 # BRDATA — CHANGELOG
-**Gerado em:** 09/09/2026 (atualizado em 10/09/2026)
-**Cobertura:** 2026-08-14 até 2026-09-10 (236 commits em 17 dias, branch `main`)
-**Versão atual:** v8.0.0
+**Gerado em:** 09/09/2026 (atualizado em 11/09/2026)
+**Cobertura:** 2026-08-14 até 2026-09-11 (237 commits em 18 dias, branch `main`)
+**Versão atual:** v8.0.1
 
 ## Metodologia
 
@@ -78,6 +78,20 @@ bump.
 ---
 
 ## Histórico completo (mais recente primeiro)
+
+### 2026-09-11 — v8.0.1  (1 commit de merge)
+
+> **Bump PATCH porque:** trabalho só de documentação (reorganização/
+> extração de conteúdo já existente), nenhum código de produção
+> alterado, nenhuma feature nova testável.
+
+- `a493286` `DOCS-REQ-001` (issue #23) — povoa as 4 subpastas de
+  `docs/requirements/` (antes vazias) com o que ainda é regra vigente
+  de `docs/sprints/S2/` e `S3/` (que permanecem intocados como
+  histórico): visão de produto/loop, arquitetura/motores, mecânicas/
+  economia, e Design System — este último reconciliado com o estado
+  real de execução da S4 até a data, não uma cópia da especificação
+  original.
 
 ### 2026-09-10 — v8.0.0  (10 commits de merge)
 
