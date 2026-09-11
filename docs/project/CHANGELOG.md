@@ -1,6 +1,6 @@
 # BRDATA — CHANGELOG
 **Gerado em:** 09/09/2026 (atualizado em 11/09/2026)
-**Cobertura:** 2026-08-14 até 2026-09-11 (249 commits em 18 dias, branch `main`)
+**Cobertura:** 2026-08-14 até 2026-09-11 (251 commits em 18 dias, branch `main`)
 **Versão atual:** v9.0.0
 
 ## Metodologia
@@ -79,7 +79,7 @@ bump.
 
 ## Histórico completo (mais recente primeiro)
 
-### 2026-09-11 — v9.0.0  (13 commits de merge)
+### 2026-09-11 — v9.0.0  (15 commits de merge)
 
 > **Bump MAJOR porque:** fecha o Batch 3 (Transactional) E o Batch 4
 > (Complementary) do redesign mobile S4 por completo (4/4 e 6/6 telas)
@@ -92,12 +92,18 @@ bump.
 > eliminar um beco sem saída real relatado pelo usuário. Mais 2 ajustes
 > de balanceamento do motor de partida (GE-BALANCE-001/002, fora da S4)
 > reduzindo sequências de invencibilidade e rebaixamento de clubes de
-> tradição. E a maior mudança estrutural do dia: a Copa do Brasil
-> (GE-COPA-001) deixa de ser um mata-mata de 16 clubes/jogo único e
-> passa a ter 60 clubes (as 3 divisões inteiras), ida e volta em todas
-> as fases, cabeças de chave e confronto do próprio técnico jogável ao
-> vivo — validado com 3 temporadas inteiras simuladas pela pipeline
-> real, sem quebrar o formato legado nos saves antigos.
+> tradição. A Copa do Brasil (GE-COPA-001) deixa de ser um mata-mata de
+> 16 clubes/jogo único e passa a ter 60 clubes (as 3 divisões
+> inteiras), ida e volta em todas as fases, cabeças de chave e
+> confronto do próprio técnico jogável ao vivo — validado com 3
+> temporadas inteiras simuladas pela pipeline real, sem quebrar o
+> formato legado nos saves antigos. E a correção mais profunda do dia:
+> `GE-BALANCE-003` corrige uma inversão real no motor de partida onde
+> "melhor defesa" produzia MAIS gols sofridos — validada com uma nova
+> simulação de campeonato completo que revelou um achado maior que o
+> esperado (o bug achatava o ranking do Brasileirão simulado a ponto
+> de favoritos e lanternas reais ficarem indistinguíveis; corrigido, o
+> ranking passa a refletir a força real dos clubes).
 
 - `a493286` `DOCS-REQ-001` (issue #23) — povoa as 4 subpastas de
   `docs/requirements/` (antes vazias) com o que ainda é regra vigente
@@ -244,6 +250,31 @@ bump.
   padrão de `S4-B4-003`. MatchCard avaliado e não aplicável — nenhuma
   lista de "resultados recentes" nesta tela. Nenhuma mudança de
   comportamento.
+- `422d523` `GE-BALANCE-003` (issue #30) — corrige a inversão de
+  defesa no motor de partida: "melhor defesa" produzia numericamente
+  MAIS gols sofridos, não menos. Checkpoint de desenho determinou a
+  causa raiz com evidência — o operador da fórmula de gol estava
+  errado (`atk/def` deveria ser `atk*def`); os ~180 valores de `def`
+  em `data.js` já estavam curados certos (confirmado por
+  `buildRealPlayer`/`buildGeneratedProPlayer`, que já invertem o
+  mesmo valor via `(2-club.def)` em outro lugar). Isso revisou o
+  diagnóstico original: `computeHumanStrength` já estava correto e
+  NÃO foi alterado. 6 funções/11 divisões corrigidas
+  (`simulateCupLeg`/`resolveOtherDivisionsRound`/`attributeChances`/
+  `resolveCpuFixture`/`resolveLiveChunk`/`suggestTactics`), mais 2
+  ajustes multiplicativos encontrados durante a implementação
+  (penalidade de familiaridade tática e o mecanismo de "adversário
+  motivado" de `GE-BALANCE-001`) que também dependiam do sentido
+  antigo de `def`. Validado com simulação nova de campeonato completo
+  (300 temporadas, 20 clubes reais — achado extra: o ranking de
+  pontos era essencialmente achatado com o bug, favoritos e
+  lanternas reais indistinguíveis; corrigido, o ranking passa a
+  refletir a força real dos clubes) e reexecução de
+  `sim_ge_balance_001.js`/`002.js` (mecanismo de motivação de
+  `GE-BALANCE-001` continua funcionando mas proporcionalmente mais
+  fraco contra a nova baseline, achado registrado pra possível
+  demanda futura de recalibração; mecanismo de tradição de
+  `GE-BALANCE-002` inalterado, 40,7% idêntico ao já medido).
 
 ### 2026-09-10 — v8.0.0  (10 commits de merge)
 
