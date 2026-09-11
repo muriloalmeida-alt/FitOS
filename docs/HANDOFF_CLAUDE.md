@@ -1025,6 +1025,172 @@ Murilo via pergunta direta desta sessão. Não mistura com
 
 ⸻
 
+GE-BALANCE-003 — Corrigir inversão de defesa no motor de partida
+
+Status: PRONTO PARA IMPLEMENTAÇÃO
+Sprint: fora da S4 (Game Engine — CLAUDE.md §13, mais próximo de S6
+"Motor de partida 2.0" no roadmap oficial, tratado aqui como demanda
+isolada — achado de `GE-BALANCE-001`, não pedido original do usuário)
+Prioridade: P1
+Issue: https://github.com/muriloalmeida-alt/FitOS/issues/30
+
+Objetivo
+
+Corrigir uma inversão real no cálculo de defesa do motor de partida —
+hoje, em 2 pontos distintos, "melhor defesa" produz numericamente
+**mais** gols sofridos, não menos. Recalibrar sem quebrar o
+comportamento agregado já validado do campeonato (pontos por
+temporada, distribuição de resultados).
+
+Contexto
+
+Achado registrado como recomendação pelo relatório técnico de
+`GE-BALANCE-001` (issue #26, não incluído naquela implementação de
+propósito — risco/escopo maiores) — **verificado de forma
+independente nesta sessão, direto no código e nos dados, não apenas
+relatado**:
+
+1. **`computeHumanStrength` (`carreira.js:5093`)**: `def:
+   clamp(club.def / clamp(defMult, 0.55, 1.6), 0.3, 2.6)` — `defMult`
+   já embute condição física/completude do elenco/tática
+   (`carreira.js:5090`). Como o gol esperado do ADVERSÁRIO usa esse
+   valor como divisor (`lambdaAway = as.atk / hs.def`,
+   `carreira.js:5100`/`2461`/`7705` — mesma fórmula repetida em 3
+   pontos), um `defMult` MENOR (time em pior condição) produz um `def`
+   MAIOR, que **reduz** o gol esperado do adversário. Confirmado:
+   quanto pior a condição física do time titular, "melhor" fica a
+   defesa na fórmula — o oposto do esperado. Só afeta o clube humano
+   (`computeHumanStrength` não é usado pra CPU).
+2. **Calibração `atk`/`def` em `public/js/data.js`**: confirmado por
+   amostragem direta — Flamengo (`atk:1.85, def:0.78`), Palmeiras
+   (`atk:1.80, def:0.75`) têm valores de `def` MENORES que Cuiabá
+   (`atk:1.08, def:1.32`). Como a mesma fórmula usa `def` como divisor
+   do ataque adversário, um `def` menor produz MAIS gols esperados
+   contra aquele time — ou seja, pela calibração atual, Flamengo e
+   Palmeiras são estruturalmente **mais fáceis de fazer gol** do que
+   Cuiabá, o oposto do que se esperaria de 2 das defesas mais
+   qualificadas do campeonato real. Isso afeta TODO jogo do motor,
+   CPU x CPU incluído — não é um problema isolado do clube humano
+   como o item 1.
+
+**Duas hipóteses de causa-raiz, a avaliar com evidência antes de
+decidir qual corrigir** (não presumido aqui):
+a. a fórmula do gol esperado (`atk_atacante / def_defensor`) foi
+   desenhada assumindo "def maior = defesa melhor" (uma força), mas os
+   valores de `def` em `data.js` foram curados com o sentido oposto
+   ("def menor = concede menos gols", tipo um coeficiente de gols
+   sofridos/GAA) — nesse caso o conserto é na FÓRMULA (trocar divisão
+   por multiplicação do def do defensor), não nos ~180 valores de
+   `data.js`;
+b. os valores de `def` em `data.js` realmente foram curados errado
+   (deveriam refletir força defensiva, maior=melhor, mas foram
+   digitados como se fosse o oposto) — nesse caso o conserto é
+   recalibrar os dados, não a fórmula.
+
+O item 1 (`computeHumanStrength`) é um bug isolado e de baixo risco
+independente da hipótese escolhida pro item 2 — a mesma correção de
+direção (trocar `/` por `*`, ou inverter o sentido de `defMult`)
+resolve os dois casos.
+
+Escopo
+
+Chapéu implementador deve, ANTES de tocar em `data.js` ou em qualquer
+fórmula usada por CPU x CPU:
+
+1. Inspecionar todos os pontos que leem `club.def`/`p.def` na fórmula
+   de gol (confirmar se são realmente só os 3 já identificados) e
+   todo ponto que já depende do sentido atual de `def` pra outra
+   coisa (ex.: valuation de jogador, scouting, exibição de atributo
+   pro usuário) — mudar o sentido de `def` sem checar isso quebra
+   silenciosamente outro sistema.
+2. Determinar com evidência qual das 2 hipóteses (a ou b) é a causa
+   raiz — ex.: rodar os valores atuais de `data.js` contra tabelas
+   reais de gols sofridos dos mesmos clubes na temporada de origem
+   dos dados, ver qual hipótese bate melhor com a realidade.
+3. **Corrigir primeiro o item 1** (`computeHumanStrength`, isolado,
+   baixo risco) — validar com simulação (mesmo padrão de
+   `sim_ge_balance_001.js`) que o efeito de condição física na defesa
+   passa a ir na direção certa (pior condição = mais gols sofridos).
+4. Pra o item 2 (calibração de `data.js` ou fórmula global): propor e
+   registrar aqui (retornando ao PM pra validação antes de
+   implementar, dado que afeta CPU x CPU e todo o campeonato) a
+   correção escolhida, com evidência da hipótese a/b.
+5. Validar a correção do item 2 com simulação de campeonato completo
+   (todas as 60 equipes, múltiplas temporadas) comparando distribuição
+   de gols/pontos antes/depois — confirmar que times historicamente
+   fortes (Flamengo, Palmeiras) não pioram de forma implausível nem
+   melhoram artificialmente além do razoável; e que a validação já
+   feita por `GE-BALANCE-001`/`002` (sequências de invencibilidade,
+   redução de rebaixamento de tradicionais) continua válida depois da
+   mudança — rodar os mesmos `sim_ge_balance_001.js`/`002.js` de novo
+   e confirmar que os números não regridem.
+6. Testar que nenhuma outra regra de negócio quebra (valuation de
+   transferência, scouting, exibição de atributo).
+7. Retornar relatório técnico nesta mesma seção, status `REVISÃO DO PM
+   NECESSÁRIA` — o item 2 (checkpoint de desenho) retorna ANTES, como
+   checkpoint intermediário obrigatório, mesmo padrão de `GE-COPA-001`.
+
+Fora de escopo
+
+* qualquer mudança de regra de negócio não ligada à fórmula de gol
+  (fadiga em si, moral, treinamento);
+* recalibrar `atk` (só `def` está sob suspeita aqui);
+* Copa do Brasil (`GE-COPA-001`, motor de partida compartilhado mas
+  demanda separada — esta correção se aplica automaticamente lá
+  também, sem trabalho extra, já que `simulateCupTie` usa a mesma
+  fórmula).
+
+Dependências
+
+* `computeHumanStrength`, `lambdaHome`/`lambdaAway` (3 pontos:
+  `carreira.js:2461`, `3283`, `7705`), `public/js/data.js`.
+* Testes/simulações de `GE-BALANCE-001`/`002` como baseline de
+  regressão (os números medidos ali não podem piorar).
+
+Requisitos
+
+Mesma sequência obrigatória, com checkpoint extra pro item 2 dado o
+tamanho: inspecionar → determinar causa raiz com evidência → corrigir
+item 1 (baixo risco) → **propor e validar correção do item 2 com o PM
+antes de aplicar em `data.js`/fórmula global** → testar/simular →
+revisar.
+
+Critérios de aceite
+
+* causa raiz (hipótese a ou b) determinada com evidência real, não
+  presumida;
+* item 1 (`computeHumanStrength`) corrigido e validado por simulação;
+* correção do item 2 validada pelo PM antes da implementação;
+* simulação de campeonato completo confirma direção correta (defesa
+  melhor → menos gols sofridos) sem regredir os resultados já medidos
+  de `GE-BALANCE-001`/`002`;
+* nenhuma outra regra de negócio quebrada.
+
+Validações
+
+O PM deverá validar em 2 momentos: (1) a causa raiz e a correção
+proposta pro item 2, antes da implementação; (2) o relatório final com
+evidência de simulação completa.
+
+Riscos
+
+* alto pro item 2 — muda o resultado de toda partida do jogo,
+  inclusive CPU x CPU, com efeito cascata em tabela/rebaixamento/
+  acesso/premiação; o checkpoint de desenho existe justamente pra
+  reduzir esse risco. Item 1 isolado é baixo risco (só afeta o clube
+  humano, mesmo padrão de validação já usado em `GE-BALANCE-001`).
+
+Observações
+
+Achado por `GE-BALANCE-001`, não pedido original do usuário — mas
+descrito pelo próprio relatório como possivelmente "uma causa
+estrutural mais forte de imprevisibilidade do motor de partida do que
+a falta de resistência dinâmica contra sequências", o que justifica
+tratar como prioridade P1 própria, não deixar como dívida técnica
+esquecida.
+
+⸻
+
 S4-AUDIT-BACKLOG-001 — Auditoria de prontidão das demandas #12 a #21
 
 Status: APROVADO
