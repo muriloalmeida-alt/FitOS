@@ -2555,8 +2555,15 @@ function simulateCupLeg(hostId, guestId, round) {
   const isHost = String(hostId) === String(CAREER.clubId), isGuest = String(guestId) === String(CAREER.clubId);
   const hs = isHost ? computeHumanStrength(host) : { atk: host.atk, def: host.def, starters: pickCpuXI(leagueSquadFor(hostId)) };
   const as = isGuest ? computeHumanStrength(guest) : { atk: guest.atk, def: guest.def, starters: pickCpuXI(leagueSquadFor(guestId)) };
-  const lambdaHome = clamp((hs.atk / as.def) * 1.12, 0.05, 6);
-  const lambdaAway = clamp(as.atk / hs.def, 0.05, 6);
+  // GE-BALANCE-003 (issue #30) — club.def é "menor = defesa melhor"
+  // (coeficiente de propensão a sofrer gol, não uma força — ver
+  // buildRealPlayer/buildGeneratedProPlayer, que já fazem
+  // (2 - club.def) pra inverter isso quando precisam de "maior =
+  // melhor"). A fórmula de gol multiplica pelo def do DEFENSOR (não
+  // divide) pra respeitar esse sentido: defesa melhor (def menor) ->
+  // lambda menor (menos gols esperados contra ela).
+  const lambdaHome = clamp((hs.atk * as.def) * 1.12, 0.05, 6);
+  const lambdaAway = clamp(as.atk * hs.def, 0.05, 6);
   const gh = poissonSample(lambdaHome, Math.random);
   const ga = poissonSample(lambdaAway, Math.random);
   if (isHost) applyConditionRecovery(hs.starters.map((p) => p.id));
@@ -3485,8 +3492,9 @@ function resolveOtherDivisionsRound(round) {
     fixtures.forEach((fx) => {
       const home = teamsById.get(String(fx.home)), away = teamsById.get(String(fx.away));
       if (!home || !away) return;
-      const lambdaHome = clamp((home.atk / away.def) * 1.12, 0.05, 6);
-      const lambdaAway = clamp(away.atk / home.def, 0.05, 6);
+      // GE-BALANCE-003 (issue #30) — ver comentário em simulateCupLeg.
+      const lambdaHome = clamp((home.atk * away.def) * 1.12, 0.05, 6);
+      const lambdaAway = clamp(away.atk * home.def, 0.05, 6);
       const gh = poissonSample(lambdaHome, Math.random); // global de js/data.js
       const ga = poissonSample(lambdaAway, Math.random);
       applyResultToStandings({ home: fx.home, away: fx.away, gh, ga }, division.standings);
@@ -7156,7 +7164,8 @@ function applyMatchWearChunk(starters, round, chunkShare, appearedSet) {
 function attributeChances(starters, atkStrength, defStrength, chunkShare) {
   const events = [];
   if (!starters || !starters.length) return events;
-  const lambda = clamp((atkStrength / defStrength) * 7, 1, 14) * chunkShare;
+  // GE-BALANCE-003 (issue #30) — ver comentário em simulateCupLeg.
+  const lambda = clamp((atkStrength * defStrength) * 7, 1, 14) * chunkShare;
   const count = poissonSample(lambda, Math.random);
   const weights = starters.map((p) => ({ F: 4, M: 2, D: 0.7, G: 0.05 }[p.group] || 1));
   for (let i = 0; i < count; i++) {
@@ -7953,8 +7962,9 @@ function resolveCpuFixture(fx, round) {
   const home = teamById(fx.home), away = teamById(fx.away);
   const hs = { atk: home.atk, def: home.def, starters: pickCpuXI(leagueSquadFor(fx.home)) };
   const as = { atk: away.atk, def: away.def, starters: pickCpuXI(leagueSquadFor(fx.away)) };
-  const lambdaHome = clamp((hs.atk / as.def) * 1.12, 0.05, 6);
-  const lambdaAway = clamp(as.atk / hs.def, 0.05, 6);
+  // GE-BALANCE-003 (issue #30) — ver comentário em simulateCupLeg.
+  const lambdaHome = clamp((hs.atk * as.def) * 1.12, 0.05, 6);
+  const lambdaAway = clamp(as.atk * hs.def, 0.05, 6);
   const gh = poissonSample(lambdaHome, Math.random); // global de js/data.js
   const ga = poissonSample(lambdaAway, Math.random);
   // FASE 2 (a) — pedido do usuário: "estatísticas reais de todos os
@@ -8422,7 +8432,12 @@ function resolveLiveChunk() {
   const as = lm.isHome ? { atk: lm.away.atk, def: lm.away.def, starters: lm.cpuXI } : computeHumanStrength(lm.away);
   const humanSide = lm.isHome ? hs : as;
   if (lm.formationPenaltyChunksLeft > 0) {
-    humanSide.atk *= 0.92; humanSide.def *= 0.92;
+    // GE-BALANCE-003 (issue #30) — penalidade simétrica em atk+def:
+    // atk pior (menor, /=0.92 equivale a *0.92... mantido *= porque
+    // maior=melhor pra atk) continua igual; def PIOR precisa de um
+    // número MAIOR (menor = defesa melhor, ver comentário em
+    // simulateCupLeg) — por isso def usa /= em vez de *=.
+    humanSide.atk *= 0.92; humanSide.def /= 0.92;
     lm.formationPenaltyChunksLeft--;
   }
   // GE-BALANCE-001 (issue #26) — adversário motivado contra sequência
@@ -8431,9 +8446,13 @@ function resolveLiveChunk() {
   // somado nem lido pela Copa, ver GE-COPA-001/finishCupLegLive).
   const cpuSide = lm.isHome ? as : hs;
   const motivationMod = lm.cupContext ? 1 : opponentMotivationMod();
-  if (motivationMod > 1) { cpuSide.atk *= motivationMod; cpuSide.def *= motivationMod; }
-  const lambdaHome = clamp((hs.atk / as.def) * 1.12, 0.05, 6) * chunkShare;
-  const lambdaAway = clamp(as.atk / hs.def, 0.05, 6) * chunkShare;
+  // GE-BALANCE-003 (issue #30) — mesmo motivo do formationPenalty acima:
+  // "adversário mais ligado" precisa de um def MENOR (defesa melhor),
+  // por isso def usa /= em vez de *= (atk continua *=, maior=melhor).
+  if (motivationMod > 1) { cpuSide.atk *= motivationMod; cpuSide.def /= motivationMod; }
+  // GE-BALANCE-003 (issue #30) — ver comentário em simulateCupLeg.
+  const lambdaHome = clamp((hs.atk * as.def) * 1.12, 0.05, 6) * chunkShare;
+  const lambdaAway = clamp(as.atk * hs.def, 0.05, 6) * chunkShare;
   const ghChunk = poissonSample(lambdaHome, Math.random);
   const gaChunk = poissonSample(lambdaAway, Math.random);
   const wearHome = applyMatchWearChunk(hs.starters, round, chunkShare, lm.appeared);
@@ -10857,8 +10876,9 @@ function suggestTactics() {
   if (!opponentId) return { text: "Sem próximo jogo definido agora — volte quando houver um confronto marcado.", canApply: false };
   const myClub = teamById(CAREER.clubId);
   const opp = teamById(opponentId);
-  const lambdaMine = myClub.atk / opp.def;
-  const lambdaOpp = opp.atk / myClub.def;
+  // GE-BALANCE-003 (issue #30) — ver comentário em simulateCupLeg.
+  const lambdaMine = myClub.atk * opp.def;
+  const lambdaOpp = opp.atk * myClub.def;
   const ratio = lambdaMine / lambdaOpp;
   let targetLevel, label;
   if (ratio > 1.15) { targetLevel = 4; label = `postura mais OFENSIVA — seu time é favorito contra o ${opp.name}`; }
