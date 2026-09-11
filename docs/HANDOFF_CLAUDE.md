@@ -635,11 +635,15 @@ em uma nova demanda, não como reabertura dessa issue.
 
 S4-B3-006 — Migrar Resumo da rodada e Rodada (menu) pro MatchCard
 
-Status: PRONTO PARA IMPLEMENTAÇÃO
+Status: REVISÃO DO PM NECESSÁRIA
 Sprint: S4 — Redesign Mobile
 Fase: Batch 3 (Transactional) — último item, pré-requisito concluído
 Prioridade: P0
 Issue: https://github.com/muriloalmeida-alt/FitOS/issues/24
+
+**Decisão do PM (Murilo, 11/09/2026): implementação autorizada** ("Segue
+com a #24"). Implementação concluída nesta mesma sessão — relatório
+abaixo, aguardando revisão antes do merge em `main`.
 
 Objetivo
 
@@ -779,6 +783,62 @@ Riscos
   nenhuma regra de negócio nova; o risco real é de escopo (tentar
   unificar as 2 telas ou ampliar o conceito sem decisão do PM) — por
   isso "fora de escopo" lista isso explicitamente.
+
+Relatório técnico (implementação)
+
+Branch: `claude/s4-b3-006-resumo-rodada`.
+
+1. Confirmação da nota de pré-inspeção (validação de issues abertas,
+   11/09/2026, já registrada acima): eram de fato **3 pontos de código**
+   dentro do escopo (não 2) — `showRoundResultsModal()` (própria lista),
+   `cupRoundResultsHTML()` (chamada só de dentro dela, sub-bloco de Copa
+   do Brasil) e `renderRodada()`. Migrados os 3. O 4º ponto que
+   `S4-B3-005` tinha citado (`renderCopa()`, dentro da tela Tabela)
+   confirmado fora do escopo — não tocado.
+2. Cada `.ct-round-result-row` substituído por `matchCardHTML()`
+   (`S4-B3-005`), sem alterar a definição do componente:
+   * placar real quando existe; `homeScore`/`awayScore` como texto
+     `"—"` quando o confronto ainda não foi jogado (`renderRodada()`,
+     rodada "atual") — mesma informação "mandante, placar ou — x —,
+     visitante" pedida no critério de aceite, dentro do contrato já
+     existente do componente (que não valida tipo numérico).
+   * "(pên.)" da Copa do Brasil vai no `statusLabel` (tag "Pênaltis"),
+     não dentro do placar — usa um slot que o componente já suporta,
+     não muda a definição dele.
+   * Destaque do próprio clube ("me") preservado via wrapper HTML
+     externo (`.m3-mc-mine`, CSS novo em `carreira.html`) — não uma
+     prop nova em `matchCardHTML()`.
+   * Nomes de clube clicáveis preservados 1:1: `matchCardHTML()` já
+     marca `data-openclub` quando `clickableHome`/`clickableAway` são
+     `true`; reaproveitado o mesmo `wireClubRosterClicks()` genérico já
+     usado nas 3 telas (nenhuma duplicação de listener).
+3. Comportamento funcional das 2 telas 100% preservado: navegação
+   atual/anterior em `#rodadaOverlay`; mudanças de escalação, aviso de
+   proposta nova, resultado de Copa do Brasil e botão "Continuar"
+   (segue pra Tabela ou pra proposta em destaque) em
+   `#roundResultsOverlay` — nada disso foi tocado, só a apresentação de
+   cada confronto.
+4. CSS adicionado (sem tocar a definição existente de `.m3-match-card`
+   em si): `margin-bottom` no card (espaçamento de lista, mesmo padrão
+   de `.m3-op-card`), `cursor:pointer` no lado clicável, e a regra do
+   destaque `.m3-mc-mine .m3-match-card`.
+
+Teste novo: `tests/e2e/test_s4_b3_006_resumo_rodada.js` (5/5) — cobre as
+3 telas/pontos migrados, nome de clube clicável, Copa do Brasil (via
+chamada direta a `cupRoundResultsHTML()` com dado sintético, mesma
+técnica já usada em outros testes desta suíte pra estado difícil de
+alcançar via UI) e o fluxo de "Continuar". Regressão: `test_ao_vivo.js`
+(7/7) e `test_resumo_rodada.js` (4/4, selectors atualizados pro novo
+markup) passando. `test_cup.js` e `test_botoes_rodape.js` deram timeout
+num passo do fluxo pós-jogo — confirmado **pré-existente**, reproduz
+idêntico contra `main` sem nenhuma das mudanças desta demanda (mesma
+técnica de verificação de `git stash`/`git stash pop` já usada em
+demandas anteriores).
+
+Resultado proposto: **APROVADO** — as 2 telas migradas conforme
+especificado, comportamento preservado, sem ampliar escopo pra
+"super-tela", sem regressão introduzida. Aguardando revisão formal do
+PM antes do merge em `main`.
 
 Observações
 

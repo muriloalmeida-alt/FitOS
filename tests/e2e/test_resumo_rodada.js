@@ -41,8 +41,8 @@ const { chromium } = require("playwright-core");
   const check1 = await page.evaluate(() => {
     const open = document.getElementById("rodadaOverlay").classList.contains("open");
     const label = document.getElementById("rodadaRoundLabel").textContent;
-    const rows = [...document.querySelectorAll("#rodadaList .ct-round-result-row")];
-    const allPlaceholder = rows.every((r) => r.querySelector(".ct-rr-score").textContent.replace(/\s/g, "").includes("—x—"));
+    const rows = [...document.querySelectorAll("#rodadaList .m3-match-card")];
+    const allPlaceholder = rows.every((r) => r.querySelector(".m3-mc-score").textContent.replace(/\s/g, "").includes("—x—"));
     const tabAnteriorHidden = document.getElementById("rodadaTabAnterior").classList.contains("hidden");
     return { open, label, rowCount: rows.length, allPlaceholder, tabAnteriorHidden };
   });
@@ -96,8 +96,8 @@ const { chromium } = require("playwright-core");
     const currentRound = typeof CAREER !== "undefined" && CAREER ? CAREER.currentRound : null;
     const label = document.getElementById("rodadaRoundLabel").textContent;
     const tabAnteriorVisible = !document.getElementById("rodadaTabAnterior").classList.contains("hidden");
-    const rows = [...document.querySelectorAll("#rodadaList .ct-round-result-row")];
-    const allPlaceholderAtual = rows.every((r) => r.querySelector(".ct-rr-score").textContent.replace(/\s/g, "").includes("—x—"));
+    const rows = [...document.querySelectorAll("#rodadaList .m3-match-card")];
+    const allPlaceholderAtual = rows.every((r) => r.querySelector(".m3-mc-score").textContent.replace(/\s/g, "").includes("—x—"));
     return { currentRound, label, tabAnteriorVisible, rowCountAtual: rows.length, allPlaceholderAtual };
   });
   console.log("2) Depois de jogar a rodada 1: currentRound=2, mostra Rodada 2 atual (placeholder), tab Anterior visível:",
@@ -109,10 +109,13 @@ const { chromium } = require("playwright-core");
   await page.waitForTimeout(200);
   const check3 = await page.evaluate(() => {
     const label = document.getElementById("rodadaRoundLabel").textContent;
-    const rows = [...document.querySelectorAll("#rodadaList .ct-round-result-row")];
-    const scores = rows.map((r) => r.querySelector(".ct-rr-score").textContent.trim());
+    const rows = [...document.querySelectorAll("#rodadaList .m3-match-card")];
+    const scores = rows.map((r) => r.querySelector(".m3-mc-score").textContent.trim());
     const anyRealScore = scores.some((s) => !s.replace(/\s/g, "").includes("—x—"));
-    const meRow = rows.find((r) => r.classList.contains("me"));
+    // "Destaque do próprio clube" (S4-B3-006) agora é um wrapper externo
+    // (.m3-mc-mine), não mais uma classe no próprio card — ver CSS em
+    // carreira.html.
+    const meRow = rows.find((r) => r.parentElement.classList.contains("m3-mc-mine"));
     return { label, rowCount: rows.length, anyRealScore, hasMeHighlight: !!meRow, sampleScores: scores.slice(0, 3) };
   });
   console.log("3) Rodada anterior mostra a Rodada 1 com placares reais e destaque do próprio clube:",

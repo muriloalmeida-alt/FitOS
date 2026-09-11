@@ -142,7 +142,7 @@ async function getCareer(page) {
   await page.waitForSelector("#newsOverlay.open", { timeout: 5000 });
   await page.click("#btnNewsContinue");
   await page.waitForSelector("#roundResultsOverlay.open", { timeout: 5000 });
-  const resultsCount = await page.evaluate(() => document.querySelectorAll("#roundResultsList .ct-round-result-row").length);
+  const resultsCount = await page.evaluate(() => document.querySelectorAll("#roundResultsList .m3-match-card").length);
   console.log("7) Resultados da rodada inteira (10 jogos, CPU x CPU incluídos):", resultsCount === 10);
   await page.click("#btnRoundResultsContinue");
   await page.waitForTimeout(300);
