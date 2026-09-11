@@ -668,9 +668,8 @@ em uma nova demanda, não como reabertura dessa issue.
 
 GE-COPA-001 — Expandir Copa do Brasil (60 clubes, ida e volta, cabeças de chave, ao vivo)
 
-Status: AGUARDANDO VALIDAÇÃO DE DESENHO (checkpoint 1/2 — NENHUM código
-implementado ainda, só o desenho abaixo, exatamente como o escopo desta
-demanda exige)
+Status: DESENHO APROVADO — IMPLEMENTAÇÃO EM ANDAMENTO (checkpoint 1/2
+concluído; entra na etapa 2/2, implementar + validar por simulação)
 Sprint: fora da S4 (Mundo / Competições — CLAUDE.md §13, mais próximo
 de S9/S11 no roadmap oficial, tratado aqui como demanda isolada a
 pedido do Murilo)
@@ -1019,16 +1018,10 @@ demanda deve investigar e, se a causa for barata de corrigir dentro do
 próprio trabalho de `GE-COPA-001`, consertar; se não, registrar
 separadamente.
 
-Pergunta em aberto pro PM (não decidida aqui, pede validação
-explícita): o desenho acima assume que os 4 cabeças de chave são
-recalculados a CADA temporada (mesmo clube pode perder a vaga de
-cabeça de chave se o elenco enfraquecer, ou ganhar se fortalecer) —
-mesmo critério dinâmico já usado hoje pros 16 diretos. Alternativa
-seria fixar os 4 cabeças de chave por tradição (reaproveitando
-`CLUB_TRADITION_IDS` de `GE-BALANCE-002`, se aprovada) em vez de força
-atual — mas isso misturaria os 2 sistemas sem necessidade e sem pedido
-explícito do usuário pra isso. Meu default é força atual (dinâmico,
-sem misturar as demandas); PM pode pedir a alternativa.
+**Decisão do PM:** cabeças de chave por FORÇA ATUAL do elenco,
+recalculada a cada temporada (opção recomendada) — confirmado pelo
+Murilo via pergunta direta desta sessão. Não mistura com
+`CLUB_TRADITION_IDS`/`GE-BALANCE-002`.
 
 ⸻
 
