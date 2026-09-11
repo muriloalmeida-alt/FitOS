@@ -1,6 +1,6 @@
 # BRDATA — CHANGELOG
 **Gerado em:** 09/09/2026 (atualizado em 11/09/2026)
-**Cobertura:** 2026-08-14 até 2026-09-11 (247 commits em 18 dias, branch `main`)
+**Cobertura:** 2026-08-14 até 2026-09-11 (248 commits em 18 dias, branch `main`)
 **Versão atual:** v9.0.0
 
 ## Metodologia
@@ -79,16 +79,18 @@ bump.
 
 ## Histórico completo (mais recente primeiro)
 
-### 2026-09-11 — v9.0.0  (11 commits de merge)
+### 2026-09-11 — v9.0.0  (12 commits de merge)
 
 > **Bump MAJOR porque:** fecha o Batch 3 (Transactional) do redesign
 > mobile S4 por completo (4/4 telas) — com isso, os Batches 2 e 3 da S4
 > estão 100% mesclados em `main`. Auditoria do Batch 4 (Complementary)
 > concluída (S4-B4-READINESS-001) e a execução das 6 migrações já
-> avança (4/6 telas mescladas — Onboarding, Meus esquemas, Marcação
-> individual, Comparar jogadores), restando as 2 telas seguintes e o
-> Batch 5 (QA) pra fechar a Sprint inteira. Mais uma correção P0 de
-> confiabilidade (SAVE-LIMIT-001) que
+> avança (5/6 telas mescladas — Onboarding, Meus esquemas, Marcação
+> individual, Comparar jogadores, Notícias/Eventos — esta última já
+> formalizando `NewsCard`, o último Product Pattern do CLAUDE.md §7
+> ainda sem contrato), restando só a última tela e o Batch 5 (QA) pra
+> fechar a Sprint inteira. Mais uma correção P0 de confiabilidade
+> (SAVE-LIMIT-001) que
 > muda a arquitetura de armazenamento do save (compressão) pra
 > eliminar um beco sem saída real relatado pelo usuário. Mais 2 ajustes
 > de balanceamento do motor de partida (GE-BALANCE-001/002, fora da S4)
@@ -219,6 +221,20 @@ bump.
   "novo" (`.m3-compare-player b`/`.m3-compare-row`/`.m3-compare-val`),
   migrados na regra base (classe exclusiva desta tela, sem risco de
   vazar). Nenhuma mudança de comportamento.
+- `4f56673` `S4-B4-005` (issue #35) — migra a tela Notícias/Eventos pro
+  Design System novo e formaliza `NewsCard`, item 5/6 do Batch 4 —
+  único dos Product Patterns do CLAUDE.md §7 ainda sem contrato.
+  Formalização PARCIALMENTE retroativa: `newsItemHTML()` já cobria o
+  layout de linha do feed (mesmo caminho de PlayerCard); a manchete em
+  destaque, que nunca foi função própria (HTML inline), virou a
+  variação `featured` do MESMO componente (`newsCardHTML(n, opts)`).
+  Classes `.mt-news-kicker/-headline/-brief/-sq` renomeadas
+  `.m3-news-*` (convenção `.m3-mc-*`/`.m3-op-*`), tokens migrados
+  (`--mt-gold-400/600` → `--m3-secondary`, mesmo token de
+  `.mt-badge-gold`; demais → `--m3-on-surface(-variant)`/
+  `--m3-outline-variant`). Cores categóricas por tipo de notícia e
+  destaque "mine" preservados (categórico BRDATA, mesmo critério de
+  `.m3-form-dot`). Nenhuma mudança de comportamento.
 
 ### 2026-09-10 — v8.0.0  (10 commits de merge)
 

@@ -175,138 +175,6 @@ esquecida.
 
 ⸻
 
-S4-B4-005 — Migrar tela Notícias/Eventos e formalizar NewsCard
-
-Status: REVISÃO DO PM NECESSÁRIA
-Sprint: S4 — Redesign Mobile
-Fase: Batch 4 (Complementary) — item 5 de 6
-Prioridade: P1
-Issue: https://github.com/muriloalmeida-alt/FitOS/issues/35
-Branch: `claude/s4-b4-005-noticias-eventos`
-
-Objetivo
-
-Migrar a tela de Notícias/Eventos pro Design System novo, conforme
-`S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 18), **e formalizar o componente
-`NewsCard`** — o único dos 6 BRDATA Product Patterns exigidos pelo
-CLAUDE.md §7 que ainda não tinha contrato formal.
-
-Decisão registrada (item 2 do escopo): formalização PARCIALMENTE
-retroativa
-
-`newsItemHTML(n)` já cobria sozinha, adequadamente, o layout de LINHA
-do feed (ícone/categoria + texto + meta), com o shape de dado certo
-(`{type, mine, texto, round, seasonYear}`) — mesmo caminho de
-PlayerCard (função já existia, só faltava documentar). A manchete em
-DESTAQUE, porém, nunca foi uma função — vivia como HTML inline dentro
-de `renderNewsScreen()`. Em vez de formalizar só a metade que já era
-função (deixando a outra metade do conceito "1 notícia" de fora do
-contrato) ou construir os 2 do zero (caminho do MatchCard, que não se
-aplicava aqui — havia sim um candidato adequado), absorvi o destaque
-como a variação `featured` do MESMO componente: mesmo dado
-(`{type, mine, texto, round, seasonYear}`), 2 layouts (linha compacta
-vs. manchete grande) — um meio-termo entre os 2 caminhos previstos,
-com evidência de por que nenhum dos 2 servia sozinho.
-
-Mudança aplicada
-
-* `public/js/carreira.js` — `newsItemHTML(n)` renomeada pra
-  `newsCardHTML(n, opts)`; `opts.featured` (bool, default false) troca
-  o layout de linha pelo de manchete (mesmo dado, sem duplicar
-  informação). Contrato documentado no mesmo formato de
-  PlayerCard/MatchCard/TransferCard/ContractCard (Objetivo/
-  Responsabilidade/Entradas/Saídas/Estados/Variações/Responsividade/
-  Dependências + divergência formalizar-vs-construir). `renderNewsScreen()`
-  passa a chamar `newsCardHTML(top, {featured:true})` (era HTML inline)
-  e `rest.map((n) => newsCardHTML(n))` (era `rest.map(newsItemHTML)`) —
-  nenhuma mudança na regra de negócio (filtro por rodada atual,
-  `NEWS_FEED_MAX`, ordem do feed).
-* `public/carreira.html` — classes renomeadas `.mt-news-kicker`/
-  `.mt-news-headline`/`.mt-news-feature-meta`/`.mt-news-rule`/
-  `.mt-news-brief`/`.mt-news-sq` → `.m3-news-*` (mesma convenção de
-  `.m3-mc-*`/`.m3-op-*` dos outros Product Patterns), com os tokens
-  migrados: `--mt-gold-400`/`--mt-gold-600` (destaque dourado) →
-  `--m3-secondary` (mesmo token que `.mt-badge-gold` já usa pro mesmo
-  tipo de destaque); `--mt-ivory-50`/`--mt-ink-muted`/`--mt-ink-faint`
-  → `--m3-on-surface`/`--m3-on-surface-variant`; `--mt-navy-700`
-  (bordas) → `--m3-outline-variant`; `.m3-news-sq.generico` (única
-  categoria sem cor própria) → `--m3-surface-container-highest`. Casca
-  da TELA (não parte do NewsCard em si) também migrada: `.mt-news-masthead`/
-  `.mt-news-sectitle`/`.mt-news-summary`/`.mt-news-summary-row` —
-  classes mantidas (são do layout da tela, não do card), só os tokens
-  migraram.
-* Mantidos de propósito (registrados, não esquecidos): cores
-  categóricas por tipo de notícia (`.m3-news-sq.lider`/`.zebra`/etc.,
-  rgba direto) — mesmo tratamento de `.m3-form-dot.v/.e/.d`, cor
-  categórica da BRDATA, não token legado; destaque "mine" (rgba
-  dourada suave) — mesmo tom já usado em Conquistas
-  (`.ct-award-podium .slot.mine`); tipografia `Bebas Neue` do masthead/
-  manchete — BRDATA Extension, mesma identidade de Onboarding/Comparar
-  jogadores. Rajdhani (rótulos pequenos) NÃO é BRDATA Extension aqui —
-  é a fonte secundária padrão da BRDATA DS (~65 seletores no arquivo
-  inteiro), não algo específico desta tela.
-
-Teste
-
-Novo `tests/e2e/test_s4_b4_005_noticias_newscard.js` (4/4 passando):
-1. `newsCardHTML()` existe globalmente e devolve HTML consistente pros
-   2 layouts a partir do MESMO item;
-2. tela renderizada usa as classes novas (`.m3-news-*`), nenhuma
-   `.mt-news-kicker`/`-headline`/`-brief`/`-sq` restante;
-3. tokens migrados (kicker → `--m3-secondary`, headline/título da
-   linha → `--m3-on-surface`);
-4. comportamento preservado (manchete em destaque é a mais nova, feed
-   mostra a rodada anterior com destaque "mine").
-
-Regressão: os 3 testes pré-existentes desta tela —
-`test_portal_noticias_premiacoes.js` (5/5, 1 seletor ajustado —
-`.mt-news-sq` → `.m3-news-sq`, mesma checagem), `test_noticias_fullscreen_fluxo.js`
-(6/6 sem alteração), `test_intervalo_noticias_proposta_destino.js`
-(2 checks já falhavam da MESMA forma em `main` sem nenhuma mudança
-minha — confirmado rodando o teste com `git stash` antes de tocar em
-qualquer arquivo: seletor `.ct-news-item`/`.headline` já não existe há
-tempos, e um timeout de UI num fluxo de venda de jogador completamente
-não relacionado a Notícias — não é regressão desta demanda). `node -c
-public/js/carreira.js` limpo.
-
-Fora de escopo
-
-* qualquer outra tela do Batch 4;
-* qualquer mudança de regra de geração de notícia (quais eventos viram
-  notícia, `NEWS_FEED_MAX`, `NEWS_PRIORITY`) — nada disso foi tocado;
-* LeagueTable (gap de Product Pattern separado, não tratado aqui).
-
-Critérios de aceite
-
-* `NewsCard` formalizado com contrato documentado — ✅ (mesmo padrão
-  dos outros 4 Product Patterns);
-* tela usa o `NewsCard` novo, 100% `--m3-*` — ✅;
-* feed/manchete/resumo de rodada continuam funcionando — ✅ confirmado
-  por teste;
-* nenhuma outra tela alterada — ✅ (`.m3-news-*`/`.mt-news-masthead`/
-  etc. exclusivos desta tela, confirmado por busca);
-* teste mobile-first cobrindo a tela — ✅ (`viewport: 390x900`).
-
-Validações
-
-O PM deverá validar: contrato do `NewsCard`, decisão de formalização
-parcialmente retroativa (com justificativa), aderência ao Design
-System, preservação de funcionalidades, teste, escopo respeitado.
-
-Riscos
-
-* baixo — `.m3-news-*`/`.mt-news-masthead`/`.mt-news-sectitle`/
-  `.mt-news-summary*` são exclusivos desta tela (confirmado por busca),
-  sem risco de vazar pra outro lugar; renomear classes exigiu ajustar 1
-  seletor num teste pré-existente, já feito e verificado.
-
-Observações
-
-Com esta demanda, resta o item 6 (`S4-B4-006`, Histórico/Estatísticas)
-— último do Batch 4.
-
-⸻
-
 S4-B4-006 — Migrar tela Histórico/Estatísticas para o Design System novo
 
 Status: PRONTO PARA IMPLEMENTAÇÃO
@@ -961,3 +829,22 @@ desta tela, sem precisar de override escopado) em
 
 **Merge do código:** autorizado pela aprovação formal do PM na issue
 #34, executado nesta sessão.
+
+S4-B4-005 — Migrar tela Notícias/Eventos e formalizar NewsCard	11/09/2026	merge de `claude/s4-b4-005-noticias-eventos` em `main` (commit de código original `4f56673`)	docs/project/CHANGELOG.md (a atualizar)
+
+APROVADO pelo Murilo em 11/09/2026 (issue #35), diretamente nesta
+conversa ("Aprovado"). Relatório técnico completo (`NewsCard`
+formalizado PARCIALMENTE retroativo — `newsItemHTML()` já cobria o
+layout de linha do feed; a manchete em destaque, que nunca foi função
+própria, virou a variação `featured` do MESMO componente; classes
+`.mt-news-*` renomeadas `.m3-news-*`, tokens `--mt-gold-400/600` →
+`--m3-secondary` e demais → `--m3-on-surface(-variant)`/
+`--m3-outline-variant`; cores categóricas por tipo e destaque "mine"
+preservados como cor categórica da BRDATA; verificação pós-merge
+encontrou 1 flake em `test_noticias_fullscreen_fluxo.js` — timing de
+simulação ao vivo, não relacionado a esta demanda, confirmado
+reproduzindo isoladamente 2x limpo em seguida) em
+`git show 4f56673:docs/HANDOFF_CLAUDE.md`.
+
+**Merge do código:** autorizado pela aprovação formal do PM na issue
+#35, executado nesta sessão.
