@@ -1,7 +1,7 @@
 # BRDATA — CHANGELOG
 **Gerado em:** 09/09/2026 (atualizado em 11/09/2026)
-**Cobertura:** 2026-08-14 até 2026-09-11 (237 commits em 18 dias, branch `main`)
-**Versão atual:** v8.0.1
+**Cobertura:** 2026-08-14 até 2026-09-11 (238 commits em 18 dias, branch `main`)
+**Versão atual:** v9.0.0
 
 ## Metodologia
 
@@ -79,11 +79,12 @@ bump.
 
 ## Histórico completo (mais recente primeiro)
 
-### 2026-09-11 — v8.0.1  (1 commit de merge)
+### 2026-09-11 — v9.0.0  (2 commits de merge)
 
-> **Bump PATCH porque:** trabalho só de documentação (reorganização/
-> extração de conteúdo já existente), nenhum código de produção
-> alterado, nenhuma feature nova testável.
+> **Bump MAJOR porque:** fecha o Batch 3 (Transactional) do redesign
+> mobile S4 por completo (4/4 telas) — com isso, os Batches 2 e 3 da S4
+> estão 100% mesclados em `main`, restando só o Batch 4 (Complementary)
+> e o Batch 5 (QA) pra fechar a Sprint inteira.
 
 - `a493286` `DOCS-REQ-001` (issue #23) — povoa as 4 subpastas de
   `docs/requirements/` (antes vazias) com o que ainda é regra vigente
@@ -92,6 +93,12 @@ bump.
   economia, e Design System — este último reconciliado com o estado
   real de execução da S4 até a data, não uma cópia da especificação
   original.
+- `29fa8f7` `S4-B3-006` (issue #24) — migra "Resumo da rodada" e
+  "Rodada" (menu) pro MatchCard (`matchCardHTML()`, `S4-B3-005`) no
+  lugar do antigo `.ct-round-result-row`, em 3 pontos de código
+  (`showRoundResultsModal()`, `cupRoundResultsHTML()`, `renderRodada()`)
+  — sem alterar a definição do componente. **Fecha o Batch 3
+  (Transactional) da S4 por completo.**
 
 ### 2026-09-10 — v8.0.0  (10 commits de merge)
 
