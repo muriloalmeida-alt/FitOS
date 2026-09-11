@@ -84,14 +84,15 @@ mesclada em `main`) — estado real de cada tela abaixo, com evidência.
 | Eixos táticos | ✅ já coberta, sem demanda própria | Confirmado com evidência: embutida dentro de Tática/Formação (`S4-B2-003`), não é uma tela separada |
 | Marcação individual | ✅ migrada `--m3-*` (`S4-B4-003`) | Casca (`.ct-modal-*`/`.mt-fullheader`/`.mt-card`/`.mt-btn-ghost`) já estava `--m3-*` antes desta demanda, mesmo achado de "Meus esquemas". Tokens legados reais: `.mt-sel-row`/`.mt-sel-name` (2 listas de escolha) e `.mt-info-line b` (designação ativa) — migrados via override ESCOPADO a `#markingOverlay` (não a regra base, compartilhada com Comparar jogadores e o seletor de substituição ao vivo, ambos fora de escopo). Decisão registrada: NÃO reaproveitar `playerRow()`/PlayerCard nas listas — o componente não mostra posição/subposição, informação essencial aqui (lista do rival mistura posições, não agrupada). Comportamento 100% preservado |
 | Meus esquemas | ✅ migrada `--m3-*` (`S4-B4-002`) | Correção em relação à nota anterior: a casca (`.ct-modal-*`/`.mt-fullheader`/`.mt-card`) e as linhas da lista (`.m3-scheme-*`) já estavam 100% `--m3-*` antes desta demanda — não era "100% legada". O único token legado real era o campo de nome do sheet "Novo esquema" (`.mt-friend-input` cru, fora de `.mt-form-row`); migrado envolvendo-o em `.mt-form-row` (reaproveita regra que já existia para "Editar perfil", sem CSS novo). Comportamento (listar/criar/aplicar/apagar/limite de 8) 100% preservado |
-| Notícias/Eventos | ⏳ pendente (`S4-B4-005`) | 100% legada (`#newsOverlay`); candidata a formalizar `NewsCard` (§3 abaixo, único Product Pattern do CLAUDE.md §7 ainda sem contrato) |
+| Notícias/Eventos | ✅ migrada `--m3-*` + `NewsCard` formalizado (`S4-B4-005`) | `NewsCard` (`newsCardHTML()`) formalizado PARCIALMENTE retroativo: `newsItemHTML()` já cobria o layout de linha do feed (mesmo caminho de PlayerCard); a manchete em destaque, que nunca foi função própria (HTML inline), virou a variação `featured` do MESMO componente. Classes renomeadas `.mt-news-*` → `.m3-news-*` (mesma convenção de `.m3-mc-*`/`.m3-op-*`), tokens migrados (`--mt-gold-400/600` → `--m3-secondary`, mesmo token de `.mt-badge-gold`; demais → `--m3-on-surface(-variant)`/`--m3-outline-variant`). Cores categóricas por tipo de notícia e destaque "mine" preservados (cor categórica da BRDATA, mesmo critério de `.m3-form-dot`); Bebas Neue do masthead/manchete mantida como BRDATA Extension. Comportamento (feed navegável, manchete em destaque, filtro por rodada atual, resumo financeiro/status do time) 100% preservado |
 | Histórico/Estatísticas | ⏳ pendente (`S4-B4-006`, última do Batch) | 100% legada (`#panel-estatisticas`); cobertura multi-temporada confirmada com evidência |
 
-**4 de 6 telas migradas** (Onboarding, Meus esquemas, Marcação
-individual, Comparar jogadores) — Eixos táticos não conta como demanda
-própria (já coberta). Ordem de execução recomendada pela própria
-auditoria: Onboarding → Meus esquemas → Marcação individual → Comparar
-jogadores → Notícias/Eventos → Histórico/Estatísticas (issues #31-#36).
+**5 de 6 telas migradas** (Onboarding, Meus esquemas, Marcação
+individual, Comparar jogadores, Notícias/Eventos) — Eixos táticos não
+conta como demanda própria (já coberta). Ordem de execução recomendada
+pela própria auditoria: Onboarding → Meus esquemas → Marcação
+individual → Comparar jogadores → Notícias/Eventos → Histórico/
+Estatísticas (issues #31-#36).
 
 ⸻
 
@@ -118,6 +119,7 @@ específico de 1-2 telas:
 | TransferCard | Mercado, Negociação | **Resolvido e mesclado em `main`**: componente criado em `S4-B3-001`, integrado de verdade em Mercado (`S4-B3-002`) e Negociação/Proposta (`S4-B3-003`) |
 | ContractCard | Contratos | **Resolvido por `S4-B3-004`** — `contractCardHTML()` (`S4-B3-001`) agora com ponto de uso real: a tela Contratos, criada do zero por decisão do PM depois que a inspeção confirmou que ela não existia no app (tag "fim de contrato" no Elenco, modal de renovação no Perfil eram os únicos pontos isolados), mesclada em `main` — ver `docs/HANDOFF_CLAUDE.md` |
 | FinancialSummary | Início/Dashboard, Resumo da rodada | **Resolvido por `S4-B3-005`** (formalização retroativa, mesmo caminho de PlayerCard) — o card "Financeiro" de `renderCentral()` (Início/Dashboard) já cobre saldo/variações/indicadores da especificação; contrato documentado como comentário acima do bloco em `carreira.js` (composição inline, sem função própria extraída — mudança estrutural ficaria fora do escopo de uma formalização). Nenhuma mudança visual/funcional |
+| NewsCard *(fora dos 6 originais desta tabela — adicionado pelo CLAUDE.md §7, ver nota abaixo)* | Notícias/Eventos | **Resolvido por `S4-B4-005`** — `newsCardHTML()`, formalização PARCIALMENTE retroativa (linha do feed já era função; manchete em destaque virou a variação `featured` do mesmo componente). Tela migrada junto (ver linha "Notícias/Eventos" na tabela do Batch 4 acima) |
 
 **O risco concreto:** o precedente já aconteceu 3 vezes (Elenco,
 Início) — uma tela é migrada pro `--m3-*`, funciona visualmente, mas o

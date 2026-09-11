@@ -79,7 +79,7 @@ async function newCareer(page, base, email) {
   const filled = await page.evaluate(() => ({
     featuredText: document.getElementById("newsFeatured").textContent,
     listText: document.getElementById("newsList").textContent,
-    hasTag: !!document.querySelector(".mt-news-sq"),
+    hasTag: !!document.querySelector(".m3-news-sq"),
     hasRoundMeta: document.getElementById("newsList").textContent.includes("Rodada 10"),
   }));
   console.log("3) Manchete em destaque preenchida:", filled.featuredText.trim().length > 10);

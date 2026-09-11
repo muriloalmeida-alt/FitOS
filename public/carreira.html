@@ -735,34 +735,54 @@
      régua preenchendo o resto da largura, "seu time" + "classificação"
      deixam de ser 2 seções cheias (a 2ª só com um botão) e viram 1
      cartão resumo compacto no fim. */
-  .mt-news-masthead{ text-align:center; padding:0 0 14px; border-bottom:2px solid var(--mt-gold-400); margin-bottom:16px; }
-  .mt-news-masthead .brand{ font-family:'Bebas Neue', var(--font); font-size:22px; letter-spacing:1px; color:var(--mt-ivory-50); }
-  .mt-news-masthead .tagline{ font-family:'Rajdhani', var(--font); font-size:11px; font-weight:600; color:var(--mt-ink-muted); text-transform:uppercase; letter-spacing:1.5px; margin-top:4px; }
-  .mt-news-kicker{ font-family:'Rajdhani', var(--font); font-size:10.5px; font-weight:700; color:var(--mt-gold-400); text-transform:uppercase; letter-spacing:1px; margin-bottom:6px; }
-  .mt-news-headline{ font-family:'Bebas Neue', var(--font); font-size:21px; line-height:1.15; letter-spacing:.3px; color:var(--mt-ivory-50); }
-  .mt-news-feature-meta{ font-family:'Rajdhani', var(--font); font-size:11px; color:var(--mt-ink-muted); margin-top:6px; }
-  .mt-news-rule{ height:1px; background:linear-gradient(90deg, var(--mt-gold-600), transparent); margin:16px 0; }
+  /* S4-B4-005 (issue #35) — casca da tela (masthead/seção/resumo)
+     migrada pra --m3-*; --mt-gold-400/--mt-gold-600 (destaque dourado)
+     → --m3-secondary, mesmo token que .mt-badge-gold já usa
+     (--m3-secondary-container) pro mesmo tipo de destaque. Bebas Neue
+     do masthead mantida — BRDATA Extension, mesma identidade de
+     "manchete"/placar já usada em Onboarding/Comparar jogadores.
+     Rajdhani (rótulos pequenos em caixa alta) não é BRDATA Extension
+     aqui — é só a fonte secundária padrão da BRDATA DS, usada em ~65
+     seletores por todo o app, não algo específico desta tela. */
+  .mt-news-masthead{ text-align:center; padding:0 0 14px; border-bottom:2px solid var(--m3-secondary); margin-bottom:16px; }
+  .mt-news-masthead .brand{ font-family:'Bebas Neue', var(--font); font-size:22px; letter-spacing:1px; color:var(--m3-on-surface); }
+  .mt-news-masthead .tagline{ font-family:'Rajdhani', var(--font); font-size:11px; font-weight:600; color:var(--m3-on-surface-variant); text-transform:uppercase; letter-spacing:1.5px; margin-top:4px; }
   .mt-news-sectitle{ display:flex; align-items:center; gap:10px; margin:20px 0 12px; }
-  .mt-news-sectitle span{ font-family:'Rajdhani', var(--font); font-size:11px; font-weight:700; color:var(--mt-ink-muted); text-transform:uppercase; letter-spacing:1px; white-space:nowrap; }
-  .mt-news-sectitle .line{ flex:1; height:1px; background:var(--mt-navy-700); }
-  .mt-news-brief{ display:flex; gap:11px; padding:11px 0; border-bottom:1px solid var(--mt-navy-700); }
-  .mt-news-brief:last-child{ border-bottom:none; }
-  .mt-news-brief.mine{ background:rgba(232,184,75,.06); border-radius:8px; border-bottom-color:transparent; padding-left:6px; padding-right:6px; margin:0 -6px; }
-  .mt-news-sq{ width:32px; height:32px; border-radius:8px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:15px; margin-top:1px; }
-  .mt-news-sq.lider{ background:rgba(232,184,75,.15); }
-  .mt-news-sq.zebra, .mt-news-sq.empate_defendido{ background:rgba(91,155,217,.15); }
-  .mt-news-sq.goleada{ background:rgba(227,101,101,.15); }
-  .mt-news-sq.jejum_quebrado{ background:rgba(61,184,106,.15); }
-  .mt-news-sq.lanterna_reage{ background:rgba(167,139,218,.15); }
-  .mt-news-sq.generico{ background:var(--mt-navy-700); }
-  .mt-news-brief .h{ font-size:13px; font-weight:600; color:var(--mt-ivory-50); line-height:1.35; }
-  .mt-news-brief .m{ font-family:'Rajdhani', var(--font); font-size:10.5px; font-weight:600; color:var(--mt-ink-faint); margin-top:4px; text-transform:uppercase; letter-spacing:.4px; }
-  .mt-news-summary{ background:var(--mt-navy-800); border:1px solid var(--mt-navy-600); border-radius:10px; padding:2px 14px; }
-  .mt-news-summary-row{ display:flex; align-items:center; gap:10px; padding:12px 0; border-bottom:1px solid var(--mt-navy-700); }
+  .mt-news-sectitle span{ font-family:'Rajdhani', var(--font); font-size:11px; font-weight:700; color:var(--m3-on-surface-variant); text-transform:uppercase; letter-spacing:1px; white-space:nowrap; }
+  .mt-news-sectitle .line{ flex:1; height:1px; background:var(--m3-outline-variant); }
+  .mt-news-summary{ background:var(--m3-surface-container); border:1px solid var(--m3-outline-variant); border-radius:10px; padding:2px 14px; }
+  .mt-news-summary-row{ display:flex; align-items:center; gap:10px; padding:12px 0; border-bottom:1px solid var(--m3-outline-variant); }
   .mt-news-summary-row.last{ border-bottom:none; }
-  .mt-news-summary-row .t{ flex:1; min-width:0; font-size:12.5px; color:var(--mt-ivory-100); }
-  .mt-news-summary-row button{ display:flex; align-items:center; gap:5px; background:transparent; border:none; color:var(--mt-gold-400); font-family:'Rajdhani', var(--font); font-weight:700; font-size:12.5px; cursor:pointer; padding:0; white-space:nowrap; }
+  .mt-news-summary-row .t{ flex:1; min-width:0; font-size:12.5px; color:var(--m3-on-surface); }
+  .mt-news-summary-row button{ display:flex; align-items:center; gap:5px; background:transparent; border:none; color:var(--m3-secondary); font-family:'Rajdhani', var(--font); font-weight:700; font-size:12.5px; cursor:pointer; padding:0; white-space:nowrap; }
   .mt-news-summary-row button svg{ width:14px; height:14px; }
+
+  /* NewsCard (S4-B4-005, ver newsCardHTML em carreira.js) — formaliza
+     o padrão de manchete/nota do jornal. .m3-news-brief é a linha
+     compacta do feed; .m3-news-featured é a variação `featured`
+     (manchete grande, só o item mais recente/relevante). Quadrados de
+     categoria (.m3-news-sq.*) mantêm as cores decorativas por tipo —
+     tratadas como cor categórica da BRDATA (mesmo espírito de
+     .m3-form-dot.v/.e/.d), não tokens legados; só .generico (sem
+     categoria própria) migrou pro neutro --m3-surface-container-highest.
+     Destaque "mine" (rgba dourada) preservado — mesmo tom já usado em
+     Conquistas pra destacar o próprio clube. */
+  .m3-news-kicker{ font-family:'Rajdhani', var(--font); font-size:10.5px; font-weight:700; color:var(--m3-secondary); text-transform:uppercase; letter-spacing:1px; margin-bottom:6px; }
+  .m3-news-headline{ font-family:'Bebas Neue', var(--font); font-size:21px; line-height:1.15; letter-spacing:.3px; color:var(--m3-on-surface); }
+  .m3-news-feature-meta{ font-family:'Rajdhani', var(--font); font-size:11px; color:var(--m3-on-surface-variant); margin-top:6px; }
+  .m3-news-rule{ height:1px; background:linear-gradient(90deg, var(--m3-secondary), transparent); margin:16px 0; }
+  .m3-news-brief{ display:flex; gap:11px; padding:11px 0; border-bottom:1px solid var(--m3-outline-variant); }
+  .m3-news-brief:last-child{ border-bottom:none; }
+  .m3-news-brief.mine{ background:rgba(232,184,75,.06); border-radius:8px; border-bottom-color:transparent; padding-left:6px; padding-right:6px; margin:0 -6px; }
+  .m3-news-sq{ width:32px; height:32px; border-radius:8px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:15px; margin-top:1px; }
+  .m3-news-sq.lider{ background:rgba(232,184,75,.15); }
+  .m3-news-sq.zebra, .m3-news-sq.empate_defendido{ background:rgba(91,155,217,.15); }
+  .m3-news-sq.goleada{ background:rgba(227,101,101,.15); }
+  .m3-news-sq.jejum_quebrado{ background:rgba(61,184,106,.15); }
+  .m3-news-sq.lanterna_reage{ background:rgba(167,139,218,.15); }
+  .m3-news-sq.generico{ background:var(--m3-surface-container-highest); }
+  .m3-news-title{ font-size:13px; font-weight:600; color:var(--m3-on-surface); line-height:1.35; }
+  .m3-news-meta{ font-family:'Rajdhani', var(--font); font-size:10.5px; font-weight:600; color:var(--m3-on-surface-variant); margin-top:4px; text-transform:uppercase; letter-spacing:.4px; }
   /* .ct-halftime-banner removido (redesign, Tela 13b) — o banner de
      intervalo (#liveHalftimeBanner) agora usa .mt-live-halftime (ver
      CSS da Tela 13b mais abaixo). */
@@ -5193,12 +5213,13 @@
      das Telas 11d/15 já refeitas — ver mercado-row-opcoes/
      noticias-opcoes, mockups publicados como Artifact) — masthead sem
      .mt-card (só régua dourada embaixo), manchete grande sem moldura
-     (.mt-news-headline, Bebas Neue) com linha-guia dourada
-     (.mt-news-rule) separando do resto, notícias secundárias como
-     "notas" com quadrado colorido por categoria (.mt-news-brief/-sq,
+     (.m3-news-headline, Bebas Neue) com linha-guia dourada
+     (.m3-news-rule) separando do resto, notícias secundárias como
+     "notas" com quadrado colorido por categoria (.m3-news-brief/-sq,
      mesmas cores de NEWS_ICON), "seu time" + "classificação" deixam
      de ser 2 seções cheias e viram 1 cartão-resumo compacto no fim
-     (.mt-news-summary), cada linha com sua ação. -->
+     (.mt-news-summary), cada linha com sua ação. NewsCard formalizado
+     em S4-B4-005 (issue #35) — ver newsCardHTML em carreira.js. -->
 <div class="ct-modal-overlay ct-modal-fullscreen" id="newsOverlay">
   <div class="ct-modal">
     <div class="ct-modal-header mt-fullheader">
