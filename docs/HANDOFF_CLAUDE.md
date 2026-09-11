@@ -668,12 +668,16 @@ em uma nova demanda, não como reabertura dessa issue.
 
 SAVE-LIMIT-001 — Save de carreira "grande demais": eliminar o beco sem saída
 
-Status: PRONTO PARA IMPLEMENTAÇÃO
+Status: REVISÃO DO PM NECESSÁRIA
 Sprint: fora da S4 (Confiabilidade — CLAUDE.md §9/§10, prioridade P0
 "Confiabilidade" no CLAUDE.md §47, a mais alta do projeto — acima de
 qualquer Game Engine/Mundo/UX)
 Prioridade: P0
 Issue: https://github.com/muriloalmeida-alt/FitOS/issues/29
+
+**Decisão do PM (Murilo, 11/09/2026): implementação autorizada** ("Pode
+seguir com o desenvolvimento"). Implementação concluída nesta mesma
+sessão — relatório abaixo, aguardando revisão antes do merge em `main`.
 
 Objetivo
 
@@ -827,6 +831,104 @@ Riscos
   verdade e uma poda automática de histórico for necessária —
   precisa de cuidado pra nunca podar dado que o usuário ainda usa
   (CLAUDE.md §33/§48, preservar o que funciona).
+
+Relatório técnico (implementação)
+
+Branch: `claude/save-limit-001`.
+
+1. Medição real (script novo, temporário, mesmo espírito de
+   `sim_transfer_ai_*.js`: `tests/e2e/sim_save_growth.js` — usa só
+   funções de produção reais: `resolveRoundInstant`/`finishRoundTail`/
+   `advanceSeason`, nunca reimplementa fórmula nem regra):
+   * Uma carreira "multi" real nasce em **~560KB** (73% do limite de
+     768KB) — confirma o achado já registrado na especificação.
+   * 4 temporadas simuladas: o tamanho **não cresce sem parar** — na
+     verdade cai levemente (560KB → ~480KB, com um pico de ~660KB ao
+     fim da 1ª temporada). As estruturas acumulativas
+     (`newsFeed`/`transferLog`/`financeLedger`/`resultsByRound`/etc.)
+     já estão bem capadas pelos `*_MAX` existentes — não são o
+     problema real.
+   * **Achado principal, com evidência**: `CAREER.leagueSquads` (o
+     elenco dos 59 outros clubes das 3 divisões) responde por **~79%
+     do tamanho total** (380KB de 482KB no estado final medido) — é
+     um dado altamente repetitivo (mesmas ~15-20 chaves de jogador
+     repetidas ~1300+ vezes). Confirma a hipótese do item 5 do escopo:
+     o elenco multi-divisão é de fato o fator dominante, não as
+     estruturas acumulativas.
+2. `CAREER.clubHistory` capado: `CLUB_HISTORY_MAX = 15` (mesmo padrão
+   de `MAX_SEASON_HISTORY`), aplicado em `endCurrentClubStint()` e
+   também retroativamente pra save antigo em `migrateCareerDefaults()`
+   (compatibilidade — CLAUDE.md §33). Custo medido por entrada: ~83-111
+   bytes — real, mas pequeno; não é o achado que resolve o problema
+   sozinho (ver item 1).
+3. **Compressão gzip — a alavanca que resolve de verdade** (medida
+   real, não estimada): o blob de save comprime **92-93%** com gzip
+   nível 6 (560KB → ~42KB; brotli chega a 95%, mas gzip já é nativo do
+   Node e universalmente suportado por `fetch`, sem exigir nada do
+   cliente). Decisão implementada:
+   * `server/src/careerStore.js`: cada carreira é armazenada (memória
+     + disco) já comprimida, num envelope `{ __gz: "<base64>" }` — e
+     **`MAX_BYTES` passa a valer sobre o tamanho COMPRIMIDO**, não o
+     JSON bruto. Na prática, o teto efetivo de JSON bruto sobe de
+     ~768KB pra **~10MB** (768KB / ~0,075 de razão medida) sem mexer
+     no número declarado. Migração transparente: save gravado antes
+     desta demanda (objeto cru, sem `__gz`) é comprimido automaticamente
+     ao carregar (`load()`), sem perda de dado nem ação do cliente.
+     Benefício colateral: o arquivo agregado `careers.json` (todas as
+     contas juntas) também fica ~92-95% menor no disco — acelera a
+     escrita síncrona já documentada no arquivo.
+   * `server/server.js`: resposta HTTP de `GET /api/career` (a única
+     rota que devolve o blob inteiro) agora vem com
+     `Content-Encoding: gzip` quando o cliente aceita (`fetch` do
+     navegador aceita e descomprime sozinho, sem mudança nenhuma no
+     cliente) — medido/confirmado via teste real (header presente,
+     dado íntegro depois de descomprimido).
+   * **Decisão registrada, não implementada**: compressão do lado do
+     UPLOAD (cliente comprimir o `PUT` antes de enviar) foi avaliada e
+     **não implementada** — exigiria mudança no cliente
+     (`CompressionStream`, checar suporte de navegador) sem resolver
+     nada que ainda esteja quebrado (o problema relatado já está
+     resolvido pela compressão no armazenamento/leitura); fica
+     registrado caso um dia o volume de upload em si vire gargalo.
+4. **Elimina o "beco sem saída" de verdade**: como última linha de
+   defesa (não encontrada necessária em nenhuma medição real, mas "não
+   pode existir em nenhum cenário" é categórico), `saveCareer()` agora
+   poda histórico não-essencial automaticamente e tenta salvar de novo
+   **uma vez** antes de recusar — nunca toca elenco, contrato,
+   escalação, tabela ou finanças (estado de jogo ativo, intocável).
+   Testado com payload sintético incompressível grande o bastante pra
+   provar o mecanismo (`test_save_limit_001_careerstore.js`): resolve
+   sozinho quando o excesso está em histórico; ainda assim recusa
+   (413) quando o excesso está em estado ativo (squad), como deveria —
+   nunca fica "meio salvo".
+   Mensagem do cliente (413) atualizada: não manda mais "reinicie a
+   carreira" (não é mais a única saída, e não resolveria nada hoje) —
+   convida a tentar de novo e reportar como bug, já que o cenário
+   descrito no relato original não foi reproduzido em nenhuma medição.
+5. Compatibilidade de save testada explicitamente: save novo, save
+   "antigo" (pré-compressão, objeto cru no arquivo), save no limite
+   (payload sintético) — nenhum corrompe nem trava irrecuperável
+   (`test_save_limit_001_careerstore.js`, 6/6).
+
+Testes novos: `tests/e2e/test_save_limit_001_careerstore.js` (6/6,
+lógica pura de `careerStore.js` — compressão, migração, poda, 413/400
+preservados) e `tests/e2e/test_save_limit_001.js` (5/5, fluxo real via
+UI — save real sem 413, `Content-Encoding: gzip` confirmado,
+`CLUB_HISTORY_MAX` e compatibilidade de save antigo). Regressão:
+`test_ao_vivo.js` (7/7), `test_mercado_multi_persist.js` (1/1, já
+confirma "sem 413" no cenário real de mercado multi-divisão),
+`test_board_goals.js` e `test_bloco789_perfil_config.js` (fluxos de
+persistência/reload, ambos passando). `test_save.js` e `test_cup.js`
+deram timeout num passo de UI não relacionado (modal de pré-jogo/Copa)
+— confirmado **pré-existente** (mesmo comportamento em `main` sem
+estas mudanças).
+
+Resultado proposto: **APROVADO** — medição real documentada,
+`clubHistory` capado, compressão implementada com números reais (não
+estimativa), nenhum cenário medido termina em 413 sem alternativa, e o
+mecanismo de poda automática garante que mesmo o cenário extremo tem
+saída. Compatibilidade de save preservada e testada. Aguardando
+revisão formal do PM antes do merge em `main`.
 
 Observações
 

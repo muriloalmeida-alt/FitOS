@@ -18,6 +18,7 @@ const http = require("http");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+const zlib = require("zlib");
 
 // Precisa rodar ANTES de qualquer require de módulo nosso que leia
 // variável de ambiente no topo do arquivo (ex.: server/src/supportPlans.js,
@@ -436,6 +437,35 @@ function sendJSON(res, status, obj) {
     "Cache-Control": "no-store",
   });
   res.end(body);
+}
+
+// SAVE-LIMIT-001 — resposta comprimida pra GET /api/career (a única
+// rota que devolve o blob de carreira inteiro pro cliente, hoje na
+// casa de ~500-600KB pra uma carreira "multi" — ver careerStore.js).
+// Escopo deliberadamente restrito a ESTA rota (não vira um middleware
+// genérico em sendJSON pra todo o resto da API): é a única resposta
+// grande o bastante pra o ganho de gzip (~92-95% medido, ver
+// careerStore.js) valer o custo/risco de mudar. PUT (cliente -> servidor)
+// fica de fora de propósito: o problema relatado (413 sem saída) já
+// está resolvido pela compressão no armazenamento (careerStore.js);
+// comprimir o UPLOAD também exigiria mudança no cliente (CompressionStream,
+// suporte de navegador a checar) sem resolver nada que ainda esteja
+// quebrado — ver relatório técnico em docs/HANDOFF_CLAUDE.md
+// (SAVE-LIMIT-001) pro registro completo dessa decisão.
+function sendJSONMaybeGzip(req, res, status, obj) {
+  const body = Buffer.from(JSON.stringify(obj), "utf8");
+  const acceptsGzip = /\bgzip\b/.test(req.headers["accept-encoding"] || "");
+  if (!acceptsGzip || body.length < 2048) { // corpo pequeno: overhead de gzip não compensa
+    res.writeHead(status, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
+    return res.end(body);
+  }
+  const gz = zlib.gzipSync(body);
+  res.writeHead(status, {
+    "Content-Type": "application/json; charset=utf-8",
+    "Content-Encoding": "gzip",
+    "Cache-Control": "no-store",
+  });
+  res.end(gz);
 }
 
 function handleError(res, err) {
@@ -2207,7 +2237,7 @@ const server = http.createServer(async (req, res) => {
     // elenco/escalação/tabela/notícias são montados e recalculados no
     // cliente (public/js/carreira.js), aqui só persiste por conta.
     if (pathname === "/api/career" && req.method === "GET") {
-      return sendJSON(res, 200, { career: careerStore.getCareer(req.authUser.id) });
+      return sendJSONMaybeGzip(req, res, 200, { career: careerStore.getCareer(req.authUser.id) });
     }
     if (pathname === "/api/career" && req.method === "PUT") {
       const body = await readBody(req);

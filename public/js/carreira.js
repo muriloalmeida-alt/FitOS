@@ -1871,6 +1871,15 @@ function applySeasonReputationDelta(goalWasMet, award) {
 function reputationLabel(rep) {
   return rep >= 85 ? "Lendário" : rep >= 70 ? "Renomado" : rep >= 50 ? "Estabelecido" : rep >= 30 ? "Em dúvida" : "Contestado";
 }
+// SAVE-LIMIT-001 — gap confirmado por inspeção: clubHistory crescia sem
+// nenhum cap (ao contrário de seasonHistory/newsFeed/transferLog/etc.,
+// todos com MAX_* próprio) — mesmo espírito de MAX_SEASON_HISTORY, só
+// que pra "currículo" de clubes dirigidos, não temporadas. Custo medido
+// por entrada: ~111 bytes (ver tests/e2e/sim_save_growth.js) — o cap
+// aqui é mais por consistência de padrão do que por peso real (o
+// achado real que efetivamente resolve o beco sem saída é a compressão
+// gzip em server/src/careerStore.js).
+const CLUB_HISTORY_MAX = 15;
 // Fecha a passagem pelo clube atual (demissão ou proposta aceita) —
 // registra no "currículo" (histórico_clubes do documento: clube,
 // temporadas, títulos, posição média) e guarda o que precisa
@@ -1885,6 +1894,7 @@ function endCurrentClubStint(reason) {
   const titles = (CAREER.seasonAwards || []).reduce((n, a) => n + countTitlesThisSeason(a), 0);
   const clubHistory = (CAREER.clubHistory || []).slice();
   clubHistory.unshift({ clubId: CAREER.clubId, clubName: CAREER.clubName, seasons, titles, avgPosition, reason });
+  if (clubHistory.length > CLUB_HISTORY_MAX) clubHistory.length = CLUB_HISTORY_MAX;
   let reputation = CAREER.reputation == null ? 50 : CAREER.reputation;
   if (reason === "dismissed") reputation = clamp(reputation - REPUTATION_DISMISSAL_PENALTY, 0, 100);
   TECHNICIAN_CARRY = { reputation, clubHistory };
@@ -4584,7 +4594,19 @@ async function persistCareer() {
       toast("Sua sessão expirou — faça login de novo pra continuar salvando.", { type: "warn" });
       show("screenLoginRequired");
     } else if (err.status === 413) {
-      toast("O save dessa carreira ficou grande demais — reinicie a carreira pra continuar salvando.", { type: "warn" });
+      // SAVE-LIMIT-001 — antes disso era literalmente um beco sem saída
+      // ("reinicie a carreira"). Agora o servidor já comprime o save
+      // (gzip, ~92-95% menor na prática — ver careerStore.js) e ainda
+      // poda automaticamente histórico não-essencial antes de recusar
+      // salvar (nunca elenco/contratos/tabela/finanças) — chegar aqui
+      // significa que MESMO DEPOIS dessas 2 camadas o save continua
+      // grande demais, cenário que a medição real (ver
+      // tests/e2e/sim_save_growth.js) não encontrou em nenhuma
+      // simulação de várias temporadas. Por isso o texto não manda
+      // mais reiniciar a carreira — tentar de novo pode resolver (pico
+      // temporário), e persistindo é sinal de bug de verdade, não de
+      // "carreira grande demais" como intenção normal do jogo.
+      toast("Não deu pra salvar agora — o servidor tentou reduzir o histórico da carreira automaticamente e mesmo assim não coube. Tentando de novo deve resolver; se continuar acontecendo, é um bug — nos avise.", { durationMs: 6000, type: "warn" });
     } else {
       // Código/motivo aparecem no toast de propósito (mesmo sendo mais
       // "técnico" do que o ideal pro usuário final): sem acesso aos
@@ -14521,6 +14543,11 @@ function migrateCareerDefaults() {
   // literalmente verdade aqui).
   if (CAREER.reputation == null) CAREER.reputation = 50;
   if (!CAREER.clubHistory) CAREER.clubHistory = [];
+  // SAVE-LIMIT-001 — save antigo, de antes do CLUB_HISTORY_MAX existir,
+  // pode ter mais entradas que o cap novo; normaliza aqui também (não
+  // só na próxima troca de clube), mesmo tratamento de compatibilidade
+  // que qualquer outro *_MAX já recebe.
+  else if (CAREER.clubHistory.length > CLUB_HISTORY_MAX) CAREER.clubHistory.length = CLUB_HISTORY_MAX;
   if (!CAREER.clubProposals) CAREER.clubProposals = [];
   // AJUSTE — carreira criada antes do feed de notícias existir nasce
   // vazio (não tem como reconstruir manchetes de rodadas já passadas).
