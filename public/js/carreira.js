@@ -7490,19 +7490,69 @@ function generateRoundNews(round, allResults, standingsBefore) {
   headlines.sort((a, b) => ((b.mine ? 1 : 0) - (a.mine ? 1 : 0)) || (NEWS_PRIORITY[a.type] - NEWS_PRIORITY[b.type]));
   return headlines.slice(0, 6);
 }
+// ---------- BRDATA Product Pattern novo: NewsCard (S4-B4-005) ----------
+// Nome: NewsCard
+// Objetivo: representar uma notícia do feed navegável do Modo Técnico
+//   (CAREER.newsFeed) — CLAUDE.md §7/§27 (News Engine).
+// Responsabilidade: apresentação pura — ícone/categoria, texto da
+//   manchete, meta (tipo + rodada + temporada). NÃO decide quais
+//   eventos viram notícia nem a ordem de prioridade (isso continua em
+//   buildRoundHeadlines()/NEWS_PRIORITY, intocados por esta demanda).
+// Entradas: um item de CAREER.newsFeed — { type, mine, texto, round,
+//   seasonYear } — e um 2º parâmetro opcional `{ featured }` (default
+//   false).
+// Saídas/eventos: retorna uma string HTML; nenhum listener embutido —
+//   mesmo padrão de playerRow()/TransferCard/MatchCard.
+// Estados: `mine` (bool) destaca a notícia do PRÓPRIO clube — mesmo
+//   tom "dourado suave" já usado em Conquistas pra destacar o próprio
+//   clube (`.ct-award-podium .slot.mine`/`.ct-award-stat.mine`,
+//   rgba(232,184,75,.06-.08), tratado como cor categórica da BRDATA,
+//   não como token legado a migrar). Tipo sem ícone mapeado
+//   (`NEWS_ICON[type]`) cai no ícone/cor genéricos.
+// Variações: `featured` (bool) — troca o layout compacto de linha
+//   (ícone quadrado + texto + meta, usado no feed) pelo layout de
+//   manchete grande (kicker + headline + meta + régua, usado só pro
+//   item mais recente/mais relevante do feed). MESMO shape de dado nos
+//   2 casos — só o LAYOUT muda, nenhuma informação a mais/a menos.
+// Responsividade: classes `.m3-news-*` (CSS novo, carreira.html).
+// Dependências: `NEWS_ICON`/`NEWS_TAG_LABEL`, `escapeHtml()`.
+//
+// Divergência registrada (decisão formalizar-vs-construir, com
+// evidência — ver relatório da demanda): formalização PARCIALMENTE
+// retroativa. `newsItemHTML()` (renomeada pra `newsCardHTML`, mesmo
+// nome de função valendo pro Product Pattern) já cobria sozinha,
+// adequadamente, o layout de linha do feed com o shape de dado certo —
+// mesmo caminho de PlayerCard (função existente, só documentada). O
+// layout de manchete em destaque, porém, nunca foi uma função — vivia
+// como HTML inline dentro de `renderNewsScreen()` — absorvido aqui
+// como a variação `featured` do MESMO componente (mesmo dado, layout
+// diferente), fechando o conceito "1 notícia" inteiro numa função só,
+// como a demanda pede, em vez de deixar metade dele de fora do
+// contrato formalizado.
+//
 // AJUSTE (pedido do usuário: "esperava uma tela exclusiva pra
 // notícias nos padrões de um portal de esportes") — tela própria
 // acessível pelo menu "≡", separada do flash rápido acima (que
 // continua existindo dentro do modal de resultados): aqui é o arquivo
 // navegável (ver CAREER.newsFeed), com manchete principal em destaque
 // e o resto em feed, mais nova primeiro.
-function newsItemHTML(n) {
+function newsCardHTML(n, opts) {
+  const featured = !!(opts && opts.featured);
   const cat = NEWS_ICON[n.type] ? n.type : "generico";
-  return `<div class="mt-news-brief${n.mine ? " mine" : ""}">
-    <div class="mt-news-sq ${cat}">${NEWS_ICON[n.type] || "📰"}</div>
+  const metaText = `${NEWS_TAG_LABEL[n.type] || "Rodada"} · Rodada ${n.round} · Temporada ${n.seasonYear}`;
+  if (featured) {
+    return `<div class="m3-news-featured">
+      <div class="m3-news-kicker">${n.mine ? "Manchete — seu clube" : "Manchete da rodada"}</div>
+      <div class="m3-news-headline">${escapeHtml(n.texto)}</div>
+      <div class="m3-news-feature-meta">${NEWS_ICON[n.type] || "📰"} ${metaText}</div>
+      <div class="m3-news-rule"></div>
+    </div>`;
+  }
+  return `<div class="m3-news-brief${n.mine ? " mine" : ""}">
+    <div class="m3-news-sq ${cat}">${NEWS_ICON[n.type] || "📰"}</div>
     <div>
-      <div class="h">${escapeHtml(n.texto)}</div>
-      <div class="m">${NEWS_TAG_LABEL[n.type] || "Rodada"} · Rodada ${n.round} · Temporada ${n.seasonYear}</div>
+      <div class="m3-news-title">${escapeHtml(n.texto)}</div>
+      <div class="m3-news-meta">${metaText}</div>
     </div>
   </div>`;
 }
@@ -7527,12 +7577,8 @@ function renderNewsScreen(currentRoundOnly) {
     listBox.innerHTML = `<p class="ct-empty">Nenhuma notícia ainda — simule uma rodada pra o jornal ganhar a primeira manchete.</p>`;
   } else {
     const [top, ...rest] = feed;
-    featuredBox.innerHTML = `
-      <div class="mt-news-kicker">${top.mine ? "Manchete — seu clube" : "Manchete da rodada"}</div>
-      <div class="mt-news-headline">${escapeHtml(top.texto)}</div>
-      <div class="mt-news-feature-meta">${NEWS_ICON[top.type] || "📰"} ${NEWS_TAG_LABEL[top.type] || "Rodada"} · Rodada ${top.round} · Temporada ${top.seasonYear}</div>
-      <div class="mt-news-rule"></div>`;
-    listBox.innerHTML = rest.map(newsItemHTML).join("");
+    featuredBox.innerHTML = newsCardHTML(top, { featured: true });
+    listBox.innerHTML = rest.map((n) => newsCardHTML(n)).join("");
   }
   // AJUSTE (pedido do usuário: "tem uma informação de salários pagos
   // e renda que aparece no resultado da rodada que deveria aparecer
@@ -7555,7 +7601,7 @@ function renderNewsScreen(currentRoundOnly) {
 // — sem precisar de mais nenhum dado novo no save. Linha de texto
 // simples dentro do cartão-resumo (.mt-news-summary, ver newsOverlay
 // em carreira.html) — sem ícone/quadrado de categoria, que fica só
-// pras notícias da rodada (.mt-news-brief).
+// pras notícias da rodada (NewsCard, ver newsCardHTML/.m3-news-brief).
 function teamStatusNewsRowHTML(p, kind) {
   const headline = kind === "lesao" ? `${abbreviateName(p.name)} está fora, lesionado (${injurySeverityLabel(p.injurySeverity)})` : `${abbreviateName(p.name)} está suspenso`;
   return `<div class="mt-news-summary-row"><div class="t">${escapeHtml(headline)} — volta na rodada ${p.outUntilRound}</div></div>`;
