@@ -832,131 +832,6 @@ esquecida.
 
 ⸻
 
-S4-B4-001 — Migrar tela Onboarding para o Design System novo
-
-Status: REVISÃO DO PM NECESSÁRIA
-Sprint: S4 — Redesign Mobile
-Fase: Batch 4 (Complementary) — item 1 de 6
-Prioridade: P1
-Issue: https://github.com/muriloalmeida-alt/FitOS/issues/31
-
-Objetivo
-
-Migrar a tela de Onboarding (tutorial de boas-vindas do primeiro
-acesso) pro Design System novo, conforme
-`docs/sprints/S3/S3_S4_MATRIZ_TELAS_MOBILE.md` (Tela 4).
-
-Contexto
-
-Item 1 da ordem recomendada por `S4-B4-READINESS-001` (menor escopo,
-já parcialmente migrada). Estado real confirmado: `renderOnboardingSlide()`/
-`openOnboardingOverlay()`, `#onboardingOverlay` — os indicadores de
-slide (`.mt-onboard-dot`/`.mt-onboard-dot.active`) já usam
-`--m3-outline-variant`/`--m3-primary`; título/texto/corpo do slide
-ainda usam `.ct-modal-body`/`--mt-ivory-50`/`--mt-ink-muted` (legado).
-
-Escopo
-
-Chapéu implementador deve:
-
-1. Inspecionar `renderOnboardingSlide()`/`#onboardingOverlay` antes de
-   alterar qualquer coisa.
-2. Migrar título/texto/corpo do slide pros tokens `--m3-*` — os
-   indicadores de slide já estão migrados, não mexer neles além do
-   necessário pra consistência.
-3. Preservar 100% o comportamento (navegação entre slides, "pular",
-   gatilho de primeiro acesso).
-4. Usar os componentes já disponíveis (Dialog/Bottom Sheet/Skeleton)
-   se a inspeção revelar necessidade — não presumir aqui.
-5. Testar (mobile-first).
-6. Atualizar `docs/sprints/S4/S4_REQUISITOS_VIGENTES.md` marcando esta
-   tela como migrada.
-7. Retornar relatório técnico nesta mesma seção, status `REVISÃO DO PM
-   NECESSÁRIA`.
-
-Fora de escopo
-
-* qualquer outra tela do Batch 4;
-* mudança de conteúdo/copy dos slides ou da lógica de quando o
-  onboarding aparece;
-* qualquer novo BRDATA Product Pattern (não se aplica aqui).
-
-Dependências
-
-* `S3-DS20-S4-PREP-001` (Dialog/Bottom Sheet/Skeleton) — aprovada,
-  concluída.
-
-Requisitos
-
-Mesma sequência obrigatória: inspecionar → localizar → entender →
-planejar → alterar → testar → revisar.
-
-Critérios de aceite
-
-* tela 100% `--m3-*`;
-* comportamento de navegação/pular preservado;
-* nenhuma outra tela alterada;
-* teste mobile-first cobrindo a tela.
-
-Validações
-
-O PM deverá validar: aderência ao Design System, preservação do
-comportamento, teste, escopo respeitado.
-
-Riscos
-
-* baixo — tela pequena, estática, sem regra de negócio.
-
-Observações
-
-Com esta demanda, resta o item 2 (`S4-B4-002`, Meus esquemas) na
-ordem recomendada.
-
-Relatório técnico
-
-Inspeção confirmou exatamente o estado descrito no contexto —
-`renderOnboardingSlide()`/`openOnboardingOverlay()`/
-`closeOnboardingOverlay()` inalterados (nenhuma regra de negócio
-tocada). Único gap real de tokens era em CSS (`public/carreira.html`,
-bloco `.mt-onboard-*`): 3 seletores usando `--mt-ivory-50`/
-`--mt-ink-muted` — `.mt-onboard-title` (título do slide), `.mt-onboard-text`
-(corpo do slide) e `.mt-onboard-skip` (botão "Pular"). Migrados pra
-`--m3-on-surface` (título — texto principal) e `--m3-on-surface-variant`
-(corpo + "Pular" — texto secundário), o mapeamento semântico M3
-padrão pra essa dupla de papéis (confirmado pelos valores hex reais:
-`--m3-on-surface:#E7E2DE` e `--m3-on-surface-variant:#CBC5BE` — tons
-claros equivalentes aos antigos `--mt-ivory-50:#F5F1E6`/
-`--mt-ink-muted:#8FA3BF`, mesmo papel visual). `.mt-onboard-dot`/
-`.mt-onboard-icon` já estavam `--m3-*` antes desta demanda, não
-tocados. Overlay/estrutura (`.ct-modal-overlay`/`.ct-modal-fullscreen`/
-`.ct-modal-body`/`.ct-modal-footer`) preservados — são a casca
-estrutural padrão reaproveitada por toda tela migrada ou não, migração
-é sobre token de cor/tipografia, não sobre troca de wrapper.
-
-Divergência avaliada e decidida (mesmo critério de `S4-B2-003`/
-`S4-B2-004`): tipografia `Bebas Neue` do título classificada como
-**BRDATA Extension** (identidade "placar de estádio"/manchete, mesma
-lógica já usada pros escudos/campinho) — não migra pra `--m3-display`.
-
-Testes: `tests/e2e/test_s4_b4_001_onboarding.js` (novo, 4/4 passando)
-— tutorial abre no 1º acesso com os 4 slides, cores computadas batem
-com os tokens `--m3-on-surface(-variant)` resolvidos no `:root` (não
-mais os valores antigos), navegação entre slides preservada (títulos
-diferentes por slide, contador de pontos avança, botão vira "Começar"
-no último), fecha ao terminar. Regressão: `test_onboarding.js` (6/7 —
-1 check com falha PRÉ-EXISTENTE confirmada idêntica em `main` sem
-esta mudança via `git stash`, não é regressão desta demanda) e
-`test_ao_vivo.js` (7/7) sem quebra.
-
-`docs/sprints/S4/S4_REQUISITOS_VIGENTES.md` atualizado: tabela do
-Batch 4 criada com o estado real das 7 telas (confirmado por
-`S4-B4-READINESS-001`), Onboarding marcada migrada.
-
-Arquivos alterados: `public/carreira.html` (3 seletores CSS).
-Teste novo: `tests/e2e/test_s4_b4_001_onboarding.js`.
-
-⸻
-
 S4-B4-002 — Migrar tela Meus esquemas para o Design System novo
 
 Status: PRONTO PARA IMPLEMENTAÇÃO
@@ -1880,3 +1755,16 @@ formato legado de 16 clubes preservado intacto pra saves antigos,
 
 **Merge do código:** autorizado pela aprovação formal do PM na issue
 #28, executado nesta sessão.
+
+S4-B4-001 — Migrar tela Onboarding para o Design System novo	11/09/2026	merge de `claude/s4-b4-001-onboarding` em `main` (commit de código original `d36d8e0`)	docs/project/CHANGELOG.md (a atualizar)
+
+APROVADO pelo Murilo em 11/09/2026 (issue #31), diretamente nesta
+conversa ("Aprovado. Seguir para o próximo"). Relatório técnico
+completo (3 seletores CSS migrados — `.mt-onboard-title`/`.mt-onboard-text`/
+`.mt-onboard-skip`, `--mt-ivory-50`/`--mt-ink-muted` →
+`--m3-on-surface`/`--m3-on-surface-variant`; tipografia Bebas Neue do
+título mantida como BRDATA Extension) em
+`git show d36d8e0:docs/HANDOFF_CLAUDE.md`.
+
+**Merge do código:** autorizado pela aprovação formal do PM na issue
+#31, executado nesta sessão.
