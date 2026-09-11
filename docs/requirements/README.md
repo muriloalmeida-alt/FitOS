@@ -5,11 +5,12 @@ Requisitos e regras de negócio **vivos** do produto — a versão atual de
 (isso é `docs/sprints/`, o registro histórico de quando/como cada coisa
 foi decidida ou auditada).
 
-Criada em 09/09/2026, ainda sem conteúdo — os documentos de requisito que
-existiam antes desta reorganização (GDD, GDD Técnico, Game Engine Spec,
-specs da série S3/DS2.0) ficaram registrados em `docs/sprints/` por
-Sprint de origem. Novo material de requisito deve entrar aqui, na
-subpasta correspondente:
+Criada em 09/09/2026. Povoada em 11/09/2026 (`DOCS-REQ-001`, issue #23)
+com o que ainda é regra vigente dos documentos originais (GDD, GDD
+Técnico, Game Engine Spec, specs da série S3/DS2.0), que continuam
+registrados na íntegra, como histórico imutável, em `docs/sprints/`.
+Novo material de requisito deve entrar aqui, na subpasta
+correspondente:
 
 * `functional/` — regras de negócio e comportamento esperado do produto
   (o que o usuário pode fazer, o que o sistema deve garantir).

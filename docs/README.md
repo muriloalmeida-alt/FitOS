@@ -65,9 +65,14 @@ mudar depois, o registro da Sprint não é reescrito, uma Sprint nova (ou
 - `PROJECT_CONTEXT.md`, `ROADMAP.md` — contexto permanente e roadmap oficial do produto.
 
 ### docs/requirements/ — requisitos e regras de negócio vivos
-Ver `docs/requirements/README.md`. Ainda vazia (10/09/2026) — um
-primeiro documento (`ui-ux/S4_REQUISITOS_VIGENTES.md`) chegou aqui em
-09/09/2026 mas foi movido pra `docs/sprints/S4/` no dia seguinte: era
+Ver `docs/requirements/README.md`. Povoada em 11/09/2026
+(`DOCS-REQ-001`, issue #23) com um documento por subpasta —
+`functional/VISAO_PRODUTO_E_LOOP.md`, `technical/ARQUITETURA_E_ENGINES.md`,
+`game-design/MECANICAS_E_ECONOMIA.md`, `ui-ux/DESIGN_SYSTEM_VIGENTE.md`
+— extraídos do que ainda é regra vigente em `docs/sprints/S2/` e `S3/`
+(que permanecem intactos, como histórico). Antes disso, um primeiro
+documento (`ui-ux/S4_REQUISITOS_VIGENTES.md`) chegou aqui em 09/09/2026
+mas foi movido pra `docs/sprints/S4/` no dia seguinte: era
 majoritariamente estado de execução da Sprint S4 (histórico/
 operacional), não regra de negócio/UX permanente — classificação
 errada corrigida, não um exemplo de uso correto desta pasta. Fica como

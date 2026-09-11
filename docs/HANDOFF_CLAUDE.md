@@ -633,130 +633,6 @@ em uma nova demanda, não como reabertura dessa issue.
 
 ⸻
 
-DOCS-REQ-001 — Povoar docs/requirements/ com regras vigentes migradas de docs/sprints/
-
-Status: PRONTO PARA IMPLEMENTAÇÃO
-
-**Nota de proveniência (registrada nesta sessão, 10/09/2026):** esta
-demanda foi encontrada já aberta como
-[issue #23](https://github.com/muriloalmeida-alt/FitOS/issues/23),
-cujo corpo afirmava que ela já estava "especificada em
-`docs/HANDOFF_CLAUDE.md`" — o que não era verdade: uma busca em
-`origin/main` (`git grep DOCS-REQ-001`) não encontrou nenhuma
-ocorrência antes desta edição, em nenhum commit, branch ou arquivo. A
-regra de governança 0 (`docs/README.md`) é explícita: uma demanda só é
-real quando está commitada em `docs/` no GitHub, não quando uma issue
-diz que está. O texto abaixo reproduz fielmente o conteúdo já bem
-fundamentado da issue #23 (inclusive a referência correta ao próprio
-`docs/project/DIAGNOSTICO_2026-09-09.md`) — a inconsistência era só a
-falta do commit correspondente, não um problema de conteúdo. Especificado
-aqui agora pra fechar essa lacuna e tornar a demanda real.
-
-Sprint: transversal — não pertence a nenhuma Sprint específica (S2/S3
-são as fontes, não o alvo)
-Fase: governança documental
-Prioridade: P2
-
-Objetivo
-
-`docs/requirements/{functional,technical,game-design,ui-ux}/` existem
-desde a reorganização de `docs/` de 09/09/2026, mas estão 100% vazias
-(só README placeholder em cada uma) — hoje não existe nenhuma "regra
-de negócio vigente" centralizada; tudo que é regra de produto está
-espalhado em `docs/sprints/S2/` e `S3/` (registro histórico) e no
-código. Esta demanda migra pra `docs/requirements/` o conteúdo desses
-documentos que ainda é regra vigente, organizado por tipo.
-
-Contexto
-
-Achado registrado em `docs/project/DIAGNOSTICO_2026-09-09.md` §5 item
-1 (recomendação #4), confirmado nesta sessão a pedido do Murilo numa
-avaliação completa de `docs/` em busca de lacunas documentais.
-
-Problema
-
-Sem uma fonte vigente centralizada, qualquer trabalho futuro que
-precise saber "qual é a regra de negócio hoje" depende de procurar em
-documentos de Sprint (histórico, não necessariamente atualizado) ou no
-próprio código (que pode divergir da spec sem ninguém perceber — regra
-4 de `docs/README.md`). Isso já causou o precedente que motivou esta
-demanda: sem `docs/requirements/` povoada, não há um lugar único de
-consulta pra confirmar se uma regra ainda vale.
-
-Escopo
-
-Revisar `docs/sprints/S2/S2_GDD.md`, `S2_GDD_TECNICO.md`,
-`S2_GAME_ENGINE_SPEC.md` e `docs/sprints/S3/S3_DS20_FUNDACAO_EXECUTAVEL.md`,
-`S3_2_COMPONENTES_E_CONTRATOS.md`, extrair o que ainda é regra vigente
-e organizar:
-
-* `functional/` — visão de produto e loop de jogo (do GDD);
-* `technical/` — arquitetura, dados, responsabilidades técnicas (do
-  GDD Técnico e Game Engine Spec);
-* `game-design/` — mecânicas, balanceamento, progressão, economia (do
-  GDD e Game Engine Spec);
-* `ui-ux/` — M3/BRDATA DS: tokens, componentes, contratos (dos
-  documentos S3), reconciliado com os achados reais da S3.2.7
-  Readiness Review (`docs/sprints/S3/S3_2_7_READINESS.md`) — não
-  repetir a especificação original como se já estivesse implementada.
-
-Fora de escopo
-
-* alterar o conteúdo de `docs/sprints/` (permanece registro histórico
-  imutável);
-* decidir ou mudar qualquer regra de produto — só organizar o que já
-  foi decidido e continua vigente;
-* qualquer alteração de código;
-* resolver a duplicação `ROADMAP.md`/`PROJECT_CONTEXT.md` (achado
-  separado do mesmo diagnóstico).
-
-Dependências
-
-Nenhuma bloqueante — pode rodar em paralelo à S4, não depende de
-nenhuma das demandas `S4-B2-*`/`S4-B3-*`/`S4-AUDIT-BACKLOG-001`.
-
-Requisitos
-
-Mesma sequência obrigatória de sempre: inspecionar → localizar →
-entender → planejar → alterar (só em `docs/requirements/`) → revisar.
-Cada regra migrada deve citar de onde veio (Sprint/documento de
-origem), pra manter rastreabilidade.
-
-Critérios de aceite
-
-* as 4 subpastas de `docs/requirements/` deixam de estar vazias;
-* nenhuma regra migrada contradiz um achado já registrado (ex.:
-  `ui-ux/` não pode descrever o DS como unificado quando a S3.2.7 já
-  achou 3 sistemas paralelos);
-* `docs/sprints/` permanece intocado;
-* `docs/README.md` atualizado se a descrição de `docs/requirements/`
-  precisar refletir que deixou de estar vazia.
-
-Validações
-
-O PM deverá validar: fidelidade da migração (nada inventado, nada
-contradizendo achados reais já registrados), organização por tipo
-coerente, rastreabilidade da origem de cada regra, `docs/sprints/`
-intocado.
-
-Riscos
-
-Baixo/médio — é trabalho só de `docs/`, mas exige julgamento (o mesmo
-tipo de erro de classificação já registrado com
-`S4_REQUISITOS_VIGENTES.md`, que chegou por engano em
-`docs/requirements/ui-ux/` e foi movido pra `docs/sprints/S4/`, pode
-se repetir se a extração for apressada — critério de classificação:
-regra que sobrevive além da Sprint que a originou vai em
-`docs/requirements/`; estado/histórico de execução de uma Sprint fica
-em `docs/sprints/`).
-
-Observações
-
-Issue de rastreio: `https://github.com/muriloalmeida-alt/FitOS/issues/23`
-— já existia antes desta especificação chegar a `docs/HANDOFF_CLAUDE.md`
-(ver nota de proveniência no início desta seção); corrigida para
-apontar pra este registro assim que esta atualização for commitada.
-
 ⸻
 
 GE-BALANCE-001 — Reduzir sequências de invencibilidade do clube humano
@@ -1871,3 +1747,25 @@ não desfeito unilateralmente (o merge de código já é fato consumado,
 reverter é decisão de produto/técnica, não documental). Se o Murilo
 não autorizou, é um gap de processo a corrigir daqui pra frente, não
 desta demanda específica retroativamente.
+
+**Resolução (sessão implementadora, 11/09/2026):** confirmado — o
+Murilo autorizou a aprovação/merge de `S4-B3-004` diretamente na
+conversa desta sessão implementadora ("Aprovar a #20", mesmo padrão
+usado pras outras 9 demandas do lote). O gap era só de
+visibilidade cruzada entre sessões paralelas (a sessão PM não tinha
+como ver esta conversa), não uma aprovação ausente de fato. Nenhuma
+ação de reversão necessária.
+
+⸻
+
+DOCS-REQ-001 — Povoar docs/requirements/ com regras vigentes migradas de docs/sprints/	11/09/2026	merge de `claude/docs-req-001` em `main` (commit de código original `a493286`)	docs/project/CHANGELOG.md (a atualizar)
+
+APROVADO pelo Murilo em 11/09/2026 (issue #23), diretamente nesta
+conversa ("Pode mesclar. Aprovado pelo PM"). Relatório técnico completo
+(4 documentos criados em `docs/requirements/` — um por subpasta —,
+cada um citando a origem em `docs/sprints/S2/`/`S3/` e separando
+estado atual confirmado de direção futura/proposta) em
+`git show a493286:docs/HANDOFF_CLAUDE.md`.
+
+**Merge do código:** autorizado pela aprovação formal do PM na issue
+#23, executado nesta sessão.
