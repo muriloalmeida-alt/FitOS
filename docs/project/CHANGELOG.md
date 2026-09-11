@@ -1,6 +1,6 @@
 # BRDATA — CHANGELOG
 **Gerado em:** 09/09/2026 (atualizado em 11/09/2026)
-**Cobertura:** 2026-08-14 até 2026-09-11 (240 commits em 18 dias, branch `main`)
+**Cobertura:** 2026-08-14 até 2026-09-11 (242 commits em 18 dias, branch `main`)
 **Versão atual:** v9.0.0
 
 ## Metodologia
@@ -79,17 +79,19 @@ bump.
 
 ## Histórico completo (mais recente primeiro)
 
-### 2026-09-11 — v9.0.0  (4 commits de merge)
+### 2026-09-11 — v9.0.0  (6 commits de merge)
 
 > **Bump MAJOR porque:** fecha o Batch 3 (Transactional) do redesign
 > mobile S4 por completo (4/4 telas) — com isso, os Batches 2 e 3 da S4
-> estão 100% mesclados em `main`, restando só o Batch 4 (Complementary)
-> e o Batch 5 (QA) pra fechar a Sprint inteira. Mais uma correção P0 de
-> confiabilidade (SAVE-LIMIT-001) que muda a arquitetura de
-> armazenamento do save (compressão) pra eliminar um beco sem saída
-> real relatado pelo usuário. Mais um ajuste de balanceamento do motor
-> de partida (GE-BALANCE-001, fora da S4) reduzindo sequências de
-> invencibilidade do clube humano.
+> estão 100% mesclados em `main`. Auditoria do Batch 4 (Complementary)
+> concluída (S4-B4-READINESS-001), restando só especificar as 6
+> demandas de migração candidatas e o Batch 5 (QA) pra fechar a Sprint
+> inteira. Mais uma correção P0 de confiabilidade (SAVE-LIMIT-001) que
+> muda a arquitetura de armazenamento do save (compressão) pra
+> eliminar um beco sem saída real relatado pelo usuário. Mais 2 ajustes
+> de balanceamento do motor de partida (GE-BALANCE-001/002, fora da S4)
+> reduzindo sequências de invencibilidade e rebaixamento de clubes de
+> tradição.
 
 - `a493286` `DOCS-REQ-001` (issue #23) — povoa as 4 subpastas de
   `docs/requirements/` (antes vazias) com o que ainda é regra vigente
@@ -132,6 +134,29 @@ bump.
   `club.def/defMult` e calibração atk/def de `data.js` registradas como
   achado pra uma futura `GE-BALANCE-003` dedicada (fora de escopo
   aqui).
+- `830a051` `GE-BALANCE-002` (issue #27) — reduz rebaixamento de
+  clubes de tradição (Corinthians, Flamengo, etc.) até a Série C.
+  `club.atk`/`club.def` já eram reaproveitados pela geração de elenco
+  de CPU sem mudança nenhuma, mas não são "tradição" (Corinthians tem
+  `atk` de meio de tabela apesar de ser gigante histórico) — criado
+  `CLUB_TRADITION_IDS`, Set pequeno e curado (12 clubes), e um
+  mecanismo de reprieve probabilístico (50%, determinístico por
+  temporada) na zona de rebaixamento. Gap encontrado pela própria
+  simulação de validação e corrigido antes de commitar (trocar sempre
+  com "quem está logo acima da linha" trocava 1 tradicional por outro
+  — corrigido pra procurar o não-tradicional mais próximo): medição
+  final de 40.7% de redução no rebaixamento de clube de tradição que
+  cai na zona, sem prejudicar nenhum clube não-tradicional.
+- `38884d8` `S4-B4-READINESS-001` (issue #25) — auditoria das 7 telas
+  do Batch 4 (redesign mobile S4), sem alteração de código. 6 telas
+  existem e precisam de migração (Onboarding, Comparar jogadores,
+  Marcação individual, Meus esquemas, Notícias/Eventos, Histórico/
+  Estatísticas); a 7ª (Eixos táticos) já está coberta dentro da tela
+  Tática/Formação (`S4-B2-003`), confirmado com evidência — não gera
+  demanda própria. Achados extras: "Comparar jogadores" existe (a
+  checagem preliminar suspeitava que não) mas não reaproveita
+  PlayerCard; "Notícias/Eventos" é o único `NewsCard` do CLAUDE.md §7
+  ainda sem componente formalizado.
 
 ### 2026-09-10 — v8.0.0  (10 commits de merge)
 
