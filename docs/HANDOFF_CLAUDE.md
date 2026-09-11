@@ -668,8 +668,9 @@ em uma nova demanda, não como reabertura dessa issue.
 
 GE-COPA-001 — Expandir Copa do Brasil (60 clubes, ida e volta, cabeças de chave, ao vivo)
 
-Status: DESENHO APROVADO — IMPLEMENTAÇÃO EM ANDAMENTO (checkpoint 1/2
-concluído; entra na etapa 2/2, implementar + validar por simulação)
+Status: REVISÃO DO PM NECESSÁRIA (checkpoint 2/2 — implementação
+concluída e validada por simulação, ver relatório técnico completo
+abaixo; aguardando a 2ª validação do PM antes do merge)
 Sprint: fora da S4 (Mundo / Competições — CLAUDE.md §13, mais próximo
 de S9/S11 no roadmap oficial, tratado aqui como demanda isolada a
 pedido do Murilo)
@@ -1022,6 +1023,106 @@ separadamente.
 recalculada a cada temporada (opção recomendada) — confirmado pelo
 Murilo via pergunta direta desta sessão. Não mistura com
 `CLUB_TRADITION_IDS`/`GE-BALANCE-002`.
+
+Relatório técnico (checkpoint 2/2 — implementação)
+
+Implementado exatamente conforme o desenho aprovado no checkpoint 1/2
+(ver acima), sem desvios. Formato LEGADO (16 clubes, jogo único)
+preservado intacto — `setupCup`/`resolveCupPhase` agora são
+dispatchers que despacham pro legado ou pro expandido conforme
+`cup.expanded` (decidido 1x em `setupCup`, nunca re-derivado depois).
+
+1) Engine (`public/js/carreira.js`):
+* `CUP_PHASES_EXPANDED` (6 fases), `CUP_ROUNDS_EXPANDED` (ida/volta por
+  fase), `CUP_SEED_COUNT=4`, `CUP_PRIZE` com `r32`/`r16` novos +
+  qf/sf/final/champion/runnerUp preservados tal e qual.
+* `setupCupExpanded()` — `ALL_TEAMS_FLAT` (60 clubes reais, não
+  `LEAGUE_TEAMS`), 4 cabeças de chave por `squadAvgOverallOf` (mesmo
+  critério de sempre), 56 restantes sorteados em 28 confrontos da Fase
+  1 (`freshCupTie`, RNG determinístico por temporada).
+* `simulateCupLeg(hostId, guestId, round)` — extraído de
+  `simulateCupTie` (que passou a só decidir pênaltis em cima dele,
+  formato legado intacto) — resolve 1 perna (gols only, sem decidir
+  pênaltis, já que no expandido só o AGREGADO decide).
+* `resolveCupPhaseExpanded`/`finalizeCupPhaseExpanded` — resolve 1
+  perna de todos os confrontos da fase, exceto o do técnico (fica
+  pendente em `cup.pendingLiveLeg` pro fluxo ao vivo); na perna de
+  volta, com as 2 pernas completas, decide agregado (pênaltis direto
+  se empatar, sem gols fora) e monta a fase seguinte — funde vencedores
+  da Fase 1 com os cabeças de chave só na transição pra r32.
+* `settleCupTieOutcome` — extraído do formato legado, reaproveitado
+  pelos 2 formatos pra prêmio/estatística/eliminação (careerTotals.copa*).
+
+2) Ao vivo (`startCupLegLive`/`finishCupLegLive`/
+`maybeStartPendingCupLegLive`): reaproveita 100% o motor de
+`resolveLiveChunk` (tempos/substituição/tática/lesão/cartão — não lê
+nada de rodada de Brasileirão, confirmado por inspeção antes de
+escrever qualquer código) — só o que acontece ao TERMINAR a partida é
+diferente (grava na perna do `tie`/decide agregado, em vez de tabela
+de pontos corridos). Hook em `btnRoundResultsContinue`: se sobrou uma
+perna do técnico pendente, ela tem prioridade sobre proposta/Tabela —
+`finishCupLegLive` continua essa mesma cadeia depois de decidir.
+Guarda de 1 linha em `resolveLiveChunk` (`lm.cupContext ? 1 :
+opponentMotivationMod()`) pra `GE-BALANCE-001` continuar 100%
+exclusivo do Brasileirão, como já era.
+
+Simplificações de escopo registradas (nenhuma delas quebra critério de
+aceite — ver checkpoint): confronto de Copa NÃO gera coletiva de
+imprensa, NÃO soma em `CAREER.teamStats`/H2H/sequência de vitórias, NÃO
+conta pra objetivos de "vitória"/"invencibilidade" (todos esses já são
+conceitos explicitamente Brasileirão, `tallyMatchOutcomeStats` nunca
+chamado aqui de propósito) — só ticket de ingresso (realismo
+financeiro) e recuperação de condição/evolução por idade são
+mantidos. Resumo por toast em vez de modal dedicado (explicabilidade
+sem redesign visual, fora de escopo).
+
+3) UI mínima (sem redesign, só adaptação de dado — `renderCopa`/
+`cupRoundResultsHTML`): mostra ida/volta e agregado quando aplicável,
+reaproveitando os MESMOS elementos/classes de sempre. Formato legado
+inalterado nessas telas.
+
+4) Validação por simulação (escopo item 5 + critério de aceite):
+* `tests/e2e/sim_ge_copa_001.js` — 3 temporadas INTEIRAS reais (114
+  rodadas), pipeline real (`resolveRoundInstant`/`advanceSeason`/
+  `maybeStartPendingCupLegLive`/`skipLiveMatch` — as mesmas funções que
+  a UI chama). Toda temporada fechou em campeão único, os 4 cabeças de
+  chave nunca jogaram a Fase 1, o motor ao vivo decidiu 10 pernas do
+  técnico no total sem travar o fluxo da rodada nenhuma vez.
+* `tests/e2e/test_ge_copa_001.js` — estrutura (fases/prêmios/
+  calendário), integridade completa do chaveamento (60 únicos, 56→32→
+  16→8→4→2, fecha em 1 campeão — checagem determinística via
+  `silent:true`), fluxo ao vivo real (abre `#liveMatchOverlay`,
+  `LIVE_MATCH.cupContext` presente, grava a perna certa), e
+  compatibilidade legada (save sem sistema de divisões continua com 16
+  clubes/jogo único, sem cabeça de chave).
+
+5) `test_cup.js` (achado registrado no checkpoint, investigado como
+prometido): a falha pré-existente reportada em `GE-BALANCE-001` era um
+timeout numa etapa POSTERIOR à mudança desta demanda — mas o teste em
+si ficou obsoleto por um motivo mais direto: ele saltava
+`CAREER.currentRound` direto via API (`career.currentRound = 6`) pra
+testar a fase "r16" do formato legado, uma técnica que quebra o
+formato expandido de propósito (a perna de volta depende da de ida já
+resolvida — pular rodada corrompe o encadeamento; o jogo de verdade
+NUNCA pula rodada, só avança 1 de cada vez, então essa técnica nunca
+era fiel ao jogo real, só uma conveniência de teste que parou de
+funcionar). **Reescrito** pra avançar rodada a rodada pela pipeline
+real (mesmo padrão do item 4 acima) — os 6 checks originais
+preservados, adaptados pra estrutura expandida (rótulos de fase, ida/
+volta, migração fast-forward pra "qf" em vez de "sf", já que o
+calendário tem 2 fases novas antes). Passa limpo agora — a causa raiz
+era mesmo a estrutura de dados (barata de corrigir, dentro do próprio
+trabalho desta demanda), não infraestrutura de teste.
+
+6) Regressão completa sem quebra: `test_ao_vivo.js`, `test_rebaixamento.js`,
+`test_ge_balance_001.js`, `test_ge_balance_002.js`, `test_premiacoes.js`,
+`test_estatisticas_completas.js`, `test_historico_jogador.js`,
+`test_mercado_multi_persist.js`.
+
+Arquivos alterados: `public/js/carreira.js` (engine + ao vivo + UI
+mínima, ver itens 1-3), `tests/e2e/test_cup.js` (reescrito).
+Testes novos: `tests/e2e/test_ge_copa_001.js`,
+`tests/e2e/sim_ge_copa_001.js`.
 
 ⸻
 
