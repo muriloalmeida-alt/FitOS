@@ -1,6 +1,6 @@
 # BRDATA — CHANGELOG
 **Gerado em:** 09/09/2026 (atualizado em 11/09/2026)
-**Cobertura:** 2026-08-14 até 2026-09-11 (245 commits em 18 dias, branch `main`)
+**Cobertura:** 2026-08-14 até 2026-09-11 (246 commits em 18 dias, branch `main`)
 **Versão atual:** v9.0.0
 
 ## Metodologia
@@ -79,15 +79,16 @@ bump.
 
 ## Histórico completo (mais recente primeiro)
 
-### 2026-09-11 — v9.0.0  (9 commits de merge)
+### 2026-09-11 — v9.0.0  (10 commits de merge)
 
 > **Bump MAJOR porque:** fecha o Batch 3 (Transactional) do redesign
 > mobile S4 por completo (4/4 telas) — com isso, os Batches 2 e 3 da S4
 > estão 100% mesclados em `main`. Auditoria do Batch 4 (Complementary)
 > concluída (S4-B4-READINESS-001) e a execução das 6 migrações já
-> começou (2/6 telas mescladas — Onboarding, Meus esquemas), restando
-> as 4 telas seguintes e o Batch 5 (QA) pra fechar a Sprint inteira.
-> Mais uma correção P0 de confiabilidade (SAVE-LIMIT-001) que
+> avança (3/6 telas mescladas — Onboarding, Meus esquemas, Marcação
+> individual), restando as 3 telas seguintes e o Batch 5 (QA) pra
+> fechar a Sprint inteira. Mais uma correção P0 de confiabilidade
+> (SAVE-LIMIT-001) que
 > muda a arquitetura de armazenamento do save (compressão) pra
 > eliminar um beco sem saída real relatado pelo usuário. Mais 2 ajustes
 > de balanceamento do motor de partida (GE-BALANCE-001/002, fora da S4)
@@ -196,6 +197,18 @@ bump.
   `.mt-form-row`); migrado envolvendo-o em `.mt-form-row`,
   reaproveitando a regra que já existia pra "Editar perfil" — nenhum
   CSS novo, nenhuma mudança de comportamento.
+- `a4cdb6d` `S4-B4-003` (issue #33) — migra a tela Marcação individual
+  pro Design System novo, item 3/6 do Batch 4. Mesmo achado de
+  `S4-B4-002`: a casca do modal já estava `--m3-*`. Tokens legados
+  reais (`.mt-sel-row`/`.mt-sel-name`/`.mt-info-line b`) migrados via
+  override CSS escopado a `#markingOverlay`, não a regra base
+  (compartilhada com Comparar jogadores e o seletor de substituição ao
+  vivo, ambos fora de escopo). Decisão registrada: NÃO reaproveitar
+  `playerRow()`/PlayerCard — o componente não mostra posição/
+  subposição, informação essencial numa lista não agrupada por
+  posição. Guard `:not(.selected)` necessário pra não quebrar o estado
+  selecionado pré-existente (achado e corrigido no próprio teste antes
+  do merge). Nenhuma mudança de comportamento.
 
 ### 2026-09-10 — v8.0.0  (10 commits de merge)
 
