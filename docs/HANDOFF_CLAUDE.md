@@ -975,7 +975,7 @@ critério do PM.
 
 S4-B4-READINESS-001 — Verificação individual das 7 telas do Batch 4
 
-Status: PRONTO PARA IMPLEMENTAÇÃO
+Status: REVISÃO DO PM NECESSÁRIA
 Sprint: S4 — Redesign Mobile
 Fase: Batch 4 (Complementary) — passo 0, antes de qualquer demanda de
 migração/criação individual
@@ -1109,6 +1109,47 @@ Resultado esperado: um conjunto de demandas candidatas (`S4-B4-001` a
 aplicável, mesmo tipo de achado de `S4-B2-002`/Login) pra especificar
 em seguida, uma de cada vez, mesmo padrão incremental usado nos
 Batches 2 e 3 — não uma "Batch 4 inteira" de uma vez.
+
+Relatório técnico
+
+Auditoria feita com evidência real (grep + leitura de código) pras 7
+telas — nenhum código de produção alterado, conforme o escopo.
+
+| Tela | Existe? | Onde | Estado de tokens | Observação |
+|---|---|---|---|---|
+| 4 — Onboarding | ✅ existe | `renderOnboardingSlide()`/`openOnboardingOverlay()`, `#onboardingOverlay` | mista | `.mt-onboard-dot`/`.mt-onboard-dot.active` já `--m3-outline-variant`/`--m3-primary`; título/texto/corpo ainda `.ct-modal-body`/`--mt-ivory-50`/`--mt-ink-muted` legado |
+| 8 — Comparar jogadores | ✅ existe (achado — a checagem preliminar suspeitava que não) | `openComparePicker()`/`renderComparePickList()`/`renderCompareResult()`, `#compareOverlay`, entrada: botão "⚖️ Comparar jogador" no Perfil (`openDetail`) | mista | Lista de escolha usa `.mt-sel-row`/`.mt-sel-name`/`.mt-pos-chip` (legado, padrão ad hoc — NÃO reaproveita `playerRow()`/PlayerCard já formalizado); linhas do resultado da comparação já usam `.m3-compare-row`/`.m3-compare-val`/`.m3-compare-label` (novo) |
+| 10 — Eixos táticos | ⚠️ **não é uma tela própria** — já coberto | `renderTacticAxisRows()` chamada de dentro de `renderEscalacao()` (mesma função que renderiza Tática/Formação, migrada em `S4-B2-003`), container `#tacticAxisRows` | `--m3-*` (herda da tela-mãe já migrada) | Confirmado com evidência: os 4 eixos gerais (`TACTIC_AXES` — ritmo/pressão/linha defensiva/estilo de passe) SÃO parte da tela Tática/Formação, não uma tela separada. Diferente de "Instruções por setor" (`sectorTactics`, `#sectorOverlay`/`openSectorScreen()`), que É uma tela própria e já usa tokens `--m3-*` (`.m3-sector-tab`/`.m3-instr-row`/`.m3-seg`) — não fazia parte do escopo desta auditoria (não está nas 7 telas do Batch 4), citada só pra fechar a comparação pedida pelo escopo item 5 |
+| 11 — Marcação individual | ✅ existe | `openManMarkingScreen()`/`renderManMarkingScreen()`, `#markingOverlay` | 100% legado | `.ct-modal-overlay`/`.ct-modal`/`.mt-fullheader`/`.mt-card`/`.mt-info-line`/`.ct-empty` — nenhum token `--m3-*` nem componente Dialog/Bottom Sheet formalizado |
+| 12 — Meus esquemas | ✅ existe | `openSchemesScreen()`/`renderSchemesScreen()`, `#schemesOverlay` | 100% legado | Mesmo padrão de #11 — `.ct-modal-overlay`/`.ct-modal`/`.mt-fullheader`/`.mt-card` |
+| 18 — Notícias/Eventos | ✅ existe | `openNewsScreen()`/`renderNewsScreen()`, `#newsOverlay` | 100% legado | `.ct-modal-overlay`/`.mt-news-kicker`/`.mt-news-headline`/`.mt-news-feature-meta`/`.mt-news-rule`/`.mt-news-summary-row` — padrão ad hoc próprio, nunca formalizado; é o único dos "BRDATA Product Patterns" do CLAUDE.md §7 (`NewsCard`) que MatchCard/TransferCard/ContractCard já tiveram formalizados este sprint e este não — candidato natural a ganhar `newsCardHTML()` |
+| 19 — Histórico/Estatísticas | ✅ existe, cobertura MULTI-TEMPORADA confirmada (não só a atual) | `renderEstatisticas()`, painel `#panel-estatisticas` (`.ct-panel` — não é modal/overlay como as outras 6, é painel de navegação) | 100% legado | `.mt-obj-tabs`/`.mt-obj-tab`/`.mt-mini-row`/`.mt-mini-col`. Confirmado com evidência: 2 seletores independentes (escopo Time/Campeonato × período Temporada/Histórico) — o período "Histórico" cobre `CAREER.seasonHistory` (posição por temporada), `CAREER.careerTotals` (recordes/sequências de carreira inteira), `CAREER.leagueChampions` (campeões ano a ano) e títulos por clube — não é só a temporada atual, resolve a dúvida do escopo item 7 com evidência |
+
+Resumo: das 7 telas da matriz, **6 existem e precisam de migração**
+(#4, #8, #11, #12, #18, #19); **1 (#10, Eixos táticos) já está coberta**
+pela migração de Tática/Formação (`S4-B2-003`) — não precisa de
+demanda própria, mesmo tipo de achado que `S4-B2-002`/Login teve.
+
+Ordem de execução recomendada (menor risco/escopo primeiro, mesmo
+critério incremental dos Batches 2/3):
+
+1. `S4-B4-001` — Onboarding (#4): menor escopo, 4 slides estáticos,
+   já parcialmente migrada.
+2. `S4-B4-002` — Meus esquemas (#12): tela simples de lista única.
+3. `S4-B4-003` — Marcação individual (#11): 2 listas de seleção +
+   card de designação ativa, escopo médio.
+4. `S4-B4-004` — Comparar jogadores (#8): escopo médio, decisão extra
+   a tomar (reaproveitar `playerRow()`/PlayerCard na lista de escolha
+   ou manter `.mt-sel-row` — avaliar na especificação da demanda).
+5. `S4-B4-005` — Notícias/Eventos (#18): maior escopo de decisão de
+   design (candidato a formalizar `NewsCard`, 1 dos padrões do
+   CLAUDE.md §7 ainda sem componente formal).
+6. `S4-B4-006` — Histórico/Estatísticas (#19): maior tela das 6 (2x2
+   seletores, múltiplas seções de KPI) — deixada por último de
+   propósito.
+
+Sem `S4-B4-007` (Eixos táticos não gera demanda própria — só o
+registro acima, já suficiente).
 
 ⸻
 
