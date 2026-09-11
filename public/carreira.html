@@ -4839,7 +4839,15 @@
       <button class="ct-modal-close" id="newSchemeClose">✕</button>
     </div>
     <div class="ct-modal-body">
-      <input id="newSchemeNameInput" class="mt-friend-input" placeholder="Ex.: Retranca fora" maxlength="30" style="width:100%;">
+      <!-- S4-B4-002 (issue #32) — antes o input ficava direto no
+           ct-modal-body com .mt-friend-input "cru" (navy/ivory fixos,
+           sem token M3). Envolver em .mt-form-row reaproveita a MESMA
+           regra já usada em "Editar perfil" (.mt-form-row input.mt-
+           friend-input, ver acima) pra herdar --m3-on-surface sem
+           CSS novo. -->
+      <div class="mt-form-row">
+        <input id="newSchemeNameInput" class="mt-friend-input" placeholder="Ex.: Retranca fora" maxlength="30" style="width:100%;">
+      </div>
       <button class="mt-btn-primary-gold" id="btnConfirmNewScheme" style="width:100%; margin-top:14px;">Salvar esquema</button>
     </div>
   </div>
