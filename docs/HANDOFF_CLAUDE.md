@@ -11,7 +11,9 @@ Demandas vigentes
 
 GE-BALANCE-003 — Corrigir inversão de defesa no motor de partida
 
-Status: PRONTO PARA IMPLEMENTAÇÃO
+Status: CHECKPOINT DE DESENHO — AGUARDANDO APROVAÇÃO (item 2)
+Branch: `claude/ge-balance-003-design` (só doc, nenhum código de
+produção tocado ainda — respeita a trava explícita do escopo)
 Sprint: fora da S4 (Game Engine — CLAUDE.md §13, mais próximo de S6
 "Motor de partida 2.0" no roadmap oficial, tratado aqui como demanda
 isolada — achado de `GE-BALANCE-001`, não pedido original do usuário)
@@ -172,6 +174,117 @@ estrutural mais forte de imprevisibilidade do motor de partida do que
 a falta de resistência dinâmica contra sequências", o que justifica
 tratar como prioridade P1 própria, não deixar como dívida técnica
 esquecida.
+
+CHECKPOINT DE DESENHO (item 2 do escopo) — causa raiz determinada com
+evidência, revisa o item 1
+
+Item 1 (`inspecionar todos os pontos que leem club.def/p.def`): feito.
+Além dos 3 pontos já citados na especificação original, a busca
+literal por `atk / ... .def` achou **6 funções, 11 divisões** — a
+especificação subestimou o tamanho real do problema:
+
+1. `resolveCpuFixture` (`carreira.js:7956-7957`) — Brasileirão CPU x CPU.
+2. `resolveLiveChunk` (`carreira.js:8435-8436`) — partida ao vivo do
+   próprio técnico (Brasileirão).
+3. `simulateCupLeg` (`carreira.js:2558-2559`) — Copa do Brasil
+   (`GE-COPA-001`), ida/volta e formato legado.
+4. `resolveOtherDivisionsRound` (`carreira.js:3488-3489`) — Séries B/C
+   (sistema de divisões, CPU x CPU).
+5. `attributeChances` (`carreira.js:7159`) — sorteio de chances
+   perdidas/defesas do goleiro dentro de um chunk ao vivo.
+6. `suggestTactics` (`carreira.js:10860-10861`) — sugestão de postura
+   tática pro próximo jogo (o próprio comentário do código já diz
+   "mesma fórmula que o motor usa pra decidir o placar") — sem ser o
+   motor de partida em si, gera CONSELHO ao usuário usando a MESMA
+   fórmula, então herda o mesmo problema (sugeriria postura cautelosa
+   contra um adversário de defesa fraca, e ofensiva contra um de
+   defesa forte — o oposto do correto).
+
+(`attributePenaltyMisses` recebe `defStrength` como parâmetro mas
+nunca o usa no cálculo — parâmetro morto, não é bug, fora de escopo
+corrigir isso aqui.)
+
+Determinação da causa raiz (hipótese a vs. b), com evidência nova:
+
+**Evidência 1 — padrão sistemático em `data.js`, não 2 exemplos
+isolados.** Os ~60+ clubes reais verificados (não só Flamengo/Palmeiras/
+Cuiabá, citados no relatório original) seguem o MESMO padrão: `atk`
+alto sempre acompanha `def` BAIXO, e vice-versa, de forma consistente
+(Man City `atk:1.82/def:0.80`, Arsenal `atk:1.78/def:0.76`, times
+fracos como Cuiabá/Juventude com `atk` baixo e `def` alto). Isso não é
+compatível com "curadoria manual errada em alguns clubes" (erro
+aleatório) — é um padrão DELIBERADO em toda a base, incompatível com
+"maior = melhor".
+
+**Evidência 2 — decisiva: o código JÁ trata `club.def` como "menor =
+melhor" em outro lugar, de forma explícita.** `buildRealPlayer`
+(`carreira.js:1352`) e `buildGeneratedProPlayer` (`carreira.js:1469`)
+— as 2 funções que geram jogador pra qualquer clube da liga — calculam
+`clubFactor = (2 - club.def)` pra defensores/goleiros, exatamente pra
+INVERTER o valor baixo-é-melhor de `club.def` numa escala alta-é-melhor
+antes de usá-lo num cálculo de `overall` que espera "maior = melhor".
+Ou seja, o próprio autor do código já sabia e já tratava corretamente
+o sentido de `club.def` — só a fórmula de gol (e a sugestão tática que
+a copia) ficou com o operador errado.
+
+**Verificação numérica (não só álgebra abstrata — números concretos,
+mesmo espírito de simulação já usado em `GE-BALANCE-001`/`002`):**
+atacante com `atk=1.5` contra defesa "elite" (`def=0.78`, tipo
+Flamengo) e defesa "fraca" (`def=1.32`, tipo Cuiabá):
+
+* fórmula ATUAL (`atk / def`): elite → λ=1,92 gols esperados; fraca →
+  λ=1,14. **Time com defesa elite sofre MAIS gols esperados que o de
+  defesa fraca — confirma o bug, exatamente como o relatório original
+  descreveu.**
+* fórmula PROPOSTA (`atk * def`): elite → λ=1,17; fraca → λ=1,98.
+  **Time com defesa elite sofre MENOS, o fraco sofre MAIS — direção
+  correta.**
+
+**Conclusão: hipótese (a) é a causa raiz — o problema é o OPERADOR da
+fórmula (divisão quando deveria ser multiplicação), não os ~180
+valores de `def` em `data.js`.** Os dados já foram curados com o
+sentido certo (menor = defesa melhor, um coeficiente de "propensão a
+sofrer gol", não uma "força defensiva"); é a fórmula que trata isso
+como se fosse o oposto.
+
+**Isso também revisa o item 1** (a correção isolada de
+`computeHumanStrength` que a especificação original pedia como "baixo
+risco, resolve os 2 casos"): refazendo as mesmas contas concretas,
+`computeHumanStrength` (`club.def / defMult`) já está CORRETO no
+sentido "menor = melhor" — pior condição física (`defMult` menor)
+produz um `def` MAIOR (pior defesa, correto nesse sentido), e melhor
+condição produz um `def` MENOR (defesa melhor, correto). O diagnóstico
+original do item 1 presumiu (razoavelmente, antes desta investigação)
+o sentido "maior = melhor" — a investigação do item 2 mostra que essa
+presunção não procede. **Recomendação: NÃO alterar
+`computeHumanStrength` — mudar SÓ o operador nas 6 funções listadas
+acima resolve os 2 sintomas ao mesmo tempo** (a inversão específica do
+clube humano E a inversão geral CPU x CPU), sem precisar de 2
+correções separadas nem de recalibrar `data.js`.
+
+Proposta de correção (aguardando aprovação antes de qualquer commit de
+código de produção)
+
+* Trocar `atk / def` por `atk * def` nas 6 funções listadas (11
+  divisões) — mesmo operador, mesma direção, em todos os lugares, sem
+  exceção (consistência é o que evita reintroduzir a mesma inversão em
+  outro ponto no futuro).
+* NÃO alterar `computeHumanStrength`, NÃO alterar nenhum valor de
+  `atk`/`def` em `data.js`, NÃO alterar `buildRealPlayer`/
+  `buildGeneratedProPlayer` (já corretos).
+* Validar com simulação de campeonato completo (60 clubes, múltiplas
+  temporadas) comparando distribuição de gols/pontos antes/depois, e
+  reexecutando `sim_ge_balance_001.js`/`002.js` pra confirmar que os
+  números já medidos (sequências de invencibilidade, rebaixamento de
+  tradicionais) não regridem — exatamente como o critério de aceite já
+  pede.
+* Testar que nenhuma outra regra de negócio quebra: valuation de
+  jogador/scouting/exibição de atributo NÃO usam a fórmula de gol
+  (usam `p.atk`/`p.def`/`p.phys` — atributos de JOGADOR, alta-é-melhor,
+  namespace diferente de `club.atk`/`club.def` em `data.js` — a mesma
+  palavra "def" nomeando 2 conceitos com sentido oposto é uma
+  armadilha de nomenclatura já existente no código, não algo que este
+  fix cria nem que está em escopo renomear).
 
 ⸻
 
